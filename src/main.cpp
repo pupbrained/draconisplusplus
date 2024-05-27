@@ -1,34 +1,152 @@
-#include "raylib.h"
+#include <fmt/chrono.h>
+#include <fmt/core.h>
+#include <fmt/format.h>
+#include <fstream>
+#include <iostream>
+#include <playerctl/playerctl.h>
+#include <toml++/toml.hpp>
 
-constexpr auto SCREEN_WIDTH  = 800;
-constexpr auto SCREEN_HEIGHT = 450;
+struct b_to_gib {
+  uint64_t value;
+};
 
-int main()
-{
-    InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Window title");
-    SetTargetFPS(60);
+template <> struct fmt::formatter<b_to_gib> : formatter<double> {
+  template <typename FormatContext>
+  auto format(const b_to_gib b, FormatContext &ctx) {
+    auto out = formatter<double>::format(
+        b.value / std::pow(1024, 3), ctx); // NOLINT(*-narrowing-conversions);
+    *out++ = 'G';
+    *out++ = 'i';
+    *out++ = 'B';
+    return out;
+  }
+};
 
-    Texture2D texture = LoadTexture(ASSETS_PATH"test.png");
+uint64_t parse_line_as_number(const std::string &input) {
+  // Find the first number
+  std::string::size_type start = 0;
 
-    while (!WindowShouldClose())
-    {
-        BeginDrawing();
+  // Skip leading non-numbers
+  while (!isdigit(input[++start]))
+    ;
 
-        ClearBackground(RAYWHITE);
+  // Start searching from the start of the number
+  std::string::size_type end = start;
 
-        const int texture_x = SCREEN_WIDTH / 2 - texture.width / 2;
-        const int texture_y = SCREEN_HEIGHT / 2 - texture.height / 2;
-        DrawTexture(texture, texture_x, texture_y, WHITE);
+  // Increment to the end of the number
+  while (isdigit(input[++end]))
+    ;
 
-        const char* text = "OMG! IT WORKS!";
-        const Vector2 text_size = MeasureTextEx(GetFontDefault(), text, 20, 1);
-        DrawText(text, SCREEN_WIDTH / 2 - text_size.x / 2, texture_y + texture.height + text_size.y + 10, 20, BLACK);
+  // Return the substring containing the number
+  return std::stoul(input.substr(start, end - start));
+}
 
-        EndDrawing();
+uint64_t meminfo_parse(std::ifstream is) {
+  std::string line;
+
+  // Skip every line before the one that starts with "MemTotal"
+  while (std::getline(is, line) && !line.starts_with("MemTotal"))
+    ;
+
+  // Parse the number from the line
+  const auto num = parse_line_as_number(line);
+
+  return num;
+}
+
+PlayerctlPlayer *init_playerctl() {
+  // Create a player manager
+  PlayerctlPlayerManager *const player_manager =
+      playerctl_player_manager_new(nullptr);
+
+  // Create an empty player list
+  GList *available_players = nullptr;
+
+  // Get the list of available players and put it in the player list
+  g_object_get(player_manager, "player-names", &available_players, nullptr);
+
+  // If no players are available, return nullptr
+  if (!available_players)
+    return nullptr;
+
+  // Get the first player
+  const auto player_name =
+      static_cast<PlayerctlPlayerName *>(available_players->data);
+
+  // Create the player
+  PlayerctlPlayer *const current_player =
+      playerctl_player_new_from_name(player_name, nullptr);
+
+  // If no player is available, return nullptr
+  if (!current_player)
+    return nullptr;
+
+  // Manage the player
+  playerctl_player_manager_manage_player(player_manager, current_player);
+
+  // Unref the player
+  g_object_unref(current_player);
+
+  return current_player;
+}
+
+enum date_num { Ones, Twos, Threes, Default };
+
+date_num parse_date(std::string const &inString) {
+  if (inString == "1" || inString == "21" || inString == "31")
+    return Ones;
+
+  if (inString == "2" || inString == "22")
+    return Twos;
+
+  if (inString == "3" || inString == "23")
+    return Threes;
+
+  return Default;
+}
+
+int main() {
+  const toml::parse_result config = toml::parse_file("./config.toml");
+
+  char const *name = config["general"]["name"].value_or(getlogin());
+
+  if (config["playerctl"]["enable"].value_or(false)) {
+    if (PlayerctlPlayer *current_player = init_playerctl()) {
+      gchar *song_title = playerctl_player_get_title(current_player, nullptr);
+      fmt::println("Now playing: {}", song_title);
     }
+  }
 
-    UnloadTexture(texture);
+  fmt::println("Hello {}!", name);
 
-    CloseWindow();
-    return 0;
+  const uint64_t meminfo = meminfo_parse(std::ifstream("/proc/meminfo")) * 1024;
+
+  fmt::println("{:.2f}", b_to_gib{meminfo});
+
+  const std::time_t t = std::time(nullptr);
+
+  std::string date = fmt::format("{:%d}", fmt::localtime(t));
+
+  switch (parse_date(date)) {
+    case Ones:
+      date += "st";
+      break;
+
+    case Twos:
+      date += "nd";
+      break;
+
+    case Threes:
+      date += "rd";
+      break;
+
+    case Default:
+      date += "th";
+      break;
+  }
+
+  fmt::println("{:%B} {}, {:%-H:%0M %p}", fmt::localtime(t), date,
+               fmt::localtime(t));
+
+  return 0;
 }
