@@ -59,12 +59,15 @@
               ];
 
               propagatedBuildInputs = [
+                boost
                 glib
                 playerctl
               ];
 
               buildInputs = [
                 fmt
+                libcpr
+                tomlplusplus
               ];
 
               buildPhase = ''
@@ -108,8 +111,10 @@
               llvm.libcxx
 
               # libraries
+              boost
               fmt
               glib
+              libcpr
               playerctl
               tomlplusplus
             ];

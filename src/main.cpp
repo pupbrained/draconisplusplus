@@ -1,16 +1,21 @@
+#include <boost/json/src.hpp>
+#include <cpr/cpr.h>
 #include <fmt/chrono.h>
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <fstream>
-#include <iostream>
 #include <playerctl/playerctl.h>
 #include <toml++/toml.hpp>
+
+using fmt::format;
+using fmt::formatter;
+using std::string;
 
 struct b_to_gib {
   uint64_t value;
 };
 
-template <> struct fmt::formatter<b_to_gib> : formatter<double> {
+template <> struct formatter<b_to_gib> : formatter<double> {
   template <typename FormatContext>
   auto format(const b_to_gib b, FormatContext &ctx) {
     auto out = formatter<double>::format(
@@ -22,16 +27,16 @@ template <> struct fmt::formatter<b_to_gib> : formatter<double> {
   }
 };
 
-uint64_t parse_line_as_number(const std::string &input) {
+uint64_t parse_line_as_number(const string &input) {
   // Find the first number
-  std::string::size_type start = 0;
+  string::size_type start = 0;
 
   // Skip leading non-numbers
   while (!isdigit(input[++start]))
     ;
 
   // Start searching from the start of the number
-  std::string::size_type end = start;
+  string::size_type end = start;
 
   // Increment to the end of the number
   while (isdigit(input[++end]))
@@ -42,7 +47,7 @@ uint64_t parse_line_as_number(const std::string &input) {
 }
 
 uint64_t meminfo_parse(std::ifstream is) {
-  std::string line;
+  string line;
 
   // Skip every line before the one that starts with "MemTotal"
   while (std::getline(is, line) && !line.starts_with("MemTotal"))
@@ -92,7 +97,7 @@ PlayerctlPlayer *init_playerctl() {
 
 enum date_num { Ones, Twos, Threes, Default };
 
-date_num parse_date(std::string const &inString) {
+date_num parse_date(string const &inString) {
   if (inString == "1" || inString == "21" || inString == "31")
     return Ones;
 
@@ -105,10 +110,24 @@ date_num parse_date(std::string const &inString) {
   return Default;
 }
 
+boost::json::object get_weather() {
+  using namespace cpr;
+  using namespace boost::json;
+
+  Response r = Get(Url{format("https://api.openweathermap.org/data/2.5/"
+                              "weather?lat={}&lon={}&appid={}&units={}",
+                              "39.9537", "-74.1979",
+                              "00000000000000000000000000000000", "imperial")});
+
+  value json = parse(r.text);
+
+  return json.as_object();
+}
+
 int main() {
   const toml::parse_result config = toml::parse_file("./config.toml");
 
-  char const *name = config["general"]["name"].value_or(getlogin());
+  const char *name = config["general"]["name"].value_or(getlogin());
 
   if (config["playerctl"]["enable"].value_or(false)) {
     if (PlayerctlPlayer *current_player = init_playerctl()) {
@@ -125,7 +144,7 @@ int main() {
 
   const std::time_t t = std::time(nullptr);
 
-  std::string date = fmt::format("{:%d}", fmt::localtime(t));
+  string date = fmt::format("{:%d}", fmt::localtime(t));
 
   switch (parse_date(date)) {
     case Ones:
@@ -145,8 +164,15 @@ int main() {
       break;
   }
 
-  fmt::println("{:%B} {}, {:%-H:%0M %p}", fmt::localtime(t), date,
+  fmt::println("{:%B} {}, {:%-I:%0M %p}", fmt::localtime(t), date,
                fmt::localtime(t));
+
+  auto json = get_weather();
+
+  auto town_name =
+      json["name"].is_string() ? json["name"].as_string().c_str() : "Unknown";
+
+  fmt::println("{}", town_name);
 
   return 0;
 }

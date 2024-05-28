@@ -7,7 +7,9 @@ project(draconis++ C CXX)
 add_executable(${PROJECT_NAME} src/main.cpp)
 
 find_package(PkgConfig REQUIRED)
+find_package(cpr REQUIRED)
+find_package(Boost REQUIRED)
 
-pkg_check_modules(${PROJECT_NAME} REQUIRED IMPORTED_TARGET fmt playerctl)
+pkg_check_modules(${PROJECT_NAME} REQUIRED IMPORTED_TARGET fmt playerctl tomlplusplus)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE PkgConfig::${PROJECT_NAME})
+target_link_libraries(${PROJECT_NAME} PRIVATE PkgConfig::${PROJECT_NAME} cpr::cpr Boost::boost)
