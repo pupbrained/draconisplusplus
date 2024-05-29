@@ -21,7 +21,7 @@
               ccacheWrapper = super.ccacheWrapper.override {
                 extraConfig = ''
                   export CCACHE_COMPRESS=1
-                  export CCACHE_DIR="/var/cache/ccache"
+                  export CCACHE_DIR="/nix/var/cache/ccache"
                   export CCACHE_UMASK=007
                   if [ ! -d "$CCACHE_DIR" ]; then
                     echo "====="
@@ -44,8 +44,26 @@
             })
           ];
         };
+
         llvm = pkgs.llvmPackages_latest;
-        stdenv = pkgs.ccacheStdenv.override {stdenv = pkgs.stdenvAdapters.useMoldLinker pkgs.clangStdenv;};
+
+        stdenv = pkgs.ccacheStdenv.override {
+          stdenv =
+            if pkgs.hostPlatform.isDarwin
+            then llvm.libcxxStdenv
+            else pkgs.stdenvAdapters.useMoldLinker pkgs.clangStdenv;
+        };
+
+        darwinPkgs = nixpkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin; [
+          apple_sdk.frameworks.AppKit
+          apple_sdk.frameworks.Carbon
+          apple_sdk.frameworks.Cocoa
+          apple_sdk.frameworks.CoreFoundation
+          apple_sdk.frameworks.IOKit
+          apple_sdk.frameworks.WebKit
+          apple_sdk.frameworks.Security
+          apple_sdk.frameworks.DisplayServices
+        ]);
       in {
         packages = rec {
           draconis-cpp = with pkgs;
@@ -58,17 +76,24 @@
                 pkg-config
               ];
 
-              propagatedBuildInputs = [
-                boost
-                glib
-                playerctl
-              ];
+              propagatedBuildInputs =
+                [
+                  boost185
+                  glib
+                ]
+                ++ (
+                  if pkgs.hostPlatform.isLinux
+                  then [playerctl]
+                  else []
+                );
 
-              buildInputs = [
-                fmt
-                libcpr
-                tomlplusplus
-              ];
+              buildInputs =
+                [
+                  fmt
+                  libcpr
+                  tomlplusplus
+                ]
+                ++ darwinPkgs;
 
               buildPhase = ''
                 cmake .
@@ -85,39 +110,42 @@
 
         devShell = with pkgs;
           mkShell.override {inherit stdenv;} {
-            CXX = "${clang}/bin/clang++";
-            CC = "${clang}/bin/clang++";
+            packages = with pkgs;
+              [
+                # builder
+                gnumake
+                cmake
+                pkg-config
 
-            packages = with pkgs; [
-              # builder
-              gnumake
-              cmake
-              pkg-config
+                # debugger
+                lldb
 
-              # debugger
-              lldb
+                # fix headers not found
+                clang-tools
 
-              # fix headers not found
-              clang-tools
+                # LSP and compiler
+                llvm.libstdcxxClang
 
-              # LSP and compiler
-              llvm.libstdcxxClang
+                # other tools
+                cppcheck
+                llvm.libllvm
 
-              # other tools
-              cppcheck
-              llvm.libllvm
+                # stdlib for cpp
+                llvm.libcxx
 
-              # stdlib for cpp
-              llvm.libcxx
-
-              # libraries
-              boost
-              fmt
-              glib
-              libcpr
-              playerctl
-              tomlplusplus
-            ];
+                # libraries
+                boost185
+                fmt
+                glib
+                libcpr
+                tomlplusplus
+              ]
+              ++ (
+                if stdenv.isDarwin
+                then []
+                else [playerctl]
+              )
+              ++ darwinPkgs;
 
             name = "C++";
           };
