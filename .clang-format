@@ -1,5 +1,6 @@
 ---
 Language: Cpp
-BasedOnStyle: LLVM
+BasedOnStyle: Chromium
 IndentCaseBlocks: true
 IndentCaseLabels: true
+

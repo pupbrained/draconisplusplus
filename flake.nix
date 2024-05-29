@@ -21,7 +21,7 @@
               ccacheWrapper = super.ccacheWrapper.override {
                 extraConfig = ''
                   export CCACHE_COMPRESS=1
-                  export CCACHE_DIR="/nix/var/cache/ccache"
+                  export CCACHE_DIR="/var/cache/ccache"
                   export CCACHE_UMASK=007
                   if [ ! -d "$CCACHE_DIR" ]; then
                     echo "====="
@@ -73,6 +73,7 @@
 
               nativeBuildInputs = [
                 cmake
+                ninja
                 pkg-config
               ];
 
@@ -96,8 +97,8 @@
                 ++ darwinPkgs;
 
               buildPhase = ''
-                cmake .
-                make
+                cmake -GNinja .
+                ninja
               '';
 
               installPhase = ''
@@ -113,15 +114,15 @@
             packages = with pkgs;
               [
                 # builder
-                gnumake
                 cmake
+                ninja
                 pkg-config
 
                 # debugger
                 lldb
 
                 # fix headers not found
-                clang-tools
+                clang-tools_18
 
                 # LSP and compiler
                 llvm.libstdcxxClang
