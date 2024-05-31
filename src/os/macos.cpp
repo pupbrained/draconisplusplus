@@ -1,10 +1,8 @@
-module;
-
 #include <sys/sysctl.h>
+#include <unistd.h>
+#include <string>
 
-export module OS;
-
-export uint64_t get_meminfo() {
+uint64_t get_meminfo() {
   uint64_t mem = 0;
   size_t size = sizeof(mem);
 
@@ -13,6 +11,6 @@ export uint64_t get_meminfo() {
   return mem;
 }
 
-export string get_nowplaying() {
+static std::string get_nowplaying() {
   return "";
 }

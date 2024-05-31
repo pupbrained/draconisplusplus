@@ -16,6 +16,7 @@
       system: let
         pkgs = import nixpkgs {
           inherit system;
+
           overlays = [
             (self: super: {
               ccacheWrapper = super.ccacheWrapper.override {
@@ -45,111 +46,80 @@
           ];
         };
 
-        llvm = pkgs.llvmPackages_latest;
-
-        stdenv = pkgs.ccacheStdenv.override {
-          stdenv =
-            if pkgs.hostPlatform.isDarwin
-            then llvm.libcxxStdenv
-            else pkgs.stdenvAdapters.useMoldLinker pkgs.clangStdenv;
-        };
-
-        darwinPkgs = nixpkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin; [
-          apple_sdk.frameworks.AppKit
-          apple_sdk.frameworks.Carbon
-          apple_sdk.frameworks.Cocoa
-          apple_sdk.frameworks.CoreFoundation
-          apple_sdk.frameworks.IOKit
-          apple_sdk.frameworks.WebKit
-          apple_sdk.frameworks.Security
-          apple_sdk.frameworks.DisplayServices
-        ]);
-      in {
-        packages = rec {
-          draconis-cpp = with pkgs;
-            stdenv.mkDerivation {
+        stdenv = pkgs.llvmPackages_18.stdenv;
+      in
+        with pkgs; {
+          packages = rec {
+            draconis-cpp = stdenv.mkDerivation {
               name = "draconis++";
+              version = "0.1.0";
               src = self;
 
               nativeBuildInputs = [
-                cmake
+                meson
                 ninja
                 pkg-config
               ];
 
               propagatedBuildInputs =
                 [
-                  boost185
-                  glib
-                ]
-                ++ (
-                  if pkgs.hostPlatform.isLinux
-                  then [playerctl]
-                  else []
-                );
-
-              buildInputs =
-                [
-                  fmt
                   libcpr
                   tomlplusplus
                 ]
-                ++ darwinPkgs;
+                ++ (lib.optionals pkgs.hostPlatform.isLinux [
+                  glib
+                  playerctl
+                ]);
+
+              buildInputs = [
+                boost185
+                fmt
+              ];
+
+              configurePhase = ''
+                meson setup build
+              '';
 
               buildPhase = ''
-                cmake -GNinja .
-                ninja
+                meson compile -C build
               '';
 
               installPhase = ''
-                install -Dm755 ./draconis++ $out/bin/draconis++
+                mkdir -p $out/bin
+                mv build/draconis++ $out/bin/draconis++
               '';
             };
 
-          default = draconis-cpp;
-        };
+            default = draconis-cpp;
+          };
 
-        devShell = with pkgs;
-          mkShell.override {inherit stdenv;} {
-            packages = with pkgs;
+          formatter = alejandra;
+
+          devShell = mkShell.override {inherit stdenv;} {
+            packages =
               [
-                # builder
-                cmake
+                alejandra
+                bear
+                clang-tools
+                meson
                 ninja
                 pkg-config
 
-                # debugger
-                lldb
-
-                # fix headers not found
-                clang-tools_18
-
-                # LSP and compiler
-                llvm.libstdcxxClang
-
-                # other tools
-                cppcheck
-                llvm.libllvm
-
-                # stdlib for cpp
-                llvm.libcxx
-
-                # libraries
                 boost185
                 fmt
                 glib
                 libcpr
                 tomlplusplus
               ]
-              ++ (
-                if stdenv.isDarwin
-                then []
-                else [playerctl]
-              )
-              ++ darwinPkgs;
+              ++ (lib.optionals pkgs.hostPlatform.isLinux [playerctl]);
+
+            buildInputs = [
+              libcpr
+              tomlplusplus
+            ];
 
             name = "C++";
           };
-      }
+        }
     );
 }

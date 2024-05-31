@@ -1,6 +1,4 @@
 ---
 Language: Cpp
 BasedOnStyle: Chromium
-IndentCaseBlocks: true
-IndentCaseLabels: true
-
+SpaceBeforeCpp11BracedList: true
