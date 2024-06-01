@@ -1,5 +1,8 @@
 ---
 Language: Cpp
 BasedOnStyle: Chromium
-SpaceBeforeCpp11BracedList: true
+IndentAccessModifiers: false
 NamespaceIndentation: All
+SpaceBeforeCpp11BracedList: true
+SpacesBeforeTrailingComments: 1
+AlignConsecutiveAssignments: true

@@ -4,7 +4,7 @@
 #include <string>
 #include "os.h"
 
-uint64_t get_meminfo() {
+uint64_t GetMemInfo() {
   uint64_t mem = 0;
   size_t size = sizeof(mem);
 
@@ -13,7 +13,7 @@ uint64_t get_meminfo() {
   return mem;
 }
 
-std::string get_nowplaying() {
+std::string GetNowPlaying() {
   return "";
 }
 

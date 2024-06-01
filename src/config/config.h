@@ -1,63 +1,140 @@
 #pragma once
 
+#include <fmt/core.h>
 #include <toml++/toml.h>
+#include <unistd.h>
+#include <rfl.hpp>
 #include <string>
+#include <toml++/impl/parser.hpp>
+#include <variant>
 
 using std::string;
 
-typedef std::tuple<double, double> Coords;
-typedef std::variant<string, Coords> Location;
+struct Coords {
+  double lat;
+  double lon;
+};
+
+using Location = std::variant<string, Coords>;
 
 class Weather {
  private:
-  Location m_location;
-  string m_api_key;
-  string m_units;
+  Location m_Location;
+  string m_ApiKey;
+  string m_Units;
 
  public:
-  Weather(string city, string api_key, string units)
-      : m_location(city), m_api_key(api_key), m_units(units) {}
+  Weather(Location location, string api_key, string units);
 
-  Weather(Coords coords, string api_key, string units)
-      : m_location(coords), m_api_key(api_key), m_units(units) {}
+  [[nodiscard]] const Location getLocation() const;
+  [[nodiscard]] const string getApiKey() const;
+  [[nodiscard]] const string getUnits() const;
+};
 
-  inline Location get_location() { return m_location; }
-  inline string get_api_key() { return m_api_key; }
-  inline string get_units() { return m_units; }
+struct WeatherImpl {
+  Location location;
+  string api_key;
+  string units;
+
+  static WeatherImpl from_class(const Weather& weather) noexcept;
+
+  [[nodiscard]] Weather to_class() const;
 };
 
 class General {
  private:
-  string m_name;
+  string m_Name;
 
  public:
-  General(string name) { this->m_name = name; }
+  General(string name);
 
-  inline string get_name() { return m_name; }
+  [[nodiscard]] const string getName() const;
+};
+
+struct GeneralImpl {
+  string name;
+
+  static GeneralImpl from_class(const General& general) noexcept;
+
+  [[nodiscard]] General to_class() const;
 };
 
 class NowPlaying {
  private:
-  bool m_enable;
+  bool m_Enabled;
 
  public:
-  NowPlaying(bool enable) { this->m_enable = enable; }
+  NowPlaying(bool enable);
 
-  inline bool get_enabled() { return m_enable; }
+  [[nodiscard]] bool getEnabled() const;
+};
+
+struct NowPlayingImpl {
+  bool enabled;
+
+  static NowPlayingImpl from_class(const NowPlaying& now_playing) noexcept;
+
+  [[nodiscard]] NowPlaying to_class() const;
 };
 
 class Config {
  private:
-  General m_general;
-  NowPlaying m_now_playing;
-  Weather m_weather;
+  General m_General;
+  NowPlaying m_NowPlaying;
+  Weather m_Weather;
 
- public:
   Config(toml::table toml);
 
-  ~Config();
+ public:
+  Config(General general, NowPlaying now_playing, Weather weather);
 
-  inline Weather get_weather() { return m_weather; }
-  inline General get_general() { return m_general; }
-  inline NowPlaying get_now_playing() { return m_now_playing; }
+  static const Config& getInstance();
+
+  [[nodiscard]] const Weather getWeather() const;
+  [[nodiscard]] const General getGeneral() const;
+  [[nodiscard]] const NowPlaying getNowPlaying() const;
 };
+
+struct ConfigImpl {
+  General general;
+  NowPlaying now_playing;
+  Weather weather;
+
+  static ConfigImpl from_class(const Config& config) noexcept;
+
+  [[nodiscard]] Config to_class() const;
+};
+
+namespace rfl::parsing {
+  template <class ReaderType, class WriterType, class ProcessorsType>
+  struct Parser<ReaderType, WriterType, Weather, ProcessorsType>
+      : public CustomParser<ReaderType,
+                            WriterType,
+                            ProcessorsType,
+                            Weather,
+                            WeatherImpl> {};
+
+  template <class ReaderType, class WriterType, class ProcessorsType>
+  struct Parser<ReaderType, WriterType, General, ProcessorsType>
+      : public CustomParser<ReaderType,
+                            WriterType,
+                            ProcessorsType,
+                            General,
+                            GeneralImpl> {};
+
+  template <class ReaderType, class WriterType, class ProcessorsType>
+  struct Parser<ReaderType, WriterType, NowPlaying, ProcessorsType>
+      : public CustomParser<ReaderType,
+                            WriterType,
+                            ProcessorsType,
+                            NowPlaying,
+                            NowPlayingImpl> {};
+
+  template <class ReaderType, class WriterType, class ProcessorsType>
+  struct Parser<ReaderType, WriterType, Config, ProcessorsType>
+      : public CustomParser<ReaderType,
+                            WriterType,
+                            ProcessorsType,
+                            Config,
+                            ConfigImpl> {};
+} // namespace rfl::parsing

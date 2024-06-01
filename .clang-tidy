@@ -1,0 +1,51 @@
+Checks: >
+    bugprone-*,
+    clang-analyzer-*,
+    clang-diagnostic-*,
+    misc-const-correctness,
+    misc-definitions-in-headers,
+    modernize-*,
+    performance-*,
+    portability-*,
+    readability-*,
+    cppcoreguidelines-prefer-member-initializer,
+    modernize-use-designated-initializers,
+    -altera-*,
+    -bugprone-easily-swappable-parameters,
+    -bugprone-implicit-widening-of-multiplication-result,
+    -concurrency-mt-unsafe,
+    -fuchsia-*,
+    -google-*,
+    -hicpp-*,
+    -llvm-include-order,
+    -llvm-include-order,
+    -llvmlibc-*,
+    -modernize-use-trailing-return-type,
+    -readability-braces-around-statements,
+    -readability-magic-numbers,
+    -readability-implicit-bool-conversion
+CheckOptions:
+  readability-identifier-naming.ClassCase: CamelCase
+  readability-identifier-naming.EnumCase: CamelCase
+  readability-identifier-naming.LocalConstantCase: camelBack
+  readability-identifier-naming.LocalVariableCase: camelBack
+  readability-identifier-naming.GlobalFunctionCase: CamelCase
+  readability-identifier-naming.MemberCase: lower_case
+  readability-identifier-naming.MethodCase: camelBack
+  readability-identifier-naming.MethodIgnoredRegexp: ((to|from)_class)
+  readability-identifier-naming.ParameterPackCase: lower_case
+  readability-identifier-naming.PrivateMemberCase: CamelCase
+  readability-identifier-naming.PrivateMemberPrefix: 'm_'
+  readability-identifier-naming.PrivateMethodCase: CamelCase
+  readability-identifier-naming.PrivateMethodPrefix: ''
+  readability-identifier-naming.ProtectedMemberPrefix: 'm_'
+  readability-identifier-naming.ProtectedMethodPrefix: ''
+  readability-identifier-naming.PublicMemberCase: lower_case
+  readability-identifier-naming.StaticConstantCase: UPPER_CASE
+  readability-identifier-naming.StaticVariableCase: CamelCase
+  readability-identifier-naming.StructCase: CamelCase
+  readability-identifier-naming.TemplateParameterCase: lower_case
+  readability-identifier-naming.TemplateTemplateParameterCase: CamelCase
+  readability-identifier-naming.TypeTemplateParameterCase: CamelCase
+  readability-identifier-naming.TypedefCase: CamelCase
+  readability-identifier-naming.UnionCase: CamelCase

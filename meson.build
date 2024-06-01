@@ -3,10 +3,11 @@ project(
   default_options: [
     'cpp_std=c++26',
     'default_library=static',
-    'buildtype=debugoptimized',
-    'warning_level=everything',
+    'warning_level=everything'
   ]
 )
+
+clangtidy = find_program('clang-tidy', required: false)
 
 cc = meson.get_compiler('cpp')
 
@@ -22,7 +23,12 @@ add_project_arguments(
   language: 'cpp'
 )
 
-source_file_names = ['src/main.cpp', 'src/os/os.h', 'src/config/config.cpp', 'src/config/config.h']
+source_file_names = [
+  'src/main.cpp',
+  'src/os/os.h',
+  'src/config/config.cpp',
+  'src/config/config.h'
+]
 
 if host_machine.system() == 'linux'
   source_file_names += ['src/os/linux.cpp']
@@ -50,7 +56,10 @@ if host_machine.system() == 'linux'
   deps += dependency('playerctl')
 endif
 
-incdir = include_directories('include')
+incdir = include_directories(
+  'include',
+  is_system: true # Ignores warnings from include dir
+)
 
 executable(
   'draconis++',

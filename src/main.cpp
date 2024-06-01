@@ -5,14 +5,16 @@
 #include <fmt/format.h>
 #include <boost/json/src.hpp>
 #include <ctime>
+#include <rfl.hpp>
+#include <rfl/toml.hpp>
+#include <rfl/toml/load.hpp>
+#include <rfl/toml/read.hpp>
 #include <toml++/toml.hpp>
 #include <variant>
 #include "config/config.h"
 #include "os/os.h"
 
 using std::string;
-
-static Config& CONFIG = *new Config(toml::parse_file("./config.toml"));
 
 struct BytesToGiB {
   uint64_t value;
@@ -21,9 +23,9 @@ struct BytesToGiB {
 template <>
 struct fmt::formatter<BytesToGiB> : formatter<double> {
   template <typename FormatContext>
-  auto format(const BytesToGiB b, FormatContext& ctx) {
+  auto format(const BytesToGiB BTG, FormatContext& ctx) {
     auto out = formatter<double>::format(
-        static_cast<double>(b.value) / pow(1024, 3), ctx);
+        static_cast<double>(BTG.value) / pow(1024, 3), ctx);
     *out++ = 'G';
     *out++ = 'i';
     *out++ = 'B';
@@ -31,9 +33,9 @@ struct fmt::formatter<BytesToGiB> : formatter<double> {
   }
 };
 
-enum date_num { Ones, Twos, Threes, Default };
+enum DateNum { Ones, Twos, Threes, Default };
 
-date_num parse_date(string const& input) {
+DateNum ParseDate(string const& input) {
   if (input == "1" || input == "21" || input == "31")
     return Ones;
 
@@ -46,15 +48,19 @@ date_num parse_date(string const& input) {
   return Default;
 }
 
-boost::json::object get_weather() {
+boost::json::object GetWeather() {
   using namespace std;
   using namespace cpr;
   using namespace boost;
 
-  Weather weather = CONFIG.get_weather();
-  Location loc = weather.get_location();
-  string api_key = weather.get_api_key();
-  string units = weather.get_units();
+  const Config& config = Config::getInstance();
+
+  Weather weather = config.getWeather();
+  Location loc    = weather.getLocation();
+  string apiKey   = weather.getApiKey();
+  string units    = weather.getUnits();
+
+  fmt::println("Hello!");
 
   if (holds_alternative<string>(loc)) {
     const string city = get<string>(loc);
@@ -62,46 +68,58 @@ boost::json::object get_weather() {
     const char* location = curl_easy_escape(nullptr, city.c_str(),
                                             static_cast<int>(city.length()));
 
-    const Response r =
+    const Response res =
         Get(Url {fmt::format("https://api.openweathermap.org/data/2.5/"
                              "weather?q={}&appid={}&units={}",
-                             location, api_key, units)});
+                             location, apiKey, units)});
 
-    json::value json = json::parse(r.text);
-
-    return json.as_object();
-  } else {
-    const auto [lat, lon] = get<Coords>(loc);
-
-    const Response r =
-        Get(Url {format("https://api.openweathermap.org/data/2.5/"
-                        "weather?lat={}&lon={}&appid={}&units={}",
-                        lat, lon, api_key, units)});
-
-    json::value json = json::parse(r.text);
+    json::value json = json::parse(res.text);
 
     return json.as_object();
   }
+
+  const auto [lat, lon] = get<Coords>(loc);
+
+  const Response res =
+      Get(Url {format("https://api.openweathermap.org/data/2.5/"
+                      "weather?lat={:.3f}&lon={:.3f}&appid={}&units={}",
+                      lat, lon, apiKey, units)});
+
+  json::value json = json::parse(res.text);
+
+  return json.as_object();
 }
 
 int main() {
   using boost::json::object;
   using std::time_t;
 
-  if (CONFIG.get_now_playing().get_enabled())
-    fmt::println("{}", get_nowplaying());
+  const Config& config = rfl::toml::load<Config>("./config.toml").value();
 
-  fmt::println("Hello {}!", CONFIG.get_general().get_name());
+  if (config.getNowPlaying().getEnabled())
+    fmt::println("{}", GetNowPlaying());
 
-  const uint64_t meminfo = get_meminfo();
+  fmt::println("Hello {}!", config.getGeneral().getName());
 
-  fmt::println("{:.2f}", BytesToGiB {meminfo});
+  const uint64_t memInfo = GetMemInfo();
 
-  const std::tm t = fmt::localtime(time(nullptr));
+  fmt::println("{:.2f}", BytesToGiB {memInfo});
 
-  string date = fmt::format("{:%d}", t);
+  const std::tm localTime = fmt::localtime(time(nullptr));
 
-  switch (parse_date(date)) {
+  auto trimStart = [](std::string& str) {
+    auto start = str.begin();
+    while (start != str.end() && std::isspace(*start)) {
+      start++;
+    }
+    str.erase(str.begin(), start);
+  };
+
+  string date = fmt::format("{:%e}", localTime);
+
+  trimStart(date);
+
+  switch (ParseDate(date)) {
     case Ones:
       date += "st";
       break;
@@ -119,14 +137,14 @@ int main() {
       break;
   }
 
-  fmt::println("{:%B} {}, {:%-I:%0M %p}", t, date, t);
+  fmt::println("{:%B} {}, {:%-I:%0M %p}", localTime, date, localTime);
 
-  object json = get_weather();
+  object json = GetWeather();
 
-  const char* town_name =
+  const char* townName =
       json["name"].is_string() ? json["name"].as_string().c_str() : "Unknown";
 
-  fmt::println("{}", town_name);
+  fmt::println("{}", townName);
 
   return 0;
 }

@@ -100,7 +100,7 @@
               [
                 alejandra
                 bear
-                clang-tools
+                clang-tools_18
                 meson
                 ninja
                 pkg-config
