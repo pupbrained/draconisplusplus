@@ -1,6 +1,9 @@
+#ifdef __linux__
+
 #include <fmt/core.h>
 #include <playerctl/playerctl.h>
 #include <fstream>
+#include "os.h"
 
 using std::string;
 
@@ -9,13 +12,15 @@ uint64_t parse_line_as_number(const string& input) {
   string::size_type start = 0;
 
   // Skip leading non-numbers
-  while (!isdigit(input[++start]));
+  while (!isdigit(input[++start]))
+    ;
 
   // Start searching from the start of the number
   string::size_type end = start;
 
   // Increment to the end of the number
-  while (isdigit(input[++end]));
+  while (isdigit(input[++end]))
+    ;
 
   // Return the substring containing the number
   return std::stoul(input.substr(start, end - start));
@@ -25,7 +30,8 @@ uint64_t meminfo_parse(std::ifstream is) {
   string line;
 
   // Skip every line before the one that starts with "MemTotal"
-  while (std::getline(is, line) && !line.starts_with("MemTotal"));
+  while (std::getline(is, line) && !line.starts_with("MemTotal"))
+    ;
 
   // Parse the number from the line
   const uint64_t num = parse_line_as_number(line);
@@ -78,3 +84,5 @@ string get_nowplaying() {
     return playerctl_player_get_title(current_player, nullptr);
   return "Could not get now playing info";
 }
+
+#endif

@@ -2,3 +2,4 @@
 Language: Cpp
 BasedOnStyle: Chromium
 SpaceBeforeCpp11BracedList: true
+NamespaceIndentation: All

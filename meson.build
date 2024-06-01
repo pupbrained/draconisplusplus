@@ -22,7 +22,7 @@ add_project_arguments(
   language: 'cpp'
 )
 
-source_file_names = ['src/main.cpp', 'src/os/os.h']
+source_file_names = ['src/main.cpp', 'src/os/os.h', 'src/config/config.cpp', 'src/config/config.h']
 
 if host_machine.system() == 'linux'
   source_file_names += ['src/os/linux.cpp']
@@ -38,22 +38,23 @@ foreach file : source_file_names
   sources += files(file)
 endforeach
 
-boost_dep = dependency('boost')
-cpr_dep = cc.find_library('cpr')
-curl_dep = cc.find_library('curl')
-fmt_dep = dependency('fmt')
-tomlplusplus_dep = cc.find_library('tomlplusplus')
-playerctl_dep = dependency('playerctl')
+deps = []
+
+deps += cc.find_library('cpr')
+deps += cc.find_library('curl')
+deps += cc.find_library('tomlplusplus')
+deps += dependency('boost')
+deps += dependency('fmt')
+
+if host_machine.system() == 'linux'
+  deps += dependency('playerctl')
+endif
+
+incdir = include_directories('include')
 
 executable(
   'draconis++',
   sources,
-  dependencies: [
-    boost_dep,
-    cpr_dep,
-    curl_dep,
-    fmt_dep,
-    tomlplusplus_dep,
-    playerctl_dep
-  ]
+  dependencies: deps,
+  include_directories: incdir
 )

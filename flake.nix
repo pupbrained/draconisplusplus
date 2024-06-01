@@ -114,6 +114,7 @@
               ++ (lib.optionals pkgs.hostPlatform.isLinux [playerctl]);
 
             buildInputs = [
+              boost185
               libcpr
               tomlplusplus
             ];

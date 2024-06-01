@@ -1,6 +1,8 @@
+#ifdef __APPLE__
+
 #include <sys/sysctl.h>
-#include <unistd.h>
 #include <string>
+#include "os.h"
 
 uint64_t get_meminfo() {
   uint64_t mem = 0;
@@ -11,6 +13,8 @@ uint64_t get_meminfo() {
   return mem;
 }
 
-static std::string get_nowplaying() {
+std::string get_nowplaying() {
   return "";
 }
+
+#endif

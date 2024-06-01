@@ -6,88 +6,13 @@
 #include <boost/json/src.hpp>
 #include <ctime>
 #include <toml++/toml.hpp>
+#include <variant>
+#include "config/config.h"
 #include "os/os.h"
 
 using std::string;
 
-struct General {
-  string name;
-};
-
-struct NowPlaying {
-  bool enable;
-};
-
-struct LatLon {
-  double lat;
-  double lon;
-};
-
-struct Location {
-  enum {
-    coords,
-    city,
-  } type;
-
-  union {
-    const char* city;
-    LatLon coords;
-  } data;
-};
-
-struct Weather {
-  Location location;
-  string api_key;
-  string units;
-
-  Weather() = default;
-
-  Weather(const char* _city, string _api_key, string _units) {
-    this->api_key = _api_key;
-    this->units = _units;
-    this->location = Location {
-        Location::city,
-        {.city = _city},
-    };
-  }
-
-  Weather(LatLon _coords, string _api_key, string _units) {
-    this->api_key = _api_key;
-    this->units = _units;
-    this->location = Location {
-        Location::coords,
-        {.coords = _coords},
-    };
-  }
-};
-
-struct Config {
-  General general;
-  NowPlaying now_playing;
-  Weather weather;
-
-  Config(toml::table toml) {
-    general = General {toml["general"]["name"].value_or(getlogin())};
-
-    now_playing = NowPlaying {toml["now_playing"]["enable"].value_or(false)};
-
-    const auto location = toml["weather"]["location"];
-    const string api_key = toml["weather"]["api_key"].value_or("");
-    const string units = toml["weather"]["units"].value_or("metric");
-
-    if (location.is_string())
-      weather = Weather(location.value_or(""), api_key, units);
-    else
-      weather = Weather(
-          LatLon {location["lat"].value_or(0.0), location["lon"].value_or(0.0)},
-          api_key, units);
-  }
-};
-
-static const Config& CONFIG() {
-  static const Config& CONFIG = *new Config(toml::parse_file("./config.toml"));
-  return CONFIG;
-}
+static Config& CONFIG = *new Config(toml::parse_file("./config.toml"));
 
 struct BytesToGiB {
   uint64_t value;
@@ -122,36 +47,38 @@ date_num parse_date(string const& input) {
 }
 
 boost::json::object get_weather() {
+  using namespace std;
   using namespace cpr;
-  using namespace boost::json;
-  using namespace fmt;
+  using namespace boost;
 
-  if (CONFIG().weather.location.type == Location::city) {
-    const char* location = curl_easy_escape(
-        nullptr, CONFIG().weather.location.data.city,
-        static_cast<int>(strlen(CONFIG().weather.location.data.city)));
-    const char* api_key = CONFIG().weather.api_key.c_str();
-    const char* units = CONFIG().weather.units.c_str();
+  Weather weather = CONFIG.get_weather();
+  Location loc = weather.get_location();
+  string api_key = weather.get_api_key();
+  string units = weather.get_units();
+
+  if (holds_alternative<string>(loc)) {
+    const string city = get<string>(loc);
+
+    const char* location = curl_easy_escape(nullptr, city.c_str(),
+                                            static_cast<int>(city.length()));
 
     const Response r =
-        Get(Url {format("https://api.openweathermap.org/data/2.5/"
-                        "weather?q={}&appid={}&units={}",
-                        location, api_key, units)});
+        Get(Url {fmt::format("https://api.openweathermap.org/data/2.5/"
+                             "weather?q={}&appid={}&units={}",
+                             location, api_key, units)});
 
-    value json = parse(r.text);
+    json::value json = json::parse(r.text);
 
     return json.as_object();
   } else {
-    const auto [lat, lon] = CONFIG().weather.location.data.coords;
-    const char* api_key = CONFIG().weather.api_key.c_str();
-    const char* units = CONFIG().weather.units.c_str();
+    const auto [lat, lon] = get<Coords>(loc);
 
     const Response r =
         Get(Url {format("https://api.openweathermap.org/data/2.5/"
                         "weather?lat={}&lon={}&appid={}&units={}",
                         lat, lon, api_key, units)});
 
-    value json = parse(r.text);
+    json::value json = json::parse(r.text);
 
     return json.as_object();
   }
@@ -159,27 +86,20 @@ boost::json::object get_weather() {
 
 int main() {
   using boost::json::object;
-  using fmt::format;
-  using fmt::localtime;
-  using fmt::println;
-  using std::time;
   using std::time_t;
-  using toml::parse_result;
 
-  const parse_result toml = toml::parse_file("./config.toml");
+  if (CONFIG.get_now_playing().get_enabled())
+    fmt::println("{}", get_nowplaying());
 
-  if (CONFIG().now_playing.enable)
-    println("{}", get_nowplaying());
-
-  println("Hello {}!", CONFIG().general.name);
+  fmt::println("Hello {}!", CONFIG.get_general().get_name());
 
   const uint64_t meminfo = get_meminfo();
 
-  println("{:.2f}", BytesToGiB {meminfo});
+  fmt::println("{:.2f}", BytesToGiB {meminfo});
 
-  const time_t t = time(nullptr);
+  const std::tm t = fmt::localtime(time(nullptr));
 
-  string date = format("{:%d}", localtime(t));
+  string date = fmt::format("{:%d}", t);
 
   switch (parse_date(date)) {
     case Ones:
@@ -199,14 +119,14 @@ int main() {
       break;
   }
 
-  println("{:%B} {}, {:%-I:%0M %p}", localtime(t), date, localtime(t));
+  fmt::println("{:%B} {}, {:%-I:%0M %p}", t, date, t);
 
   object json = get_weather();
 
   const char* town_name =
       json["name"].is_string() ? json["name"].as_string().c_str() : "Unknown";
 
-  println("{}", town_name);
+  fmt::println("{}", town_name);
 
   return 0;
 }
