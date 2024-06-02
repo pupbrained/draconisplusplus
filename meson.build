@@ -13,12 +13,14 @@ cc = meson.get_compiler('cpp')
 
 add_project_arguments(
   cc.get_supported_arguments([
+    '-Wno-c++20-compat',
     '-Wno-c++98-compat',
     '-Wno-c++98-compat-pedantic',
+    '-Wno-missing-prototypes',
     '-Wno-padded',
     '-Wno-pre-c++20-compat-pedantic',
     '-Wno-switch-default',
-    '-Wno-missing-prototypes'
+    '-Wunused-function'
   ]),
   language: 'cpp'
 )
@@ -49,8 +51,11 @@ deps = []
 deps += cc.find_library('cpr')
 deps += cc.find_library('curl')
 deps += cc.find_library('tomlplusplus')
-deps += dependency('boost')
+deps += dependency('boost', static: true)
 deps += dependency('fmt')
+
+fmtlog = subproject('fmtlog')
+deps += fmtlog.get_variable('fmtlog_dep')
 
 if host_machine.system() == 'linux'
   deps += dependency('playerctl')

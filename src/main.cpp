@@ -12,6 +12,7 @@
 #include <toml++/toml.hpp>
 #include <variant>
 #include "config/config.h"
+#include "fmtlog.h"
 #include "os/os.h"
 
 using std::string;
@@ -23,8 +24,9 @@ struct BytesToGiB {
 template <>
 struct fmt::formatter<BytesToGiB> : formatter<double> {
   template <typename FormatContext>
-  auto format(const BytesToGiB BTG, FormatContext& ctx) {
-    auto out = formatter<double>::format(
+  typename FormatContext::iterator format(const BytesToGiB BTG,
+                                          FormatContext& ctx) {
+    typename FormatContext::iterator out = formatter<double>::format(
         static_cast<double>(BTG.value) / pow(1024, 3), ctx);
     *out++ = 'G';
     *out++ = 'i';
@@ -48,53 +50,11 @@ DateNum ParseDate(string const& input) {
   return Default;
 }
 
-boost::json::object GetWeather() {
-  using namespace std;
-  using namespace cpr;
-  using namespace boost;
-
-  const Config& config = Config::getInstance();
-
-  Weather weather = config.getWeather();
-  Location loc    = weather.getLocation();
-  string apiKey   = weather.getApiKey();
-  string units    = weather.getUnits();
-
-  fmt::println("Hello!");
-
-  if (holds_alternative<string>(loc)) {
-    const string city = get<string>(loc);
-
-    const char* location = curl_easy_escape(nullptr, city.c_str(),
-                                            static_cast<int>(city.length()));
-
-    const Response res =
-        Get(Url {fmt::format("https://api.openweathermap.org/data/2.5/"
-                             "weather?q={}&appid={}&units={}",
-                             location, apiKey, units)});
-
-    json::value json = json::parse(res.text);
-
-    return json.as_object();
-  }
-
-  const auto [lat, lon] = get<Coords>(loc);
-
-  const Response res =
-      Get(Url {format("https://api.openweathermap.org/data/2.5/"
-                      "weather?lat={:.3f}&lon={:.3f}&appid={}&units={}",
-                      lat, lon, apiKey, units)});
-
-  json::value json = json::parse(res.text);
-
-  return json.as_object();
-}
-
 int main() {
   using boost::json::object;
   using std::time_t;
 
-  const Config& config = rfl::toml::load<Config>("./config.toml").value();
+  const Config& config = Config::getInstance();
 
   if (config.getNowPlaying().getEnabled())
     fmt::println("{}", GetNowPlaying());
@@ -139,7 +99,7 @@ int main() {
 
   fmt::println("{:%B} {}, {:%-I:%0M %p}", localTime, date, localTime);
 
-  object json = GetWeather();
+  object json = config.getWeather().getWeatherInfo();
 
   const char* townName =
       json["name"].is_string() ? json["name"].as_string().c_str() : "Unknown";

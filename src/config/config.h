@@ -1,8 +1,11 @@
 #pragma once
 
+#include <cpr/cpr.h>
 #include <fmt/core.h>
+#include <fmtlog.h>
 #include <toml++/toml.h>
 #include <unistd.h>
+#include <boost/json.hpp>
 #include <rfl.hpp>
 #include <string>
 #include <toml++/impl/parser.hpp>
@@ -26,6 +29,7 @@ class Weather {
  public:
   Weather(Location location, string api_key, string units);
 
+  [[nodiscard]] boost::json::object getWeatherInfo() const;
   [[nodiscard]] const Location getLocation() const;
   [[nodiscard]] const string getApiKey() const;
   [[nodiscard]] const string getUnits() const;
@@ -82,8 +86,6 @@ class Config {
   General m_General;
   NowPlaying m_NowPlaying;
   Weather m_Weather;
-
-  Config(toml::table toml);
 
  public:
   Config(General general, NowPlaying now_playing, Weather weather);

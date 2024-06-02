@@ -1,3 +1,2 @@
 CompileFlags:
-  Add: [-std=c++2b, -Wno-unused-function]
-  Remove: -Wc++98-compat
+  Add: [-std=c++2b, -Wunused-function]
