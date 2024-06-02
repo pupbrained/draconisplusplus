@@ -1,26 +1,26 @@
 #pragma once
 
+#include <boost/json.hpp>
 #include <cpr/cpr.h>
 #include <fmt/core.h>
-#include <fmtlog.h>
-#include <toml++/toml.h>
-#include <unistd.h>
-#include <boost/json.hpp>
 #include <rfl.hpp>
 #include <string>
 #include <toml++/impl/parser.hpp>
+#include <toml++/toml.h>
+#include <unistd.h>
 #include <variant>
 
 using std::string;
 
-struct Coords {
-  double lat;
-  double lon;
-};
-
-using Location = std::variant<string, Coords>;
-
 class Weather {
+ public:
+  struct Coords {
+    double lat;
+    double lon;
+  };
+
+  using Location = std::variant<string, Coords>;
+
  private:
   Location m_Location;
   string m_ApiKey;
@@ -36,7 +36,7 @@ class Weather {
 };
 
 struct WeatherImpl {
-  Location location;
+  Weather::Location location;
   string api_key;
   string units;
 
@@ -68,7 +68,7 @@ class NowPlaying {
   bool m_Enabled;
 
  public:
-  NowPlaying(bool enable);
+  NowPlaying(bool enabled);
 
   [[nodiscard]] bool getEnabled() const;
 };
@@ -107,6 +107,7 @@ struct ConfigImpl {
   [[nodiscard]] Config to_class() const;
 };
 
+// Parsers for Config classes
 namespace rfl::parsing {
   template <class ReaderType, class WriterType, class ProcessorsType>
   struct Parser<ReaderType, WriterType, Weather, ProcessorsType>

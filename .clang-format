@@ -6,3 +6,9 @@ NamespaceIndentation: All
 SpaceBeforeCpp11BracedList: true
 SpacesBeforeTrailingComments: 1
 AlignConsecutiveAssignments: true
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex:    '".*"'
+    Priority: 1
+  - Regex:    '<.*>'
+    Priority: -1

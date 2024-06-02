@@ -46,7 +46,7 @@
           ];
         };
 
-        stdenv = pkgs.llvmPackages_18.stdenv;
+        stdenv = pkgs.stdenvAdapters.useMoldLinker pkgs.llvmPackages_18.stdenv;
       in
         with pkgs; {
           packages = rec {

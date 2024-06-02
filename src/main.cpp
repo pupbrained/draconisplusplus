@@ -1,18 +1,17 @@
+#include <boost/json/src.hpp>
 #include <cpr/cpr.h>
+#include <ctime>
 #include <curl/curl.h>
 #include <fmt/chrono.h>
 #include <fmt/core.h>
 #include <fmt/format.h>
-#include <boost/json/src.hpp>
-#include <ctime>
 #include <rfl.hpp>
 #include <rfl/toml.hpp>
 #include <rfl/toml/load.hpp>
 #include <rfl/toml/read.hpp>
 #include <toml++/toml.hpp>
-#include <variant>
+
 #include "config/config.h"
-#include "fmtlog.h"
 #include "os/os.h"
 
 using std::string;
@@ -69,9 +68,8 @@ int main() {
 
   auto trimStart = [](std::string& str) {
     auto start = str.begin();
-    while (start != str.end() && std::isspace(*start)) {
-      start++;
-    }
+    while (start != str.end() && std::isspace(*start))
+      ++start;
     str.erase(str.begin(), start);
   };
 
