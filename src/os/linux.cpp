@@ -1,8 +1,9 @@
 #ifdef __linux__
 
 #include <fmt/core.h>
-#include <playerctl/playerctl.h>
 #include <fstream>
+#include <playerctl/playerctl.h>
+
 #include "os.h"
 
 using std::string;

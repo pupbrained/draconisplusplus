@@ -1,13 +1,9 @@
-#pragma once
-
-#include <boost/json.hpp>
+#include <co/json.h>
 #include <cpr/cpr.h>
 #include <fmt/core.h>
 #include <rfl.hpp>
+#include <rfl/toml.hpp>
 #include <string>
-#include <toml++/impl/parser.hpp>
-#include <toml++/toml.h>
-#include <unistd.h>
 #include <variant>
 
 using std::string;
@@ -29,7 +25,7 @@ class Weather {
  public:
   Weather(Location location, string api_key, string units);
 
-  [[nodiscard]] boost::json::object getWeatherInfo() const;
+  [[nodiscard]] co::Json getWeatherInfo() const;
   [[nodiscard]] const Location getLocation() const;
   [[nodiscard]] const string getApiKey() const;
   [[nodiscard]] const string getUnits() const;

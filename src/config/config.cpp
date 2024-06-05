@@ -1,9 +1,3 @@
-#include <fmt/core.h>
-#include <rfl.hpp>
-#include <rfl/toml.hpp>
-#include <toml++/toml.h>
-#include <unistd.h>
-
 #include "config.h"
 
 #define DEFINE_GETTER(class_name, type, name) \
@@ -21,9 +15,11 @@ DEFINE_GETTER(Weather, const string, ApiKey)
 DEFINE_GETTER(Weather, const string, Units)
 
 const Config& Config::getInstance() {
-  static const Config& INSTANCE =
-      *new Config(rfl::toml::load<Config>("./config.toml").value());
-  return INSTANCE;
+  static const auto* INSTANCE =
+      new Config(rfl::toml::load<Config>("./config.toml").value());
+  static std::once_flag Flag;
+  std::call_once(Flag, [] { std::atexit([] { delete INSTANCE; }); });
+  return *INSTANCE;
 }
 
 Config::Config(General general, NowPlaying now_playing, Weather weather)

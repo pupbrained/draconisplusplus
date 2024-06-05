@@ -1,17 +1,10 @@
-#include <boost/json/src.hpp>
-#include <cpr/cpr.h>
+#include <co/log.h>
 #include <ctime>
-#include <curl/curl.h>
 #include <fmt/chrono.h>
 #include <fmt/core.h>
-#include <fmt/format.h>
-#include <rfl.hpp>
-#include <rfl/toml.hpp>
-#include <rfl/toml/load.hpp>
-#include <rfl/toml/read.hpp>
-#include <toml++/toml.hpp>
 
 #include "config/config.h"
+#include "os/macos/NowPlayingBridge.h"
 #include "os/os.h"
 
 using std::string;
@@ -49,9 +42,10 @@ DateNum ParseDate(string const& input) {
   return Default;
 }
 
-int main() {
-  using boost::json::object;
-  using std::time_t;
+int main(int argc, char** argv) {
+  flag::parse(argc, argv);
+
+  LOG << "hello " << 23;
 
   const Config& config = Config::getInstance();
 
@@ -97,12 +91,13 @@ int main() {
 
   fmt::println("{:%B} {}, {:%-I:%0M %p}", localTime, date, localTime);
 
-  object json = config.getWeather().getWeatherInfo();
+  co::Json json = config.getWeather().getWeatherInfo();
 
+  const int temp = json.get("main", "temp").as_int();
   const char* townName =
       json["name"].is_string() ? json["name"].as_string().c_str() : "Unknown";
 
-  fmt::println("{}", townName);
+  fmt::println("It is {}°F in {}", temp, townName);
 
   return 0;
 }

@@ -1,8 +1,10 @@
 project(
-  'draconis++', 'cpp',
+  'draconis++', ['cpp', 'objcpp'],
   version: '0.1.0',
   default_options: [
-    'cpp_std=c++26',
+    'objc_std=c++20',
+    'objcpp_std=c++20',
+    'cpp_std=c++20',
     'default_library=static',
     'warning_level=everything',
     'buildtype=debugoptimized'
@@ -12,6 +14,21 @@ project(
 clangtidy = find_program('clang-tidy', required: false)
 
 cpp = meson.get_compiler('cpp')
+objcpp = meson.get_compiler('objcpp')
+
+add_project_arguments(
+  objcpp.get_supported_arguments([
+    '-Wno-c++20-compat',
+    '-Wno-c++98-compat',
+    '-Wno-c++98-compat-pedantic',
+    '-Wno-missing-prototypes',
+    '-Wno-padded',
+    '-Wno-pre-c++20-compat-pedantic',
+    '-Wno-switch-default',
+    '-Wunused-function',
+  ]),
+  language: 'objcpp'
+)
 
 add_project_arguments(
   cpp.get_supported_arguments([
@@ -22,7 +39,7 @@ add_project_arguments(
     '-Wno-padded',
     '-Wno-pre-c++20-compat-pedantic',
     '-Wno-switch-default',
-    '-Wunused-function'
+    '-Wunused-function',
   ]),
   language: 'cpp'
 )
@@ -40,7 +57,11 @@ if host_machine.system() == 'linux'
 endif
 
 if host_machine.system() == 'darwin'
-  source_file_names += ['src/os/macos.cpp']
+  source_file_names += [
+    'src/os/macos.cpp',
+    'src/os/macos/NowPlayingBridge.h',
+    'src/os/macos/NowPlayingBridge.mm'
+  ]
 endif
 
 sources = []
@@ -49,16 +70,16 @@ foreach file : source_file_names
   sources += files(file)
 endforeach
 
-quill = subproject('quill')
-
 deps = []
 
 deps += cpp.find_library('cpr')
 deps += cpp.find_library('curl')
 deps += cpp.find_library('tomlplusplus')
-deps += dependency('boost', static: true)
+deps += dependency('coost')
 deps += dependency('fmt')
-deps += quill.get_variable('quill_dep')
+deps += dependency('Foundation')
+deps += dependency('MediaPlayer')
+
 
 if host_machine.system() == 'linux'
   deps += dependency('playerctl')
@@ -73,5 +94,7 @@ executable(
   'draconis++',
   sources,
   dependencies: deps,
-  include_directories: incdir
+  include_directories: incdir,
+  objc_args: ['-fobjc-arc'],
+  link_args: ['-framework', 'Foundation', '-framework', 'MediaPlayer']
 )

@@ -46,7 +46,12 @@
           ];
         };
 
-        stdenv = pkgs.stdenvAdapters.useMoldLinker pkgs.llvmPackages_18.stdenv;
+        stdenv = pkgs.llvmPackages_18.stdenv;
+
+        darwinPkgs = nixpkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin; [
+          apple_sdk.frameworks.CoreFoundation
+          apple_sdk.frameworks.MediaPlayer
+        ]);
       in
         with pkgs; {
           packages = rec {
@@ -72,7 +77,7 @@
                 ]);
 
               buildInputs = [
-                boost185
+                coost
                 fmt
               ];
 
@@ -105,19 +110,22 @@
                 ninja
                 pkg-config
 
-                boost185
+                coost
                 fmt
                 glib
                 libcpr
                 tomlplusplus
               ]
-              ++ (lib.optionals pkgs.hostPlatform.isLinux [playerctl]);
+              ++ (lib.optionals pkgs.hostPlatform.isLinux [playerctl])
+              ++ darwinPkgs;
 
-            buildInputs = [
-              boost185
-              libcpr
-              tomlplusplus
-            ];
+            buildInputs =
+              [
+                coost
+                libcpr
+                tomlplusplus
+              ]
+              ++ darwinPkgs;
 
             name = "C++";
           };
