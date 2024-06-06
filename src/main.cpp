@@ -45,8 +45,6 @@ DateNum ParseDate(string const& input) {
 int main(int argc, char** argv) {
   flag::parse(argc, argv);
 
-  LOG << "hello " << 23;
-
   const Config& config = Config::getInstance();
 
   if (config.getNowPlaying().getEnabled())

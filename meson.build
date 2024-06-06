@@ -1,5 +1,5 @@
 project(
-  'draconis++', ['cpp', 'objcpp'],
+  'draconis++', 'cpp',
   version: '0.1.0',
   default_options: [
     'objc_std=c++20',
@@ -14,21 +14,26 @@ project(
 clangtidy = find_program('clang-tidy', required: false)
 
 cpp = meson.get_compiler('cpp')
-objcpp = meson.get_compiler('objcpp')
 
-add_project_arguments(
-  objcpp.get_supported_arguments([
-    '-Wno-c++20-compat',
-    '-Wno-c++98-compat',
-    '-Wno-c++98-compat-pedantic',
-    '-Wno-missing-prototypes',
-    '-Wno-padded',
-    '-Wno-pre-c++20-compat-pedantic',
-    '-Wno-switch-default',
-    '-Wunused-function',
-  ]),
-  language: 'objcpp'
-)
+if host_machine.system() == 'darwin'
+  add_language('objcpp')
+
+  objcpp = meson.get_compiler('objcpp')
+
+  add_project_arguments(
+    objcpp.get_supported_arguments([
+      '-Wno-c++20-compat',
+      '-Wno-c++98-compat',
+      '-Wno-c++98-compat-pedantic',
+      '-Wno-missing-prototypes',
+      '-Wno-padded',
+      '-Wno-pre-c++20-compat-pedantic',
+      '-Wno-switch-default',
+      '-Wunused-function',
+    ]),
+    language: 'objcpp'
+  )
+endif
 
 add_project_arguments(
   cpp.get_supported_arguments([
@@ -77,12 +82,14 @@ deps += cpp.find_library('curl')
 deps += cpp.find_library('tomlplusplus')
 deps += dependency('coost')
 deps += dependency('fmt')
-deps += dependency('Foundation')
-deps += dependency('MediaPlayer')
 
+if host_machine.system() == 'darwin'
+  deps += dependency('Foundation')
+  deps += dependency('MediaPlayer')
+endif
 
 if host_machine.system() == 'linux'
-  deps += dependency('playerctl')
+  deps += dependency('sdbus-c++')
 endif
 
 incdir = include_directories(
@@ -90,11 +97,19 @@ incdir = include_directories(
   is_system: true # Ignores warnings from include dir
 )
 
+objc_args = []
+link_args = []
+
+if host_machine.system() == 'darwin'
+  objc_args += ['-fobjc-arc']
+  link_args += ['-framework', 'Foundation', '-framework', 'MediaPlayer']
+endif
+
 executable(
   'draconis++',
   sources,
+  objc_args,
+  link_args,
   dependencies: deps,
   include_directories: incdir,
-  objc_args: ['-fobjc-arc'],
-  link_args: ['-framework', 'Foundation', '-framework', 'MediaPlayer']
 )

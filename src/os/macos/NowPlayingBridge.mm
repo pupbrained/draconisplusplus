@@ -62,7 +62,7 @@ typedef void (*MRMediaRemoteGetNowPlayingInfoFunction)(
 
 extern "C" {
 
-const char *getCurrentPlayingTitle() {
+const char *GetCurrentPlayingTitle() {
   NSDictionary *metadata = [NowPlayingBridge currentPlayingMetadata];
   if (metadata == nil) {
     return nullptr;
@@ -75,7 +75,7 @@ const char *getCurrentPlayingTitle() {
   return nullptr;
 }
 
-const char *getCurrentPlayingArtist() {
+const char *GetCurrentPlayingArtist() {
   NSDictionary *metadata = [NowPlayingBridge currentPlayingMetadata];
   if (metadata == nil) {
     return nullptr;

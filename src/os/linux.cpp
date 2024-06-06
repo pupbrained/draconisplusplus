@@ -2,11 +2,21 @@
 
 #include <fmt/core.h>
 #include <fstream>
-#include <playerctl/playerctl.h>
+#include <iostream>
+#include <sdbus-c++/sdbus-c++.h>
+#include <string>
+#include <vector>
 
 #include "os.h"
 
 using std::string;
+
+static const char *DBUS_INTERFACE         = "org.freedesktop.DBus",
+                  *DBUS_OBJECT_PATH       = "/org/freedesktop/DBus",
+                  *DBUS_METHOD_LIST_NAMES = "ListNames",
+                  *MPRIS_INTERFACE_NAME   = "org.mpris.MediaPlayer2",
+                  *PLAYER_OBJECT_PATH     = "/org/mpris/MediaPlayer2",
+                  *PLAYER_INTERFACE_NAME  = "org.mpris.MediaPlayer2.Player";
 
 uint64_t ParseLineAsNumber(const string& input) {
   // Find the first number
@@ -44,46 +54,59 @@ uint64_t GetMemInfo() {
   return MeminfoParse(std::ifstream("/proc/meminfo")) * 1024;
 }
 
-PlayerctlPlayer* InitPlayerctl() {
-  // Create a player manager
-  PlayerctlPlayerManager* playerManager = playerctl_player_manager_new(nullptr);
+std::vector<std::string> GetMprisPlayers(sdbus::IConnection& connection) {
+  auto dbusProxy =
+      sdbus::createProxy(connection, DBUS_INTERFACE, DBUS_OBJECT_PATH);
+  std::vector<std::string> names;
+  dbusProxy->callMethod(DBUS_METHOD_LIST_NAMES)
+      .onInterface(DBUS_INTERFACE)
+      .storeResultsTo(names);
 
-  // Create an empty player list
-  GList* availablePlayers = nullptr;
-
-  // Get the list of available players and put it in the player list
-  g_object_get(playerManager, "player-names", &availablePlayers, nullptr);
-
-  // If no players are available, return nullptr
-  if (!availablePlayers)
-    return nullptr;
-
-  // Get the first player
-  PlayerctlPlayerName* playerName =
-      static_cast<PlayerctlPlayerName*>(availablePlayers->data);
-
-  // Create the player
-  PlayerctlPlayer* const currentPlayer =
-      playerctl_player_new_from_name(playerName, nullptr);
-
-  // If no player is available, return nullptr
-  if (!currentPlayer)
-    return nullptr;
-
-  // Manage the player
-  playerctl_player_manager_manage_player(playerManager, currentPlayer);
-
-  // Unref the player
-  g_object_unref(currentPlayer);
-
-  return currentPlayer;
+  std::vector<std::string> mprisPlayers;
+  for (const auto& name : names) {
+    if (name.find(MPRIS_INTERFACE_NAME) != std::string::npos) {
+      mprisPlayers.push_back(name);
+    }
+  }
+  return mprisPlayers;
 }
 
-string GetNowPlaying() {
-  if (PlayerctlPlayer* currentPlayer = InitPlayerctl())
-    return playerctl_player_get_title(currentPlayer, nullptr);
+std::string GetActivePlayer(const std::vector<std::string>& mprisPlayers) {
+  if (!mprisPlayers.empty()) {
+    return mprisPlayers.front();
+  }
+  return "";
+}
 
-  return "Could not get now playing info";
+std::string GetNowPlaying() {
+  try {
+    auto connection   = sdbus::createSessionBusConnection();
+    auto mprisPlayers = GetMprisPlayers(*connection);
+
+    if (mprisPlayers.empty())
+      return "";
+
+    std::string activePlayer = GetActivePlayer(mprisPlayers);
+
+    if (activePlayer.empty())
+      return "";
+
+    auto playerProxy =
+        sdbus::createProxy(*connection, activePlayer, PLAYER_OBJECT_PATH);
+
+    std::map<std::string, sdbus::Variant> metadata =
+        playerProxy->getProperty("Metadata").onInterface(PLAYER_INTERFACE_NAME);
+
+    auto iter = metadata.find("xesam:title");
+
+    if (iter != metadata.end() &&
+        iter->second.containsValueOfType<std::string>())
+      return iter->second.get<std::string>();
+  } catch (const sdbus::Error& e) {
+    std::cerr << "Error: " << e.what() << std::endl;
+  }
+
+  return "";
 }
 
 #endif

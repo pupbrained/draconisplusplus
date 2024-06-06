@@ -16,7 +16,7 @@ uint64_t GetMemInfo() {
 }
 
 std::string GetNowPlaying() {
-  return getCurrentPlayingTitle();
+  return GetCurrentPlayingTitle();
 }
 
 #endif

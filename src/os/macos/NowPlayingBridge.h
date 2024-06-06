@@ -8,7 +8,7 @@
 @end
 #else
 extern "C" {
-const char* getCurrentPlayingTitle();
-const char* getCurrentPlayingArtist();
+const char* GetCurrentPlayingTitle();
+const char* GetCurrentPlayingArtist();
 }
 #endif

@@ -46,9 +46,27 @@
           ];
         };
 
-        stdenv = pkgs.llvmPackages_18.stdenv;
+        stdenv = pkgs.stdenvAdapters.useMoldLinker pkgs.llvmPackages_18.stdenv;
 
-        darwinPkgs = nixpkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs.darwin; [
+        deps = with (
+          if !stdenv.isDarwin
+          then pkgs.pkgsStatic
+          else pkgs
+        ); # TODO: Remove when fixed on darwin
+
+          [
+            coost
+            fmt
+            glib
+            libcpr
+            tomlplusplus
+          ]
+          ++ (with pkgs; (lib.optionals hostPlatform.isLinux [
+            sdbus-cpp
+            valgrind
+          ]));
+
+        darwinPkgs = nixpkgs.lib.optionals stdenv.isDarwin (with pkgs.darwin; [
           apple_sdk.frameworks.CoreFoundation
           apple_sdk.frameworks.MediaPlayer
         ]);
@@ -66,15 +84,10 @@
                 pkg-config
               ];
 
-              propagatedBuildInputs =
-                [
-                  libcpr
-                  tomlplusplus
-                ]
-                ++ (lib.optionals pkgs.hostPlatform.isLinux [
-                  glib
-                  playerctl
-                ]);
+              propagatedBuildInputs = [
+                libcpr
+                tomlplusplus
+              ];
 
               buildInputs = [
                 coost
@@ -107,24 +120,16 @@
                 bear
                 clang-tools_18
                 meson
+                lldb
                 ninja
                 pkg-config
+                unzip
 
-                coost
-                fmt
-                glib
-                libcpr
-                tomlplusplus
+                (writeScriptBin "build" "meson compile -C build")
+                (writeScriptBin "clean" "meson setup build --wipe")
+                (writeScriptBin "run" "meson compile -C build && build/draconis++")
               ]
-              ++ (lib.optionals pkgs.hostPlatform.isLinux [playerctl])
-              ++ darwinPkgs;
-
-            buildInputs =
-              [
-                coost
-                libcpr
-                tomlplusplus
-              ]
+              ++ deps
               ++ darwinPkgs;
 
             name = "C++";
