@@ -16,7 +16,10 @@ uint64_t GetMemInfo() {
 }
 
 std::string GetNowPlaying() {
-  return GetCurrentPlayingTitle();
+  if (const char* title = GetCurrentPlayingTitle())
+    return title;
+
+  return "No song playing";
 }
 
 #endif

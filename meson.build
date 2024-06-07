@@ -7,7 +7,7 @@ project(
     'cpp_std=c++20',
     'default_library=static',
     'warning_level=everything',
-    'buildtype=debugoptimized'
+    'buildtype=debugoptimized',
   ]
 )
 
@@ -16,7 +16,7 @@ clangtidy = find_program('clang-tidy', required: false)
 cpp = meson.get_compiler('cpp')
 
 if host_machine.system() == 'darwin'
-  add_language('objcpp')
+  add_languages('objcpp')
 
   objcpp = meson.get_compiler('objcpp')
 
@@ -108,8 +108,8 @@ endif
 executable(
   'draconis++',
   sources,
-  objc_args,
-  link_args,
+  objc_args: objc_args,
+  link_args: link_args,
   dependencies: deps,
   include_directories: incdir,
 )

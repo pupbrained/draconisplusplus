@@ -5,7 +5,7 @@
 #import <dispatch/dispatch.h>
 #import <objc/runtime.h>
 
-typedef void (*MRMediaRemoteGetNowPlayingInfoFunction)(
+using MRMediaRemoteGetNowPlayingInfoFunction = void (*)(
     dispatch_queue_t queue, void (^handler)(NSDictionary *information));
 
 @implementation NowPlayingBridge
@@ -30,13 +30,13 @@ typedef void (*MRMediaRemoteGetNowPlayingInfoFunction)(
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wold-style-cast"
 
-  MRMediaRemoteGetNowPlayingInfoFunction MRMediaRemoteGetNowPlayingInfo =
+  auto mrMediaRemoteGetNowPlayingInfo =
       (MRMediaRemoteGetNowPlayingInfoFunction)CFBundleGetFunctionPointerForName(
           bundle, CFSTR("MRMediaRemoteGetNowPlayingInfo"));
 
 #pragma clang diagnostic pop
 
-  if (!MRMediaRemoteGetNowPlayingInfo) {
+  if (!mrMediaRemoteGetNowPlayingInfo) {
     NSLog(@"Failed to get function pointer for MRMediaRemoteGetNowPlayingInfo");
     CFRelease(bundle);
     return nil;
@@ -45,7 +45,7 @@ typedef void (*MRMediaRemoteGetNowPlayingInfoFunction)(
   __block NSDictionary *nowPlayingInfo = nil;
   dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
 
-  MRMediaRemoteGetNowPlayingInfo(
+  mrMediaRemoteGetNowPlayingInfo(
       dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
       ^(NSDictionary *information) {
         nowPlayingInfo = [information copy];
@@ -61,30 +61,33 @@ typedef void (*MRMediaRemoteGetNowPlayingInfoFunction)(
 @end
 
 extern "C" {
-
 const char *GetCurrentPlayingTitle() {
   NSDictionary *metadata = [NowPlayingBridge currentPlayingMetadata];
-  if (metadata == nil) {
+
+  if (metadata == nil)
     return nullptr;
-  }
+
   NSString *title =
       [metadata objectForKey:@"kMRMediaRemoteNowPlayingInfoTitle"];
-  if (title) {
+
+  if (title)
     return strdup([title UTF8String]);
-  }
+
   return nullptr;
 }
 
 const char *GetCurrentPlayingArtist() {
   NSDictionary *metadata = [NowPlayingBridge currentPlayingMetadata];
-  if (metadata == nil) {
+
+  if (metadata == nil)
     return nullptr;
-  }
+
   NSString *artist =
       [metadata objectForKey:@"kMRMediaRemoteNowPlayingInfoArtist"];
-  if (artist) {
+
+  if (artist)
     return strdup([artist UTF8String]);
-  }
+
   return nullptr;
 }
 }

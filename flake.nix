@@ -46,7 +46,10 @@
           ];
         };
 
-        stdenv = pkgs.stdenvAdapters.useMoldLinker pkgs.llvmPackages_18.stdenv;
+        stdenv =
+          if pkgs.hostPlatform.isLinux
+          then pkgs.stdenvAdapters.useMoldLinker pkgs.llvmPackages_18.stdenv
+          else pkgs.llvmPackages_18.stdenv;
 
         deps = with (
           if !stdenv.isDarwin
@@ -60,15 +63,16 @@
             glib
             libcpr
             tomlplusplus
-          ]
-          ++ (with pkgs; (lib.optionals hostPlatform.isLinux [
-            sdbus-cpp
-            valgrind
-          ]));
+          ];
 
-        darwinPkgs = nixpkgs.lib.optionals stdenv.isDarwin (with pkgs.darwin; [
-          apple_sdk.frameworks.CoreFoundation
-          apple_sdk.frameworks.MediaPlayer
+        linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs.llvmPackages_18; [
+          sdbus-cpp
+          valgrind
+        ]);
+
+        darwinPkgs = nixpkgs.lib.optionals stdenv.isDarwin (with pkgs.darwin.apple_sdk.frameworks; [
+          Foundation
+          MediaPlayer
         ]);
       in
         with pkgs; {
@@ -89,10 +93,13 @@
                 tomlplusplus
               ];
 
-              buildInputs = [
-                coost
-                fmt
-              ];
+              buildInputs =
+                [
+                  coost
+                  fmt
+                ]
+                ++ darwinPkgs
+                ++ linuxPkgs;
 
               configurePhase = ''
                 meson setup build
@@ -130,7 +137,8 @@
                 (writeScriptBin "run" "meson compile -C build && build/draconis++")
               ]
               ++ deps
-              ++ darwinPkgs;
+              ++ darwinPkgs
+              ++ linuxPkgs;
 
             name = "C++";
           };

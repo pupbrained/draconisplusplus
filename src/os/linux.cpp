@@ -57,24 +57,26 @@ uint64_t GetMemInfo() {
 std::vector<std::string> GetMprisPlayers(sdbus::IConnection& connection) {
   auto dbusProxy =
       sdbus::createProxy(connection, DBUS_INTERFACE, DBUS_OBJECT_PATH);
+
   std::vector<std::string> names;
+
   dbusProxy->callMethod(DBUS_METHOD_LIST_NAMES)
       .onInterface(DBUS_INTERFACE)
       .storeResultsTo(names);
 
   std::vector<std::string> mprisPlayers;
-  for (const auto& name : names) {
-    if (name.find(MPRIS_INTERFACE_NAME) != std::string::npos) {
+
+  for (const auto& name : names)
+    if (name.find(MPRIS_INTERFACE_NAME) != std::string::npos)
       mprisPlayers.push_back(name);
-    }
-  }
+
   return mprisPlayers;
 }
 
 std::string GetActivePlayer(const std::vector<std::string>& mprisPlayers) {
-  if (!mprisPlayers.empty()) {
+  if (!mprisPlayers.empty())
     return mprisPlayers.front();
-  }
+
   return "";
 }
 
