@@ -79,13 +79,34 @@ endforeach
 
 deps = []
 
-deps += dependency('fmt')
-deps += dependency('libcurl')
-deps += dependency('tomlplusplus')
-deps += dependency('yyjson')
+fmt     = dependency('fmt', required: false)
+libcurl = dependency('libcurl', required: false)
+tomlpp  = dependency('tomlplusplus', required: false)
+yyjson  = dependency('yyjson', required: false)
+
+if not fmt.found()
+  fmt = cpp.find_library('fmt', required: true)
+endif
+
+if not libcurl.found()
+  libcurl = cpp.find_library('curl', required: true)
+endif
+
+if not tomlpp.found()
+  tomlpp = cpp.find_library('tomlplusplus', required: true)
+endif
+
+if not yyjson.found()
+  yyjson = cpp.find_library('yyjson', required: true)
+endif
+
+foreach dep : [fmt, libcurl, tomlpp, yyjson]
+  deps += dep
+endforeach
 
 if host_machine.system() == 'darwin'
   deps += dependency('Foundation')
+  deps += dependency('MediaPlayer')
 endif
 
 if host_machine.system() == 'linux'

@@ -130,7 +130,7 @@ WeatherOutput Weather::getWeatherInfo() const {
         "weather?q={}&appid={}&units={}",
         location, apiKey, units);
 
-    result = MakeApiRequest(apiUrl);
+    result = MakeApiRequest(apiUrl).value();
   } else {
     const auto [lat, lon] = get<Coords>(loc);
 
@@ -141,7 +141,7 @@ WeatherOutput Weather::getWeatherInfo() const {
         "weather?lat={:.3f}&lon={:.3f}&appid={}&units={}",
         lat, lon, apiKey, units);
 
-    result = MakeApiRequest(apiUrl);
+    result = MakeApiRequest(apiUrl).value();
   }
 
   // Update the cache with the new data

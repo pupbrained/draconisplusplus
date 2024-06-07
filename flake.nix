@@ -73,6 +73,7 @@
 
         darwinPkgs = nixpkgs.lib.optionals stdenv.isDarwin (with pkgs.darwin.apple_sdk.frameworks; [
           Foundation
+          MediaPlayer
         ]);
       in
         with pkgs; {
