@@ -65,7 +65,7 @@
             yyjson
           ];
 
-        linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs.llvmPackages_18; [
+        linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs; [
           systemdLibs
           sdbus-cpp
           valgrind
