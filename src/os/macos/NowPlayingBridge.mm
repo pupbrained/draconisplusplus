@@ -1,4 +1,4 @@
-// NowPlayingBridge.mm
+#ifdef __APPLE__
 
 #import "NowPlayingBridge.h"
 #import <Foundation/Foundation.h>
@@ -91,3 +91,5 @@ const char *GetCurrentPlayingArtist() {
   return nullptr;
 }
 }
+
+#endif

@@ -1,12 +1,14 @@
 ---
-Language: Cpp
+AlignConsecutiveAssignments: true
+AllowShortLoopsOnASingleLine: true
 BasedOnStyle: Chromium
 IndentAccessModifiers: false
+IndentExternBlock: Indent
+Language: Cpp
 NamespaceIndentation: All
 SpaceBeforeCpp11BracedList: true
 SpacesBeforeTrailingComments: 1
-AlignConsecutiveAssignments: true
-IndentExternBlock: Indent
+
 IncludeBlocks: Regroup
 IncludeCategories:
   - Regex:    '".*"'

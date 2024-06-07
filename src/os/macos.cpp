@@ -6,7 +6,7 @@
 #include "macos/NowPlayingBridge.h"
 #include "os.h"
 
-uint64_t GetMemInfo() {
+u64 GetMemInfo() {
   uint64_t mem = 0;
   size_t size  = sizeof(mem);
 

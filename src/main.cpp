@@ -1,16 +1,14 @@
-#include <co/log.h>
 #include <ctime>
 #include <fmt/chrono.h>
 #include <fmt/core.h>
 
 #include "config/config.h"
-#include "os/macos/NowPlayingBridge.h"
 #include "os/os.h"
 
 using std::string;
 
 struct BytesToGiB {
-  uint64_t value;
+  u64 value;
 };
 
 template <>
@@ -42,9 +40,7 @@ DateNum ParseDate(string const& input) {
   return Default;
 }
 
-int main(int argc, char** argv) {
-  flag::parse(argc, argv);
-
+int main() {
   const Config& config = Config::getInstance();
 
   if (config.getNowPlaying().getEnabled())
@@ -52,22 +48,17 @@ int main(int argc, char** argv) {
 
   fmt::println("Hello {}!", config.getGeneral().getName());
 
-  const uint64_t memInfo = GetMemInfo();
+  const u64 memInfo = GetMemInfo();
 
   fmt::println("{:.2f}", BytesToGiB {memInfo});
 
   const std::tm localTime = fmt::localtime(time(nullptr));
 
-  auto trimStart = [](std::string& str) {
-    auto start = str.begin();
-    while (start != str.end() && std::isspace(*start))
-      ++start;
-    str.erase(str.begin(), start);
-  };
-
   string date = fmt::format("{:%e}", localTime);
 
-  trimStart(date);
+  auto start = date.begin();
+  while (start != date.end() && std::isspace(*start)) ++start;
+  date.erase(date.begin(), start);
 
   switch (ParseDate(date)) {
     case Ones:
@@ -89,11 +80,10 @@ int main(int argc, char** argv) {
 
   fmt::println("{:%B} {}, {:%-I:%0M %p}", localTime, date, localTime);
 
-  co::Json json = config.getWeather().getWeatherInfo();
+  Weather::WeatherOutput json = config.getWeather().getWeatherInfo();
 
-  const int temp = json.get("main", "temp").as_int();
-  const char* townName =
-      json["name"].is_string() ? json["name"].as_string().c_str() : "Unknown";
+  const long temp       = std::lround(json.main.temp);
+  const string townName = json.name;
 
   fmt::println("It is {}°F in {}", temp, townName);
 

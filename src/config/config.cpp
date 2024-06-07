@@ -8,17 +8,15 @@
 DEFINE_GETTER(Config, const General, General)
 DEFINE_GETTER(Config, const NowPlaying, NowPlaying)
 DEFINE_GETTER(Config, const Weather, Weather)
-DEFINE_GETTER(General, const string, Name)
+DEFINE_GETTER(General, const std::string, Name)
 DEFINE_GETTER(NowPlaying, bool, Enabled)
 DEFINE_GETTER(Weather, const Weather::Location, Location)
-DEFINE_GETTER(Weather, const string, ApiKey)
-DEFINE_GETTER(Weather, const string, Units)
+DEFINE_GETTER(Weather, const std::string, ApiKey)
+DEFINE_GETTER(Weather, const std::string, Units)
 
 const Config& Config::getInstance() {
   static const auto* INSTANCE =
       new Config(rfl::toml::load<Config>("./config.toml").value());
-  static std::once_flag Flag;
-  std::call_once(Flag, [] { std::atexit([] { delete INSTANCE; }); });
   return *INSTANCE;
 }
 
@@ -27,11 +25,11 @@ Config::Config(General general, NowPlaying now_playing, Weather weather)
       m_NowPlaying(now_playing),
       m_Weather(std::move(weather)) {}
 
-General::General(string name) : m_Name(std::move(name)) {}
+General::General(std::string name) : m_Name(std::move(name)) {}
 
 NowPlaying::NowPlaying(bool enable) : m_Enabled(enable) {}
 
-Weather::Weather(Location location, string api_key, string units)
+Weather::Weather(Location location, std::string api_key, std::string units)
     : m_Location(std::move(location)),
       m_ApiKey(std::move(api_key)),
       m_Units(std::move(units)) {}

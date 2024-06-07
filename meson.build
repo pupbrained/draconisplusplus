@@ -25,6 +25,7 @@ if host_machine.system() == 'darwin'
       '-Wno-c++20-compat',
       '-Wno-c++98-compat',
       '-Wno-c++98-compat-pedantic',
+      '-Wno-disabled-macro-expansion',
       '-Wno-missing-prototypes',
       '-Wno-padded',
       '-Wno-pre-c++20-compat-pedantic',
@@ -40,6 +41,7 @@ add_project_arguments(
     '-Wno-c++20-compat',
     '-Wno-c++98-compat',
     '-Wno-c++98-compat-pedantic',
+    '-Wno-disabled-macro-expansion',
     '-Wno-missing-prototypes',
     '-Wno-padded',
     '-Wno-pre-c++20-compat-pedantic',
@@ -77,15 +79,13 @@ endforeach
 
 deps = []
 
-deps += cpp.find_library('cpr')
-deps += cpp.find_library('curl')
-deps += cpp.find_library('tomlplusplus')
-deps += dependency('coost')
 deps += dependency('fmt')
+deps += dependency('libcurl')
+deps += dependency('tomlplusplus')
+deps += dependency('yyjson')
 
 if host_machine.system() == 'darwin'
   deps += dependency('Foundation')
-  deps += dependency('MediaPlayer')
 endif
 
 if host_machine.system() == 'linux'

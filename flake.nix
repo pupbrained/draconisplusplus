@@ -58,21 +58,21 @@
         ); # TODO: Remove when fixed on darwin
 
           [
-            coost
+            curl
             fmt
             glib
-            libcpr
             tomlplusplus
+            yyjson
           ];
 
         linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs.llvmPackages_18; [
+          systemdLibs
           sdbus-cpp
           valgrind
         ]);
 
         darwinPkgs = nixpkgs.lib.optionals stdenv.isDarwin (with pkgs.darwin.apple_sdk.frameworks; [
           Foundation
-          MediaPlayer
         ]);
       in
         with pkgs; {
@@ -89,7 +89,6 @@
               ];
 
               propagatedBuildInputs = [
-                libcpr
                 tomlplusplus
               ];
 

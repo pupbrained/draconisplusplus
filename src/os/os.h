@@ -1,7 +1,8 @@
 #pragma once
 
-#include <cstdint>
 #include <string>
 
-uint64_t GetMemInfo();
+#include "util/numtypes.h"
+
+u64 GetMemInfo();
 std::string GetNowPlaying();

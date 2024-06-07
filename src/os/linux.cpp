@@ -4,7 +4,6 @@
 #include <fstream>
 #include <iostream>
 #include <sdbus-c++/sdbus-c++.h>
-#include <string>
 #include <vector>
 
 #include "os.h"
@@ -18,44 +17,41 @@ static const char *DBUS_INTERFACE         = "org.freedesktop.DBus",
                   *PLAYER_OBJECT_PATH     = "/org/mpris/MediaPlayer2",
                   *PLAYER_INTERFACE_NAME  = "org.mpris.MediaPlayer2.Player";
 
-uint64_t ParseLineAsNumber(const string& input) {
+u64 ParseLineAsNumber(const string& input) {
   // Find the first number
   string::size_type start = 0;
 
   // Skip leading non-numbers
-  while (!isdigit(input[++start]))
-    ;
+  while (!isdigit(input[++start]));
 
   // Start searching from the start of the number
   string::size_type end = start;
 
   // Increment to the end of the number
-  while (isdigit(input[++end]))
-    ;
+  while (isdigit(input[++end]));
 
   // Return the substring containing the number
   return std::stoul(input.substr(start, end - start));
 }
 
-uint64_t MeminfoParse(std::ifstream input) {
+u64 MeminfoParse(std::ifstream input) {
   string line;
 
   // Skip every line before the one that starts with "MemTotal"
-  while (std::getline(input, line) && !line.starts_with("MemTotal"))
-    ;
+  while (std::getline(input, line) && !line.starts_with("MemTotal"));
 
   // Parse the number from the line
-  const uint64_t num = ParseLineAsNumber(line);
+  const u64 num = ParseLineAsNumber(line);
 
   return num;
 }
 
-uint64_t GetMemInfo() {
+u64 GetMemInfo() {
   return MeminfoParse(std::ifstream("/proc/meminfo")) * 1024;
 }
 
 std::vector<std::string> GetMprisPlayers(sdbus::IConnection& connection) {
-  auto dbusProxy =
+  std::unique_ptr<sdbus::IProxy> dbusProxy =
       sdbus::createProxy(connection, DBUS_INTERFACE, DBUS_OBJECT_PATH);
 
   std::vector<std::string> names;
@@ -66,7 +62,7 @@ std::vector<std::string> GetMprisPlayers(sdbus::IConnection& connection) {
 
   std::vector<std::string> mprisPlayers;
 
-  for (const auto& name : names)
+  for (const std::basic_string<char>& name : names)
     if (name.find(MPRIS_INTERFACE_NAME) != std::string::npos)
       mprisPlayers.push_back(name);
 
@@ -82,8 +78,10 @@ std::string GetActivePlayer(const std::vector<std::string>& mprisPlayers) {
 
 std::string GetNowPlaying() {
   try {
-    auto connection   = sdbus::createSessionBusConnection();
-    auto mprisPlayers = GetMprisPlayers(*connection);
+    std::unique_ptr<sdbus::IConnection> connection =
+        sdbus::createSessionBusConnection();
+
+    std::vector<std::string> mprisPlayers = GetMprisPlayers(*connection);
 
     if (mprisPlayers.empty())
       return "";
@@ -93,7 +91,7 @@ std::string GetNowPlaying() {
     if (activePlayer.empty())
       return "";
 
-    auto playerProxy =
+    std::unique_ptr<sdbus::IProxy> playerProxy =
         sdbus::createProxy(*connection, activePlayer, PLAYER_OBJECT_PATH);
 
     std::map<std::string, sdbus::Variant> metadata =

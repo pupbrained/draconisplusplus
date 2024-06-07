@@ -1,40 +1,102 @@
-#include <co/json.h>
-#include <cpr/cpr.h>
+#pragma once
+
 #include <fmt/core.h>
 #include <rfl.hpp>
 #include <rfl/toml.hpp>
 #include <string>
 #include <variant>
 
-using std::string;
+#include "util/numtypes.h"
 
 class Weather {
  public:
+  using percentage = rfl::Validator<i8, rfl::Minimum<0>, rfl::Maximum<100>>;
+  using degrees    = rfl::Validator<u16, rfl::Minimum<0>, rfl::Maximum<360>>;
+
+  struct Condition {
+    usize id;
+    rfl::Rename<"main", std::string> group;
+    std::string description;
+    rfl::Rename<"icon", std::string> icon_id;
+  };
+
+  struct Main {
+    f64 temp;
+    f64 temp_max;
+    f64 temp_min;
+    f64 feels_like;
+    isize pressure;
+    std::optional<isize> sea_level;
+    std::optional<isize> grnd_level;
+    percentage humidity;
+  };
+
+  struct Wind {
+    f64 speed;
+    degrees deg;
+    std::optional<f64> gust;
+  };
+
+  struct Precipitation {
+    rfl::Rename<"1h", f64> one_hour;
+    rfl::Rename<"3h", f64> three_hours;
+  };
+
+  struct Sys {
+    std::string country;
+    usize id;
+    usize sunrise;
+    usize sunset;
+    usize type;
+  };
+
+  struct Clouds {
+    percentage all;
+  };
+
   struct Coords {
     double lat;
     double lon;
   };
 
-  using Location = std::variant<string, Coords>;
+  struct WeatherOutput {
+    isize timezone;
+    isize visibility;
+    Main main;
+    Clouds clouds;
+    rfl::Rename<"coord", Coords> coords;
+    std::optional<Precipitation> rain;
+    std::optional<Precipitation> snow;
+    std::vector<Condition> weather;
+    std::string base;
+    std::string name;
+    Sys sys;
+    usize cod;
+    usize dt;
+    usize id;
+    Wind wind;
+  };
+
+  using Location = std::variant<std::string, Coords>;
 
  private:
   Location m_Location;
-  string m_ApiKey;
-  string m_Units;
+  std::string m_ApiKey;
+  std::string m_Units;
 
  public:
-  Weather(Location location, string api_key, string units);
+  Weather(Location location, std::string api_key, std::string units);
 
-  [[nodiscard]] co::Json getWeatherInfo() const;
+  [[nodiscard]] WeatherOutput getWeatherInfo() const;
   [[nodiscard]] const Location getLocation() const;
-  [[nodiscard]] const string getApiKey() const;
-  [[nodiscard]] const string getUnits() const;
+  [[nodiscard]] const std::string getApiKey() const;
+  [[nodiscard]] const std::string getUnits() const;
 };
 
 struct WeatherImpl {
   Weather::Location location;
-  string api_key;
-  string units;
+  std::string api_key;
+  std::string units;
 
   static WeatherImpl from_class(const Weather& weather) noexcept;
 
@@ -43,16 +105,16 @@ struct WeatherImpl {
 
 class General {
  private:
-  string m_Name;
+  std::string m_Name;
 
  public:
-  General(string name);
+  General(std::string name);
 
-  [[nodiscard]] const string getName() const;
+  [[nodiscard]] const std::string getName() const;
 };
 
 struct GeneralImpl {
-  string name;
+  std::string name;
 
   static GeneralImpl from_class(const General& general) noexcept;
 

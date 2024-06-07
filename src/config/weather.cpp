@@ -1,92 +1,113 @@
+#include <curl/curl.h>
+#include <rfl/json.hpp>
+#include <rfl/json/load.hpp>
+#include <util/result.h>
+
 #include "config.h"
 
+using WeatherOutput = Weather::WeatherOutput;
+
 // Function to read cache from file
-std::optional<std::pair<co::Json, std::chrono::system_clock::time_point>>
-ReadCacheFromFile() {
-  const string cacheFile = "/tmp/weather_cache.json";
+Result<WeatherOutput> ReadCacheFromFile() {
+  const std::string cacheFile = "/tmp/weather_cache.json";
   std::ifstream ifs(cacheFile);
 
-  if (!ifs.is_open()) {
-    fmt::println("Cache file not found.");
-    return std::nullopt;
-  }
+  if (!ifs.is_open())
+    return Error("Cache file not found.");
 
   fmt::println("Reading from cache file...");
 
-  co::Json val;
-  std::chrono::system_clock::time_point timestamp;
+  WeatherOutput val;
 
   try {
     std::stringstream buf;
+
     buf << ifs.rdbuf();
 
-    val.parse_from(buf.str());
-
-    string tsStr = val["timestamp"].as_string().c_str();
-    timestamp    = std::chrono::system_clock::time_point(
-        std::chrono::milliseconds(stoll(tsStr)));
-
-    val.erase("timestamp");
-  } catch (...) {
-    fmt::println(stderr, "Failed to read from cache file.");
-
-    return std::nullopt;
+    val = rfl::json::read<WeatherOutput>(buf.str()).value();
+  } catch (Error& e) {
+    return e;
   }
 
   fmt::println("Successfully read from cache file.");
-  return make_pair(val, timestamp);
+
+  return Ok(val);
 }
 
 // Function to write cache to file
-void WriteCacheToFile(const co::Json& data) {
-  const string cacheFile = "/tmp/weather_cache.json";
+Result<> WriteCacheToFile(const WeatherOutput& data) {
+  const std::string cacheFile = "/tmp/weather_cache.json";
   fmt::println("Writing to cache file...");
   std::ofstream ofs(cacheFile);
 
-  if (!ofs.is_open()) {
-    fmt::println(stderr, "Failed to open cache file for writing.");
-    return;
-  }
+  if (!ofs.is_open())
+    return Error("Failed to open cache file for writing.");
 
-  data["timestamp"] =
-      std::to_string(duration_cast<std::chrono::milliseconds>(
-                         std::chrono::system_clock::now().time_since_epoch())
-                         .count());
-
-  ofs << data.as_string();
+  ofs << rfl::json::write(data);
 
   fmt::println("Successfully wrote to cache file.");
+
+  return Ok();
+}
+
+size_t WriteCallback(void* contents,
+                     size_t size,
+                     size_t nmemb,
+                     std::string* buffer) {
+  size_t realsize = size * nmemb;
+
+  buffer->append(static_cast<char*>(contents), realsize);
+
+  return realsize;
 }
 
 // Function to make API request
-co::Json MakeApiRequest(const string& url) {
-  using namespace cpr;
-
+Result<WeatherOutput> MakeApiRequest(const std::string& url) {
   fmt::println("Making API request...");
-  const Response res = Get(Url {url});
-  fmt::println("Received response from API.");
-  co::Json json = json::parse(res.text);
 
-  return json;
+  CURL* curl = curl_easy_init();
+
+  std::string responseBuffer;
+
+  if (curl) {
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseBuffer);
+    CURLcode res = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
+
+    if (res != CURLE_OK)
+      return Error(fmt::format("Failed to perform cURL request: {}",
+                               curl_easy_strerror(res)));
+
+    fmt::println("Received response from API.");
+    // Parse the JSON response
+    WeatherOutput output =
+        rfl::json::read<WeatherOutput>(responseBuffer).value();
+
+    return Ok(output);
+  }
+
+  return Error("Failed to initialize cURL.");
 }
 
 // Core function to get weather information
-co::Json Weather::getWeatherInfo() const {
-  using namespace cpr;
+WeatherOutput Weather::getWeatherInfo() const {
+  using namespace std::chrono;
 
-  const Location loc  = m_Location;
-  const string apiKey = m_ApiKey;
-  const string units  = m_Units;
+  const Location loc       = m_Location;
+  const std::string apiKey = m_ApiKey;
+  const std::string units  = m_Units;
 
   // Check if cache is valid
-  if (auto cachedData = ReadCacheFromFile()) {
-    auto& [data, timestamp] = *cachedData;
+  if (Result<WeatherOutput> data = ReadCacheFromFile(); data.isOk()) {
+    WeatherOutput dataVal = data.value();
 
-    if (std::chrono::system_clock::now() - timestamp <
-        std::chrono::minutes(
-            10)) { // Assuming cache duration is always 10 minutes
+    if (system_clock::now() - system_clock::time_point(seconds(dataVal.dt)) <
+        minutes(10)) { // Assuming cache duration is always 10 minutes
       fmt::println("Cache is valid. Returning cached data.");
-      return data;
+
+      return dataVal;
     }
 
     fmt::println("Cache is expired.");
@@ -94,17 +115,17 @@ co::Json Weather::getWeatherInfo() const {
     fmt::println("No valid cache found.");
   }
 
-  co::Json result;
+  WeatherOutput result;
 
-  if (holds_alternative<string>(loc)) {
-    const string city = get<string>(loc);
+  if (holds_alternative<std::string>(loc)) {
+    const std::string city = get<std::string>(loc);
 
     const char* location = curl_easy_escape(nullptr, city.c_str(),
                                             static_cast<int>(city.length()));
 
     fmt::println("City: {}", location);
 
-    const string apiUrl = format(
+    const std::string apiUrl = fmt::format(
         "https://api.openweathermap.org/data/2.5/"
         "weather?q={}&appid={}&units={}",
         location, apiKey, units);
@@ -115,7 +136,7 @@ co::Json Weather::getWeatherInfo() const {
 
     fmt::println("Coordinates: lat = {:.3f}, lon = {:.3f}", lat, lon);
 
-    const string apiUrl = format(
+    const std::string apiUrl = fmt::format(
         "https://api.openweathermap.org/data/2.5/"
         "weather?lat={:.3f}&lon={:.3f}&appid={}&units={}",
         lat, lon, apiKey, units);
