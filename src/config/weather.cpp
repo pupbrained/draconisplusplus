@@ -12,8 +12,7 @@ Result<WeatherOutput> ReadCacheFromFile() {
   const std::string cacheFile = "/tmp/weather_cache.json";
   std::ifstream ifs(cacheFile);
 
-  if (!ifs.is_open())
-    return Error("Cache file not found.");
+  if (!ifs.is_open()) return Error("Cache file not found.");
 
   fmt::println("Reading from cache file...");
 
@@ -25,9 +24,7 @@ Result<WeatherOutput> ReadCacheFromFile() {
     buf << ifs.rdbuf();
 
     val = rfl::json::read<WeatherOutput>(buf.str()).value();
-  } catch (Error& e) {
-    return e;
-  }
+  } catch (Error& e) { return e; }
 
   fmt::println("Successfully read from cache file.");
 
@@ -40,8 +37,7 @@ Result<> WriteCacheToFile(const WeatherOutput& data) {
   fmt::println("Writing to cache file...");
   std::ofstream ofs(cacheFile);
 
-  if (!ofs.is_open())
-    return Error("Failed to open cache file for writing.");
+  if (!ofs.is_open()) return Error("Failed to open cache file for writing.");
 
   ofs << rfl::json::write(data);
 

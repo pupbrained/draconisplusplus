@@ -1,5 +1,8 @@
 ---
 AlignConsecutiveAssignments: true
+AllowShortBlocksOnASingleLine: Always
+AllowShortCompoundRequirementOnASingleLine: true
+AllowShortIfStatementsOnASingleLine: WithoutElse
 AllowShortLoopsOnASingleLine: true
 BasedOnStyle: Chromium
 IndentAccessModifiers: false

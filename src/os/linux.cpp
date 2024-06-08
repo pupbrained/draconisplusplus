@@ -1,6 +1,5 @@
 #ifdef __linux__
 
-#include <fmt/core.h>
 #include <fstream>
 #include <iostream>
 #include <sdbus-c++/sdbus-c++.h>
@@ -70,8 +69,7 @@ std::vector<std::string> GetMprisPlayers(sdbus::IConnection& connection) {
 }
 
 std::string GetActivePlayer(const std::vector<std::string>& mprisPlayers) {
-  if (!mprisPlayers.empty())
-    return mprisPlayers.front();
+  if (!mprisPlayers.empty()) return mprisPlayers.front();
 
   return "";
 }
@@ -83,13 +81,11 @@ std::string GetNowPlaying() {
 
     std::vector<std::string> mprisPlayers = GetMprisPlayers(*connection);
 
-    if (mprisPlayers.empty())
-      return "";
+    if (mprisPlayers.empty()) return "";
 
     std::string activePlayer = GetActivePlayer(mprisPlayers);
 
-    if (activePlayer.empty())
-      return "";
+    if (activePlayer.empty()) return "";
 
     std::unique_ptr<sdbus::IProxy> playerProxy =
         sdbus::createProxy(*connection, activePlayer, PLAYER_OBJECT_PATH);

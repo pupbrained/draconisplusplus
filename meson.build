@@ -53,9 +53,7 @@ add_project_arguments(
 
 source_file_names = [
   'src/main.cpp',
-  'src/os/os.h',
   'src/config/config.cpp',
-  'src/config/config.h',
   'src/config/weather.cpp'
 ]
 
@@ -66,8 +64,7 @@ endif
 if host_machine.system() == 'darwin'
   source_file_names += [
     'src/os/macos.cpp',
-    'src/os/macos/NowPlayingBridge.h',
-    'src/os/macos/NowPlayingBridge.mm'
+    'src/os/macos/now_playing_bridge.mm',
   ]
 endif
 
@@ -84,23 +81,10 @@ libcurl = dependency('libcurl', required: false)
 tomlpp  = dependency('tomlplusplus', required: false)
 yyjson  = dependency('yyjson', required: false)
 
-if not fmt.found()
-  fmt = cpp.find_library('fmt', required: true)
-endif
-
-if not libcurl.found()
-  libcurl = cpp.find_library('curl', required: true)
-endif
-
-if not tomlpp.found()
-  tomlpp = cpp.find_library('tomlplusplus', required: true)
-endif
-
-if not yyjson.found()
-  yyjson = cpp.find_library('yyjson', required: true)
-endif
-
 foreach dep : [fmt, libcurl, tomlpp, yyjson]
+  if not dep.found()
+    dep = cpp.find_library(dep.name(), required: true)
+  endif
   deps += dep
 endforeach
 

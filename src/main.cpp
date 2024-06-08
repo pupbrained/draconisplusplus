@@ -28,23 +28,16 @@ struct fmt::formatter<BytesToGiB> : formatter<double> {
 enum DateNum { Ones, Twos, Threes, Default };
 
 DateNum ParseDate(string const& input) {
-  if (input == "1" || input == "21" || input == "31")
-    return Ones;
-
-  if (input == "2" || input == "22")
-    return Twos;
-
-  if (input == "3" || input == "23")
-    return Threes;
-
+  if (input == "1" || input == "21" || input == "31") return Ones;
+  if (input == "2" || input == "22") return Twos;
+  if (input == "3" || input == "23") return Threes;
   return Default;
 }
 
 int main() {
   const Config& config = Config::getInstance();
 
-  if (config.getNowPlaying().getEnabled())
-    fmt::println("{}", GetNowPlaying());
+  if (config.getNowPlaying().getEnabled()) fmt::println("{}", GetNowPlaying());
 
   fmt::println("Hello {}!", config.getGeneral().getName());
 

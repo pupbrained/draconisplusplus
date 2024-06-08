@@ -63,7 +63,9 @@
             glib
             tomlplusplus
             yyjson
-          ];
+          ]
+          ++ linuxPkgs
+          ++ darwinPkgs;
 
         linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs; [
           systemdLibs
@@ -78,7 +80,7 @@
       in
         with pkgs; {
           packages = rec {
-            draconis-cpp = stdenv.mkDerivation {
+            draconisplusplus = stdenv.mkDerivation {
               name = "draconis++";
               version = "0.1.0";
               src = self;
@@ -89,17 +91,7 @@
                 pkg-config
               ];
 
-              propagatedBuildInputs = [
-                tomlplusplus
-              ];
-
-              buildInputs =
-                [
-                  coost
-                  fmt
-                ]
-                ++ darwinPkgs
-                ++ linuxPkgs;
+              buildInputs = deps;
 
               configurePhase = ''
                 meson setup build
@@ -115,7 +107,7 @@
               '';
             };
 
-            default = draconis-cpp;
+            default = draconisplusplus;
           };
 
           formatter = alejandra;
@@ -126,8 +118,8 @@
                 alejandra
                 bear
                 clang-tools_18
-                meson
                 lldb
+                meson
                 ninja
                 pkg-config
                 unzip
@@ -136,9 +128,7 @@
                 (writeScriptBin "clean" "meson setup build --wipe")
                 (writeScriptBin "run" "meson compile -C build && build/draconis++")
               ]
-              ++ deps
-              ++ darwinPkgs
-              ++ linuxPkgs;
+              ++ deps;
 
             name = "C++";
           };

@@ -1,14 +1,13 @@
 #ifdef __APPLE__
 
-#include <string>
 #include <sys/sysctl.h>
 
-#include "macos/NowPlayingBridge.h"
+#include "macos/now_playing_bridge.h"
 #include "os.h"
 
 u64 GetMemInfo() {
-  uint64_t mem = 0;
-  size_t size  = sizeof(mem);
+  u64 mem    = 0;
+  usize size = sizeof(mem);
 
   sysctlbyname("hw.memsize", &mem, &size, nullptr, 0);
 
@@ -16,8 +15,9 @@ u64 GetMemInfo() {
 }
 
 std::string GetNowPlaying() {
-  if (const char* title = GetCurrentPlayingTitle())
-    return title;
+  if (const char* title  = GetCurrentPlayingTitle();
+      const char* artist = GetCurrentPlayingArtist())
+    return "Now Playing: " + std::string(artist) + " - " + std::string(title);
 
   return "No song playing";
 }

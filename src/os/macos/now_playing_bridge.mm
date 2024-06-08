@@ -1,6 +1,6 @@
 #ifdef __APPLE__
 
-#import "NowPlayingBridge.h"
+#import "now_playing_bridge.h"
 #import <Foundation/Foundation.h>
 #import <dispatch/dispatch.h>
 #import <objc/runtime.h>
