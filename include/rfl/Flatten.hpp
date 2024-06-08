@@ -29,14 +29,16 @@ namespace rfl {
     template <class U>
     Flatten(Flatten<U>&& _f) : value_(_f.get()) {}
 
-    template <class U,
-              typename std::enable_if<std::is_convertible_v<U, Type>,
-                                      bool>::type = true>
+    template <
+        class U,
+        typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type =
+            true>
     Flatten(const U& _value) : value_(_value) {}
 
-    template <class U,
-              typename std::enable_if<std::is_convertible_v<U, Type>,
-                                      bool>::type = true>
+    template <
+        class U,
+        typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type =
+            true>
     Flatten(U&& _value) : value_(_value) {}
 
     ~Flatten() = default;
@@ -66,9 +68,10 @@ namespace rfl {
     }
 
     /// Assigns the underlying object.
-    template <class U,
-              typename std::enable_if<std::is_convertible_v<U, Type>,
-                                      bool>::type = true>
+    template <
+        class U,
+        typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type =
+            true>
     Flatten<T>& operator=(const U& _value) {
       value_ = _value;
       return *this;

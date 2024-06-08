@@ -20,9 +20,10 @@ namespace rfl {
       using T          = std::remove_cvref_t<decltype(_obj)>;
       using ParentType = parsing::Parent<Writer>;
       const auto fbb   = Ref<flexbuffers::Builder>::make();
-      auto w           = Writer(fbb);
-      Parser<T, Processors<Ps...>>::write(w, _obj,
-                                          typename ParentType::Root {});
+      auto       w     = Writer(fbb);
+      Parser<T, Processors<Ps...>>::write(
+          w, _obj, typename ParentType::Root {}
+      );
       fbb->Finish();
       return fbb->GetBuffer();
     }

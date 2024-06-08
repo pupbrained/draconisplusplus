@@ -22,10 +22,12 @@ namespace rfl {
       static constexpr const char* XML_CONTENT = "xml_content";
 
       struct XMLOutputArray {
-        XMLOutputArray(const std::string_view& _name,
-                       const Ref<pugi::xml_node>& _node)
+        XMLOutputArray(
+            const std::string_view&    _name,
+            const Ref<pugi::xml_node>& _node
+        )
             : name_(_name), node_(_node) {}
-        std::string_view name_;
+        std::string_view    name_;
         Ref<pugi::xml_node> node_;
       };
 
@@ -69,48 +71,55 @@ namespace rfl {
       template <class T>
       OutputVarType value_as_root(const T& _var) const noexcept {
         const auto str = to_string(_var);
-        auto node_child =
+        auto       node_child =
             Ref<pugi::xml_node>::make(root_->append_child(root_name_.c_str()));
         node_child->append_child(pugi::node_pcdata).set_value(str.c_str());
         return OutputVarType(node_child);
       }
 
       OutputArrayType add_array_to_array(
-          const size_t _size,
-          OutputArrayType* _parent) const noexcept {
+          const size_t     _size,
+          OutputArrayType* _parent
+      ) const noexcept {
         return *_parent;
       }
 
       OutputArrayType add_array_to_object(
           const std::string_view& _name,
-          const size_t _size,
-          OutputObjectType* _parent) const noexcept {
+          const size_t            _size,
+          OutputObjectType*       _parent
+      ) const noexcept {
         return OutputArrayType(_name, _parent->node_);
       }
 
       OutputObjectType add_object_to_array(
-          const size_t _size,
-          OutputArrayType* _parent) const noexcept {
+          const size_t     _size,
+          OutputArrayType* _parent
+      ) const noexcept {
         auto node_child = Ref<pugi::xml_node>::make(
-            _parent->node_->append_child(_parent->name_.data()));
+            _parent->node_->append_child(_parent->name_.data())
+        );
         return OutputObjectType(node_child);
       }
 
       OutputObjectType add_object_to_object(
           const std::string_view& _name,
-          const size_t _size,
-          OutputObjectType* _parent) const noexcept {
-        auto node_child = Ref<pugi::xml_node>::make(
-            _parent->node_->append_child(_name.data()));
+          const size_t            _size,
+          OutputObjectType*       _parent
+      ) const noexcept {
+        auto node_child =
+            Ref<pugi::xml_node>::make(_parent->node_->append_child(_name.data())
+            );
         return OutputObjectType(node_child);
       }
 
       template <class T>
       OutputVarType add_value_to_array(const T& _var, OutputArrayType* _parent)
           const noexcept {
-        const auto str  = to_string(_var);
-        auto node_child = Ref<pugi::xml_node>::make(
-            _parent->node_->append_child(_parent->name_.data()));
+        const auto str        = to_string(_var);
+        auto       node_child = Ref<pugi::xml_node>::make(
+            _parent->node_->append_child(_parent->name_.data())
+        );
         node_child->append_child(pugi::node_pcdata).set_value(str.c_str());
         return OutputVarType(node_child);
       }
@@ -118,9 +127,10 @@ namespace rfl {
       template <class T>
       OutputVarType add_value_to_object(
           const std::string_view& _name,
-          const T& _var,
-          OutputObjectType* _parent,
-          const bool _is_attribute = false) const noexcept {
+          const T&                _var,
+          OutputObjectType*       _parent,
+          const bool              _is_attribute = false
+      ) const noexcept {
         const auto str = to_string(_var);
         if (_is_attribute) {
           _parent->node_->append_attribute(_name.data()) = str.c_str();
@@ -131,7 +141,8 @@ namespace rfl {
           return OutputVarType(_parent->node_);
         } else {
           auto node_child = Ref<pugi::xml_node>::make(
-              _parent->node_->append_child(_name.data()));
+              _parent->node_->append_child(_name.data())
+          );
           node_child->append_child(pugi::node_pcdata).set_value(str.c_str());
           return OutputVarType(node_child);
         }
@@ -139,21 +150,24 @@ namespace rfl {
 
       OutputVarType add_null_to_array(OutputArrayType* _parent) const noexcept {
         auto node_child = Ref<pugi::xml_node>::make(
-            _parent->node_->append_child(_parent->name_.data()));
+            _parent->node_->append_child(_parent->name_.data())
+        );
         return OutputVarType(node_child);
       }
 
       OutputVarType add_null_to_object(
           const std::string_view& _name,
-          OutputObjectType* _parent,
-          const bool _is_attribute = false) const noexcept {
+          OutputObjectType*       _parent,
+          const bool              _is_attribute = false
+      ) const noexcept {
         if (_is_attribute) {
           return OutputVarType(_parent->node_);
         } else if (_name == XML_CONTENT) {
           return OutputVarType(_parent->node_);
         } else {
           auto node_child = Ref<pugi::xml_node>::make(
-              _parent->node_->append_child(_name.data()));
+              _parent->node_->append_child(_name.data())
+          );
           return OutputVarType(node_child);
         }
       }

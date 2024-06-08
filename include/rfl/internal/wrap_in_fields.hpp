@@ -28,14 +28,17 @@ namespace rfl {
           constexpr auto n_skip = std::tuple_size_v<
               std::remove_cvref_t<flattened_ptr_tuple_t<typename Type::Type>>>;
           return wrap_in_fields<FieldNames, j + n_skip>(
-              std::move(_tuple), std::move(_fields)..., std::move(value));
+              std::move(_tuple), std::move(_fields)..., std::move(value)
+          );
         } else {
           const auto name_literal = FieldNames::template name_of<j>();
-          auto new_field          = rfl::make_field<
+          auto       new_field    = rfl::make_field<
                        lit_name_v<std::remove_cvref_t<decltype(name_literal)>>>(
-              std::move(value));
+              std::move(value)
+          );
           return wrap_in_fields<FieldNames, j + 1>(
-              std::move(_tuple), std::move(_fields)..., std::move(new_field));
+              std::move(_tuple), std::move(_fields)..., std::move(new_field)
+          );
         }
       }
     }

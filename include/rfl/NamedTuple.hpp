@@ -39,46 +39,56 @@ namespace rfl {
     NamedTuple(typename std::remove_cvref<FieldTypes>::type::Type&&... _values)
         : values_(
               std::forward<typename std::remove_cvref<FieldTypes>::type::Type>(
-                  _values)...) {
-      static_assert(no_duplicate_field_names(),
-                    "Duplicate field names are not allowed");
+                  _values
+              )...
+          ) {
+      static_assert(
+          no_duplicate_field_names(), "Duplicate field names are not allowed"
+      );
     }
 
     /// Construct from the values.
     NamedTuple(
-        const typename std::remove_cvref<FieldTypes>::type::Type&... _values)
+        const typename std::remove_cvref<FieldTypes>::type::Type&... _values
+    )
         : values_(std::make_tuple(_values...)) {
-      static_assert(no_duplicate_field_names(),
-                    "Duplicate field names are not allowed");
+      static_assert(
+          no_duplicate_field_names(), "Duplicate field names are not allowed"
+      );
     }
 
     /// Construct from the fields.
     NamedTuple(FieldTypes&&... _fields)
         : values_(std::make_tuple(std::move(_fields.value_)...)) {
-      static_assert(no_duplicate_field_names(),
-                    "Duplicate field names are not allowed");
+      static_assert(
+          no_duplicate_field_names(), "Duplicate field names are not allowed"
+      );
     }
 
     /// Construct from the fields.
     NamedTuple(const FieldTypes&... _fields)
         : values_(std::make_tuple(_fields.value_...)) {
-      static_assert(no_duplicate_field_names(),
-                    "Duplicate field names are not allowed");
+      static_assert(
+          no_duplicate_field_names(), "Duplicate field names are not allowed"
+      );
     }
 
     /// Construct from a tuple containing fields.
     NamedTuple(std::tuple<FieldTypes...>&& _tup)
         : NamedTuple(std::make_from_tuple<NamedTuple<FieldTypes...>>(
-              std::forward<std::tuple<FieldTypes...>>(_tup))) {
-      static_assert(no_duplicate_field_names(),
-                    "Duplicate field names are not allowed");
+              std::forward<std::tuple<FieldTypes...>>(_tup)
+          )) {
+      static_assert(
+          no_duplicate_field_names(), "Duplicate field names are not allowed"
+      );
     }
 
     /// Construct from a tuple containing fields.
     NamedTuple(const std::tuple<FieldTypes...>& _tup)
         : NamedTuple(std::make_from_tuple<NamedTuple<FieldTypes...>>(_tup)) {
-      static_assert(no_duplicate_field_names(),
-                    "Duplicate field names are not allowed");
+      static_assert(
+          no_duplicate_field_names(), "Duplicate field names are not allowed"
+      );
     }
 
     /// Copy constructor.
@@ -91,16 +101,18 @@ namespace rfl {
     template <class... OtherFieldTypes>
     NamedTuple(const NamedTuple<OtherFieldTypes...>& _other)
         : NamedTuple(retrieve_fields(_other.fields())) {
-      static_assert(no_duplicate_field_names(),
-                    "Duplicate field names are not allowed");
+      static_assert(
+          no_duplicate_field_names(), "Duplicate field names are not allowed"
+      );
     }
 
     /// Move constructor.
     template <class... OtherFieldTypes>
     NamedTuple(NamedTuple<OtherFieldTypes...>&& _other)
         : NamedTuple(retrieve_fields(_other.fields())) {
-      static_assert(no_duplicate_field_names(),
-                    "Duplicate field names are not allowed");
+      static_assert(
+          no_duplicate_field_names(), "Duplicate field names are not allowed"
+      );
     }
 
     ~NamedTuple() = default;
@@ -111,11 +123,13 @@ namespace rfl {
       using Head = Field<_name, FType>;
       if constexpr (sizeof...(Tail) > 0) {
         return NamedTuple<FieldTypes..., std::remove_cvref_t<Head>>(
-                   make_fields<1, Head>(std::forward<Head>(_head)))
+                   make_fields<1, Head>(std::forward<Head>(_head))
+        )
             .add(std::forward<Tail>(_tail)...);
       } else {
         return NamedTuple<FieldTypes..., std::remove_cvref_t<Head>>(
-            make_fields<1, Head>(std::forward<Head>(_head)));
+            make_fields<1, Head>(std::forward<Head>(_head))
+        );
       }
     }
 
@@ -125,11 +139,13 @@ namespace rfl {
       using Head = Field<_name, FType>;
       if constexpr (sizeof...(Tail) > 0) {
         return NamedTuple<FieldTypes..., std::remove_cvref_t<Head>>(
-                   make_fields<1, Head>(_head))
+                   make_fields<1, Head>(_head)
+        )
             .add(_tail...);
       } else {
         return NamedTuple<FieldTypes..., std::remove_cvref_t<Head>>(
-            make_fields<1, Head>(_head));
+            make_fields<1, Head>(_head)
+        );
       }
     }
 
@@ -160,15 +176,17 @@ namespace rfl {
     /// named tuples.
     template <class... TupContent, class... Tail>
     auto add(NamedTuple<TupContent...>&& _named_tuple, Tail&&... _tail) {
-      return add(std::forward<std::tuple<TupContent...>>(_named_tuple.fields()),
-                 std::forward<Tail>(_tail)...);
+      return add(
+          std::forward<std::tuple<TupContent...>>(_named_tuple.fields()),
+          std::forward<Tail>(_tail)...
+      );
     }
 
     /// Template specialization for NamedTuple, so we can pass fields from other
     /// named tuples.
     template <class... TupContent, class... Tail>
-    auto add(NamedTuple<TupContent...> _named_tuple,
-             const Tail&... _tail) const {
+    auto add(NamedTuple<TupContent...> _named_tuple, const Tail&... _tail)
+        const {
       return add(_named_tuple.fields(), _tail...);
     }
 
@@ -179,11 +197,9 @@ namespace rfl {
       const auto transform_field = [&_f](auto... _fields) {
         return std::tuple_cat(_f(std::move(_fields)).fields()...);
       };
-      const auto to_nt =
-          []<class... NewFields>(std::tuple<NewFields...>&& _tup) {
-            return NamedTuple<NewFields...>(_tup);
-          };
-      auto new_fields = std::apply(transform_field, std::move(fields()));
+      const auto to_nt = []<class... NewFields>(std::tuple<NewFields...>&& _tup
+                         ) { return NamedTuple<NewFields...>(_tup); };
+      auto       new_fields = std::apply(transform_field, std::move(fields()));
       return to_nt(std::move(new_fields));
     }
 
@@ -194,21 +210,19 @@ namespace rfl {
       const auto transform_field = [&_f](auto... _fields) {
         return std::tuple_cat(_f(std::move(_fields)).fields()...);
       };
-      const auto to_nt =
-          []<class... NewFields>(std::tuple<NewFields...>&& _tup) {
-            return NamedTuple<NewFields...>(_tup);
-          };
-      auto new_fields = std::apply(transform_field, std::move(fields()));
+      const auto to_nt = []<class... NewFields>(std::tuple<NewFields...>&& _tup
+                         ) { return NamedTuple<NewFields...>(_tup); };
+      auto       new_fields = std::apply(transform_field, std::move(fields()));
       return to_nt(std::move(new_fields));
     }
 
     /// Invokes a callable object once for each field in order.
     template <typename F>
     void apply(F&& _f) {
-      const auto apply_to_field =
-          [&_f]<typename... AFields>(AFields&&... fields) {
-            ((_f(std::forward<AFields>(fields))), ...);
-          };
+      const auto apply_to_field = [&_f]<typename... AFields>(AFields&&... fields
+                                  ) {
+        ((_f(std::forward<AFields>(fields))), ...);
+      };
       std::apply(apply_to_field, fields());
     }
 
@@ -270,12 +284,12 @@ namespace rfl {
     }
 
     /// Copy assignment operator.
-    NamedTuple<FieldTypes...>& operator=(
-        const NamedTuple<FieldTypes...>& _other) = default;
+    NamedTuple<FieldTypes...>& operator=(const NamedTuple<FieldTypes...>& _other
+    ) = default;
 
     /// Move assignment operator.
-    NamedTuple<FieldTypes...>& operator=(
-        NamedTuple<FieldTypes...>&& _other) noexcept = default;
+    NamedTuple<FieldTypes...>& operator=(NamedTuple<FieldTypes...>&& _other
+    ) noexcept = default;
 
     /// Equality operator
     inline auto operator==(const rfl::NamedTuple<FieldTypes...>& _other) const {
@@ -289,8 +303,8 @@ namespace rfl {
     /// Replaces one or several fields, returning a new version
     /// with the non-replaced fields left unchanged.
     template <internal::StringLiteral _name, class FType, class... OtherRFields>
-    auto replace(Field<_name, FType>&& _field,
-                 OtherRFields&&... _other_fields) {
+    auto
+    replace(Field<_name, FType>&& _field, OtherRFields&&... _other_fields) {
       using RField                    = Field<_name, FType>;
       constexpr auto num_other_fields = sizeof...(OtherRFields);
       if constexpr (num_other_fields == 0) {
@@ -304,8 +318,10 @@ namespace rfl {
     /// Replaces one or several fields, returning a new version
     /// with the non-replaced fields left unchanged.
     template <internal::StringLiteral _name, class FType, class... OtherRFields>
-    auto replace(Field<_name, FType> _field,
-                 const OtherRFields&... _other_fields) const {
+    auto replace(
+        Field<_name, FType> _field,
+        const OtherRFields&... _other_fields
+    ) const {
       using RField                    = Field<_name, FType>;
       constexpr auto num_other_fields = sizeof...(OtherRFields);
       if constexpr (num_other_fields == 0) {
@@ -345,14 +361,15 @@ namespace rfl {
     auto replace(NamedTuple<TupContent...>&& _named_tuple, Tail&&... _tail) {
       return replace(
           std::forward<NamedTuple<TupContent...>>(_named_tuple).fields(),
-          std::forward<Tail>(_tail)...);
+          std::forward<Tail>(_tail)...
+      );
     }
 
     /// Template specialization for NamedTuple, so we can pass fields from other
     /// named tuples.
     template <class... TupContent, class... Tail>
-    auto replace(NamedTuple<TupContent...> _named_tuple,
-                 const Tail&... _tail) const {
+    auto replace(NamedTuple<TupContent...> _named_tuple, const Tail&... _tail)
+        const {
       return replace(_named_tuple.fields(), _tail...);
     }
 
@@ -366,11 +383,9 @@ namespace rfl {
       const auto transform_field = [&_f](auto... fields) {
         return std::make_tuple(_f(std::move(fields))...);
       };
-      const auto to_nt =
-          []<class... NewFields>(std::tuple<NewFields...>&& _tup) {
-            return NamedTuple<NewFields...>(_tup);
-          };
-      auto new_fields = std::apply(transform_field, std::move(fields()));
+      const auto to_nt = []<class... NewFields>(std::tuple<NewFields...>&& _tup
+                         ) { return NamedTuple<NewFields...>(_tup); };
+      auto       new_fields = std::apply(transform_field, std::move(fields()));
       return to_nt(std::move(new_fields));
     }
 
@@ -381,11 +396,9 @@ namespace rfl {
       const auto transform_field = [&_f](auto... fields) {
         return std::make_tuple(_f(std::move(fields))...);
       };
-      const auto to_nt =
-          []<class... NewFields>(std::tuple<NewFields...>&& _tup) {
-            return NamedTuple<NewFields...>(_tup);
-          };
-      auto new_fields = std::apply(transform_field, std::move(fields()));
+      const auto to_nt = []<class... NewFields>(std::tuple<NewFields...>&& _tup
+                         ) { return NamedTuple<NewFields...>(_tup); };
+      auto       new_fields = std::apply(transform_field, std::move(fields()));
       return to_nt(std::move(new_fields));
     }
 
@@ -434,7 +447,8 @@ namespace rfl {
         using T         = std::remove_cvref_t<typename FieldType::Type>;
         return make_fields<num_additional_fields>(
             FieldType(std::forward<T>(std::get<i>(values_))),
-            std::forward<Args>(_args)...);
+            std::forward<Args>(_args)...
+        );
       }
     }
 
@@ -454,7 +468,8 @@ namespace rfl {
         // them to the end, that is why we do it like this.
         using FieldType = typename std::tuple_element<i, Fields>::type;
         return make_fields<num_additional_fields>(
-            FieldType(std::get<i>(values_)), std::move(_args)...);
+            FieldType(std::get<i>(values_)), std::move(_args)...
+        );
       }
     }
 
@@ -473,13 +488,15 @@ namespace rfl {
         if constexpr (size == _index) {
           return make_replaced<_index, V, T>(
               std::forward<V>(_values), std::forward<T>(_val),
-              std::forward<Args>(_args)..., FieldType(std::forward<T>(_val)));
+              std::forward<Args>(_args)..., FieldType(std::forward<T>(_val))
+          );
         } else {
           using U = typename FieldType::Type;
           return make_replaced<_index, V, T>(
               std::forward<V>(_values), std::forward<T>(_val),
               std::forward<Args>(_args)...,
-              FieldType(std::forward<U>(std::get<size>(_values))));
+              FieldType(std::forward<U>(std::get<size>(_values)))
+          );
         }
       }
     }
@@ -494,18 +511,20 @@ namespace rfl {
     NamedTuple<FieldTypes...> replace_value(T&& _val) {
       using FieldType      = std::remove_cvref_t<Field>;
       constexpr auto index = internal::find_index<FieldType::name_, Fields>();
-      return make_replaced<index, Values, T>(std::forward<Values>(values_),
-                                             std::forward<T>(_val));
+      return make_replaced<index, Values, T>(
+          std::forward<Values>(values_), std::forward<T>(_val)
+      );
     }
 
     /// Replaced the field signified by the field type.
     template <class Field, class T>
     NamedTuple<FieldTypes...> replace_value(T&& _val) const {
-      using FieldType      = std::remove_cvref_t<Field>;
-      constexpr auto index = internal::find_index<FieldType::name_, Fields>();
-      auto values          = values_;
-      return make_replaced<index, Values, T>(std::move(values),
-                                             std::forward<T>(_val));
+      using FieldType       = std::remove_cvref_t<Field>;
+      constexpr auto index  = internal::find_index<FieldType::name_, Fields>();
+      auto           values = values_;
+      return make_replaced<index, Values, T>(
+          std::move(values), std::forward<T>(_val)
+      );
     }
 
     /// Adds the elements of a tuple to a newly created named tuple,
@@ -532,7 +551,8 @@ namespace rfl {
     template <class... OtherFieldTypes, class... Args>
     constexpr static Fields retrieve_fields(
         std::tuple<OtherFieldTypes...>&& _other_fields,
-        Args&&... _args) {
+        Args&&... _args
+    ) {
       constexpr auto size = sizeof...(Args);
 
       constexpr bool retrieved_all_fields = size == std::tuple_size_v<Fields>;
@@ -553,7 +573,8 @@ namespace rfl {
         return retrieve_fields(
             std::forward<std::tuple<OtherFieldTypes...>>(_other_fields),
             std::forward<Args>(_args)...,
-            FieldType(std::forward<T>(std::get<index>(_other_fields).value_)));
+            FieldType(std::forward<T>(std::get<index>(_other_fields).value_))
+        );
       }
     }
 
@@ -603,8 +624,8 @@ namespace rfl {
     /// Template specialization for NamedTuple, so we can pass fields from other
     /// named tuples.
     template <class... TupContent, class... Tail>
-    auto add(NamedTuple<TupContent...> _named_tuple,
-             const Tail&... _tail) const {
+    auto add(NamedTuple<TupContent...> _named_tuple, const Tail&... _tail)
+        const {
       return add(_named_tuple.fields(), _tail...);
     }
 
@@ -636,59 +657,73 @@ namespace rfl {
 
   // ----------------------------------------------------------------------------
 
-  template <internal::StringLiteral _name1,
-            class Type1,
-            internal::StringLiteral _name2,
-            class Type2>
-  inline auto operator*(const rfl::Field<_name1, Type1>& _f1,
-                        const rfl::Field<_name2, Type2>& _f2) {
+  template <
+      internal::StringLiteral _name1,
+      class Type1,
+      internal::StringLiteral _name2,
+      class Type2>
+  inline auto operator*(
+      const rfl::Field<_name1, Type1>& _f1,
+      const rfl::Field<_name2, Type2>& _f2
+  ) {
     return NamedTuple(_f1, _f2);
   }
 
   template <internal::StringLiteral _name, class Type, class... FieldTypes>
-  inline auto operator*(const NamedTuple<FieldTypes...>& _tup,
-                        const rfl::Field<_name, Type>& _f) {
+  inline auto operator*(
+      const NamedTuple<FieldTypes...>& _tup,
+      const rfl::Field<_name, Type>&   _f
+  ) {
     return _tup.add(_f);
   }
 
   template <internal::StringLiteral _name, class Type, class... FieldTypes>
-  inline auto operator*(const rfl::Field<_name, Type>& _f,
-                        const NamedTuple<FieldTypes...>& _tup) {
+  inline auto operator*(
+      const rfl::Field<_name, Type>&   _f,
+      const NamedTuple<FieldTypes...>& _tup
+  ) {
     return NamedTuple(_f).add(_tup);
   }
 
   template <class... FieldTypes1, class... FieldTypes2>
-  inline auto operator*(const NamedTuple<FieldTypes1...>& _tup1,
-                        const NamedTuple<FieldTypes2...>& _tup2) {
+  inline auto operator*(
+      const NamedTuple<FieldTypes1...>& _tup1,
+      const NamedTuple<FieldTypes2...>& _tup2
+  ) {
     return _tup1.add(_tup2);
   }
 
-  template <internal::StringLiteral _name1,
-            class Type1,
-            internal::StringLiteral _name2,
-            class Type2>
-  inline auto operator*(rfl::Field<_name1, Type1>&& _f1,
-                        rfl::Field<_name2, Type2>&& _f2) {
-    return NamedTuple(std::forward<Field<_name1, Type1>>(_f1),
-                      std::forward<Field<_name2, Type2>>(_f2));
+  template <
+      internal::StringLiteral _name1,
+      class Type1,
+      internal::StringLiteral _name2,
+      class Type2>
+  inline auto
+  operator*(rfl::Field<_name1, Type1>&& _f1, rfl::Field<_name2, Type2>&& _f2) {
+    return NamedTuple(
+        std::forward<Field<_name1, Type1>>(_f1),
+        std::forward<Field<_name2, Type2>>(_f2)
+    );
   }
 
   template <internal::StringLiteral _name, class Type, class... FieldTypes>
-  inline auto operator*(NamedTuple<FieldTypes...>&& _tup,
-                        rfl::Field<_name, Type>&& _f) {
+  inline auto
+  operator*(NamedTuple<FieldTypes...>&& _tup, rfl::Field<_name, Type>&& _f) {
     return _tup.add(std::forward<Field<_name, Type>>(_f));
   }
 
   template <internal::StringLiteral _name, class Type, class... FieldTypes>
-  inline auto operator*(rfl::Field<_name, Type>&& _f,
-                        NamedTuple<FieldTypes...>&& _tup) {
+  inline auto
+  operator*(rfl::Field<_name, Type>&& _f, NamedTuple<FieldTypes...>&& _tup) {
     return NamedTuple(std::forward<Field<_name, Type>>(_f))
         .add(std::forward<NamedTuple<FieldTypes...>>(_tup));
   }
 
   template <class... FieldTypes1, class... FieldTypes2>
-  inline auto operator*(NamedTuple<FieldTypes1...>&& _tup1,
-                        NamedTuple<FieldTypes2...>&& _tup2) {
+  inline auto operator*(
+      NamedTuple<FieldTypes1...>&& _tup1,
+      NamedTuple<FieldTypes2...>&& _tup2
+  ) {
     return _tup1.add(std::forward<NamedTuple<FieldTypes2...>>(_tup2));
   }
 

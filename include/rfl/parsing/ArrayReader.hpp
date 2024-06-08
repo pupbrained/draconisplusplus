@@ -27,8 +27,10 @@ namespace rfl::parsing {
 
     std::optional<Error> check_size() const {
       if (i_ != size_) {
-        return Error("Expected " + std::to_string(size_) + " elements, got " +
-                     std::to_string(i_) + ".");
+        return Error(
+            "Expected " + std::to_string(size_) + " elements, got " +
+            std::to_string(i_) + "."
+        );
       }
       return std::nullopt;
     }
@@ -39,8 +41,10 @@ namespace rfl::parsing {
       if (res) {
         move_to(&((*array_)[i_]), &(*res));
       } else {
-        return Error("Failed to parse element " + std::to_string(i_) + ": " +
-                     res.error()->what());
+        return Error(
+            "Failed to parse element " + std::to_string(i_) + ": " +
+            res.error()->what()
+        );
       }
       ++i_;
       return std::nullopt;

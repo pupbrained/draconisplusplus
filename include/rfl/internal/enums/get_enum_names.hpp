@@ -63,7 +63,8 @@ namespace rfl {
         static_assert(
             false,
             "You are using an unsupported compiler. Please use GCC, Clang "
-            "or MSVC or use rfl::Literal.");
+            "or MSVC or use rfl::Literal."
+        );
 #endif
       }
 
@@ -105,11 +106,12 @@ namespace rfl {
         }
       }
 
-      template <class EnumType,
-                class NamesType,
-                auto _max,
-                bool _is_flag,
-                int _i>
+      template <
+          class EnumType,
+          class NamesType,
+          auto _max,
+          bool _is_flag,
+          int  _i>
       consteval auto get_enum_names_impl() {
         using T = std::underlying_type_t<EnumType>;
 
@@ -121,8 +123,8 @@ namespace rfl {
           if constexpr (j == _max) {
             return NamesType {};
           } else {
-            return get_enum_names_impl<EnumType, NamesType, _max, _is_flag,
-                                       _i + 1>();
+            return get_enum_names_impl<
+                EnumType, NamesType, _max, _is_flag, _i + 1>();
           }
         } else {
           using NewNames = typename NamesType::template AddOneType<
@@ -131,8 +133,8 @@ namespace rfl {
           if constexpr (j == _max) {
             return NewNames {};
           } else {
-            return get_enum_names_impl<EnumType, NewNames, _max, _is_flag,
-                                       _i + 1>();
+            return get_enum_names_impl<
+                EnumType, NewNames, _max, _is_flag, _i + 1>();
           }
         }
       }
@@ -142,10 +144,13 @@ namespace rfl {
         static_assert(
             is_scoped_enum<EnumType>,
             "You must use scoped enums (using class or struct) for the "
-            "parsing to work!");
+            "parsing to work!"
+        );
 
-        static_assert(std::is_integral_v<std::underlying_type_t<EnumType>>,
-                      "The underlying type of any Enum must be integral!");
+        static_assert(
+            std::is_integral_v<std::underlying_type_t<EnumType>>,
+            "The underlying type of any Enum must be integral!"
+        );
 
         constexpr auto max =
             get_max<std::underlying_type_t<EnumType>, _is_flag>();

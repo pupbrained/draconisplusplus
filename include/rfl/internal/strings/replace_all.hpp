@@ -8,9 +8,11 @@ namespace rfl {
   namespace internal {
     namespace strings {
 
-      inline std::string replace_all(const std::string& _str,
-                                     const std::string& _from,
-                                     const std::string& _to) {
+      inline std::string replace_all(
+          const std::string& _str,
+          const std::string& _from,
+          const std::string& _to
+      ) {
         auto str = _str;
 
         size_t pos = 0;

@@ -34,15 +34,19 @@ namespace rfl {
     };
 
     template <size_t N1, size_t N2>
-    constexpr inline bool operator==(const StringLiteral<N1>& _first,
-                                     const StringLiteral<N2>& _second) {
+    constexpr inline bool operator==(
+        const StringLiteral<N1>& _first,
+        const StringLiteral<N2>& _second
+    ) {
       if constexpr (N1 != N2) { return false; }
       return _first.string_view() == _second.string_view();
     }
 
     template <size_t N1, size_t N2>
-    constexpr inline bool operator!=(const StringLiteral<N1>& _first,
-                                     const StringLiteral<N2>& _second) {
+    constexpr inline bool operator!=(
+        const StringLiteral<N1>& _first,
+        const StringLiteral<N2>& _second
+    ) {
       return !(_first == _second);
     }
 

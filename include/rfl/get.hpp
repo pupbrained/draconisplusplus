@@ -34,7 +34,8 @@ namespace rfl {
   template <internal::StringLiteral _field_name, class NamedTupleType>
   inline const auto& get(const NamedTupleType& _tup) {
     return internal::Getter<NamedTupleType>::template get_const<_field_name>(
-        _tup);
+        _tup
+    );
   }
 
   /// Gets a field by the field type.

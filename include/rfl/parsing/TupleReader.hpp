@@ -11,12 +11,13 @@
 
 namespace rfl::parsing {
 
-  template <class R,
-            class W,
-            class TupleType,
-            bool _ignore_empty_containers,
-            bool _all_required,
-            class ProcessorsType>
+  template <
+      class R,
+      class W,
+      class TupleType,
+      bool _ignore_empty_containers,
+      bool _all_required,
+      class ProcessorsType>
   class TupleReader {
    private:
     using InputVarType            = typename R::InputVarType;
@@ -70,8 +71,9 @@ namespace rfl::parsing {
 
           if constexpr (_all_required ||
                         is_required<CurrentType, _ignore_empty_containers>()) {
-            *_err = Error("Field " + std::to_string(_i) +
-                          " was required, but missing.");
+            *_err = Error(
+                "Field " + std::to_string(_i) + " was required, but missing."
+            );
             return;
           } else {
             ::new (&(std::get<_i>(*tuple_))) CurrentType();
@@ -95,15 +97,19 @@ namespace rfl::parsing {
             move_to(&(std::get<_i>(*tuple_)), &(*res));
             ++i_;
           } else {
-            *_err = Error("Failed to parse field " + std::to_string(_i) + ": " +
-                          res.error()->what());
+            *_err = Error(
+                "Failed to parse field " + std::to_string(_i) + ": " +
+                res.error()->what()
+            );
           }
           return;
         }
         read_impl<_i + 1>(_var, _err);
       } else {
-        *_err = Error("Expected " + std::to_string(size_) +
-                      " fields, but got at least one more.");
+        *_err = Error(
+            "Expected " + std::to_string(size_) +
+            " fields, but got at least one more."
+        );
         return;
       }
     }

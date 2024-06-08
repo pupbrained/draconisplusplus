@@ -58,7 +58,8 @@ namespace rfl {
           } else if constexpr (std::is_enum_v<T>) {
             using StringConverter = internal::enums::StringConverter<T>;
             return _r.template to_basic_type<std::string>(_var).and_then(
-                StringConverter::string_to_enum);
+                StringConverter::string_to_enum
+            );
           } else {
             return _r.template to_basic_type<std::remove_cvref_t<T>>(_var);
           }
@@ -72,18 +73,21 @@ namespace rfl {
               std::remove_cvref_t<typename T::ReflectionType>;
           if constexpr (internal::has_reflection_method_v<T>) {
             Parser<R, W, ReflectionType, ProcessorsType>::write(
-                _w, _var.reflection(), _parent);
+                _w, _var.reflection(), _parent
+            );
           } else {
             const auto& [r] = _var;
             Parser<R, W, ReflectionType, ProcessorsType>::write(_w, r, _parent);
           }
         } else if constexpr (std::is_class_v<T> && std::is_aggregate_v<T>) {
           const auto ptr_named_tuple = ProcessorsType::template process<T>(
-              internal::to_ptr_named_tuple(_var));
+              internal::to_ptr_named_tuple(_var)
+          );
           using PtrNamedTupleType =
               std::remove_cvref_t<decltype(ptr_named_tuple)>;
           Parser<R, W, PtrNamedTupleType, ProcessorsType>::write(
-              _w, ptr_named_tuple, _parent);
+              _w, ptr_named_tuple, _parent
+          );
         } else if constexpr (std::is_enum_v<T>) {
           using StringConverter = internal::enums::StringConverter<T>;
           const auto str        = StringConverter::enum_to_string(_var);
@@ -95,7 +99,8 @@ namespace rfl {
 
       /// Generates a schema for the underlying type.
       static schema::Type to_schema(
-          std::map<std::string, schema::Type>* _definitions) {
+          std::map<std::string, schema::Type>* _definitions
+      ) {
         using U    = std::remove_cvref_t<T>;
         using Type = schema::Type;
         if constexpr (std::is_same<U, bool>()) {
@@ -141,8 +146,8 @@ namespace rfl {
           return make_validated<U>(_definitions);
 
         } else if constexpr (internal::has_reflection_type_v<U>) {
-          return Parser<R, W, typename U::ReflectionType,
-                        ProcessorsType>::to_schema(_definitions);
+          return Parser<R, W, typename U::ReflectionType, ProcessorsType>::
+              to_schema(_definitions);
 
         } else {
           static_assert(rfl::always_false_v<U>, "Unsupported type.");
@@ -152,31 +157,38 @@ namespace rfl {
      private:
       template <class U>
       static schema::Type make_description(
-          std::map<std::string, schema::Type>* _definitions) {
+          std::map<std::string, schema::Type>* _definitions
+      ) {
         using Type = schema::Type;
-        return Type {Type::Description {
-            .description_ = typename U::Content().str(),
-            .type_        = Ref<Type>::make(
-                Parser<R, W, std::remove_cvref_t<typename U::Type>,
-                              ProcessorsType>::to_schema(_definitions))}};
+        return Type {
+            Type::Description {
+                               .description_ = typename U::Content().str(),
+                               .type_ =
+                    Ref<Type>::make(Parser<
+                                    R, W, std::remove_cvref_t<typename U::Type>,
+                               ProcessorsType>::to_schema(_definitions))
+            }
+        };
       }
 
       template <class U>
       static schema::Type make_enum(
-          std::map<std::string, schema::Type>* _definitions) {
+          std::map<std::string, schema::Type>* _definitions
+      ) {
         using Type = schema::Type;
         using S    = internal::enums::StringConverter<U>;
         if constexpr (S::is_flag_enum_) {
           return Type {Type::String {}};
         } else {
-          return Parser<R, W, typename S::NamesLiteral,
-                        ProcessorsType>::to_schema(_definitions);
+          return Parser<R, W, typename S::NamesLiteral, ProcessorsType>::
+              to_schema(_definitions);
         }
       }
 
       template <class U>
       static schema::Type make_reference(
-          std::map<std::string, schema::Type>* _definitions) {
+          std::map<std::string, schema::Type>* _definitions
+      ) {
         using Type      = schema::Type;
         const auto name = make_type_name<U>();
         if (_definitions->find(name) == _definitions->end()) {
@@ -185,30 +197,37 @@ namespace rfl {
           using NamedTupleType = internal::processed_t<U, ProcessorsType>;
           (*_definitions)[name] =
               Parser<R, W, NamedTupleType, ProcessorsType>::to_schema(
-                  _definitions);
+                  _definitions
+              );
         }
         return Type {Type::Reference {name}};
       }
 
       template <class U>
       static schema::Type make_validated(
-          std::map<std::string, schema::Type>* _definitions) {
+          std::map<std::string, schema::Type>* _definitions
+      ) {
         using Type           = schema::Type;
         using ReflectionType = std::remove_cvref_t<typename U::ReflectionType>;
         using ValidationType = std::remove_cvref_t<typename U::ValidationType>;
-        return Type {Type::Validated {
-            .type_ = Ref<Type>::make(
-                Parser<R, W, ReflectionType, ProcessorsType>::to_schema(
-                    _definitions)),
-            .validation_ =
-                ValidationType::template to_schema<ReflectionType>()}};
+        return Type {
+            Type::Validated {
+                             .type_ = Ref<Type>::make(
+                    Parser<R, W, ReflectionType, ProcessorsType>::to_schema(
+                        _definitions
+                    )
+                ), .validation_ =
+                    ValidationType::template to_schema<ReflectionType>()
+            }
+        };
       }
 
       template <class U>
       static std::string make_type_name() {
         if constexpr (is_tagged_union_wrapper_v<U>) {
           return replace_non_alphanumeric(
-              type_name_t<typename U::Type>().str() + "__tagged");
+              type_name_t<typename U::Type>().str() + "__tagged"
+          );
         } else {
           return replace_non_alphanumeric(type_name_t<U>().str());
         }
@@ -220,7 +239,7 @@ namespace rfl {
       /// might not be default-constructible.
       static Result<T> read_struct(const R& _r, const InputVarType& _var) {
         alignas(T) unsigned char buf[sizeof(T)];
-        auto ptr       = reinterpret_cast<T*>(buf);
+        auto                     ptr = reinterpret_cast<T*>(buf);
         auto view      = ProcessorsType::template process<T>(to_view(*ptr));
         using ViewType = std::remove_cvref_t<decltype(view)>;
         const auto err =

@@ -1,5 +1,8 @@
 ---
+AlignAfterOpenBracket: BlockIndent
+AlignArrayOfStructures: Right
 AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
 AllowShortBlocksOnASingleLine: Always
 AllowShortCompoundRequirementOnASingleLine: true
 AllowShortEnumsOnASingleLine: true

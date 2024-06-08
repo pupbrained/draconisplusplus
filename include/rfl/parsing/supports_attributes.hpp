@@ -12,10 +12,12 @@ namespace rfl {
 
     /// Determines whether a writer supports attributes.
     template <class W>
-    concept supports_attributes = requires(W w,
-                                           std::string_view name,
-                                           typename W::OutputObjectType obj,
-                                           bool is_attribute) {
+    concept supports_attributes = requires(
+        W                            w,
+        std::string_view             name,
+        typename W::OutputObjectType obj,
+        bool                         is_attribute
+    ) {
       {
         w.add_value_to_object(name, name, &obj, is_attribute)
       } -> std::same_as<typename W::OutputVarType>;

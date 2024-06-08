@@ -50,11 +50,12 @@ namespace rfl {
           (requires(InputVarType var) { T::from_bson_obj(var); });
 
       rfl::Result<InputVarType> get_field(
-          const std::string& _name,
-          const InputObjectType& _obj) const noexcept {
-        bson_t b;
+          const std::string&     _name,
+          const InputObjectType& _obj
+      ) const noexcept {
+        bson_t      b;
         bson_iter_t iter;
-        const auto doc = _obj.val_->val_.value.v_doc;
+        const auto  doc = _obj.val_->val_.value.v_doc;
         if (bson_init_static(&b, doc.data, doc.data_len)) {
           if (bson_iter_init(&iter, &b)) {
             while (bson_iter_next(&iter)) {
@@ -84,7 +85,8 @@ namespace rfl {
 
             default:
               return rfl::Error(
-                  "Could not cast to string. The type must be UTF8 or symbol.");
+                  "Could not cast to string. The type must be UTF8 or symbol."
+              );
           }
         } else if constexpr (std::is_same<std::remove_cvref_t<T>, bool>()) {
           if (btype != BSON_TYPE_BOOL) {
@@ -109,10 +111,11 @@ namespace rfl {
             default:
               return rfl::Error(
                   "Could not cast to numeric value. The type must be double, "
-                  "int32, int64 or date_time.");
+                  "int32, int64 or date_time."
+              );
           }
-        } else if constexpr (std::is_same<std::remove_cvref_t<T>,
-                                          bson_oid_t>()) {
+        } else if constexpr (std::is_same<std::remove_cvref_t<T>, bson_oid_t>(
+                             )) {
           if (btype != BSON_TYPE_OID) {
             return rfl::Error("Could not cast to OID.");
           }
@@ -122,8 +125,8 @@ namespace rfl {
         }
       }
 
-      rfl::Result<InputArrayType> to_array(
-          const InputVarType& _var) const noexcept {
+      rfl::Result<InputArrayType> to_array(const InputVarType& _var
+      ) const noexcept {
         const auto btype = _var.val_->val_.value_type;
         if (btype != BSON_TYPE_ARRAY && btype != BSON_TYPE_DOCUMENT) {
           return Error("Could not cast to an array.");
@@ -133,11 +136,12 @@ namespace rfl {
 
       template <class ArrayReader>
       std::optional<Error> read_array(
-          const ArrayReader& _array_reader,
-          const InputArrayType& _arr) const noexcept {
-        bson_t b;
+          const ArrayReader&    _array_reader,
+          const InputArrayType& _arr
+      ) const noexcept {
+        bson_t      b;
         bson_iter_t iter;
-        const auto doc = _arr.val_->val_.value.v_doc;
+        const auto  doc = _arr.val_->val_.value.v_doc;
         if (bson_init_static(&b, doc.data, doc.data_len)) {
           if (bson_iter_init(&iter, &b)) {
             while (bson_iter_next(&iter)) {
@@ -151,11 +155,12 @@ namespace rfl {
 
       template <class ObjectReader>
       std::optional<Error> read_object(
-          const ObjectReader& _object_reader,
-          const InputObjectType& _obj) const noexcept {
-        bson_t b;
+          const ObjectReader&    _object_reader,
+          const InputObjectType& _obj
+      ) const noexcept {
+        bson_t      b;
         bson_iter_t iter;
-        const auto doc = _obj.val_->val_.value.v_doc;
+        const auto  doc = _obj.val_->val_.value.v_doc;
         if (bson_init_static(&b, doc.data, doc.data_len)) {
           if (bson_iter_init(&iter, &b)) {
             while (bson_iter_next(&iter)) {
@@ -167,8 +172,8 @@ namespace rfl {
         return std::nullopt;
       }
 
-      rfl::Result<InputObjectType> to_object(
-          const InputVarType& _var) const noexcept {
+      rfl::Result<InputObjectType> to_object(const InputVarType& _var
+      ) const noexcept {
         const auto btype = _var.val_->val_.value_type;
         if (btype != BSON_TYPE_DOCUMENT) {
           return Error("Could not cast to a document.");
@@ -177,8 +182,8 @@ namespace rfl {
       }
 
       template <class T>
-      rfl::Result<T> use_custom_constructor(
-          const InputVarType& _var) const noexcept {
+      rfl::Result<T> use_custom_constructor(const InputVarType& _var
+      ) const noexcept {
         try {
           return T::from_bson_obj(_var);
         } catch (std::exception& e) { return rfl::Error(e.what()); }

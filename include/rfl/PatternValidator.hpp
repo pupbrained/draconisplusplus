@@ -20,8 +20,10 @@ namespace rfl {
       if (ctre::match<_regex.arr_>(_str)) {
         return _str;
       } else {
-        return rfl::Error("String '" + _str + "' did not match format '" +
-                          _name.str() + "': '" + _regex.str() + "'.");
+        return rfl::Error(
+            "String '" + _str + "' did not match format '" + _name.str() +
+            "': '" + _regex.str() + "'."
+        );
       }
     }
 

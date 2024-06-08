@@ -15,19 +15,21 @@
 namespace rfl {
   namespace parsing {
 
-    template <class R,
-              class W,
-              internal::StringLiteral _discriminator,
-              class... AlternativeTypes,
-              class ProcessorsType>
+    template <
+        class R,
+        class W,
+        internal::StringLiteral _discriminator,
+        class... AlternativeTypes,
+        class ProcessorsType>
       requires AreReaderAndWriter<
           R,
           W,
           TaggedUnion<_discriminator, AlternativeTypes...>>
-    struct Parser<R,
-                  W,
-                  TaggedUnion<_discriminator, AlternativeTypes...>,
-                  ProcessorsType> {
+    struct Parser<
+        R,
+        W,
+        TaggedUnion<_discriminator, AlternativeTypes...>,
+        ProcessorsType> {
       using ResultType =
           Result<TaggedUnion<_discriminator, AlternativeTypes...>>;
 
@@ -52,9 +54,10 @@ namespace rfl {
 
       template <class P>
       static void write(
-          const W& _w,
+          const W&                                                _w,
           const TaggedUnion<_discriminator, AlternativeTypes...>& _tagged_union,
-          const P& _parent) noexcept {
+          const P&                                                _parent
+      ) noexcept {
         const auto handle = [&](const auto& _val) {
           write_wrapped(_w, _val, _parent);
         };
@@ -62,28 +65,31 @@ namespace rfl {
       }
 
       static schema::Type to_schema(
-          std::map<std::string, schema::Type>* _definitions) {
-        using VariantType = std::variant<
-            std::invoke_result_t<decltype(wrap_if_necessary<AlternativeTypes>),
-                                 AlternativeTypes>...>;
-        return Parser<R, W, VariantType, ProcessorsType>::to_schema(
-            _definitions);
+          std::map<std::string, schema::Type>* _definitions
+      ) {
+        using VariantType = std::variant<std::invoke_result_t<
+            decltype(wrap_if_necessary<AlternativeTypes>),
+            AlternativeTypes>...>;
+        return Parser<R, W, VariantType, ProcessorsType>::to_schema(_definitions
+        );
       }
 
      private:
       template <int _i = 0>
       static ResultType find_matching_alternative(
-          const R& _r,
-          const std::string& _disc_value,
-          const InputVarType& _var) noexcept {
+          const R&            _r,
+          const std::string&  _disc_value,
+          const InputVarType& _var
+      ) noexcept {
         if constexpr (_i == sizeof...(AlternativeTypes)) {
-          const auto names =
-              TaggedUnion<_discriminator,
-                          AlternativeTypes...>::PossibleTags::names();
-          return Error("Could not parse tagged union, could not match " +
-                       _discriminator.str() + " '" + _disc_value +
-                       "'. The following tags are allowed: " +
-                       internal::strings::join(",", names));
+          const auto names = TaggedUnion<
+              _discriminator, AlternativeTypes...>::PossibleTags::names();
+          return Error(
+              "Could not parse tagged union, could not match " +
+              _discriminator.str() + " '" + _disc_value +
+              "'. The following tags are allowed: " +
+              internal::strings::join(",", names)
+          );
         } else {
           using AlternativeType =
               std::remove_cvref_t<std::variant_alternative_t<
@@ -92,15 +98,16 @@ namespace rfl {
           if (contains_disc_value<AlternativeType>(_disc_value)) {
             const auto to_tagged_union = [](auto&& _val) {
               return TaggedUnion<_discriminator, AlternativeTypes...>(
-                  std::move(_val));
+                  std::move(_val)
+              );
             };
 
             const auto embellish_error = [&](Error&& _e) {
               return Error(
                   "Could not parse tagged union with "
                   "discrimininator " +
-                  _discriminator.str() + " '" + _disc_value +
-                  "': " + _e.what());
+                  _discriminator.str() + " '" + _disc_value + "': " + _e.what()
+              );
             };
 
             return Parser<R, W, AlternativeType, ProcessorsType>::read(_r, _var)
@@ -114,13 +121,13 @@ namespace rfl {
       }
 
       /// Retrieves the discriminator.
-      static Result<std::string> get_discriminator(
-          const R& _r,
-          const InputObjectType& _obj) noexcept {
+      static Result<std::string>
+      get_discriminator(const R& _r, const InputObjectType& _obj) noexcept {
         const auto embellish_error = [](const auto& _err) {
-          return Error("Could not parse tagged union: Could not find field '" +
-                       _discriminator.str() +
-                       "' or type of field was not a string.");
+          return Error(
+              "Could not parse tagged union: Could not find field '" +
+              _discriminator.str() + "' or type of field was not a string."
+          );
         };
 
         const auto to_type = [&_r](auto _var) {
@@ -135,20 +142,19 @@ namespace rfl {
       /// Determines whether the discriminating literal contains the value
       /// retrieved from the object.
       template <class T>
-      static inline bool contains_disc_value(
-          const std::string& _disc_value) noexcept {
+      static inline bool contains_disc_value(const std::string& _disc_value
+      ) noexcept {
         return internal::tag_t<_discriminator, T>::contains(_disc_value);
       }
 
       /// Writes a wrapped version of the original object, which contains the
       /// tag.
       template <class T, class P>
-      static void write_wrapped(const W& _w,
-                                const T& _val,
-                                const P& _parent) noexcept {
+      static void
+      write_wrapped(const W& _w, const T& _val, const P& _parent) noexcept {
         const auto wrapped = wrap_if_necessary(_val);
-        Parser<R, W, std::remove_cvref_t<decltype(wrapped)>,
-               ProcessorsType>::write(_w, wrapped, _parent);
+        Parser<R, W, std::remove_cvref_t<decltype(wrapped)>, ProcessorsType>::
+            write(_w, wrapped, _parent);
       }
 
       /// Generates a wrapped version of the original object, which contains the

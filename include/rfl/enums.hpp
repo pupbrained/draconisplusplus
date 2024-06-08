@@ -14,15 +14,15 @@ namespace rfl {
   // Converts an enum value to a string.
   template <internal::enums::is_scoped_enum EnumType>
   std::string enum_to_string(EnumType _enum) {
-    return rfl::internal::enums::StringConverter<EnumType>::enum_to_string(
-        _enum);
+    return rfl::internal::enums::StringConverter<EnumType>::enum_to_string(_enum
+    );
   }
 
   // Converts a string to a value of the given enum type.
   template <internal::enums::is_scoped_enum EnumType>
   rfl::Result<EnumType> string_to_enum(const std::string& _str) {
-    return rfl::internal::enums::StringConverter<EnumType>::string_to_enum(
-        _str);
+    return rfl::internal::enums::StringConverter<EnumType>::string_to_enum(_str
+    );
   }
 
   // Returns a named tuple mapping names of enumerators of the given enum type

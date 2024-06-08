@@ -42,7 +42,7 @@ namespace rfl {
       struct BSONOutputArray {
         BSONOutputArray(bson_array_builder_t* _val, ParentType _parent)
             : parent_(_parent), val_(_val) {}
-        ParentType parent_;
+        ParentType            parent_;
         bson_array_builder_t* val_;
       };
 
@@ -50,7 +50,7 @@ namespace rfl {
         BSONOutputObject(bson_t* _val, ParentType _parent)
             : parent_(_parent), val_(_val) {}
         ParentType parent_;
-        bson_t* val_;
+        bson_t*    val_;
       };
 
       struct BSONOutputVar {};
@@ -79,14 +79,17 @@ namespace rfl {
 
       template <class T>
       OutputVarType value_as_root(const T& _var) const noexcept {
-        static_assert(rfl::always_false_v<T>,
-                      "BSON only allows arrays or objects as its root.");
+        static_assert(
+            rfl::always_false_v<T>,
+            "BSON only allows arrays or objects as its root."
+        );
         return OutputVarType {};
       }
 
       OutputArrayType add_array_to_array(
-          const size_t _size,
-          OutputArrayType* _parent) const noexcept {
+          const size_t     _size,
+          OutputArrayType* _parent
+      ) const noexcept {
         bson_array_builder_t* val;
         bson_array_builder_append_array_builder_begin(_parent->val_, &val);
         return OutputArrayType(val, IsArray {_parent->val_});
@@ -94,52 +97,63 @@ namespace rfl {
 
       OutputArrayType add_array_to_object(
           const std::string_view& _name,
-          const size_t _size,
-          OutputObjectType* _parent) const noexcept {
+          const size_t            _size,
+          OutputObjectType*       _parent
+      ) const noexcept {
         bson_array_builder_t* val;
-        bson_append_array_builder_begin(_parent->val_, _name.data(),
-                                        static_cast<int>(_name.size()), &val);
+        bson_append_array_builder_begin(
+            _parent->val_, _name.data(), static_cast<int>(_name.size()), &val
+        );
         return OutputArrayType(val, IsObject {_parent->val_});
       }
 
       OutputObjectType add_object_to_array(
-          const size_t _size,
-          OutputArrayType* _parent) const noexcept {
+          const size_t     _size,
+          OutputArrayType* _parent
+      ) const noexcept {
         subdocs_->emplace_back(rfl::Box<BSONType>());
-        bson_array_builder_append_document_begin(_parent->val_,
-                                                 &(subdocs_->back()->val_));
-        return OutputObjectType(&subdocs_->back()->val_,
-                                IsArray {_parent->val_});
+        bson_array_builder_append_document_begin(
+            _parent->val_, &(subdocs_->back()->val_)
+        );
+        return OutputObjectType(
+            &subdocs_->back()->val_, IsArray {_parent->val_}
+        );
       }
 
       OutputObjectType add_object_to_object(
           const std::string_view& _name,
-          const size_t _size,
-          OutputObjectType* _parent) const noexcept {
+          const size_t            _size,
+          OutputObjectType*       _parent
+      ) const noexcept {
         subdocs_->emplace_back(rfl::Box<BSONType>());
-        bson_append_document_begin(_parent->val_, _name.data(),
-                                   static_cast<int>(_name.size()),
-                                   &(subdocs_->back()->val_));
-        return OutputObjectType(&subdocs_->back()->val_,
-                                IsObject {_parent->val_});
+        bson_append_document_begin(
+            _parent->val_, _name.data(), static_cast<int>(_name.size()),
+            &(subdocs_->back()->val_)
+        );
+        return OutputObjectType(
+            &subdocs_->back()->val_, IsObject {_parent->val_}
+        );
       }
 
       template <class T>
       OutputVarType add_value_to_array(const T& _var, OutputArrayType* _parent)
           const noexcept {
         if constexpr (std::is_same<std::remove_cvref_t<T>, std::string>()) {
-          bson_array_builder_append_utf8(_parent->val_, _var.c_str(),
-                                         static_cast<int>(_var.size()));
+          bson_array_builder_append_utf8(
+              _parent->val_, _var.c_str(), static_cast<int>(_var.size())
+          );
         } else if constexpr (std::is_same<std::remove_cvref_t<T>, bool>()) {
           bson_array_builder_append_bool(_parent->val_, _var);
         } else if constexpr (std::is_floating_point<std::remove_cvref_t<T>>()) {
-          bson_array_builder_append_double(_parent->val_,
-                                           static_cast<double>(_var));
+          bson_array_builder_append_double(
+              _parent->val_, static_cast<double>(_var)
+          );
         } else if constexpr (std::is_integral<std::remove_cvref_t<T>>()) {
-          bson_array_builder_append_int64(_parent->val_,
-                                          static_cast<std::int64_t>(_var));
-        } else if constexpr (std::is_same<std::remove_cvref_t<T>,
-                                          bson_oid_t>()) {
+          bson_array_builder_append_int64(
+              _parent->val_, static_cast<std::int64_t>(_var)
+          );
+        } else if constexpr (std::is_same<std::remove_cvref_t<T>, bson_oid_t>(
+                             )) {
           bson_array_builder_append_oid(_parent->val_, &_var);
         } else {
           static_assert(rfl::always_false_v<T>, "Unsupported type.");
@@ -150,27 +164,33 @@ namespace rfl {
       template <class T>
       OutputVarType add_value_to_object(
           const std::string_view& _name,
-          const T& _var,
-          OutputObjectType* _parent) const noexcept {
+          const T&                _var,
+          OutputObjectType*       _parent
+      ) const noexcept {
         if constexpr (std::is_same<std::remove_cvref_t<T>, std::string>()) {
-          bson_append_utf8(_parent->val_, _name.data(),
-                           static_cast<int>(_name.size()), _var.c_str(),
-                           static_cast<int>(_var.size()));
+          bson_append_utf8(
+              _parent->val_, _name.data(), static_cast<int>(_name.size()),
+              _var.c_str(), static_cast<int>(_var.size())
+          );
         } else if constexpr (std::is_same<std::remove_cvref_t<T>, bool>()) {
-          bson_append_bool(_parent->val_, _name.data(),
-                           static_cast<int>(_name.size()), _var);
+          bson_append_bool(
+              _parent->val_, _name.data(), static_cast<int>(_name.size()), _var
+          );
         } else if constexpr (std::is_floating_point<std::remove_cvref_t<T>>()) {
-          bson_append_double(_parent->val_, _name.data(),
-                             static_cast<int>(_name.size()),
-                             static_cast<double>(_var));
+          bson_append_double(
+              _parent->val_, _name.data(), static_cast<int>(_name.size()),
+              static_cast<double>(_var)
+          );
         } else if constexpr (std::is_integral<std::remove_cvref_t<T>>()) {
-          bson_append_int64(_parent->val_, _name.data(),
-                            static_cast<int>(_name.size()),
-                            static_cast<std::int64_t>(_var));
-        } else if constexpr (std::is_same<std::remove_cvref_t<T>,
-                                          bson_oid_t>()) {
-          bson_append_oid(_parent->val_, _name.data(),
-                          static_cast<int>(_name.size()), &_var);
+          bson_append_int64(
+              _parent->val_, _name.data(), static_cast<int>(_name.size()),
+              static_cast<std::int64_t>(_var)
+          );
+        } else if constexpr (std::is_same<std::remove_cvref_t<T>, bson_oid_t>(
+                             )) {
+          bson_append_oid(
+              _parent->val_, _name.data(), static_cast<int>(_name.size()), &_var
+          );
         } else {
           static_assert(rfl::always_false_v<T>, "Unsupported type.");
         }
@@ -184,9 +204,11 @@ namespace rfl {
 
       OutputVarType add_null_to_object(
           const std::string_view& _name,
-          OutputObjectType* _parent) const noexcept {
-        bson_append_null(_parent->val_, _name.data(),
-                         static_cast<int>(_name.size()));
+          OutputObjectType*       _parent
+      ) const noexcept {
+        bson_append_null(
+            _parent->val_, _name.data(), static_cast<int>(_name.size())
+        );
         return OutputVarType {};
       }
 
@@ -194,8 +216,9 @@ namespace rfl {
         const auto handle = [&](const auto _parent) {
           using Type = std::remove_cvref_t<decltype(_parent)>;
           if constexpr (std::is_same<Type, IsArray>()) {
-            bson_array_builder_append_array_builder_end(_parent.ptr_,
-                                                        _arr->val_);
+            bson_array_builder_append_array_builder_end(
+                _parent.ptr_, _arr->val_
+            );
           } else if constexpr (std::is_same<Type, IsObject>()) {
             bson_append_array_builder_end(_parent.ptr_, _arr->val_);
           } else if constexpr (std::is_same<Type, IsRoot>()) {

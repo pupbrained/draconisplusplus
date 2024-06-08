@@ -16,10 +16,11 @@ namespace rfl::internal {
   }
 
   /// Transforms the field name from snake case to camel case.
-  template <internal::StringLiteral _name,
-            bool _capitalize,
-            size_t _i = 0,
-            char... chars>
+  template <
+      internal::StringLiteral _name,
+      bool                    _capitalize,
+      size_t                  _i = 0,
+      char... chars>
   consteval auto transform_snake_case() {
     if constexpr (_i == _name.arr_.size()) {
       return StringLiteral<sizeof...(chars) + 1>(chars...);
@@ -28,11 +29,11 @@ namespace rfl::internal {
     } else if constexpr (_name.arr_[_i] == '\0') {
       return transform_snake_case<_name, false, _name.arr_.size(), chars...>();
     } else if constexpr (_capitalize) {
-      return transform_snake_case<_name, false, _i + 1, chars...,
-                                  to_upper<_name.arr_[_i]>()>();
+      return transform_snake_case<
+          _name, false, _i + 1, chars..., to_upper<_name.arr_[_i]>()>();
     } else {
-      return transform_snake_case<_name, false, _i + 1, chars...,
-                                  _name.arr_[_i]>();
+      return transform_snake_case<
+          _name, false, _i + 1, chars..., _name.arr_[_i]>();
     }
   }
 } // namespace rfl::internal

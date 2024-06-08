@@ -14,9 +14,10 @@ namespace rfl {
     static Result<T> validate(T _value) noexcept {
       constexpr auto threshold = static_cast<T>(_threshold);
       if (_value != threshold) {
-        return Error("Value expected to be equal to " +
-                     std::to_string(threshold) + ", but got " +
-                     std::to_string(_value) + ".");
+        return Error(
+            "Value expected to be equal to " + std::to_string(threshold) +
+            ", but got " + std::to_string(_value) + "."
+        );
       }
       return _value;
     }
@@ -38,9 +39,11 @@ namespace rfl {
     static Result<T> validate(T _value) noexcept {
       constexpr auto threshold = static_cast<T>(_threshold);
       if (_value < threshold) {
-        return Error("Value expected to be greater than or equal to " +
-                     std::to_string(threshold) + ", but got " +
-                     std::to_string(_value) + ".");
+        return Error(
+            "Value expected to be greater than or equal to " +
+            std::to_string(threshold) + ", but got " + std::to_string(_value) +
+            "."
+        );
       }
       return _value;
     }
@@ -62,9 +65,10 @@ namespace rfl {
     static Result<T> validate(T _value) noexcept {
       constexpr auto threshold = static_cast<T>(_threshold);
       if (_value <= threshold) {
-        return Error("Value expected to be greater than " +
-                     std::to_string(threshold) + ", but got " +
-                     std::to_string(_value) + ".");
+        return Error(
+            "Value expected to be greater than " + std::to_string(threshold) +
+            ", but got " + std::to_string(_value) + "."
+        );
       }
       return _value;
     }
@@ -76,8 +80,8 @@ namespace rfl {
           std::is_floating_point_v<T>
               ? std::variant<double, int>(static_cast<double>(_threshold))
               : std::variant<double, int>(static_cast<int>(_threshold));
-      return ValidationType {
-          ValidationType::ExclusiveMinimum {.value_ = value}};
+      return ValidationType {ValidationType::ExclusiveMinimum {.value_ = value}
+      };
     }
   };
 
@@ -87,9 +91,11 @@ namespace rfl {
     static Result<T> validate(T _value) noexcept {
       constexpr auto threshold = static_cast<T>(_threshold);
       if (_value > threshold) {
-        return Error("Value expected to be less than or equal to " +
-                     std::to_string(threshold) + ", but got " +
-                     std::to_string(_value) + ".");
+        return Error(
+            "Value expected to be less than or equal to " +
+            std::to_string(threshold) + ", but got " + std::to_string(_value) +
+            "."
+        );
       }
       return _value;
     }
@@ -111,9 +117,10 @@ namespace rfl {
     static Result<T> validate(T _value) noexcept {
       constexpr auto threshold = static_cast<T>(_threshold);
       if (_value >= threshold) {
-        return Error("Value expected to be less than " +
-                     std::to_string(threshold) + ", but got " +
-                     std::to_string(_value) + ".");
+        return Error(
+            "Value expected to be less than " + std::to_string(threshold) +
+            ", but got " + std::to_string(_value) + "."
+        );
       }
       return _value;
     }
@@ -125,8 +132,8 @@ namespace rfl {
           std::is_floating_point_v<T>
               ? std::variant<double, int>(static_cast<double>(_threshold))
               : std::variant<double, int>(static_cast<int>(_threshold));
-      return ValidationType {
-          ValidationType::ExclusiveMaximum {.value_ = value}};
+      return ValidationType {ValidationType::ExclusiveMaximum {.value_ = value}
+      };
     }
   };
 
@@ -136,9 +143,10 @@ namespace rfl {
     static Result<T> validate(T _value) noexcept {
       constexpr auto threshold = static_cast<T>(_threshold);
       if (_value == threshold) {
-        return Error("Value expected to not be equal to " +
-                     std::to_string(threshold) + ", but got " +
-                     std::to_string(_value) + ".");
+        return Error(
+            "Value expected to not be equal to " + std::to_string(threshold) +
+            ", but got " + std::to_string(_value) + "."
+        );
       }
       return _value;
     }

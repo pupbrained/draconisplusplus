@@ -33,13 +33,15 @@ namespace rfl {
           (requires(InputVarType var) { T::from_msgpack_obj(var); });
 
       rfl::Result<InputVarType> get_field(
-          const std::string& _name,
-          const InputObjectType& _obj) const noexcept {
+          const std::string&     _name,
+          const InputObjectType& _obj
+      ) const noexcept {
         for (uint32_t i = 0; i < _obj.size; ++i) {
           const auto& key = _obj.ptr[i].key;
           if (key.type != MSGPACK_OBJECT_STR) {
-            return Error("Key in element " + std::to_string(i) +
-                         " was not a string.");
+            return Error(
+                "Key in element " + std::to_string(i) + " was not a string."
+            );
           }
           const auto current_name =
               std::string_view(key.via.str.ptr, key.via.str.size);
@@ -79,22 +81,23 @@ namespace rfl {
           return rfl::Error(
               "Could not cast to numeric value. The type must be integral, "
               "float "
-              "or double.");
+              "or double."
+          );
         } else {
           static_assert(rfl::always_false_v<T>, "Unsupported type.");
         }
       }
 
-      rfl::Result<InputArrayType> to_array(
-          const InputVarType& _var) const noexcept {
+      rfl::Result<InputArrayType> to_array(const InputVarType& _var
+      ) const noexcept {
         if (_var.type != MSGPACK_OBJECT_ARRAY) {
           return Error("Could not cast to an array.");
         }
         return _var.via.array;
       }
 
-      rfl::Result<InputObjectType> to_object(
-          const InputVarType& _var) const noexcept {
+      rfl::Result<InputObjectType> to_object(const InputVarType& _var
+      ) const noexcept {
         if (_var.type != MSGPACK_OBJECT_MAP) {
           return Error("Could not cast to a map.");
         }
@@ -103,8 +106,9 @@ namespace rfl {
 
       template <class ArrayReader>
       std::optional<Error> read_array(
-          const ArrayReader& _array_reader,
-          const InputArrayType& _arr) const noexcept {
+          const ArrayReader&    _array_reader,
+          const InputArrayType& _arr
+      ) const noexcept {
         for (uint32_t i = 0; i < _arr.size; ++i) {
           const auto err = _array_reader.read(_arr.ptr[i]);
           if (err) { return err; }
@@ -114,14 +118,16 @@ namespace rfl {
 
       template <class ObjectReader>
       std::optional<Error> read_object(
-          const ObjectReader& _object_reader,
-          const InputObjectType& _obj) const noexcept {
+          const ObjectReader&    _object_reader,
+          const InputObjectType& _obj
+      ) const noexcept {
         for (uint32_t i = 0; i < _obj.size; ++i) {
           const auto& key = _obj.ptr[i].key;
           const auto& val = _obj.ptr[i].val;
           if (key.type != MSGPACK_OBJECT_STR) {
-            return Error("Key in element " + std::to_string(i) +
-                         " was not a string.");
+            return Error(
+                "Key in element " + std::to_string(i) + " was not a string."
+            );
           }
           const auto name = std::string_view(key.via.str.ptr, key.via.str.size);
           _object_reader.read(name, val);
@@ -130,8 +136,8 @@ namespace rfl {
       }
 
       template <class T>
-      rfl::Result<T> use_custom_constructor(
-          const InputVarType& _var) const noexcept {
+      rfl::Result<T> use_custom_constructor(const InputVarType& _var
+      ) const noexcept {
         try {
           return T::from_msgpack_obj(_var);
         } catch (std::exception& e) { return rfl::Error(e.what()); }

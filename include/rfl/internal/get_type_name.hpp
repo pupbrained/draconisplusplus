@@ -35,16 +35,19 @@ namespace rfl {
       static_assert(
           false,
           "You are using an unsupported compiler. Please use GCC, Clang "
-          "or MSVC or explicitly tag your structs using 'Tag' or 'Name'.");
+          "or MSVC or explicitly tag your structs using 'Tag' or 'Name'."
+      );
 #endif
     }
 
     template <class T>
     consteval auto get_type_name() {
-      static_assert(get_type_name_str_view<int>() == "int",
-                    "Expected 'int', got something else.");
-      constexpr auto name   = get_type_name_str_view<T>();
-      const auto to_str_lit = [&]<auto... Ns>(std::index_sequence<Ns...>) {
+      static_assert(
+          get_type_name_str_view<int>() == "int",
+          "Expected 'int', got something else."
+      );
+      constexpr auto name       = get_type_name_str_view<T>();
+      const auto     to_str_lit = [&]<auto... Ns>(std::index_sequence<Ns...>) {
         return StringLiteral<sizeof...(Ns) + 1> {name[Ns]...};
       };
       return to_str_lit(std::make_index_sequence<name.size()> {});

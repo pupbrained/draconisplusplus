@@ -96,9 +96,8 @@ namespace rfl {
   }
 
   template <class CharT, class Traits, class T>
-  inline std::basic_ostream<CharT, Traits>& operator<<(
-      std::basic_ostream<CharT, Traits>& _os,
-      const Box<T>& _b) {
+  inline std::basic_ostream<CharT, Traits>&
+  operator<<(std::basic_ostream<CharT, Traits>& _os, const Box<T>& _b) {
     _os << _b.get();
     return _os;
   }

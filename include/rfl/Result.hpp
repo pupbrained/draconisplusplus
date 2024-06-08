@@ -40,8 +40,10 @@ namespace rfl {
   /// The Result class is used for monadic error handling.
   template <class T>
   class Result {
-    static_assert(!std::is_same<T, Error>(),
-                  "The result type cannot be Error.");
+    static_assert(
+        !std::is_same<T, Error>(),
+        "The result type cannot be Error."
+    );
 
     using TOrErr =
         std::array<unsigned char, std::max(sizeof(T), sizeof(Error))>;
@@ -75,8 +77,9 @@ namespace rfl {
         class U,
         typename std::enable_if<std::is_convertible_v<U, T>, bool>::type = true>
     Result(Result<U>&& _other) : success_(_other && true) {
-      auto temp = std::forward<Result<U>>(_other).transform(
-          [](U&& _u) { return T(std::forward<U>(_u)); });
+      auto temp = std::forward<Result<U>>(_other).transform([](U&& _u) {
+        return T(std::forward<U>(_u));
+      });
       move_from_other(temp);
     }
 

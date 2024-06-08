@@ -29,8 +29,9 @@ namespace rfl::toml {
         (requires(InputVarType var) { T::from_toml_obj(var); });
 
     rfl::Result<InputVarType> get_field(
-        const std::string& _name,
-        const InputObjectType& _obj) const noexcept {
+        const std::string&     _name,
+        const InputObjectType& _obj
+    ) const noexcept {
       auto var = (*_obj)[_name];
       if (!var) {
         return rfl::Error("Object contains no field named '" + _name + "'.");
@@ -65,16 +66,18 @@ namespace rfl::toml {
       }
     }
 
-    rfl::Result<InputArrayType> to_array(
-        const InputVarType& _var) const noexcept {
+    rfl::Result<InputArrayType> to_array(const InputVarType& _var
+    ) const noexcept {
       const auto ptr = _var->as_array();
       if (!ptr) { return rfl::Error("Could not cast to an array!"); }
       return ptr;
     }
 
     template <class ArrayReader>
-    std::optional<Error> read_array(const ArrayReader& _array_reader,
-                                    const InputArrayType& _arr) const noexcept {
+    std::optional<Error> read_array(
+        const ArrayReader&    _array_reader,
+        const InputArrayType& _arr
+    ) const noexcept {
       for (auto& node : *_arr) {
         const auto err = _array_reader.read(&node);
         if (err) { return err; }
@@ -83,24 +86,26 @@ namespace rfl::toml {
     }
 
     template <class ObjectReader>
-    std::optional<Error> read_object(const ObjectReader& _object_reader,
-                                     InputObjectType _obj) const noexcept {
+    std::optional<Error> read_object(
+        const ObjectReader& _object_reader,
+        InputObjectType     _obj
+    ) const noexcept {
       for (auto& [k, v] : *_obj) {
         _object_reader.read(std::string_view(k), &v);
       }
       return std::nullopt;
     }
 
-    rfl::Result<InputObjectType> to_object(
-        const InputVarType& _var) const noexcept {
+    rfl::Result<InputObjectType> to_object(const InputVarType& _var
+    ) const noexcept {
       const auto ptr = _var->as_table();
       if (!ptr) { return rfl::Error("Could not cast to a table!"); }
       return ptr;
     }
 
     template <class T>
-    rfl::Result<T> use_custom_constructor(
-        const InputVarType _var) const noexcept {
+    rfl::Result<T> use_custom_constructor(const InputVarType _var
+    ) const noexcept {
       try {
         return T::from_toml_obj(_var);
       } catch (std::exception& e) { return rfl::Error(e.what()); }

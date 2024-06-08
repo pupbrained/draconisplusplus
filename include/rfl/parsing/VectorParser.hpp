@@ -40,8 +40,8 @@ namespace rfl {
 
       using T = typename VecType::value_type;
 
-      static Result<VecType> read(const R& _r,
-                                  const InputVarType& _var) noexcept {
+      static Result<VecType>
+      read(const R& _r, const InputVarType& _var) noexcept {
         if constexpr (treat_as_map()) {
           return MapParser<R, W, VecType, ProcessorsType>::read(_r, _var);
         } else if constexpr (is_forward_list<VecType>()) {
@@ -55,10 +55,10 @@ namespace rfl {
           return Parser<R, W, std::vector<T>, ProcessorsType>::read(_r, _var)
               .transform(to_forward_list);
         } else {
-          const auto parse =
-              [&](const InputArrayType& _arr) -> Result<VecType> {
+          const auto parse = [&](const InputArrayType& _arr
+                             ) -> Result<VecType> {
             VecType vec;
-            auto vector_reader =
+            auto    vector_reader =
                 VectorReader<R, W, VecType, ProcessorsType>(&_r, &vec);
             const auto err = _r.read_array(vector_reader, _arr);
             if (err) { return *err; }
@@ -69,18 +69,19 @@ namespace rfl {
       }
 
       template <class P>
-      static void write(const W& _w,
-                        const VecType& _vec,
-                        const P& _parent) noexcept {
+      static void
+      write(const W& _w, const VecType& _vec, const P& _parent) noexcept {
         if constexpr (treat_as_map()) {
           MapParser<R, W, VecType, ProcessorsType>::write(_w, _vec, _parent);
         } else {
           auto arr = ParentType::add_array(
-              _w, std::distance(_vec.begin(), _vec.end()), _parent);
+              _w, std::distance(_vec.begin(), _vec.end()), _parent
+          );
           const auto new_parent = typename ParentType::Array {&arr};
           for (const auto& v : _vec) {
             Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::write(
-                _w, v, new_parent);
+                _w, v, new_parent
+            );
           }
           _w.end_array(&arr);
         }
@@ -88,11 +89,14 @@ namespace rfl {
 
       /// Generates a schema for the underlying type.
       static schema::Type to_schema(
-          std::map<std::string, schema::Type>* _definitions) {
+          std::map<std::string, schema::Type>* _definitions
+      ) {
         using Type = schema::Type;
         return Type {Type::TypedArray {
             .type_ = Ref<Type>::make(
-                Parser<R, W, T, ProcessorsType>::to_schema(_definitions))}};
+                Parser<R, W, T, ProcessorsType>::to_schema(_definitions)
+            )
+        }};
       }
 
      private:

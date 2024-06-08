@@ -25,12 +25,13 @@ namespace rfl {
 
     /// Parses an object from CBOR using reflection.
     template <class T, class... Ps>
-    Result<internal::wrap_in_rfl_array_t<T>> read(const char* _bytes,
-                                                  const size_t _size) {
+    Result<internal::wrap_in_rfl_array_t<T>>
+    read(const char* _bytes, const size_t _size) {
       CborParser parser;
-      CborValue value;
-      cbor_parser_init(reinterpret_cast<const uint8_t*>(_bytes), _size, 0,
-                       &parser, &value);
+      CborValue  value;
+      cbor_parser_init(
+          reinterpret_cast<const uint8_t*>(_bytes), _size, 0, &parser, &value
+      );
       auto doc    = InputVarType {&value};
       auto result = read<T, Ps...>(doc);
       return result;
@@ -46,7 +47,7 @@ namespace rfl {
     template <class T, class... Ps>
     auto read(std::istream& _stream) {
       std::istreambuf_iterator<char> begin(_stream), end;
-      auto bytes = std::vector<char>(begin, end);
+      auto                           bytes = std::vector<char>(begin, end);
       return read<T, Ps...>(bytes.data(), bytes.size());
     }
 

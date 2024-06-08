@@ -27,21 +27,23 @@ namespace rfl {
 
       using StdArray = internal::to_std_array_t<T>;
 
-      static Result<internal::Array<T>> read(
-          const R& _r,
-          const InputVarType& _var) noexcept {
+      static Result<internal::Array<T>>
+      read(const R& _r, const InputVarType& _var) noexcept {
         return Parser<R, W, StdArray, ProcessorsType>::read(_r, _var);
       }
 
       template <class P>
-      static void write(const W& _w,
-                        const internal::Array<T>& _arr,
-                        const P& _parent) noexcept {
+      static void write(
+          const W&                  _w,
+          const internal::Array<T>& _arr,
+          const P&                  _parent
+      ) noexcept {
         Parser<R, W, StdArray, ProcessorsType>::write(_w, _arr.arr_, _parent);
       }
 
       static schema::Type to_schema(
-          std::map<std::string, schema::Type>* _definitions) {
+          std::map<std::string, schema::Type>* _definitions
+      ) {
         return Parser<R, W, StdArray, ProcessorsType>::to_schema(_definitions);
       }
     };

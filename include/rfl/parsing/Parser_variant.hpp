@@ -24,15 +24,15 @@ namespace rfl {
       using InputVarType  = typename R::InputVarType;
       using OutputVarType = typename W::OutputVarType;
 
-      static Result<std::variant<FieldTypes...>> read(
-          const R& _r,
-          const InputVarType& _var) noexcept {
+      static Result<std::variant<FieldTypes...>>
+      read(const R& _r, const InputVarType& _var) noexcept {
         if constexpr (internal::all_fields<std::tuple<FieldTypes...>>()) {
           return FieldVariantParser<R, W, ProcessorsType, FieldTypes...>::read(
-              _r, _var);
+              _r, _var
+          );
         } else {
           std::optional<std::variant<FieldTypes...>> result;
-          std::vector<Error> errors;
+          std::vector<Error>                         errors;
           read_variant(_r, _var, &result, &errors);
           if (result) {
             return std::move(*result);
@@ -42,18 +42,22 @@ namespace rfl {
                 "Could not parse the variant. Each of the "
                 "possible alternatives failed "
                 "for the following reasons: ",
-                100000));
+                100000
+            ));
           }
         }
       }
 
       template <class P>
-      static void write(const W& _w,
-                        const std::variant<FieldTypes...>& _variant,
-                        const P& _parent) noexcept {
+      static void write(
+          const W&                           _w,
+          const std::variant<FieldTypes...>& _variant,
+          const P&                           _parent
+      ) noexcept {
         if constexpr (internal::all_fields<std::tuple<FieldTypes...>>()) {
           FieldVariantParser<R, W, ProcessorsType, FieldTypes...>::write(
-              _w, _variant, _parent);
+              _w, _variant, _parent
+          );
         } else {
           const auto handle = [&](const auto& _v) {
             using Type = std::remove_cvref_t<decltype(_v)>;
@@ -66,10 +70,11 @@ namespace rfl {
       template <size_t _i = 0>
       static schema::Type to_schema(
           std::map<std::string, schema::Type>* _definitions,
-          std::vector<schema::Type> _types = {}) {
+          std::vector<schema::Type>            _types = {}
+      ) {
         if constexpr (internal::all_fields<std::tuple<FieldTypes...>>()) {
-          return FieldVariantParser<R, W, ProcessorsType,
-                                    FieldTypes...>::to_schema(_definitions);
+          return FieldVariantParser<
+              R, W, ProcessorsType, FieldTypes...>::to_schema(_definitions);
         } else {
           using Type            = schema::Type;
           constexpr size_t size = sizeof...(FieldTypes);
@@ -79,7 +84,8 @@ namespace rfl {
             using U = std::remove_cvref_t<
                 std::variant_alternative_t<_i, std::variant<FieldTypes...>>>;
             _types.push_back(
-                Parser<R, W, U, ProcessorsType>::to_schema(_definitions));
+                Parser<R, W, U, ProcessorsType>::to_schema(_definitions)
+            );
             return to_schema<_i + 1>(_definitions, std::move(_types));
           }
         }
@@ -88,10 +94,11 @@ namespace rfl {
      private:
       template <int _i = 0>
       static void read_variant(
-          const R& _r,
-          const InputVarType& _var,
+          const R&                                    _r,
+          const InputVarType&                         _var,
           std::optional<std::variant<FieldTypes...>>* _result,
-          std::vector<Error>* _errors) noexcept {
+          std::vector<Error>*                         _errors
+      ) noexcept {
         constexpr size_t size = sizeof...(FieldTypes);
         if constexpr (_i < size) {
           using AltType = std::remove_cvref_t<

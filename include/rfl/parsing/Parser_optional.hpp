@@ -23,32 +23,38 @@ namespace rfl {
 
       using ParentType = Parent<W>;
 
-      static Result<std::optional<T>> read(const R& _r,
-                                           const InputVarType& _var) noexcept {
+      static Result<std::optional<T>>
+      read(const R& _r, const InputVarType& _var) noexcept {
         if (_r.is_empty(_var)) { return std::optional<T>(); }
         const auto to_opt = [](auto&& _t) { return std::make_optional<T>(_t); };
-        return Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::read(_r,
-                                                                          _var)
+        return Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::read(
+                   _r, _var
+        )
             .transform(to_opt);
       }
 
       template <class P>
-      static void write(const W& _w,
-                        const std::optional<T>& _o,
-                        const P& _parent) noexcept {
+      static void write(
+          const W&                _w,
+          const std::optional<T>& _o,
+          const P&                _parent
+      ) noexcept {
         if (!_o) {
           ParentType::add_null(_w, _parent);
           return;
         }
-        Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::write(_w, *_o,
-                                                                    _parent);
+        Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::write(
+            _w, *_o, _parent
+        );
       }
 
       static schema::Type to_schema(
-          std::map<std::string, schema::Type>* _definitions) {
+          std::map<std::string, schema::Type>* _definitions
+      ) {
         using U = std::remove_cvref_t<T>;
         return schema::Type {schema::Type::Optional {Ref<schema::Type>::make(
-            Parser<R, W, U, ProcessorsType>::to_schema(_definitions))}};
+            Parser<R, W, U, ProcessorsType>::to_schema(_definitions)
+        )}};
       }
     };
 

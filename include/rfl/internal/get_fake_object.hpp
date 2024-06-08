@@ -23,7 +23,7 @@ namespace rfl {
 
     template <class T>
     struct wrapper {
-      const T value;
+      const T                 value;
       static const wrapper<T> report_if_you_see_a_link_error_with_this_object;
     };
 

@@ -22,7 +22,8 @@ namespace rfl {
     static parsing::schema::ValidationType to_schema() {
       using ValidationType = parsing::schema::ValidationType;
       const auto types     = std::vector<ValidationType>(
-          {C::template to_schema<T>(), Cs::template to_schema<T>()...});
+          {C::template to_schema<T>(), Cs::template to_schema<T>()...}
+      );
       return ValidationType {ValidationType::AnyOf {.types_ = types}};
     }
 
@@ -39,15 +40,16 @@ namespace rfl {
     }
 
     template <class T, class Head, class... Tail>
-    static rfl::Result<T> validate_impl(const T& _value,
-                                        std::vector<Error> _errors) {
+    static rfl::Result<T>
+    validate_impl(const T& _value, std::vector<Error> _errors) {
       const auto handle_err = [&](Error&& _err) {
         _errors.push_back(std::forward<Error>(_err));
         if constexpr (sizeof...(Tail) == 0) {
           return make_error_message(_errors);
         } else {
           return validate_impl<T, Tail...>(
-              _value, std::forward<std::vector<Error>>(_errors));
+              _value, std::forward<std::vector<Error>>(_errors)
+          );
         }
       };
       return Head::validate(_value).or_else(handle_err);

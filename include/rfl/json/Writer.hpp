@@ -73,8 +73,9 @@ namespace rfl {
       }
 
       OutputArrayType add_array_to_array(
-          const size_t _size,
-          OutputArrayType* _parent) const noexcept {
+          const size_t     _size,
+          OutputArrayType* _parent
+      ) const noexcept {
         const auto arr = yyjson_mut_arr(doc_);
         yyjson_mut_arr_add_val(_parent->val_, arr);
         return OutputArrayType(arr);
@@ -82,17 +83,20 @@ namespace rfl {
 
       OutputArrayType add_array_to_object(
           const std::string_view& _name,
-          const size_t _size,
-          OutputObjectType* _parent) const noexcept {
+          const size_t            _size,
+          OutputObjectType*       _parent
+      ) const noexcept {
         const auto arr = yyjson_mut_arr(doc_);
-        yyjson_mut_obj_add(_parent->val_, yyjson_mut_strcpy(doc_, _name.data()),
-                           arr);
+        yyjson_mut_obj_add(
+            _parent->val_, yyjson_mut_strcpy(doc_, _name.data()), arr
+        );
         return OutputArrayType(arr);
       }
 
       OutputObjectType add_object_to_array(
-          const size_t _size,
-          OutputArrayType* _parent) const noexcept {
+          const size_t     _size,
+          OutputArrayType* _parent
+      ) const noexcept {
         const auto obj = yyjson_mut_obj(doc_);
         yyjson_mut_arr_add_val(_parent->val_, obj);
         return OutputObjectType(obj);
@@ -100,11 +104,13 @@ namespace rfl {
 
       OutputObjectType add_object_to_object(
           const std::string_view& _name,
-          const size_t _size,
-          OutputObjectType* _parent) const noexcept {
+          const size_t            _size,
+          OutputObjectType*       _parent
+      ) const noexcept {
         const auto obj = yyjson_mut_obj(doc_);
-        yyjson_mut_obj_add(_parent->val_, yyjson_mut_strcpy(doc_, _name.data()),
-                           obj);
+        yyjson_mut_obj_add(
+            _parent->val_, yyjson_mut_strcpy(doc_, _name.data()), obj
+        );
         return OutputObjectType(obj);
       }
 
@@ -119,11 +125,13 @@ namespace rfl {
       template <class T>
       OutputVarType add_value_to_object(
           const std::string_view& _name,
-          const T& _var,
-          OutputObjectType* _parent) const noexcept {
+          const T&                _var,
+          OutputObjectType*       _parent
+      ) const noexcept {
         const auto val = from_basic_type(_var);
-        yyjson_mut_obj_add(_parent->val_, yyjson_mut_strcpy(doc_, _name.data()),
-                           val.val_);
+        yyjson_mut_obj_add(
+            _parent->val_, yyjson_mut_strcpy(doc_, _name.data()), val.val_
+        );
         return OutputVarType(val);
       }
 
@@ -135,10 +143,12 @@ namespace rfl {
 
       OutputVarType add_null_to_object(
           const std::string_view& _name,
-          OutputObjectType* _parent) const noexcept {
+          OutputObjectType*       _parent
+      ) const noexcept {
         const auto null = yyjson_mut_null(doc_);
-        yyjson_mut_obj_add(_parent->val_, yyjson_mut_strcpy(doc_, _name.data()),
-                           null);
+        yyjson_mut_obj_add(
+            _parent->val_, yyjson_mut_strcpy(doc_, _name.data()), null
+        );
         return OutputVarType(null);
       }
 
@@ -154,14 +164,15 @@ namespace rfl {
         } else if constexpr (std::is_same<std::remove_cvref_t<T>, bool>()) {
           return OutputVarType(yyjson_mut_bool(doc_, _var));
         } else if constexpr (std::is_floating_point<std::remove_cvref_t<T>>()) {
-          return OutputVarType(
-              yyjson_mut_real(doc_, static_cast<double>(_var)));
+          return OutputVarType(yyjson_mut_real(doc_, static_cast<double>(_var))
+          );
         } else if constexpr (std::is_unsigned<std::remove_cvref_t<T>>()) {
           return OutputVarType(
-              yyjson_mut_uint(doc_, static_cast<uint64_t>(_var)));
+              yyjson_mut_uint(doc_, static_cast<uint64_t>(_var))
+          );
         } else if constexpr (std::is_integral<std::remove_cvref_t<T>>()) {
-          return OutputVarType(
-              yyjson_mut_int(doc_, static_cast<int64_t>(_var)));
+          return OutputVarType(yyjson_mut_int(doc_, static_cast<int64_t>(_var))
+          );
         } else {
           static_assert(rfl::always_false_v<T>, "Unsupported type.");
         }

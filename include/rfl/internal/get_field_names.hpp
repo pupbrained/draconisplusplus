@@ -64,14 +64,15 @@ namespace rfl::internal {
     static_assert(
         false,
         "You are using an unsupported compiler. Please use GCC, Clang "
-        "or MSVC or switch to the rfl::Field-syntax.");
+        "or MSVC or switch to the rfl::Field-syntax."
+    );
 #endif
   }
 
   template <class T, auto ptr>
   consteval auto get_field_name_str_lit() {
-    constexpr auto name   = get_field_name_str_view<T, ptr>();
-    const auto to_str_lit = [&]<auto... Ns>(std::index_sequence<Ns...>) {
+    constexpr auto name       = get_field_name_str_view<T, ptr>();
+    const auto     to_str_lit = [&]<auto... Ns>(std::index_sequence<Ns...>) {
       return StringLiteral<sizeof...(Ns) + 1> {name[Ns]...};
     };
     return to_str_lit(std::make_index_sequence<name.size()> {});
@@ -99,8 +100,10 @@ namespace rfl::internal {
   }
 
   template <StringLiteral... _names1, StringLiteral... _names2>
-  auto concat_two_literals(const rfl::Literal<_names1...>& _lit1,
-                           const rfl::Literal<_names2...>& _lit2) {
+  auto concat_two_literals(
+      const rfl::Literal<_names1...>& _lit1,
+      const rfl::Literal<_names2...>& _lit2
+  ) {
     return rfl::Literal<_names1..., _names2...>::template from_value<0>();
   }
 
@@ -135,14 +138,16 @@ namespace rfl::internal {
 #if defined(__clang__)
       const auto get = []<std::size_t... Is>(std::index_sequence<Is...>) {
         return concat_literals(
-            get_field_name<Type, wrap(std::get<Is>(
-                                     bind_fake_object_to_tuple<T>()))>()...);
+            get_field_name<
+                Type, wrap(std::get<Is>(bind_fake_object_to_tuple<T>()))>()...
+        );
       };
 #else
       const auto get = []<std::size_t... Is>(std::index_sequence<Is...>) {
         return concat_literals(
-            get_field_name<Type,
-                           std::get<Is>(bind_fake_object_to_tuple<T>())>()...);
+            get_field_name<Type, std::get<Is>(bind_fake_object_to_tuple<T>())>(
+            )...
+        );
       };
 #endif
       return get(std::make_index_sequence<num_fields<T>>());

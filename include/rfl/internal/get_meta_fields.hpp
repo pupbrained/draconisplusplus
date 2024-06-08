@@ -23,7 +23,8 @@ namespace rfl {
         auto type = type_name_t<typename FieldType::Type>().str();
         return get_meta_fields<NamedTupleType>(
             std::move(_already_extracted)...,
-            MetaField(std::move(name), std::move(type)));
+            MetaField(std::move(name), std::move(type))
+        );
       }
     }
 

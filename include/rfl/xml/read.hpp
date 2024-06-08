@@ -27,10 +27,12 @@ namespace rfl {
     template <class T, class... Ps>
     Result<T> read(const std::string& _xml_str) {
       pugi::xml_document doc;
-      const auto result = doc.load_string(_xml_str.c_str());
+      const auto         result = doc.load_string(_xml_str.c_str());
       if (!result) {
-        return Error("XML string could not be parsed: " +
-                     std::string(result.description()));
+        return Error(
+            "XML string could not be parsed: " +
+            std::string(result.description())
+        );
       }
       const auto var = InputVarType(doc.first_child());
       return read<T, Ps...>(var);
@@ -39,8 +41,10 @@ namespace rfl {
     /// Parses an object from a stringstream.
     template <class T, class... Ps>
     auto read(std::istream& _stream) {
-      const auto xml_str = std::string(std::istreambuf_iterator<char>(_stream),
-                                       std::istreambuf_iterator<char>());
+      const auto xml_str = std::string(
+          std::istreambuf_iterator<char>(_stream),
+          std::istreambuf_iterator<char>()
+      );
       return read<T, Ps...>(xml_str);
     }
 

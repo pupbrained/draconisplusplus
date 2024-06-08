@@ -22,8 +22,8 @@ namespace rfl {
 
       using ParentType = Parent<W>;
 
-      static Result<std::wstring> read(const R& _r,
-                                       const InputVarType& _var) noexcept {
+      static Result<std::wstring>
+      read(const R& _r, const InputVarType& _var) noexcept {
         if (_r.is_empty(_var)) { return std::wstring(); }
 
         auto inStr = Parser<R, W, std::string, ProcessorsType>::read(_r, _var);
@@ -32,7 +32,7 @@ namespace rfl {
         }
 
         std::mbstate_t state = std::mbstate_t();
-        auto val             = inStr.value();
+        auto           val   = inStr.value();
 
         std::wstring outStr(val.size() * 2, L'\0');
 
@@ -49,29 +49,29 @@ namespace rfl {
       }
 
       template <class P>
-      static void write(const W& _w,
-                        const std::wstring& _str,
-                        const P& _parent) noexcept {
+      static void
+      write(const W& _w, const std::wstring& _str, const P& _parent) noexcept {
         if (_str.empty()) {
           ParentType::add_value(_w, std::string(), _parent);
           return;
         }
 
         std::mbstate_t state = std::mbstate_t();
-        std::string outStr(_str.size(), '\0');
+        std::string    outStr(_str.size(), '\0');
         outStr.resize(_str.size());
 
         auto* ptr = _str.c_str();
-        auto len  = std::wcsrtombs(outStr.data(), &ptr, _str.size(), &state);
+        auto  len = std::wcsrtombs(outStr.data(), &ptr, _str.size(), &state);
         outStr.resize(len);
 
         ParentType::add_value(_w, outStr, _parent);
       }
 
       static schema::Type to_schema(
-          std::map<std::string, schema::Type>* _definitions) {
-        return Parser<R, W, std::string, ProcessorsType>::to_schema(
-            _definitions);
+          std::map<std::string, schema::Type>* _definitions
+      ) {
+        return Parser<R, W, std::string, ProcessorsType>::to_schema(_definitions
+        );
       }
     };
 

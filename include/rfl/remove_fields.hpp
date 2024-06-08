@@ -13,9 +13,8 @@ namespace rfl {
   /// Recursively removes all of the fields signified by _names from the
   /// NamedTupleType.
   template <class NamedTupleType, internal::StringLiteral... _names>
-  using remove_fields_t =
-      typename internal::remove_fields<std::remove_cvref_t<NamedTupleType>,
-                                       _names...>::type;
+  using remove_fields_t = typename internal::
+      remove_fields<std::remove_cvref_t<NamedTupleType>, _names...>::type;
 
 } // namespace rfl
 

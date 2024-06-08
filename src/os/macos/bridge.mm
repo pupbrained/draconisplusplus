@@ -8,32 +8,29 @@ using MRMediaRemoteGetNowPlayingInfoFunction = void (*)(
     dispatch_queue_t queue, void (^handler)(NSDictionary *information));
 
 @implementation Bridge
-
 + (NSDictionary *)currentPlayingMetadata {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wold-style-cast"
+  CFURLRef ref = CFURLCreateWithFileSystemPath(
+      kCFAllocatorDefault,
+      CFSTR("/System/Library/PrivateFrameworks/MediaRemote.framework"),
+      kCFURLPOSIXPathStyle, false);
 
-  CFURLRef ref = (__bridge CFURLRef)
-      [NSURL fileURLWithPath:
-                 @"/System/Library/PrivateFrameworks/MediaRemote.framework"];
-
-#pragma clang diagnostic pop
+  if (!ref) {
+    NSLog(@"Failed to load MediaRemote framework");
+    return nil;
+  }
 
   CFBundleRef bundle = CFBundleCreate(kCFAllocatorDefault, ref);
+  CFRelease(ref);
 
   if (!bundle) {
     NSLog(@"Failed to load MediaRemote framework");
     return nil;
   }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wold-style-cast"
-
-  auto mrMediaRemoteGetNowPlayingInfo =
-      (MRMediaRemoteGetNowPlayingInfoFunction)CFBundleGetFunctionPointerForName(
-          bundle, CFSTR("MRMediaRemoteGetNowPlayingInfo"));
-
-#pragma clang diagnostic pop
+  MRMediaRemoteGetNowPlayingInfoFunction mrMediaRemoteGetNowPlayingInfo =
+      reinterpret_cast<MRMediaRemoteGetNowPlayingInfoFunction>(
+          CFBundleGetFunctionPointerForName(
+              bundle, CFSTR("MRMediaRemoteGetNowPlayingInfo")));
 
   if (!mrMediaRemoteGetNowPlayingInfo) {
     NSLog(@"Failed to get function pointer for MRMediaRemoteGetNowPlayingInfo");
@@ -59,14 +56,28 @@ using MRMediaRemoteGetNowPlayingInfoFunction = void (*)(
 
 + (NSString *)macOSVersion {
   NSProcessInfo *processInfo = [NSProcessInfo processInfo];
-  NSOperatingSystemVersion osVersion = [processInfo operatingSystemVersion];
-  NSString *version =
-      [NSString stringWithFormat:@"%ld.%ld.%ld", (long)osVersion.majorVersion,
-                                 (long)osVersion.minorVersion,
-                                 (long)osVersion.patchVersion];
-  return version;
-}
 
+  NSOperatingSystemVersion osVersion = [processInfo operatingSystemVersion];
+
+  NSString *version = [NSString
+      stringWithFormat:@"%ld.%ld.%ld", osVersion.majorVersion,
+                       osVersion.minorVersion, osVersion.patchVersion];
+
+  // Dictionary to map macOS versions to their respective names
+  NSDictionary<NSNumber *, NSString *> *versionNames =
+      @{@11 : @"Big Sur", @12 : @"Monterey", @13 : @"Ventura", @14 : @"Sonoma"};
+
+  NSNumber *majorVersionNumber = @(osVersion.majorVersion);
+  NSString *versionName = versionNames[majorVersionNumber];
+
+  if (versionName == nil)
+    versionName = @"Unknown";
+
+  NSString *fullVersion =
+      [NSString stringWithFormat:@"macOS %@ %@", version, versionName];
+
+  return fullVersion;
+}
 @end
 
 extern "C" {
@@ -102,12 +113,12 @@ const char *GetCurrentPlayingArtist() {
 
 const char *GetMacOSVersion() {
   NSString *version = [Bridge macOSVersion];
-  if (version) {
+
+  if (version)
     return strdup([version UTF8String]);
-  }
+
   return nullptr;
 }
 }
 
 #endif
-

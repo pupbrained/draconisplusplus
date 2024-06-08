@@ -70,12 +70,12 @@ namespace rfl {
     }
 
     /// Assigns the underlying object.
-    Validator<T, V, Vs...>& operator=(const Validator<T, V, Vs...>& _other) =
-        default;
+    Validator<T, V, Vs...>& operator=(const Validator<T, V, Vs...>& _other
+    ) = default;
 
     /// Assigns the underlying object.
-    Validator<T, V, Vs...>& operator=(
-        Validator<T, V, Vs...>&& _other) noexcept = default;
+    Validator<T, V, Vs...>& operator=(Validator<T, V, Vs...>&& _other
+    ) noexcept = default;
 
     /// Assigns the underlying object.
     template <
@@ -115,8 +115,10 @@ namespace rfl {
   };
 
   template <class T, class V, class... Vs>
-  inline auto operator<=>(const Validator<T, V, Vs...>& _v1,
-                          const Validator<T, V, Vs...>& _v2) {
+  inline auto operator<=>(
+      const Validator<T, V, Vs...>& _v1,
+      const Validator<T, V, Vs...>& _v2
+  ) {
     return _v1.value() <=> _v2.value();
   }
 

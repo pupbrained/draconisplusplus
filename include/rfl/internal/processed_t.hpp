@@ -15,8 +15,8 @@ namespace rfl::internal {
   struct Processed<StructType, Processors<Ps...>> {
     using NamedTupleType = named_tuple_t<StructType>;
     using type           = typename std::invoke_result<
-                  decltype(Processors<Ps...>::template process<StructType,
-                                                               NamedTupleType>),
+                  decltype(Processors<
+                           Ps...>::template process<StructType, NamedTupleType>),
                   NamedTupleType>::type;
   };
 

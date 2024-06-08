@@ -14,13 +14,16 @@ namespace rfl {
     if constexpr (internal::is_named_tuple_v<T>) {
       return std::forward<T>(_t).replace(
           to_named_tuple(std::forward<RField>(_field)),
-          to_named_tuple(std::forward<OtherRFields>(_other_fields))...);
+          to_named_tuple(std::forward<OtherRFields>(_other_fields))...
+      );
     } else {
       return from_named_tuple<T>(
           to_named_tuple(std::forward<T>(_t))
-              .replace(to_named_tuple(std::forward<RField>(_field)),
-                       to_named_tuple(
-                           std::forward<OtherRFields>(_other_fields))...));
+              .replace(
+                  to_named_tuple(std::forward<RField>(_field)),
+                  to_named_tuple(std::forward<OtherRFields>(_other_fields))...
+              )
+      );
     }
   }
 
@@ -31,11 +34,13 @@ namespace rfl {
     if constexpr (internal::is_named_tuple_v<T>) {
       return _t.replace(
           to_named_tuple(std::forward<RField>(_field)),
-          to_named_tuple(std::forward<OtherRFields>(_other_fields))...);
+          to_named_tuple(std::forward<OtherRFields>(_other_fields))...
+      );
     } else {
       return from_named_tuple<T>(to_named_tuple(_t).replace(
           to_named_tuple(std::forward<RField>(_field)),
-          to_named_tuple(std::forward<OtherRFields>(_other_fields))...));
+          to_named_tuple(std::forward<OtherRFields>(_other_fields))...
+      ));
     }
   }
 

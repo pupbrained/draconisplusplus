@@ -15,23 +15,28 @@ namespace rfl {
   namespace cbor {
 
     template <class... Ps>
-    void write_into_buffer(const auto& _obj,
-                           CborEncoder* _encoder,
-                           std::vector<char>* _buffer) noexcept {
+    void write_into_buffer(
+        const auto&        _obj,
+        CborEncoder*       _encoder,
+        std::vector<char>* _buffer
+    ) noexcept {
       using T          = std::remove_cvref_t<decltype(_obj)>;
       using ParentType = parsing::Parent<Writer>;
-      cbor_encoder_init(_encoder, reinterpret_cast<uint8_t*>(_buffer->data()),
-                        _buffer->size(), 0);
+      cbor_encoder_init(
+          _encoder, reinterpret_cast<uint8_t*>(_buffer->data()),
+          _buffer->size(), 0
+      );
       const auto writer = Writer(_encoder);
-      Parser<T, Processors<Ps...>>::write(writer, _obj,
-                                          typename ParentType::Root {});
+      Parser<T, Processors<Ps...>>::write(
+          writer, _obj, typename ParentType::Root {}
+      );
     }
 
     /// Returns CBOR bytes.
     template <class... Ps>
     std::vector<char> write(const auto& _obj) noexcept {
       std::vector<char> buffer(4096);
-      CborEncoder encoder;
+      CborEncoder       encoder;
       write_into_buffer<Ps...>(_obj, &encoder, &buffer);
       const auto total_bytes_needed =
           buffer.size() + cbor_encoder_get_extra_bytes_needed(&encoder);
@@ -40,7 +45,8 @@ namespace rfl {
         write_into_buffer<Ps...>(_obj, &encoder, &buffer);
       }
       const auto length = cbor_encoder_get_buffer_size(
-          &encoder, reinterpret_cast<uint8_t*>(buffer.data()));
+          &encoder, reinterpret_cast<uint8_t*>(buffer.data())
+      );
       buffer.resize(length);
       return buffer;
     }

@@ -4,6 +4,6 @@
 
 #include "util/numtypes.h"
 
-u64 GetMemInfo();
+u64         GetMemInfo();
 std::string GetNowPlaying();
 const char* GetOSVersion();

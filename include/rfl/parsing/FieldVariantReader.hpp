@@ -21,21 +21,24 @@ namespace rfl::parsing {
     using ResultType       = Result<FieldVariantType>;
 
    public:
-    FieldVariantReader(const R* _r,
-                       std::optional<Result<FieldVariantType>>* _field_variant)
+    FieldVariantReader(
+        const R*                                 _r,
+        std::optional<Result<FieldVariantType>>* _field_variant
+    )
         : r_(_r), field_variant_(_field_variant) {}
 
     ~FieldVariantReader() = default;
 
     template <size_t _i = 0>
-    void read(const std::string_view& _disc_value,
-              const InputVarType& _var) const noexcept {
+    void read(const std::string_view& _disc_value, const InputVarType& _var)
+        const noexcept {
       if constexpr (_i < sizeof...(FieldTypes)) {
         if constexpr (_i == 0) {
           if (*field_variant_) {
             *field_variant_ = Error(
                 "Could not parse: Expected the object to have "
-                "exactly one field, but found more than one.");
+                "exactly one field, but found more than one."
+            );
             return;
           }
         }
@@ -52,8 +55,10 @@ namespace rfl::parsing {
             return std::variant<FieldTypes...>(FieldType(std::move(_val)));
           };
           const auto embellish_error = [&](const Error& _e) {
-            return Error("Could not parse std::variant with field '" +
-                         std::string(_disc_value) + "': " + _e.what());
+            return Error(
+                "Could not parse std::variant with field '" +
+                std::string(_disc_value) + "': " + _e.what()
+            );
           };
           *field_variant_ =
               Parser<R, W, ValueType, ProcessorsType>::read(*r_, _var)
@@ -67,7 +72,8 @@ namespace rfl::parsing {
         *field_variant_ = Error(
             "Could not parse std::variant, could not match field named "
             "'" +
-            std::string(_disc_value) + "'.");
+            std::string(_disc_value) + "'."
+        );
       }
     }
 

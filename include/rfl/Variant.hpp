@@ -18,14 +18,16 @@ namespace rfl {
 
     Variant(Variant<AlternativeTypes...>&& _variant) noexcept = default;
 
-    template <class T,
-              typename std::enable_if<std::is_convertible_v<T, VariantType>,
-                                      bool>::type = true>
+    template <
+        class T,
+        typename std::enable_if<std::is_convertible_v<T, VariantType>, bool>::
+            type = true>
     Variant(const T& _t) : variant_(_t) {}
 
-    template <class T,
-              typename std::enable_if<std::is_convertible_v<T, VariantType>,
-                                      bool>::type = true>
+    template <
+        class T,
+        typename std::enable_if<std::is_convertible_v<T, VariantType>, bool>::
+            type = true>
     Variant(T&& _t) noexcept : variant_(std::forward<T>(_t)) {}
 
     ~Variant() = default;
@@ -43,18 +45,20 @@ namespace rfl {
     }
 
     /// Assigns the underlying object.
-    template <class T,
-              typename std::enable_if<std::is_convertible_v<T, VariantType>,
-                                      bool>::type = true>
+    template <
+        class T,
+        typename std::enable_if<std::is_convertible_v<T, VariantType>, bool>::
+            type = true>
     Variant<AlternativeTypes...>& operator=(T&& _variant) {
       variant_ = std::forward<T>(_variant);
       return *this;
     }
 
     /// Assigns the underlying object.
-    template <class T,
-              typename std::enable_if<std::is_convertible_v<T, VariantType>,
-                                      bool>::type = true>
+    template <
+        class T,
+        typename std::enable_if<std::is_convertible_v<T, VariantType>, bool>::
+            type = true>
     Variant<AlternativeTypes...>& operator=(const T& _variant) {
       variant_ = _variant;
       return *this;
@@ -62,11 +66,13 @@ namespace rfl {
 
     /// Assigns the underlying object.
     Variant<AlternativeTypes...>& operator=(
-        const Variant<AlternativeTypes...>& _other) = default;
+        const Variant<AlternativeTypes...>& _other
+    ) = default;
 
     /// Assigns the underlying object.
     Variant<AlternativeTypes...>& operator=(
-        Variant<AlternativeTypes...>&& _other) = default;
+        Variant<AlternativeTypes...>&& _other
+    ) = default;
 
     /// Returns the underlying variant.
     VariantType& variant() { return variant_; }

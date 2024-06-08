@@ -57,7 +57,8 @@ namespace rfl {
               "If some of your fields are annotated using rfl::Field<...>, "
               "then you must annotate all of your fields. "
               "Also, you cannot combine annotated and "
-              "unannotated fields using rfl::Flatten<...>.");
+              "unannotated fields using rfl::Flatten<...>."
+          );
           return true;
         } else {
           return false;

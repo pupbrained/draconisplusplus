@@ -52,28 +52,32 @@ namespace rfl {
       }
 
       OutputArrayType add_array_to_array(
-          const size_t _size,
-          OutputArrayType* _parent) const noexcept {
+          const size_t     _size,
+          OutputArrayType* _parent
+      ) const noexcept {
         return new_array();
       }
 
       OutputArrayType add_array_to_object(
           const std::string_view& _name,
-          const size_t _size,
-          OutputObjectType* _parent) const noexcept {
+          const size_t            _size,
+          OutputObjectType*       _parent
+      ) const noexcept {
         return new_array(_name);
       }
 
       OutputObjectType add_object_to_array(
-          const size_t _size,
-          OutputArrayType* _parent) const noexcept {
+          const size_t     _size,
+          OutputArrayType* _parent
+      ) const noexcept {
         return new_object();
       }
 
       OutputObjectType add_object_to_object(
           const std::string_view& _name,
-          const size_t _size,
-          OutputObjectType* _parent) const noexcept {
+          const size_t            _size,
+          OutputObjectType*       _parent
+      ) const noexcept {
         return new_object(_name);
       }
 
@@ -86,8 +90,9 @@ namespace rfl {
       template <class T>
       OutputVarType add_value_to_object(
           const std::string_view& _name,
-          const T& _var,
-          OutputObjectType* _parent) const noexcept {
+          const T&                _var,
+          OutputObjectType*       _parent
+      ) const noexcept {
         return insert_value(_name, _var);
       }
 
@@ -97,7 +102,8 @@ namespace rfl {
 
       OutputVarType add_null_to_object(
           const std::string_view& _name,
-          OutputObjectType* _parent) const noexcept {
+          OutputObjectType*       _parent
+      ) const noexcept {
         return insert_value(_name, YAML::Null);
       }
 
@@ -111,8 +117,8 @@ namespace rfl {
 
      private:
       template <class T>
-      OutputVarType insert_value(const std::string_view& _name,
-                                 const T& _var) const noexcept {
+      OutputVarType insert_value(const std::string_view& _name, const T& _var)
+          const noexcept {
         (*out_) << YAML::Key << _name.data() << YAML::Value << _var;
         return OutputVarType {};
       }
@@ -133,8 +139,8 @@ namespace rfl {
         return OutputArrayType {};
       }
 
-      OutputObjectType new_object(
-          const std::string_view& _name) const noexcept {
+      OutputObjectType new_object(const std::string_view& _name
+      ) const noexcept {
         (*out_) << YAML::Key << _name.data() << YAML::Value << YAML::BeginMap;
         return OutputObjectType {};
       }

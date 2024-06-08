@@ -35,9 +35,10 @@ namespace rfl {
 
     /// For variants - in this case the FieldType returned by all options must
     /// be the same.
-    template <StringLiteral _field_name,
-              class FirstAlternativeType,
-              class... OtherAlternativeTypes>
+    template <
+        StringLiteral _field_name,
+        class FirstAlternativeType,
+        class... OtherAlternativeTypes>
     struct FieldType<
         _field_name,
         std::variant<FirstAlternativeType, OtherAlternativeTypes...>> {
@@ -51,15 +52,17 @@ namespace rfl {
     };
 
     /// For tagged union - just defers to the variant.
-    template <StringLiteral _field_name,
-              StringLiteral _discriminator_name,
-              class... VarTypes>
-    struct FieldType<_field_name,
-                     TaggedUnion<_discriminator_name, VarTypes...>> {
+    template <
+        StringLiteral _field_name,
+        StringLiteral _discriminator_name,
+        class... VarTypes>
+    struct FieldType<
+        _field_name,
+        TaggedUnion<_discriminator_name, VarTypes...>> {
       using Type = typename FieldType<
           _field_name,
-          typename TaggedUnion<_discriminator_name,
-                               VarTypes...>::VariantType>::Type;
+          typename TaggedUnion<_discriminator_name, VarTypes...>::VariantType>::
+          Type;
     };
 
   } // namespace internal

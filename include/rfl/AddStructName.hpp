@@ -21,8 +21,9 @@ namespace rfl {
           internal::remove_namespaces<internal::get_type_name<StructType>()>()>;
       using FieldType          = Field<field_name_, LiteralType>;
       const auto add_new_field = [](auto&&... _fields) {
-        return make_named_tuple(FieldType(LiteralType()),
-                                std::move(_fields)...);
+        return make_named_tuple(
+            FieldType(LiteralType()), std::move(_fields)...
+        );
       };
       return std::apply(add_new_field, std::move(_view.fields()));
     }

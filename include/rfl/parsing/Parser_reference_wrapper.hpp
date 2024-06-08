@@ -19,30 +19,36 @@ namespace rfl {
       using InputVarType  = typename R::InputVarType;
       using OutputVarType = typename W::OutputVarType;
 
-      static Result<std::reference_wrapper<T>> read(
-          const R& _r,
-          const InputVarType& _var) noexcept {
-        static_assert(always_false_v<T>,
-                      "Reading into std::reference_wrapper is dangerous and "
-                      "therefore unsupported. "
-                      "Please consider using std::unique_ptr, rfl::Box, "
-                      "std::shared_ptr, or"
-                      "rfl::Ref instead.");
+      static Result<std::reference_wrapper<T>>
+      read(const R& _r, const InputVarType& _var) noexcept {
+        static_assert(
+            always_false_v<T>,
+            "Reading into std::reference_wrapper is dangerous and "
+            "therefore unsupported. "
+            "Please consider using std::unique_ptr, rfl::Box, "
+            "std::shared_ptr, or"
+            "rfl::Ref instead."
+        );
         return Error("Unsupported.");
       }
 
       template <class P>
-      static void write(const W& _w,
-                        const std::reference_wrapper<T> _ref,
-                        const P& _p) noexcept {
+      static void write(
+          const W&                        _w,
+          const std::reference_wrapper<T> _ref,
+          const P&                        _p
+      ) noexcept {
         Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::write(
-            _w, _ref.get(), _p);
+            _w, _ref.get(), _p
+        );
       }
 
       static schema::Type to_schema(
-          std::map<std::string, schema::Type>* _definitions) {
+          std::map<std::string, schema::Type>* _definitions
+      ) {
         return Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::to_schema(
-            _definitions);
+            _definitions
+        );
       }
     };
 

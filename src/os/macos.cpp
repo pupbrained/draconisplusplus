@@ -6,7 +6,7 @@
 #include "os.h"
 
 u64 GetMemInfo() {
-  u64 mem    = 0;
+  u64   mem  = 0;
   usize size = sizeof(mem);
 
   sysctlbyname("hw.memsize", &mem, &size, nullptr, 0);

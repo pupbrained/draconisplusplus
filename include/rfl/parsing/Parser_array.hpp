@@ -28,14 +28,13 @@ namespace rfl {
 
       using ParentType = Parent<W>;
 
-      static Result<std::array<T, _size>> read(
-          const R& _r,
-          const InputVarType& _var) noexcept {
-        const auto parse =
-            [&](const InputArrayType& _arr) -> Result<std::array<T, _size>> {
+      static Result<std::array<T, _size>>
+      read(const R& _r, const InputVarType& _var) noexcept {
+        const auto parse = [&](const InputArrayType& _arr
+                           ) -> Result<std::array<T, _size>> {
           alignas(std::array<T, _size>) unsigned char
-              buf[sizeof(std::array<T, _size>)];
-          auto ptr = reinterpret_cast<std::array<T, _size>*>(buf);
+                     buf[sizeof(std::array<T, _size>)];
+          auto       ptr = reinterpret_cast<std::array<T, _size>*>(buf);
           const auto array_reader =
               ArrayReader<R, W, ProcessorsType, T, _size>(&_r, ptr);
           auto err = _r.read_array(array_reader, _arr);
@@ -55,25 +54,33 @@ namespace rfl {
       }
 
       template <class P>
-      static void write(const W& _w,
-                        const std::array<T, _size>& _arr,
-                        const P& _parent) noexcept {
-        auto arr              = ParentType::add_array(_w, _size, _parent);
+      static void write(
+          const W&                    _w,
+          const std::array<T, _size>& _arr,
+          const P&                    _parent
+      ) noexcept {
+        auto       arr        = ParentType::add_array(_w, _size, _parent);
         const auto new_parent = typename ParentType::Array {&arr};
         for (const auto& e : _arr) {
           Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::write(
-              _w, e, new_parent);
+              _w, e, new_parent
+          );
         }
         _w.end_array(&arr);
       }
 
       static schema::Type to_schema(
-          std::map<std::string, schema::Type>* _definitions) {
+          std::map<std::string, schema::Type>* _definitions
+      ) {
         using U = std::remove_cvref_t<T>;
-        return schema::Type {schema::Type::FixedSizeTypedArray {
-            .size_ = _size,
-            .type_ = Ref<schema::Type>::make(
-                Parser<R, W, U, ProcessorsType>::to_schema(_definitions))}};
+        return schema::Type {
+            schema::Type::FixedSizeTypedArray {
+                                               .size_ = _size,
+                                               .type_ = Ref<schema::Type>::make(
+                    Parser<R, W, U, ProcessorsType>::to_schema(_definitions)
+                )
+            }
+        };
       }
     };
 

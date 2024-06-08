@@ -53,11 +53,7 @@ namespace rfl {
     struct any_empty_base {
       any_empty_base(std::size_t);
       template <class Base>
-        requires(std::is_empty_v<std::remove_cvref_t<Base>> &&
-                 std::is_base_of_v<std::remove_cvref_t<Base>,
-                                   std::remove_cv_t<Derived>> &&
-                 !std::is_same_v<std::remove_cvref_t<Base>,
-                                 std::remove_cv_t<Derived>>)
+        requires(std::is_empty_v<std::remove_cvref_t<Base>> && std::is_base_of_v<std::remove_cvref_t<Base>, std::remove_cv_t<Derived>> && !std::is_same_v<std::remove_cvref_t<Base>, std::remove_cv_t<Derived>>)
       constexpr operator Base&() const noexcept;
     };
 
@@ -65,10 +61,7 @@ namespace rfl {
     struct any_base {
       any_base(std::size_t);
       template <class Base>
-        requires(std::is_base_of_v<std::remove_cvref_t<Base>,
-                                   std::remove_cv_t<Derived>> &&
-                 !std::is_same_v<std::remove_cvref_t<Base>,
-                                 std::remove_cv_t<Derived>>)
+        requires(std::is_base_of_v<std::remove_cvref_t<Base>, std::remove_cv_t<Derived>> && !std::is_same_v<std::remove_cvref_t<Base>, std::remove_cv_t<Derived>>)
       constexpr operator Base&() const noexcept;
     };
 
@@ -89,12 +82,13 @@ namespace rfl {
 
       template <std::size_t l, std::size_t nested, std::size_t r>
       static consteval bool constructible_with_nested() {
-        return []<std::size_t... i, std::size_t... j, std::size_t... k>(
-                   std::index_sequence<i...>, std::index_sequence<j...>,
-                   std::index_sequence<k...>) {
-          return requires { T {any(i)..., {any(j)...}, any(k)...}; };
-        }(std::make_index_sequence<l>(), std::make_index_sequence<nested>(),
-               std::make_index_sequence<r>());
+        return
+            []<std::size_t... i, std::size_t... j,
+               std::
+                   size_t... k>(std::index_sequence<i...>, std::index_sequence<j...>, std::index_sequence<k...>) {
+              return requires { T {any(i)..., {any(j)...}, any(k)...}; };
+            }(std::make_index_sequence<l>(), std::make_index_sequence<nested>(),
+              std::make_index_sequence<r>());
       }
 
       template <std::size_t n = 0>
@@ -112,8 +106,8 @@ namespace rfl {
         if constexpr (size < 1) {
           return 1;
         } else if constexpr (constructible_with_nested<index, size, rest>() &&
-                             !constructible_with_nested<index, size,
-                                                        rest + 1>()) {
+                             !constructible_with_nested<index, size, rest + 1>(
+                             )) {
           return size;
         } else {
           return get_nested_array_size<index, size - 1, rest + 1>();
@@ -123,17 +117,20 @@ namespace rfl {
       template <std::size_t max_args, std::size_t index = 0>
       static consteval std::size_t find_the_sole_non_empty_base_index() {
         static_assert(index < max_args);
-        constexpr auto check = []<std::size_t... l, std::size_t... r>(
-                                   std::index_sequence<l...>,
-                                   std::index_sequence<r...>) {
-          return requires {
-            T {any_empty_base<T>(l)..., any_base<T>(0),
-               any_empty_base<T>(r)...};
-          };
-        };
+        constexpr auto check =
+            []<std::size_t... l,
+               std::
+                   size_t... r>(std::index_sequence<l...>, std::index_sequence<r...>) {
+              return requires {
+                T {any_empty_base<T>(l)..., any_base<T>(0),
+                   any_empty_base<T>(r)...};
+              };
+            };
 
-        if constexpr (check(std::make_index_sequence<index>(),
-                            std::make_index_sequence<max_args - index - 1>())) {
+        if constexpr (check(
+                          std::make_index_sequence<index>(),
+                          std::make_index_sequence<max_args - index - 1>()
+                      )) {
           return index;
         } else {
           return find_the_sole_non_empty_base_index<max_args, index + 1>();
@@ -154,10 +151,13 @@ namespace rfl {
       template <std::size_t n, std::size_t max_arg_num>
       static consteval bool has_n_base_param() {
         constexpr auto right_len = max_arg_num >= n ? max_arg_num - n : 0;
-        return []<std::size_t... l, std::size_t... r>(
-                   std::index_sequence<l...>, std::index_sequence<r...>) {
-          return requires { T {any_base<T>(l)..., any(r)...}; };
-        }(std::make_index_sequence<n>(), std::make_index_sequence<right_len>());
+        return
+            []<std::size_t... l,
+               std::
+                   size_t... r>(std::index_sequence<l...>, std::index_sequence<r...>) {
+              return requires { T {any_base<T>(l)..., any(r)...}; };
+            }(std::make_index_sequence<n>(),
+              std::make_index_sequence<right_len>());
       }
 
       template <std::size_t max_arg_num, std::size_t index = 0>

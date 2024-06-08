@@ -14,10 +14,11 @@ struct BytesToGiB {
 template <>
 struct fmt::formatter<BytesToGiB> : formatter<double> {
   template <typename FormatContext>
-  typename FormatContext::iterator format(const BytesToGiB BTG,
-                                          FormatContext& ctx) {
+  typename FormatContext::iterator
+  format(const BytesToGiB BTG, FormatContext& ctx) {
     typename FormatContext::iterator out = formatter<double>::format(
-        static_cast<double>(BTG.value) / pow(1024, 3), ctx);
+        static_cast<double>(BTG.value) / pow(1024, 3), ctx
+    );
     *out++ = 'G';
     *out++ = 'i';
     *out++ = 'B';
@@ -75,7 +76,7 @@ int main() {
 
   Weather::WeatherOutput json = config.getWeather().getWeatherInfo();
 
-  const long temp       = std::lround(json.main.temp);
+  const long   temp     = std::lround(json.main.temp);
   const string townName = json.name;
 
   fmt::println("It is {}°F in {}", temp, townName);

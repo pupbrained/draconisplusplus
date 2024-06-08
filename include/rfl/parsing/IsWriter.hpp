@@ -11,14 +11,16 @@ namespace rfl {
   namespace parsing {
 
     template <class W, class T>
-    concept IsWriter = requires(W w,
-                                T t,
-                                std::string_view name,
-                                std::string basic_value,
-                                typename W::OutputArrayType arr,
-                                typename W::OutputObjectType obj,
-                                typename W::OutputVarType var,
-                                size_t size) {
+    concept IsWriter = requires(
+        W                            w,
+        T                            t,
+        std::string_view             name,
+        std::string                  basic_value,
+        typename W::OutputArrayType  arr,
+        typename W::OutputObjectType obj,
+        typename W::OutputVarType    var,
+        size_t                       size
+    ) {
       /// Sets an empty array as the root element of the document.
       /// Some serialization formats require you to pass the expected size in
       /// advance. If you are not working with such a format, you can ignore the

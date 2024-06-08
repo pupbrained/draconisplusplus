@@ -29,10 +29,11 @@ namespace rfl {
       }
     }
 
-    template <class TargetTupleType,
-              class PtrTupleType,
-              int _j = 0,
-              class... Args>
+    template <
+        class TargetTupleType,
+        class PtrTupleType,
+        int _j = 0,
+        class... Args>
     auto unflatten_ptr_tuple(PtrTupleType& _t, Args... _args) {
       constexpr auto i = sizeof...(Args);
 
@@ -52,14 +53,16 @@ namespace rfl {
           constexpr int flattened_size =
               calc_flattened_size<SubTargetTupleType>();
 
-          return unflatten_ptr_tuple<TargetTupleType, PtrTupleType,
-                                     _j + flattened_size>(
+          return unflatten_ptr_tuple<
+              TargetTupleType, PtrTupleType, _j + flattened_size>(
               _t, _args...,
-              unflatten_ptr_tuple<SubTargetTupleType, PtrTupleType, _j>(_t));
+              unflatten_ptr_tuple<SubTargetTupleType, PtrTupleType, _j>(_t)
+          );
 
         } else {
           return unflatten_ptr_tuple<TargetTupleType, PtrTupleType, _j + 1>(
-              _t, _args..., std::get<_j>(_t));
+              _t, _args..., std::get<_j>(_t)
+          );
         }
       }
     }
@@ -74,8 +77,9 @@ namespace rfl {
             std::tuple_element_t<i, std::remove_cvref_t<Pointers>>;
 
         if constexpr (std::is_pointer_v<FieldType>) {
-          return move_from_pointers<T>(_ptrs, std::move(_args)...,
-                                       std::move(*std::get<i>(_ptrs)));
+          return move_from_pointers<T>(
+              _ptrs, std::move(_args)..., std::move(*std::get<i>(_ptrs))
+          );
 
         } else {
           using PtrTupleType = ptr_tuple_t<std::remove_cvref_t<T>>;
@@ -85,7 +89,8 @@ namespace rfl {
 
           return move_from_pointers<T>(
               _ptrs, std::move(_args)...,
-              move_from_pointers<U>(std::get<i>(_ptrs)));
+              move_from_pointers<U>(std::get<i>(_ptrs))
+          );
         }
       }
     }

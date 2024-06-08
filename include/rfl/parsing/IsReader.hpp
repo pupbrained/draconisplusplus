@@ -25,20 +25,21 @@ namespace rfl {
 
     template <class R>
     struct MockObjectReader {
-      void read(const std::string_view& _name,
-                typename R::InputVarType& _var) const {}
+      void read(const std::string_view& _name, typename R::InputVarType& _var)
+          const {}
     };
 
     template <class R, class T>
     concept IsReader = requires(
-        R r,
-        std::string name,
+        R                                             r,
+        std::string                                   name,
         std::function<std::int16_t(std::string_view)> fct,
-        MockArrayReader<R> array_reader,
-        MockObjectReader<R> object_reader,
-        typename R::InputArrayType arr,
-        typename R::InputObjectType obj,
-        typename R::InputVarType var) {
+        MockArrayReader<R>                            array_reader,
+        MockObjectReader<R>                           object_reader,
+        typename R::InputArrayType                    arr,
+        typename R::InputObjectType                   obj,
+        typename R::InputVarType                      var
+    ) {
       /// Any Reader needs to define the following:
       ///
       /// 1) An InputArrayType, which must be an array-like data structure.

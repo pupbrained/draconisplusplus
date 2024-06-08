@@ -47,8 +47,9 @@ namespace rfl {
           (requires(InputVarType var) { T::from_json_obj(var); });
 
       rfl::Result<InputVarType> get_field(
-          const std::string& _name,
-          const InputObjectType _obj) const noexcept {
+          const std::string&    _name,
+          const InputObjectType _obj
+      ) const noexcept {
         const auto var = InputVarType(yyjson_obj_get(_obj.val_, _name.c_str()));
         if (!var.val_) {
           return rfl::Error("Object contains no field named '" + _name + "'.");
@@ -62,9 +63,10 @@ namespace rfl {
 
       template <class ArrayReader>
       std::optional<Error> read_array(
-          const ArrayReader& _array_reader,
-          const InputArrayType& _arr) const noexcept {
-        yyjson_val* val;
+          const ArrayReader&    _array_reader,
+          const InputArrayType& _arr
+      ) const noexcept {
+        yyjson_val*     val;
         yyjson_arr_iter iter;
         yyjson_arr_iter_init(_arr.val_, &iter);
         while ((val = yyjson_arr_iter_next(&iter))) {
@@ -76,8 +78,9 @@ namespace rfl {
 
       template <class ObjectReader>
       std::optional<Error> read_object(
-          const ObjectReader& _object_reader,
-          const InputObjectType& _obj) const noexcept {
+          const ObjectReader&    _object_reader,
+          const InputObjectType& _obj
+      ) const noexcept {
         yyjson_obj_iter iter;
         yyjson_obj_iter_init(_obj.val_, &iter);
         yyjson_val* key;
@@ -119,16 +122,16 @@ namespace rfl {
         }
       }
 
-      rfl::Result<InputArrayType> to_array(
-          const InputVarType _var) const noexcept {
+      rfl::Result<InputArrayType> to_array(const InputVarType _var
+      ) const noexcept {
         if (!yyjson_is_arr(_var.val_)) {
           return rfl::Error("Could not cast to array!");
         }
         return InputArrayType(_var.val_);
       }
 
-      rfl::Result<InputObjectType> to_object(
-          const InputVarType _var) const noexcept {
+      rfl::Result<InputObjectType> to_object(const InputVarType _var
+      ) const noexcept {
         if (!yyjson_is_obj(_var.val_)) {
           return rfl::Error("Could not cast to object!");
         }
@@ -136,8 +139,8 @@ namespace rfl {
       }
 
       template <class T>
-      rfl::Result<T> use_custom_constructor(
-          const InputVarType _var) const noexcept {
+      rfl::Result<T> use_custom_constructor(const InputVarType _var
+      ) const noexcept {
         try {
           return T::from_json_obj(_var);
         } catch (std::exception& e) { return rfl::Error(e.what()); }

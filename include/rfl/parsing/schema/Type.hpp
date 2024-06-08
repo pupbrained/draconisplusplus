@@ -37,11 +37,11 @@ namespace rfl::parsing::schema {
 
     struct Description {
       std::string description_;
-      Ref<Type> type_;
+      Ref<Type>   type_;
     };
 
     struct FixedSizeTypedArray {
-      size_t size_;
+      size_t    size_;
       Ref<Type> type_;
     };
 
@@ -79,30 +79,31 @@ namespace rfl::parsing::schema {
     };
 
     struct Validated {
-      Ref<Type> type_;
+      Ref<Type>      type_;
       ValidationType validation_;
     };
 
-    using VariantType = std::variant<Boolean,
-                                     Int32,
-                                     Int64,
-                                     UInt32,
-                                     UInt64,
-                                     Integer,
-                                     Float,
-                                     Double,
-                                     String,
-                                     AnyOf,
-                                     Description,
-                                     FixedSizeTypedArray,
-                                     Literal,
-                                     Object,
-                                     Optional,
-                                     Reference,
-                                     StringMap,
-                                     Tuple,
-                                     TypedArray,
-                                     Validated>;
+    using VariantType = std::variant<
+        Boolean,
+        Int32,
+        Int64,
+        UInt32,
+        UInt64,
+        Integer,
+        Float,
+        Double,
+        String,
+        AnyOf,
+        Description,
+        FixedSizeTypedArray,
+        Literal,
+        Object,
+        Optional,
+        Reference,
+        StringMap,
+        Tuple,
+        TypedArray,
+        Validated>;
 
     /// A type can be determined to be any of the above.
     VariantType variant_;

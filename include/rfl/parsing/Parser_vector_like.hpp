@@ -65,18 +65,20 @@ namespace rfl {
     template <class R, class W, class T, class ProcessorsType>
       requires AreReaderAndWriter<R, W, std::unordered_multiset<T>>
     struct Parser<R, W, std::unordered_multiset<T>, ProcessorsType>
-        : public VectorParser<R,
-                              W,
-                              std::unordered_multiset<T>,
-                              ProcessorsType> {};
+        : public VectorParser<
+              R,
+              W,
+              std::unordered_multiset<T>,
+              ProcessorsType> {};
 
     template <class R, class W, class K, class V, class ProcessorsType>
       requires AreReaderAndWriter<R, W, std::unordered_multimap<K, V>>
     struct Parser<R, W, std::unordered_multimap<K, V>, ProcessorsType>
-        : public VectorParser<R,
-                              W,
-                              std::unordered_multimap<K, V>,
-                              ProcessorsType> {};
+        : public VectorParser<
+              R,
+              W,
+              std::unordered_multimap<K, V>,
+              ProcessorsType> {};
 
     template <class R, class W, class T, class ProcessorsType>
       requires AreReaderAndWriter<R, W, std::unordered_set<T>>

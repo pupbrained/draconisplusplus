@@ -28,11 +28,14 @@ namespace rfl {
     }
 
     /// Writes a XML into an ostream.
-    template <internal::StringLiteral _root = internal::StringLiteral(""),
-              class... Ps>
-    std::ostream& write(const auto& _obj,
-                        std::ostream& _stream,
-                        const std::string& _indent = "    ") {
+    template <
+        internal::StringLiteral _root = internal::StringLiteral(""),
+        class... Ps>
+    std::ostream& write(
+        const auto&        _obj,
+        std::ostream&      _stream,
+        const std::string& _indent = "    "
+    ) {
       using T          = std::remove_cvref_t<decltype(_obj)>;
       using ParentType = parsing::Parent<Writer>;
 
@@ -44,7 +47,8 @@ namespace rfl {
           "The name of an XML root node cannot contain '<' or '>'. "
           "Please assign an "
           "explicit root name to rfl::xml::write(...) like this: "
-          "rfl::xml::write<\"root_name\">(...).");
+          "rfl::xml::write<\"root_name\">(...)."
+      );
 
       const auto doc = rfl::Ref<pugi::xml_document>::make();
 
@@ -54,8 +58,9 @@ namespace rfl {
 
       auto w = Writer(doc, root_name.str());
 
-      Parser<T, Processors<Ps...>>::write(w, _obj,
-                                          typename ParentType::Root {});
+      Parser<T, Processors<Ps...>>::write(
+          w, _obj, typename ParentType::Root {}
+      );
 
       doc->save(_stream, _indent.c_str());
 
@@ -63,8 +68,9 @@ namespace rfl {
     }
 
     /// Returns a XML string.
-    template <internal::StringLiteral _root = internal::StringLiteral(""),
-              class... Ps>
+    template <
+        internal::StringLiteral _root = internal::StringLiteral(""),
+        class... Ps>
     std::string write(const auto& _obj, const std::string& _indent = "    ") {
       std::stringstream stream;
       write<_root, Ps...>(_obj, stream);

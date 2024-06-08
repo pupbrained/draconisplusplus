@@ -40,12 +40,14 @@ namespace rfl::internal {
       constexpr auto index =
           find_index<Field::name_, typename NamedTupleType::Fields>();
       static_assert(
-          std::is_same<typename std::tuple_element<
-                           index, typename NamedTupleType::Fields>::type::Type,
-                       typename Field::Type>(),
+          std::is_same<
+              typename std::tuple_element<
+                  index, typename NamedTupleType::Fields>::type::Type,
+              typename Field::Type>(),
           "If two fields have the same name, "
           "their type must be the same as "
-          "well.");
+          "well."
+      );
       return Getter<NamedTupleType>::template get<index>(_tup);
     }
 
@@ -69,12 +71,14 @@ namespace rfl::internal {
       constexpr auto index =
           find_index<Field::name_, typename NamedTupleType::Fields>();
       static_assert(
-          std::is_same<typename std::tuple_element<
-                           index, typename NamedTupleType::Fields>::type::Type,
-                       typename Field::Type>(),
+          std::is_same<
+              typename std::tuple_element<
+                  index, typename NamedTupleType::Fields>::type::Type,
+              typename Field::Type>(),
           "If two fields have the same name, "
           "their type must be the same as "
-          "well.");
+          "well."
+      );
       return Getter<NamedTupleType>::template get_const<index>(_tup);
     }
   };
@@ -118,7 +122,8 @@ namespace rfl::internal {
     /// Retrieves the indicated value from the tuple.
     template <int _index>
     static inline const auto& get_const(
-        const std::variant<NamedTupleTypes...>& _tup) {
+        const std::variant<NamedTupleTypes...>& _tup
+    ) {
       const auto apply = [](const auto& _tup) -> const auto& {
         using NamedTupleType = std::remove_cvref_t<decltype(_tup)>;
         return Getter<NamedTupleType>::template get_const<_index>(_tup);
@@ -129,7 +134,8 @@ namespace rfl::internal {
     /// Gets a field by name.
     template <StringLiteral _field_name>
     static inline const auto& get_const(
-        const std::variant<NamedTupleTypes...>& _tup) {
+        const std::variant<NamedTupleTypes...>& _tup
+    ) {
       const auto apply = [](const auto& _t) -> const auto& {
         using NamedTupleType = std::remove_cvref_t<decltype(_t)>;
         return Getter<NamedTupleType>::template get_const<_field_name>(_t);
@@ -140,7 +146,8 @@ namespace rfl::internal {
     /// Gets a field by the field type.
     template <class Field>
     static inline const auto& get_const(
-        const std::variant<NamedTupleTypes...>& _tup) {
+        const std::variant<NamedTupleTypes...>& _tup
+    ) {
       const auto apply = [](const auto& _t) -> const auto& {
         using NamedTupleType = std::remove_cvref_t<decltype(_t)>;
         return Getter<NamedTupleType>::template get_const<Field>(_t);

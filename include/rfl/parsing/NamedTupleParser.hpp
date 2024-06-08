@@ -30,12 +30,13 @@
 namespace rfl {
   namespace parsing {
 
-    template <class R,
-              class W,
-              bool _ignore_empty_containers,
-              bool _all_required,
-              class ProcessorsType,
-              class... FieldTypes>
+    template <
+        class R,
+        class W,
+        bool _ignore_empty_containers,
+        bool _all_required,
+        class ProcessorsType,
+        class... FieldTypes>
       requires AreReaderAndWriter<R, W, NamedTuple<FieldTypes...>>
     struct NamedTupleParser {
       using InputObjectType = typename R::InputObjectType;
@@ -55,11 +56,10 @@ namespace rfl {
       /// of the named tuple in which we then write the individual fields using
       /// views and placement new. This is how we deal with the fact that some
       /// fields might not be default-constructible.
-      static Result<NamedTuple<FieldTypes...>> read(
-          const R& _r,
-          const InputVarType& _var) noexcept {
+      static Result<NamedTuple<FieldTypes...>>
+      read(const R& _r, const InputVarType& _var) noexcept {
         alignas(NamedTuple<FieldTypes...>) unsigned char
-            buf[sizeof(NamedTuple<FieldTypes...>)];
+             buf[sizeof(NamedTuple<FieldTypes...>)];
         auto ptr       = reinterpret_cast<NamedTuple<FieldTypes...>*>(buf);
         auto view      = rfl::to_view(*ptr);
         using ViewType = std::remove_cvref_t<decltype(view)>;
@@ -71,9 +71,10 @@ namespace rfl {
 
       /// Reads the data into a view.
       static std::optional<Error> read_view(
-          const R& _r,
-          const InputVarType& _var,
-          NamedTuple<FieldTypes...>* _view) noexcept {
+          const R&                   _r,
+          const InputVarType&        _var,
+          NamedTuple<FieldTypes...>* _view
+      ) noexcept {
         auto obj = _r.to_object(_var);
         if (!obj) [[unlikely]] { return obj.error(); }
         return read_object(_r, *obj, _view);
@@ -82,9 +83,11 @@ namespace rfl {
       /// For writing, we do not need to make the distinction between
       /// default-constructible and non-default constructible fields.
       template <class P>
-      static void write(const W& _w,
-                        const NamedTuple<FieldTypes...>& _tup,
-                        const P& _parent) noexcept {
+      static void write(
+          const W&                         _w,
+          const NamedTuple<FieldTypes...>& _tup,
+          const P&                         _parent
+      ) noexcept {
         auto obj = ParentType::add_object(_w, _tup.size(), _parent);
         build_object_recursively(_w, _tup, &obj);
         _w.end_object(&obj);
@@ -95,16 +98,16 @@ namespace rfl {
       template <size_t _i = 0>
       static schema::Type to_schema(
           std::map<std::string, schema::Type>* _definitions,
-          std::map<std::string, schema::Type> _values = {}) {
+          std::map<std::string, schema::Type>  _values = {}
+      ) {
         using Type            = schema::Type;
         using T               = NamedTuple<FieldTypes...>;
         constexpr size_t size = T::size();
         if constexpr (_i == size) {
           return Type {Type::Object {_values}};
         } else {
-          using F =
-              std::tuple_element_t<_i,
-                                   typename NamedTuple<FieldTypes...>::Fields>;
+          using F = std::tuple_element_t<
+              _i, typename NamedTuple<FieldTypes...>::Fields>;
           using U = typename F::Type;
           if constexpr (!internal::is_skip_v<U>) {
             _values[std::string(F::name())] =
@@ -117,36 +120,41 @@ namespace rfl {
      private:
       template <int _i = 0>
       static void build_object_recursively(
-          const W& _w,
+          const W&                         _w,
           const NamedTuple<FieldTypes...>& _tup,
-          OutputObjectType* _ptr) noexcept {
+          OutputObjectType*                _ptr
+      ) noexcept {
         if constexpr (_i >= sizeof...(FieldTypes)) {
           return;
         } else {
           using FieldType =
               typename std::tuple_element<_i, std::tuple<FieldTypes...>>::type;
-          using ValueType       = std::remove_cvref_t<typename FieldType::Type>;
-          const auto& value     = rfl::get<_i>(_tup);
-          constexpr auto name   = FieldType::name_.string_view();
-          const auto new_parent = typename ParentType::Object {name, _ptr};
+          using ValueType      = std::remove_cvref_t<typename FieldType::Type>;
+          const auto&    value = rfl::get<_i>(_tup);
+          constexpr auto name  = FieldType::name_.string_view();
+          const auto     new_parent = typename ParentType::Object {name, _ptr};
           if constexpr (!_all_required &&
                         !is_required<ValueType, _ignore_empty_containers>()) {
             if (!is_empty(value)) {
               if constexpr (internal::is_attribute_v<ValueType>) {
                 Parser<R, W, ValueType, ProcessorsType>::write(
-                    _w, value, new_parent.as_attribute());
+                    _w, value, new_parent.as_attribute()
+                );
               } else {
-                Parser<R, W, ValueType, ProcessorsType>::write(_w, value,
-                                                               new_parent);
+                Parser<R, W, ValueType, ProcessorsType>::write(
+                    _w, value, new_parent
+                );
               }
             }
           } else {
             if constexpr (internal::is_attribute_v<ValueType>) {
               Parser<R, W, ValueType, ProcessorsType>::write(
-                  _w, value, new_parent.as_attribute());
+                  _w, value, new_parent.as_attribute()
+              );
             } else {
-              Parser<R, W, ValueType, ProcessorsType>::write(_w, value,
-                                                             new_parent);
+              Parser<R, W, ValueType, ProcessorsType>::write(
+                  _w, value, new_parent
+              );
             }
           }
           return build_object_recursively<_i + 1>(_w, _tup, _ptr);
@@ -157,9 +165,10 @@ namespace rfl {
       template <int _i>
       static void handle_one_missing_field(
           const std::array<bool, size_>& _found,
-          const NamedTupleType& _view,
-          std::array<bool, size_>* _set,
-          std::vector<Error>* _errors) noexcept {
+          const NamedTupleType&          _view,
+          std::array<bool, size_>*       _set,
+          std::vector<Error>*            _errors
+      ) noexcept {
         using FieldType =
             std::tuple_element_t<_i, typename NamedTupleType::Fields>;
         using ValueType = std::remove_reference_t<
@@ -169,10 +178,11 @@ namespace rfl {
           if constexpr (_all_required ||
                         is_required<ValueType, _ignore_empty_containers>()) {
             constexpr auto current_name =
-                std::tuple_element_t<_i,
-                                     typename NamedTupleType::Fields>::name();
+                std::tuple_element_t<_i, typename NamedTupleType::Fields>::name(
+                );
             _errors->emplace_back(Error(
-                "Field named '" + std::string(current_name) + "' not found."));
+                "Field named '" + std::string(current_name) + "' not found."
+            ));
           } else {
             if constexpr (!std::is_const_v<ValueType>) {
               ::new (rfl::get<_i>(_view)) ValueType();
@@ -187,30 +197,31 @@ namespace rfl {
 
       /// Generates error messages for when fields are missing.
       template <int... _is>
-      static void handle_missing_fields(
-          const std::array<bool, size_>& _found,
-          const NamedTupleType& _view,
-          std::array<bool, size_>* _set,
-          std::vector<Error>* _errors,
-          std::integer_sequence<int, _is...>) noexcept {
+      static void
+      handle_missing_fields(const std::array<bool, size_>& _found, const NamedTupleType& _view, std::array<bool, size_>* _set, std::vector<Error>* _errors, std::integer_sequence<int, _is...>) noexcept {
         (handle_one_missing_field<_is>(_found, _view, _set, _errors), ...);
       }
 
-      static std::optional<Error> read_object(const R& _r,
-                                              const InputObjectType& _obj,
-                                              NamedTupleType* _view) noexcept {
+      static std::optional<Error> read_object(
+          const R&               _r,
+          const InputObjectType& _obj,
+          NamedTupleType*        _view
+      ) noexcept {
         auto found = std::array<bool, NamedTupleType::size()>();
         found.fill(false);
         auto set = std::array<bool, NamedTupleType::size()>();
         set.fill(false);
         std::vector<Error> errors;
-        const auto object_reader =
-            ViewReader<R, W, NamedTupleType, ProcessorsType>(&_r, _view, &found,
-                                                             &set, &errors);
+        const auto         object_reader =
+            ViewReader<R, W, NamedTupleType, ProcessorsType>(
+                &_r, _view, &found, &set, &errors
+            );
         const auto err = _r.read_object(object_reader, _obj);
         if (err) { return *err; }
-        handle_missing_fields(found, *_view, &set, &errors,
-                              std::make_integer_sequence<int, size_>());
+        handle_missing_fields(
+            found, *_view, &set, &errors,
+            std::make_integer_sequence<int, size_>()
+        );
         if (errors.size() != 0) {
           object_reader.call_destructors_where_necessary();
           return to_single_error_message(errors);

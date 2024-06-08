@@ -19,28 +19,31 @@ namespace rfl {
       using InputVarType  = typename R::InputVarType;
       using OutputVarType = typename W::OutputVarType;
 
-      static Result<Ref<T>> read(const R& _r,
-                                 const InputVarType& _var) noexcept {
+      static Result<Ref<T>>
+      read(const R& _r, const InputVarType& _var) noexcept {
         const auto to_ref = [&](auto&& _t) {
           return Ref<T>::make(std::move(_t));
         };
-        return Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::read(_r,
-                                                                          _var)
+        return Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::read(
+                   _r, _var
+        )
             .transform(to_ref);
       }
 
       template <class P>
-      static void write(const W& _w,
-                        const Ref<T>& _ref,
-                        const P& _parent) noexcept {
-        Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::write(_w, *_ref,
-                                                                    _parent);
+      static void
+      write(const W& _w, const Ref<T>& _ref, const P& _parent) noexcept {
+        Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::write(
+            _w, *_ref, _parent
+        );
       }
 
       static schema::Type to_schema(
-          std::map<std::string, schema::Type>* _definitions) {
+          std::map<std::string, schema::Type>* _definitions
+      ) {
         return Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::to_schema(
-            _definitions);
+            _definitions
+        );
       }
     };
 

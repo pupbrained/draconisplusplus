@@ -27,15 +27,16 @@ namespace rfl::parsing {
 
     ~MapReader() = default;
 
-    void read(const std::string_view& _name,
-              const InputVarType& _var) const noexcept {
+    void read(const std::string_view& _name, const InputVarType& _var)
+        const noexcept {
       auto res = get_pair(_name, _var);
       if (res) {
         map_->emplace(std::move(*res));
       } else {
-        errors_->push_back(Error("Failed to parse field '" +
-                                 std::string(_name) +
-                                 "': " + res.error()->what()));
+        errors_->push_back(Error(
+            "Failed to parse field '" + std::string(_name) +
+            "': " + res.error()->what()
+        ));
       }
     }
 
@@ -56,11 +57,12 @@ namespace rfl::parsing {
     }
 
     Result<std::pair<KeyType, ValueType>> make_key(auto& _pair) const noexcept {
-      const auto to_pair =
-          [&](auto _key) -> Result<std::pair<KeyType, ValueType>> {
+      const auto to_pair = [&](auto _key
+                           ) -> Result<std::pair<KeyType, ValueType>> {
         try {
-          return std::make_pair(KeyType(std::move(_key)),
-                                std::move(_pair.second));
+          return std::make_pair(
+              KeyType(std::move(_key)), std::move(_pair.second)
+          );
         } catch (std::exception& e) { return Error(e.what()); }
       };
 
@@ -85,13 +87,15 @@ namespace rfl::parsing {
 
     Result<std::pair<KeyType, ValueType>> get_pair(
         const std::string_view& _name,
-        const InputVarType& _var) const noexcept {
+        const InputVarType&     _var
+    ) const noexcept {
       const auto to_pair = [&](ValueType&& _val) {
         auto pair = std::make_pair(std::string(_name), std::move(_val));
         return make_key(pair);
       };
       return Parser<R, W, std::remove_cvref_t<ValueType>, ProcessorsType>::read(
-                 *r_, _var)
+                 *r_, _var
+      )
           .and_then(to_pair);
     }
 

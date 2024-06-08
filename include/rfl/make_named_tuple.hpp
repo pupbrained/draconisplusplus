@@ -12,7 +12,8 @@ namespace rfl {
   template <class... FieldTypes>
   inline auto make_named_tuple(FieldTypes&&... _args) {
     return NamedTuple<std::remove_cvref_t<FieldTypes>...>(
-        std::forward<FieldTypes>(_args)...);
+        std::forward<FieldTypes>(_args)...
+    );
   }
 
   /// Convenience constructor that doesn't require you

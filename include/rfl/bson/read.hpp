@@ -50,7 +50,7 @@ namespace rfl {
     template <class T, class... Ps>
     auto read(std::istream& _stream) {
       std::istreambuf_iterator<char> begin(_stream), end;
-      auto bytes = std::vector<char>(begin, end);
+      auto                           bytes = std::vector<char>(begin, end);
       return read<T, Ps...>(bytes.data(), bytes.size());
     }
 

@@ -43,7 +43,8 @@ namespace rfl {
           static_assert(
               names_.size != 0,
               "No enum could be identified. Please choose enum values "
-              "between 0 to 127 or for flag enums choose 1,2,4,8,16,...");
+              "between 0 to 127 or for flag enums choose 1,2,4,8,16,..."
+          );
           if constexpr (is_flag_enum_) {
             return string_to_flag_enum(_str);
           } else {
@@ -55,15 +56,16 @@ namespace rfl {
         /// Iterates through the enum bit by bit and matches it against the
         /// flags.
         static std::string flag_enum_to_string(const EnumType _e) {
-          using T  = std::underlying_type_t<EnumType>;
-          auto val = static_cast<T>(_e);
-          int i    = 0;
+          using T                      = std::underlying_type_t<EnumType>;
+          auto                     val = static_cast<T>(_e);
+          int                      i   = 0;
           std::vector<std::string> flags;
           while (val != 0) {
             const auto bit = val & static_cast<T>(1);
             if (bit == 1) {
               auto str = enum_to_single_string(
-                  static_cast<EnumType>(static_cast<T>(1) << i));
+                  static_cast<EnumType>(static_cast<T>(1) << i)
+              );
               flags.emplace_back(std::move(str));
             }
             ++i;
@@ -80,14 +82,16 @@ namespace rfl {
           for (size_t i = 0; i < names_.size; ++i) {
             if (names_.enums_[i] == _enum) {
               return NamesLiteral::from_value(
-                         static_cast<typename NamesLiteral::ValueType>(i))
+                         static_cast<typename NamesLiteral::ValueType>(i)
+              )
                   .transform(to_str)
                   .value();
             }
           }
 
           return std::to_string(
-              static_cast<std::underlying_type_t<EnumType>>(_enum));
+              static_cast<std::underlying_type_t<EnumType>>(_enum)
+          );
         }
 
         /// Finds the enum matching the literal.
@@ -111,11 +115,11 @@ namespace rfl {
 
         /// Only relevant if this is a flag enum - combines the different
         /// matches using |.
-        static Result<EnumType> string_to_flag_enum(
-            const std::string& _str) noexcept {
+        static Result<EnumType> string_to_flag_enum(const std::string& _str
+        ) noexcept {
           using T          = std::underlying_type_t<EnumType>;
           const auto split = strings::split(_str, "|");
-          auto res         = static_cast<T>(0);
+          auto       res   = static_cast<T>(0);
           for (const auto& s : split) {
             const auto r = single_string_to_enum(s);
             if (r) {

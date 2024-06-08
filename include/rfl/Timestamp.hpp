@@ -28,9 +28,10 @@ namespace rfl {
     Timestamp(const char* _str) : tm_(std::tm {}) {
       const auto r = strptime(_str, _format.str().c_str(), &tm_);
       if (r == NULL) {
-        throw std::runtime_error("String '" + std::string(_str) +
-                                 "' did not match format '" + Format().str() +
-                                 "'.");
+        throw std::runtime_error(
+            "String '" + std::string(_str) + "' did not match format '" +
+            Format().str() + "'."
+        );
       }
     }
 

@@ -30,7 +30,8 @@ namespace rfl::internal {
       constexpr size_t n = StdArrayType<Type>::size;
       const auto fct     = [&]<std::size_t... _i>(std::index_sequence<_i...>) {
         return to_std_array_t<Type>({to_std_array(
-            std::forward<typename StdArrayType<Type>::ValueType>(_t[_i]))...});
+            std::forward<typename StdArrayType<Type>::ValueType>(_t[_i])
+        )...});
       };
       return fct(std::make_index_sequence<n>());
     } else {

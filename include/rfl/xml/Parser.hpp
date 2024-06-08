@@ -17,13 +17,15 @@ namespace rfl {
     /// to a template specialization for the NamedTuple parser to accommodate
     /// for it.
     template <class ProcessorsType, class... FieldTypes>
-      requires AreReaderAndWriter<xml::Reader,
-                                  xml::Writer,
-                                  NamedTuple<FieldTypes...>>
-    struct Parser<xml::Reader,
-                  xml::Writer,
-                  NamedTuple<FieldTypes...>,
-                  ProcessorsType>
+      requires AreReaderAndWriter<
+          xml::Reader,
+          xml::Writer,
+          NamedTuple<FieldTypes...>>
+    struct Parser<
+        xml::Reader,
+        xml::Writer,
+        NamedTuple<FieldTypes...>,
+        ProcessorsType>
         : public NamedTupleParser<
               xml::Reader,
               xml::Writer,

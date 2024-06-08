@@ -20,11 +20,14 @@ namespace rfl {
           return move_and_flatten_field_tuple(
               std::move(_t), std::move(_args)...,
               move_and_flatten_field_tuple(
-                  move_to_field_tuple(std::move(std::get<i>(_t).value_))));
+                  move_to_field_tuple(std::move(std::get<i>(_t).value_))
+              )
+          );
         } else {
           return move_and_flatten_field_tuple(
               std::move(_t), std::move(_args)...,
-              std::make_tuple(std::move(std::get<i>(_t))));
+              std::make_tuple(std::move(std::get<i>(_t)))
+          );
         }
       }
     }

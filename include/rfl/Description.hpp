@@ -42,26 +42,30 @@ namespace rfl {
     template <class U>
     Description(Description<_description, U>&& _field) : value_(_field.get()) {}
 
-    template <class U,
-              typename std::enable_if<std::is_convertible_v<U, Type>,
-                                      bool>::type = true>
+    template <
+        class U,
+        typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type =
+            true>
     Description(const U& _value) : value_(_value) {}
 
-    template <class U,
-              typename std::enable_if<std::is_convertible_v<U, Type>,
-                                      bool>::type = true>
+    template <
+        class U,
+        typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type =
+            true>
     Description(U&& _value) noexcept : value_(std::forward<U>(_value)) {}
 
-    template <class U,
-              typename std::enable_if<std::is_convertible_v<U, Type>,
-                                      bool>::type = true>
+    template <
+        class U,
+        typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type =
+            true>
     Description(const Description<_description, U>& _field)
         : value_(_field.value()) {}
 
     /// Assigns the underlying object to its default value.
-    template <class U                             = Type,
-              typename std::enable_if<std::is_default_constructible_v<U>,
-                                      bool>::type = true>
+    template <
+        class U = Type,
+        typename std::enable_if<std::is_default_constructible_v<U>, bool>::
+            type = true>
     Description(const Default& _default) : value_(Type()) {}
 
     ~Description() = default;
@@ -91,18 +95,20 @@ namespace rfl {
     }
 
     /// Assigns the underlying object.
-    template <class U,
-              typename std::enable_if<std::is_convertible_v<U, Type>,
-                                      bool>::type = true>
+    template <
+        class U,
+        typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type =
+            true>
     auto& operator=(const U& _value) {
       value_ = _value;
       return *this;
     }
 
     /// Assigns the underlying object to its default value.
-    template <class U                             = Type,
-              typename std::enable_if<std::is_default_constructible_v<U>,
-                                      bool>::type = true>
+    template <
+        class U = Type,
+        typename std::enable_if<std::is_default_constructible_v<U>, bool>::
+            type = true>
     auto& operator=(const Default& _default) {
       value_ = Type();
       return *this;
@@ -110,11 +116,13 @@ namespace rfl {
 
     /// Assigns the underlying object.
     Description<_description, T>& operator=(
-        const Description<_description, T>& _field) = default;
+        const Description<_description, T>& _field
+    ) = default;
 
     /// Assigns the underlying object.
     Description<_description, T>& operator=(
-        Description<_description, T>&& _field) = default;
+        Description<_description, T>&& _field
+    ) = default;
 
     /// Assigns the underlying object.
     template <class U>
