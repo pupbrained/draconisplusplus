@@ -8,13 +8,13 @@
 #include "copy_to_field_tuple.hpp"
 
 namespace rfl {
-namespace internal {
+  namespace internal {
 
-template <class T>
-using field_tuple_t =
-    typename std::invoke_result<decltype(copy_to_field_tuple<T>), T>::type;
+    template <class T>
+    using field_tuple_t =
+        typename std::invoke_result<decltype(copy_to_field_tuple<T>), T>::type;
 
-}
-}  // namespace rfl
+  }
+} // namespace rfl
 
 #endif

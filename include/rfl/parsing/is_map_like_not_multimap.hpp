@@ -6,22 +6,22 @@
 #include <unordered_map>
 
 namespace rfl {
-namespace parsing {
+  namespace parsing {
 
-template <class T>
-class is_map_like_not_multimap;
+    template <class T>
+    class is_map_like_not_multimap;
 
-template <class T>
-class is_map_like_not_multimap : public std::false_type {};
+    template <class T>
+    class is_map_like_not_multimap : public std::false_type {};
 
-template <class K, class V>
-class is_map_like_not_multimap<std::map<K, V>> : public std::true_type {};
+    template <class K, class V>
+    class is_map_like_not_multimap<std::map<K, V>> : public std::true_type {};
 
-template <class K, class V>
-class is_map_like_not_multimap<std::unordered_map<K, V>>
-    : public std::true_type {};
+    template <class K, class V>
+    class is_map_like_not_multimap<std::unordered_map<K, V>>
+        : public std::true_type {};
 
-}  // namespace parsing
-}  // namespace rfl
+  } // namespace parsing
+} // namespace rfl
 
 #endif

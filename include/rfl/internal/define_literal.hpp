@@ -4,26 +4,30 @@
 #include "../Literal.hpp"
 
 namespace rfl {
-namespace internal {
+  namespace internal {
 
-/// Allows you to combine several literals.
-template <class... LiteralTypes>
-struct define_literal;
+    /// Allows you to combine several literals.
+    template <class... LiteralTypes>
+    struct define_literal;
 
-/// General case
-template <StringLiteral... _content1, StringLiteral... _content2, class... Tail>
-struct define_literal<Literal<_content1...>, Literal<_content2...>, Tail...> {
-    using type = typename define_literal<Literal<_content1..., _content2...>,
-                                         Tail...>::type;
-};
+    /// General case
+    template <StringLiteral... _content1,
+              StringLiteral... _content2,
+              class... Tail>
+    struct define_literal<Literal<_content1...>,
+                          Literal<_content2...>,
+                          Tail...> {
+      using type = typename define_literal<Literal<_content1..., _content2...>,
+                                           Tail...>::type;
+    };
 
-/// Special case - only a single literal is left
-template <StringLiteral... _content>
-struct define_literal<Literal<_content...>> {
-    using type = Literal<_content...>;
-};
+    /// Special case - only a single literal is left
+    template <StringLiteral... _content>
+    struct define_literal<Literal<_content...>> {
+      using type = Literal<_content...>;
+    };
 
-}  // namespace internal
-}  // namespace rfl
+  } // namespace internal
+} // namespace rfl
 
 #endif

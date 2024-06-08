@@ -2,7 +2,7 @@
 
 #include <sys/sysctl.h>
 
-#include "macos/now_playing_bridge.h"
+#include "macos/bridge.h"
 #include "os.h"
 
 u64 GetMemInfo() {
@@ -21,5 +21,7 @@ std::string GetNowPlaying() {
 
   return "No song playing";
 }
+
+const char* GetOSVersion() { return GetMacOSVersion(); };
 
 #endif

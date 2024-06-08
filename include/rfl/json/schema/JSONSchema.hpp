@@ -12,14 +12,14 @@
 
 namespace rfl::json::schema {
 
-template <class T>
-struct JSONSchema {
-  Rename<"$schema", Literal<"https://json-schema.org/draft/2020-12/schema">>
-      schema;
-  Flatten<T> root;
-  std::map<std::string, Type> definitions;
-};
+  template <class T>
+  struct JSONSchema {
+    Rename<"$schema", Literal<"https://json-schema.org/draft/2020-12/schema">>
+        schema;
+    Flatten<T> root;
+    std::map<std::string, Type> definitions;
+  };
 
-}  // namespace rfl::json::schema
+} // namespace rfl::json::schema
 
 #endif

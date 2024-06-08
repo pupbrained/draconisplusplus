@@ -4,15 +4,15 @@
 #include "move_to_field_tuple.hpp"
 
 namespace rfl {
-namespace internal {
+  namespace internal {
 
-template <class T>
-auto copy_to_field_tuple(const T& _t) {
-  auto t = _t;
-  return move_to_field_tuple(std::move(t));
-}
+    template <class T>
+    auto copy_to_field_tuple(const T& _t) {
+      auto t = _t;
+      return move_to_field_tuple(std::move(t));
+    }
 
-}  // namespace internal
-}  // namespace rfl
+  } // namespace internal
+} // namespace rfl
 
 #endif

@@ -5,28 +5,28 @@
 
 namespace rfl {
 
-/// Contains meta-information about a field in a struct.
-class MetaField {
- public:
-  MetaField(const std::string& _name, const std::string& _type)
-      : name_(_name), type_(_type) {}
+  /// Contains meta-information about a field in a struct.
+  class MetaField {
+   public:
+    MetaField(const std::string& _name, const std::string& _type)
+        : name_(_name), type_(_type) {}
 
-  ~MetaField() = default;
+    ~MetaField() = default;
 
-  /// The name of the field we describe.
-  const std::string& name() const { return name_; };
+    /// The name of the field we describe.
+    const std::string& name() const { return name_; };
 
-  /// The type of the field we describe.
-  const std::string& type() const { return type_; };
+    /// The type of the field we describe.
+    const std::string& type() const { return type_; };
 
- private:
-  /// The name of the field we describe.
-  std::string name_;
+   private:
+    /// The name of the field we describe.
+    std::string name_;
 
-  /// The type of the field we describe.
-  std::string type_;
-};
+    /// The type of the field we describe.
+    std::string type_;
+  };
 
-}  // namespace rfl
+} // namespace rfl
 
-#endif  // RFL_TAGGEDUNION_HPP_
+#endif // RFL_TAGGEDUNION_HPP_

@@ -64,7 +64,7 @@ endif
 if host_machine.system() == 'darwin'
   source_file_names += [
     'src/os/macos.cpp',
-    'src/os/macos/now_playing_bridge.mm',
+    'src/os/macos/bridge.mm',
   ]
 endif
 

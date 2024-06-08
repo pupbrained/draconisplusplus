@@ -5,27 +5,27 @@
 #include <utility>
 
 namespace rfl {
-namespace internal {
+  namespace internal {
 
-template <class Wrapper>
-class HasTag {
- private:
-  template <class U>
-  static std::int64_t foo(...);
+    template <class Wrapper>
+    class HasTag {
+     private:
+      template <class U>
+      static std::int64_t foo(...);
 
-  template <class U>
-  static std::int32_t foo(typename U::Tag*);
+      template <class U>
+      static std::int32_t foo(typename U::Tag*);
 
- public:
-  static constexpr bool value =
-      sizeof(foo<Wrapper>(nullptr)) == sizeof(std::int32_t);
-};
+     public:
+      static constexpr bool value =
+          sizeof(foo<Wrapper>(nullptr)) == sizeof(std::int32_t);
+    };
 
-/// Used for tagged unions - determines whether a struct as a Tag.
-template <typename Wrapper>
-constexpr bool has_tag_v = HasTag<Wrapper>::value;
+    /// Used for tagged unions - determines whether a struct as a Tag.
+    template <typename Wrapper>
+    constexpr bool has_tag_v = HasTag<Wrapper>::value;
 
-}  // namespace internal
-}  // namespace rfl
+  } // namespace internal
+} // namespace rfl
 
 #endif

@@ -8,14 +8,14 @@
 
 namespace rfl::parsing::schema {
 
-struct Definition {
-  /// Contains the root element of the schema definition.
-  Type root_;
+  struct Definition {
+    /// Contains the root element of the schema definition.
+    Type root_;
 
-  /// Contains the definitions to be referenced by Type::Reference.
-  std::map<std::string, Type> definitions_;
-};
+    /// Contains the definitions to be referenced by Type::Reference.
+    std::map<std::string, Type> definitions_;
+  };
 
-}  // namespace rfl::parsing::schema
+} // namespace rfl::parsing::schema
 
 #endif

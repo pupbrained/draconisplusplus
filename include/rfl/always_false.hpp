@@ -3,10 +3,10 @@
 
 namespace rfl {
 
-/// To be used inside visitor patterns
-template <class>
-inline constexpr bool always_false_v = false;
+  /// To be used inside visitor patterns
+  template <class>
+  inline constexpr bool always_false_v = false;
 
-}  // namespace rfl
+} // namespace rfl
 
-#endif  // RFL_ALWAYSFALSE_HPP_
+#endif // RFL_ALWAYSFALSE_HPP_

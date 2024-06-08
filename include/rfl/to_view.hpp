@@ -9,11 +9,11 @@
 
 namespace rfl {
 
-template <class T>
-auto to_view(T& _t) {
-  return internal::to_ptr_named_tuple(_t);
-}
+  template <class T>
+  auto to_view(T& _t) {
+    return internal::to_ptr_named_tuple(_t);
+  }
 
-}  // namespace rfl
+} // namespace rfl
 
 #endif

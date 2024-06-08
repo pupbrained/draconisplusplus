@@ -7,9 +7,9 @@
 
 namespace rfl::json {
 
-template <class T, class ProcessorsType>
-using Parser = parsing::Parser<Reader, Writer, T, ProcessorsType>;
+  template <class T, class ProcessorsType>
+  using Parser = parsing::Parser<Reader, Writer, T, ProcessorsType>;
 
-}  // namespace rfl::json
+} // namespace rfl::json
 
 #endif

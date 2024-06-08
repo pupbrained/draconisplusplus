@@ -15,26 +15,26 @@
 #include "wrap_in_fields.hpp"
 
 namespace rfl {
-namespace internal {
+  namespace internal {
 
-template <class T>
-auto to_ptr_field_tuple(T& _t) {
-  if constexpr (std::is_pointer_v<std::remove_cvref_t<T>>) {
-    return to_ptr_field_tuple(*_t);
-  } else if constexpr (is_named_tuple_v<T>) {
-    return nt_to_ptr_named_tuple(_t).fields();
-  } else if constexpr (has_fields<T>()) {
-    return bind_to_tuple(_t, [](auto& x) { return to_ptr_field(x); });
-  } else if constexpr (is_empty<T>()) {
-    return std::tuple();
-  } else {
-    using FieldNames = field_names_t<T>;
-    auto tup = bind_to_tuple(_t, [](auto& x) { return to_ptr_field(x); });
-    return wrap_in_fields<FieldNames>(std::move(tup));
-  }
-}
+    template <class T>
+    auto to_ptr_field_tuple(T& _t) {
+      if constexpr (std::is_pointer_v<std::remove_cvref_t<T>>) {
+        return to_ptr_field_tuple(*_t);
+      } else if constexpr (is_named_tuple_v<T>) {
+        return nt_to_ptr_named_tuple(_t).fields();
+      } else if constexpr (has_fields<T>()) {
+        return bind_to_tuple(_t, [](auto& x) { return to_ptr_field(x); });
+      } else if constexpr (is_empty<T>()) {
+        return std::tuple();
+      } else {
+        using FieldNames = field_names_t<T>;
+        auto tup = bind_to_tuple(_t, [](auto& x) { return to_ptr_field(x); });
+        return wrap_in_fields<FieldNames>(std::move(tup));
+      }
+    }
 
-}  // namespace internal
-}  // namespace rfl
+  } // namespace internal
+} // namespace rfl
 
 #endif

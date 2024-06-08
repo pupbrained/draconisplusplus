@@ -6,11 +6,11 @@
 
 namespace rfl {
 
-/// Allows you to combine several literal types.
-template <class... LiteralTypes>
-using define_literal_t =
-    typename internal::define_literal<LiteralTypes...>::type;
+  /// Allows you to combine several literal types.
+  template <class... LiteralTypes>
+  using define_literal_t =
+      typename internal::define_literal<LiteralTypes...>::type;
 
-}  // namespace rfl
+} // namespace rfl
 
-#endif  // RFL_DEFINELITERAL_HPP_
+#endif // RFL_DEFINELITERAL_HPP_

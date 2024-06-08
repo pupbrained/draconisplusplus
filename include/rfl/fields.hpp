@@ -6,12 +6,12 @@
 
 namespace rfl {
 
-/// Returns meta-information about the fields.
-template <class T>
-auto fields() {
-  return internal::get_meta_fields<named_tuple_t<T>>();
-}
+  /// Returns meta-information about the fields.
+  template <class T>
+  auto fields() {
+    return internal::get_meta_fields<named_tuple_t<T>>();
+  }
 
-}  // namespace rfl
+} // namespace rfl
 
 #endif

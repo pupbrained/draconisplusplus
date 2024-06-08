@@ -13,31 +13,31 @@
 
 namespace rfl::toml {
 
-/// Writes a TOML into an ostream.
-template <class... Ps>
-std::ostream& write(const auto& _obj, std::ostream& _stream) {
-  using T = std::remove_cvref_t<decltype(_obj)>;
-  using ParentType = parsing::Parent<Writer>;
-  ::toml::table root;
-  auto w = Writer(&root);
-  Parser<T, Processors<Ps...>>::write(w, _obj, typename ParentType::Root{});
-  _stream << root;
-  return _stream;
-}
+  /// Writes a TOML into an ostream.
+  template <class... Ps>
+  std::ostream& write(const auto& _obj, std::ostream& _stream) {
+    using T          = std::remove_cvref_t<decltype(_obj)>;
+    using ParentType = parsing::Parent<Writer>;
+    ::toml::table root;
+    auto w = Writer(&root);
+    Parser<T, Processors<Ps...>>::write(w, _obj, typename ParentType::Root {});
+    _stream << root;
+    return _stream;
+  }
 
-/// Returns a TOML string.
-template <class... Ps>
-std::string write(const auto& _obj) {
-  using T = std::remove_cvref_t<decltype(_obj)>;
-  using ParentType = parsing::Parent<Writer>;
-  std::stringstream sstream;
-  ::toml::table root;
-  auto w = Writer(&root);
-  Parser<T, Processors<Ps...>>::write(w, _obj, typename ParentType::Root{});
-  sstream << root;
-  return sstream.str();
-}
+  /// Returns a TOML string.
+  template <class... Ps>
+  std::string write(const auto& _obj) {
+    using T          = std::remove_cvref_t<decltype(_obj)>;
+    using ParentType = parsing::Parent<Writer>;
+    std::stringstream sstream;
+    ::toml::table root;
+    auto w = Writer(&root);
+    Parser<T, Processors<Ps...>>::write(w, _obj, typename ParentType::Root {});
+    sstream << root;
+    return sstream.str();
+  }
 
-}  // namespace rfl::toml
+} // namespace rfl::toml
 
 #endif

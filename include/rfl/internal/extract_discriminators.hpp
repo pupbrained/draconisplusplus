@@ -8,18 +8,19 @@
 #include "../field_type.hpp"
 
 namespace rfl {
-namespace internal {
+  namespace internal {
 
-template <class TaggedUnionType>
-struct extract_discriminators;
+    template <class TaggedUnionType>
+    struct extract_discriminators;
 
-template <StringLiteral _discriminator, class... NamedTupleType>
-struct extract_discriminators<TaggedUnion<_discriminator, NamedTupleType...>> {
-  using type = define_literal_t<
-      std::remove_cvref_t<field_type_t<_discriminator, NamedTupleType>>...>;
-};
+    template <StringLiteral _discriminator, class... NamedTupleType>
+    struct extract_discriminators<
+        TaggedUnion<_discriminator, NamedTupleType...>> {
+      using type = define_literal_t<
+          std::remove_cvref_t<field_type_t<_discriminator, NamedTupleType>>...>;
+    };
 
-}  // namespace internal
-}  // namespace rfl
+  } // namespace internal
+} // namespace rfl
 
 #endif

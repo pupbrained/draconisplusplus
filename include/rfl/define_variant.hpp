@@ -7,9 +7,9 @@
 
 namespace rfl {
 
-template <class... Vars>
-using define_variant_t = typename internal::define_variant<Vars...>::type;
+  template <class... Vars>
+  using define_variant_t = typename internal::define_variant<Vars...>::type;
 
-}  // namespace rfl
+} // namespace rfl
 
-#endif  // RFL_DEFINEVARIANT_HPP_
+#endif // RFL_DEFINEVARIANT_HPP_

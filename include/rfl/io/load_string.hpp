@@ -8,22 +8,22 @@
 #include "../Result.hpp"
 
 namespace rfl {
-namespace io {
+  namespace io {
 
-inline Result<std::string> load_string(const std::string& _fname) {
-  std::ifstream infile(_fname);
-  if (infile.is_open()) {
-    auto r = std::string(std::istreambuf_iterator<char>(infile),
-                         std::istreambuf_iterator<char>());
-    infile.close();
-    return r;
-  } else {
-    return Error("Unable to open file '" + _fname +
-                 "' or file could not be found.");
-  }
-}
+    inline Result<std::string> load_string(const std::string& _fname) {
+      std::ifstream infile(_fname);
+      if (infile.is_open()) {
+        auto r = std::string(std::istreambuf_iterator<char>(infile),
+                             std::istreambuf_iterator<char>());
+        infile.close();
+        return r;
+      } else {
+        return Error("Unable to open file '" + _fname +
+                     "' or file could not be found.");
+      }
+    }
 
-}  // namespace io
-}  // namespace rfl
+  } // namespace io
+} // namespace rfl
 
 #endif

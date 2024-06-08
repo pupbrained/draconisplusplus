@@ -1,14 +1,13 @@
 #ifdef __APPLE__
 
-#import "now_playing_bridge.h"
-#import <Foundation/Foundation.h>
+#import "bridge.h"
 #import <dispatch/dispatch.h>
 #import <objc/runtime.h>
 
 using MRMediaRemoteGetNowPlayingInfoFunction = void (*)(
     dispatch_queue_t queue, void (^handler)(NSDictionary *information));
 
-@implementation NowPlayingBridge
+@implementation Bridge
 
 + (NSDictionary *)currentPlayingMetadata {
 #pragma clang diagnostic push
@@ -58,11 +57,21 @@ using MRMediaRemoteGetNowPlayingInfoFunction = void (*)(
   return nowPlayingInfo;
 }
 
++ (NSString *)macOSVersion {
+  NSProcessInfo *processInfo = [NSProcessInfo processInfo];
+  NSOperatingSystemVersion osVersion = [processInfo operatingSystemVersion];
+  NSString *version =
+      [NSString stringWithFormat:@"%ld.%ld.%ld", (long)osVersion.majorVersion,
+                                 (long)osVersion.minorVersion,
+                                 (long)osVersion.patchVersion];
+  return version;
+}
+
 @end
 
 extern "C" {
 const char *GetCurrentPlayingTitle() {
-  NSDictionary *metadata = [NowPlayingBridge currentPlayingMetadata];
+  NSDictionary *metadata = [Bridge currentPlayingMetadata];
 
   if (metadata == nil)
     return nullptr;
@@ -77,7 +86,7 @@ const char *GetCurrentPlayingTitle() {
 }
 
 const char *GetCurrentPlayingArtist() {
-  NSDictionary *metadata = [NowPlayingBridge currentPlayingMetadata];
+  NSDictionary *metadata = [Bridge currentPlayingMetadata];
 
   if (metadata == nil)
     return nullptr;
@@ -90,6 +99,15 @@ const char *GetCurrentPlayingArtist() {
 
   return nullptr;
 }
+
+const char *GetMacOSVersion() {
+  NSString *version = [Bridge macOSVersion];
+  if (version) {
+    return strdup([version UTF8String]);
+  }
+  return nullptr;
+}
 }
 
 #endif
+

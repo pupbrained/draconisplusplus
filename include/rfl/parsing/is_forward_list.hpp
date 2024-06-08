@@ -5,18 +5,18 @@
 #include <type_traits>
 
 namespace rfl {
-namespace parsing {
+  namespace parsing {
 
-template <class T>
-class is_forward_list;
+    template <class T>
+    class is_forward_list;
 
-template <class T>
-class is_forward_list : public std::false_type {};
+    template <class T>
+    class is_forward_list : public std::false_type {};
 
-template <class T>
-class is_forward_list<std::forward_list<T>> : public std::true_type {};
+    template <class T>
+    class is_forward_list<std::forward_list<T>> : public std::true_type {};
 
-}  // namespace parsing
-}  // namespace rfl
+  } // namespace parsing
+} // namespace rfl
 
 #endif

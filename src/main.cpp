@@ -80,5 +80,7 @@ int main() {
 
   fmt::println("It is {}°F in {}", temp, townName);
 
+  fmt::println("{}", GetOSVersion());
+
   return 0;
 }

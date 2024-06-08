@@ -7,12 +7,12 @@
 #include "to_ptr_tuple.hpp"
 
 namespace rfl {
-namespace internal {
+  namespace internal {
 
-template <class T>
-using ptr_tuple_t = decltype(to_ptr_tuple(std::declval<T&>()));
+    template <class T>
+    using ptr_tuple_t = decltype(to_ptr_tuple(std::declval<T&>()));
 
-}  // namespace internal
-}  // namespace rfl
+  } // namespace internal
+} // namespace rfl
 
 #endif

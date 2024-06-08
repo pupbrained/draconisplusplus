@@ -1,9 +1,7 @@
 #include "config.h"
 
 #define DEFINE_GETTER(class_name, type, name) \
-  type class_name::get##name() const {        \
-    return m_##name;                          \
-  }
+  type class_name::get##name() const { return m_##name; }
 
 DEFINE_GETTER(Config, const General, General)
 DEFINE_GETTER(Config, const NowPlaying, NowPlaying)
@@ -42,26 +40,20 @@ WeatherImpl WeatherImpl::from_class(const Weather& weather) noexcept {
   };
 }
 
-Weather WeatherImpl::to_class() const {
-  return {location, api_key, units};
-}
+Weather WeatherImpl::to_class() const { return {location, api_key, units}; }
 
 GeneralImpl GeneralImpl::from_class(const General& general) noexcept {
   return {general.getName()};
 }
 
-General GeneralImpl::to_class() const {
-  return {name};
-}
+General GeneralImpl::to_class() const { return {name}; }
 
 NowPlayingImpl NowPlayingImpl::from_class(
     const NowPlaying& now_playing) noexcept {
   return {.enabled = now_playing.getEnabled()};
 }
 
-NowPlaying NowPlayingImpl::to_class() const {
-  return {enabled};
-}
+NowPlaying NowPlayingImpl::to_class() const { return {enabled}; }
 
 ConfigImpl ConfigImpl::from_class(const Config& config) noexcept {
   return {
@@ -71,6 +63,4 @@ ConfigImpl ConfigImpl::from_class(const Config& config) noexcept {
   };
 }
 
-Config ConfigImpl::to_class() const {
-  return {general, now_playing, weather};
-}
+Config ConfigImpl::to_class() const { return {general, now_playing, weather}; }

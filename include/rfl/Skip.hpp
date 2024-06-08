@@ -5,16 +5,15 @@
 
 namespace rfl {
 
-template <class T>
-using Skip = internal::Skip<T, true, true>;
+  template <class T>
+  using Skip = internal::Skip<T, true, true>;
 
-template <class T>
-using SkipSerialization = internal::Skip<T, true, false>;
+  template <class T>
+  using SkipSerialization = internal::Skip<T, true, false>;
 
-template <class T>
-using SkipDeserialization = internal::Skip<T, false, true>;
+  template <class T>
+  using SkipDeserialization = internal::Skip<T, false, true>;
 
-}  // namespace rfl
+} // namespace rfl
 
 #endif
-

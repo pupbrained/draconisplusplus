@@ -103,6 +103,4 @@ auto Ok(T&& value) {
   return Result<std::decay_t<T>>(std::forward<T>(value));
 }
 
-inline auto Ok() {
-  return Result<void>();
-}
+inline auto Ok() { return Result<void>(); }

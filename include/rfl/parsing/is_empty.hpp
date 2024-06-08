@@ -11,32 +11,32 @@
 #include "is_vector_like.hpp"
 
 namespace rfl {
-namespace parsing {
+  namespace parsing {
 
-template <class T>
-static const bool is_empty(const T& _var) {
-  using Type = std::remove_cvref_t<T>;
-  if constexpr (std::is_pointer_v<Type>) {
-    return !_var || is_empty(*_var);
-  } else if constexpr (internal::is_skip_v<Type>) {
-    return Type::skip_serialization_;
-  } else if constexpr (internal::has_reflection_type_v<Type>) {
-    if constexpr (internal::has_reflection_method_v<Type>) {
-      return is_empty(_var.reflection());
-    } else {
-      const auto& [r] = _var;
-      return is_empty(r);
+    template <class T>
+    static const bool is_empty(const T& _var) {
+      using Type = std::remove_cvref_t<T>;
+      if constexpr (std::is_pointer_v<Type>) {
+        return !_var || is_empty(*_var);
+      } else if constexpr (internal::is_skip_v<Type>) {
+        return Type::skip_serialization_;
+      } else if constexpr (internal::has_reflection_type_v<Type>) {
+        if constexpr (internal::has_reflection_method_v<Type>) {
+          return is_empty(_var.reflection());
+        } else {
+          const auto& [r] = _var;
+          return is_empty(r);
+        }
+      } else if constexpr (internal::is_rename_v<Type>) {
+        return is_empty(_var.value());
+      } else if constexpr (is_map_like_v<Type> || is_vector_like_v<Type>) {
+        return _var.begin() == _var.end();
+      } else {
+        return !_var;
+      }
     }
-  } else if constexpr (internal::is_rename_v<Type>) {
-    return is_empty(_var.value());
-  } else if constexpr (is_map_like_v<Type> || is_vector_like_v<Type>) {
-    return _var.begin() == _var.end();
-  } else {
-    return !_var;
-  }
-}
 
-}  // namespace parsing
-}  // namespace rfl
+  } // namespace parsing
+} // namespace rfl
 
 #endif

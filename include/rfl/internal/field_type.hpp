@@ -7,57 +7,62 @@
 
 #include "../NamedTuple.hpp"
 #include "../TaggedUnion.hpp"
+#include "../named_tuple_t.hpp"
 #include "StringLiteral.hpp"
 #include "find_index.hpp"
-#include "../named_tuple_t.hpp"
 
 namespace rfl {
-namespace internal {
+  namespace internal {
 
-template <class T, class... Ts>
-struct are_same : std::conjunction<std::is_same<T, Ts>...> {};
+    template <class T, class... Ts>
+    struct are_same : std::conjunction<std::is_same<T, Ts>...> {};
 
-/// Finds the type of the field signified by _field_name
-template <StringLiteral _field_name, class T>
-struct FieldType;
+    /// Finds the type of the field signified by _field_name
+    template <StringLiteral _field_name, class T>
+    struct FieldType;
 
-/// Default option - for named tuples.
-template <StringLiteral _field_name, class T>
-struct FieldType {
-    using NamedTupleType = named_tuple_t<T>;
+    /// Default option - for named tuples.
+    template <StringLiteral _field_name, class T>
+    struct FieldType {
+      using NamedTupleType = named_tuple_t<T>;
 
-    static constexpr int field_ix_ =
-        internal::find_index<_field_name, typename NamedTupleType::Fields>();
+      static constexpr int field_ix_ =
+          internal::find_index<_field_name, typename NamedTupleType::Fields>();
 
-    using Type = typename std::tuple_element<
-        field_ix_, typename NamedTupleType::Fields>::type::Type;
-};
+      using Type = typename std::
+          tuple_element<field_ix_, typename NamedTupleType::Fields>::type::Type;
+    };
 
-/// For variants - in this case the FieldType returned by all options must be
-/// the same.
-template <StringLiteral _field_name, class FirstAlternativeType,
-          class... OtherAlternativeTypes>
-struct FieldType<_field_name,
-                 std::variant<FirstAlternativeType, OtherAlternativeTypes...>> {
-    constexpr static bool all_types_match = std::conjunction_v<std::is_same<
-        typename FieldType<_field_name, FirstAlternativeType>::Type,
-        typename FieldType<_field_name, OtherAlternativeTypes>::Type>...>;
+    /// For variants - in this case the FieldType returned by all options must
+    /// be the same.
+    template <StringLiteral _field_name,
+              class FirstAlternativeType,
+              class... OtherAlternativeTypes>
+    struct FieldType<
+        _field_name,
+        std::variant<FirstAlternativeType, OtherAlternativeTypes...>> {
+      constexpr static bool all_types_match = std::conjunction_v<std::is_same<
+          typename FieldType<_field_name, FirstAlternativeType>::Type,
+          typename FieldType<_field_name, OtherAlternativeTypes>::Type>...>;
 
-    static_assert(all_types_match, "All field types must be the same.");
+      static_assert(all_types_match, "All field types must be the same.");
 
-    using Type = typename FieldType<_field_name, FirstAlternativeType>::Type;
-};
+      using Type = typename FieldType<_field_name, FirstAlternativeType>::Type;
+    };
 
-/// For tagged union - just defers to the variant.
-template <StringLiteral _field_name, StringLiteral _discriminator_name,
-          class... VarTypes>
-struct FieldType<_field_name, TaggedUnion<_discriminator_name, VarTypes...>> {
-    using Type = typename FieldType<
-        _field_name, typename TaggedUnion<_discriminator_name,
-                                          VarTypes...>::VariantType>::Type;
-};
+    /// For tagged union - just defers to the variant.
+    template <StringLiteral _field_name,
+              StringLiteral _discriminator_name,
+              class... VarTypes>
+    struct FieldType<_field_name,
+                     TaggedUnion<_discriminator_name, VarTypes...>> {
+      using Type = typename FieldType<
+          _field_name,
+          typename TaggedUnion<_discriminator_name,
+                               VarTypes...>::VariantType>::Type;
+    };
 
-}  // namespace internal
-}  // namespace rfl
+  } // namespace internal
+} // namespace rfl
 
 #endif

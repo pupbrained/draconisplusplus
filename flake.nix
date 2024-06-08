@@ -3,12 +3,14 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    treefmt-nix.url = "github:numtide/treefmt-nix";
     utils.url = "github:numtide/flake-utils";
   };
 
   outputs = {
     self,
     nixpkgs,
+    treefmt-nix,
     utils,
     ...
   }:
@@ -18,7 +20,7 @@
           inherit system;
 
           overlays = [
-            (self: super: {
+            (_self: super: {
               ccacheWrapper = super.ccacheWrapper.override {
                 extraConfig = ''
                   export CCACHE_COMPRESS=1
@@ -54,9 +56,8 @@
         deps = with (
           if !stdenv.isDarwin
           then pkgs.pkgsStatic
-          else pkgs
-        ); # TODO: Remove when fixed on darwin
-
+          else pkgs # TODO: Remove when fixed on darwin
+        );
           [
             curl
             fmt
@@ -110,7 +111,18 @@
             default = draconisplusplus;
           };
 
-          formatter = alejandra;
+          formatter = treefmt-nix.lib.mkWrapper pkgs {
+            projectRootFile = "flake.nix";
+            programs = {
+              alejandra.enable = true;
+              deadnix.enable = true;
+
+              clang-format = {
+                enable = true;
+                package = pkgs.clang-tools_18;
+              };
+            };
+          };
 
           devShell = mkShell.override {inherit stdenv;} {
             packages =

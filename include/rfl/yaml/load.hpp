@@ -6,17 +6,17 @@
 #include "read.hpp"
 
 namespace rfl {
-namespace yaml {
+  namespace yaml {
 
-template <class T, class... Ps>
-Result<T> load(const std::string& _fname) {
-  const auto read_string = [](const auto& _str) {
-    return read<T, Ps...>(_str);
-  };
-  return rfl::io::load_string(_fname).and_then(read_string);
-}
+    template <class T, class... Ps>
+    Result<T> load(const std::string& _fname) {
+      const auto read_string = [](const auto& _str) {
+        return read<T, Ps...>(_str);
+      };
+      return rfl::io::load_string(_fname).and_then(read_string);
+    }
 
-}  // namespace yaml
-}  // namespace rfl
+  } // namespace yaml
+} // namespace rfl
 
 #endif

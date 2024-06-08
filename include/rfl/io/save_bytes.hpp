@@ -9,22 +9,21 @@
 #include "../Result.hpp"
 
 namespace rfl {
-namespace io {
+  namespace io {
 
-template <class T, class WriteFunction>
-Result<Nothing> save_bytes(const std::string& _fname, const T& _obj,
-                           const WriteFunction& _write) {
-  try {
-    std::ofstream output(_fname, std::ios::out | std::ios::binary);
-    _write(_obj, output);
-    output.close();
-  } catch (std::exception& e) {
-    return Error(e.what());
-  }
-  return Nothing{};
-}
+    template <class T, class WriteFunction>
+    Result<Nothing> save_bytes(const std::string& _fname,
+                               const T& _obj,
+                               const WriteFunction& _write) {
+      try {
+        std::ofstream output(_fname, std::ios::out | std::ios::binary);
+        _write(_obj, output);
+        output.close();
+      } catch (std::exception& e) { return Error(e.what()); }
+      return Nothing {};
+    }
 
-}  // namespace io
-}  // namespace rfl
+  } // namespace io
+} // namespace rfl
 
 #endif

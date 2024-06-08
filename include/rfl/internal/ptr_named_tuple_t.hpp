@@ -9,13 +9,13 @@
 #include "to_ptr_named_tuple.hpp"
 
 namespace rfl {
-namespace internal {
+  namespace internal {
 
-template <class T>
-using ptr_named_tuple_t =
-    typename std::invoke_result<decltype(to_ptr_named_tuple<T>), T>::type;
+    template <class T>
+    using ptr_named_tuple_t =
+        typename std::invoke_result<decltype(to_ptr_named_tuple<T>), T>::type;
 
-}  // namespace internal
-}  // namespace rfl
+  } // namespace internal
+} // namespace rfl
 
 #endif

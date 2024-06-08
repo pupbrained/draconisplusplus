@@ -6,12 +6,12 @@
 #include "Writer.hpp"
 
 namespace rfl {
-namespace yaml {
+  namespace yaml {
 
-template <class T, class ProcessorsType>
-using Parser = parsing::Parser<Reader, Writer, T, ProcessorsType>;
+    template <class T, class ProcessorsType>
+    using Parser = parsing::Parser<Reader, Writer, T, ProcessorsType>;
 
-}
-}  // namespace rfl
+  }
+} // namespace rfl
 
 #endif

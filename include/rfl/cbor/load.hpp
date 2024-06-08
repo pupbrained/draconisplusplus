@@ -7,17 +7,17 @@
 #include "read.hpp"
 
 namespace rfl {
-namespace cbor {
+  namespace cbor {
 
-template <class T, class... Ps>
-Result<T> load(const std::string& _fname) {
-  const auto read_bytes = [](const auto& _bytes) {
-    return read<T, Ps...>(_bytes);
-  };
-  return rfl::io::load_bytes(_fname).and_then(read_bytes);
-}
+    template <class T, class... Ps>
+    Result<T> load(const std::string& _fname) {
+      const auto read_bytes = [](const auto& _bytes) {
+        return read<T, Ps...>(_bytes);
+      };
+      return rfl::io::load_bytes(_fname).and_then(read_bytes);
+    }
 
-}  // namespace cbor
-}  // namespace rfl
+  } // namespace cbor
+} // namespace rfl
 
 #endif

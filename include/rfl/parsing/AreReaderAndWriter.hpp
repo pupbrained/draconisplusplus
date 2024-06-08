@@ -5,12 +5,12 @@
 #include "IsWriter.hpp"
 
 namespace rfl {
-namespace parsing {
+  namespace parsing {
 
-template <class R, class W, class T>
-concept AreReaderAndWriter = IsReader<R, T> && IsWriter<W, T>;
+    template <class R, class W, class T>
+    concept AreReaderAndWriter = IsReader<R, T> && IsWriter<W, T>;
 
-}  // namespace parsing
-}  // namespace rfl
+  } // namespace parsing
+} // namespace rfl
 
 #endif

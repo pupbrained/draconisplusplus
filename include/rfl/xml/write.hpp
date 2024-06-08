@@ -15,60 +15,63 @@
 #include "Parser.hpp"
 
 namespace rfl {
-namespace xml {
+  namespace xml {
 
-template <internal::StringLiteral _root, class T>
-consteval auto get_root_name() {
-  if constexpr (_root != internal::StringLiteral("")) {
-    return _root;
-  } else {
-    return internal::remove_namespaces<
-        internal::get_type_name<std::remove_cvref_t<T>>()>();
-  }
-}
+    template <internal::StringLiteral _root, class T>
+    consteval auto get_root_name() {
+      if constexpr (_root != internal::StringLiteral("")) {
+        return _root;
+      } else {
+        return internal::remove_namespaces<
+            internal::get_type_name<std::remove_cvref_t<T>>()>();
+      }
+    }
 
-/// Writes a XML into an ostream.
-template <internal::StringLiteral _root = internal::StringLiteral(""),
-          class... Ps>
-std::ostream& write(const auto& _obj, std::ostream& _stream,
-                    const std::string& _indent = "    ") {
-  using T = std::remove_cvref_t<decltype(_obj)>;
-  using ParentType = parsing::Parent<Writer>;
+    /// Writes a XML into an ostream.
+    template <internal::StringLiteral _root = internal::StringLiteral(""),
+              class... Ps>
+    std::ostream& write(const auto& _obj,
+                        std::ostream& _stream,
+                        const std::string& _indent = "    ") {
+      using T          = std::remove_cvref_t<decltype(_obj)>;
+      using ParentType = parsing::Parent<Writer>;
 
-  constexpr auto root_name = get_root_name<_root, T>();
+      constexpr auto root_name = get_root_name<_root, T>();
 
-  static_assert(root_name.string_view().find("<") == std::string_view::npos &&
-                    root_name.string_view().find(">") == std::string_view::npos,
-                "The name of an XML root node cannot contain '<' or '>'. "
-                "Please assign an "
-                "explicit root name to rfl::xml::write(...) like this: "
-                "rfl::xml::write<\"root_name\">(...).");
+      static_assert(
+          root_name.string_view().find("<") == std::string_view::npos &&
+              root_name.string_view().find(">") == std::string_view::npos,
+          "The name of an XML root node cannot contain '<' or '>'. "
+          "Please assign an "
+          "explicit root name to rfl::xml::write(...) like this: "
+          "rfl::xml::write<\"root_name\">(...).");
 
-  const auto doc = rfl::Ref<pugi::xml_document>::make();
+      const auto doc = rfl::Ref<pugi::xml_document>::make();
 
-  auto declaration_node = doc->append_child(pugi::node_declaration);
-  declaration_node.append_attribute("version") = "1.0";
-  declaration_node.append_attribute("encoding") = "UTF-8";
+      auto declaration_node = doc->append_child(pugi::node_declaration);
+      declaration_node.append_attribute("version")  = "1.0";
+      declaration_node.append_attribute("encoding") = "UTF-8";
 
-  auto w = Writer(doc, root_name.str());
+      auto w = Writer(doc, root_name.str());
 
-  Parser<T, Processors<Ps...>>::write(w, _obj, typename ParentType::Root{});
+      Parser<T, Processors<Ps...>>::write(w, _obj,
+                                          typename ParentType::Root {});
 
-  doc->save(_stream, _indent.c_str());
+      doc->save(_stream, _indent.c_str());
 
-  return _stream;
-}
+      return _stream;
+    }
 
-/// Returns a XML string.
-template <internal::StringLiteral _root = internal::StringLiteral(""),
-          class... Ps>
-std::string write(const auto& _obj, const std::string& _indent = "    ") {
-  std::stringstream stream;
-  write<_root, Ps...>(_obj, stream);
-  return stream.str();
-}
+    /// Returns a XML string.
+    template <internal::StringLiteral _root = internal::StringLiteral(""),
+              class... Ps>
+    std::string write(const auto& _obj, const std::string& _indent = "    ") {
+      std::stringstream stream;
+      write<_root, Ps...>(_obj, stream);
+      return stream.str();
+    }
 
-}  // namespace xml
-}  // namespace rfl
+  } // namespace xml
+} // namespace rfl
 
-#endif  // XML_PARSER_HPP_
+#endif // XML_PARSER_HPP_

@@ -8,12 +8,12 @@
 #include "to_ptr_field_tuple.hpp"
 
 namespace rfl {
-namespace internal {
+  namespace internal {
 
-template <class T>
-using ptr_field_tuple_t = decltype(to_ptr_field_tuple(std::declval<T&>()));
+    template <class T>
+    using ptr_field_tuple_t = decltype(to_ptr_field_tuple(std::declval<T&>()));
 
-}  // namespace internal
-}  // namespace rfl
+  } // namespace internal
+} // namespace rfl
 
 #endif

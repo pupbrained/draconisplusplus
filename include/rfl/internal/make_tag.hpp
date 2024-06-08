@@ -13,22 +13,22 @@
 
 namespace rfl::internal {
 
-template <internal::StringLiteral _discriminator, class T>
-static inline auto make_tag(const T& _t) noexcept {
-  if constexpr (internal::has_reflection_type_v<T>) {
-    return make_tag<typename T::ReflectionType>();
-  } else if constexpr (named_tuple_t<T>::Names::template contains<
-                           _discriminator>()) {
-    return *to_view(_t).template get<_discriminator>();
-  } else if constexpr (internal::has_tag_v<T>) {
-    using LiteralType = typename T::Tag;
-    return LiteralType::template name_of<0>();
-  } else {
-    return rfl::Literal<
-        internal::remove_namespaces<internal::get_type_name<T>()>()>();
+  template <internal::StringLiteral _discriminator, class T>
+  static inline auto make_tag(const T& _t) noexcept {
+    if constexpr (internal::has_reflection_type_v<T>) {
+      return make_tag<typename T::ReflectionType>();
+    } else if constexpr (named_tuple_t<T>::Names::template contains<
+                             _discriminator>()) {
+      return *to_view(_t).template get<_discriminator>();
+    } else if constexpr (internal::has_tag_v<T>) {
+      using LiteralType = typename T::Tag;
+      return LiteralType::template name_of<0>();
+    } else {
+      return rfl::Literal<
+          internal::remove_namespaces<internal::get_type_name<T>()>()>();
+    }
   }
-}
 
-}  // namespace rfl::internal
+} // namespace rfl::internal
 
 #endif

@@ -36,116 +36,127 @@
 // defined.
 
 namespace rfl {
-namespace internal {
-namespace enums {
+  namespace internal {
+    namespace enums {
 
-template <auto e>
-consteval auto get_enum_name_str_view() {
-  // Unfortunately, we cannot avoid the use of a compiler-specific macro for
-  // Clang on Windows. For all other compilers, function_name works as intended.
+      template <auto e>
+      consteval auto get_enum_name_str_view() {
+        // Unfortunately, we cannot avoid the use of a compiler-specific macro
+        // for Clang on Windows. For all other compilers, function_name works as
+        // intended.
 #if defined(__clang__) && defined(_MSC_VER)
-  const auto func_name = std::string_view{__PRETTY_FUNCTION__};
+        const auto func_name = std::string_view {__PRETTY_FUNCTION__};
 #else
-  const auto func_name =
-      std::string_view{std::source_location::current().function_name()};
+        const auto func_name =
+            std::string_view {std::source_location::current().function_name()};
 #endif
 #if defined(__clang__)
-  const auto split = func_name.substr(0, func_name.size() - 1);
-  return split.substr(split.find("e = ") + 4);
+        const auto split = func_name.substr(0, func_name.size() - 1);
+        return split.substr(split.find("e = ") + 4);
 #elif defined(__GNUC__)
-  const auto split = func_name.substr(0, func_name.size() - 1);
-  return split.substr(split.find("e = ") + 4);
+        const auto split = func_name.substr(0, func_name.size() - 1);
+        return split.substr(split.find("e = ") + 4);
 #elif defined(_MSC_VER)
-  const auto split = func_name.substr(0, func_name.size() - 7);
-  return split.substr(split.find("get_enum_name_str_view<") + 23);
+        const auto split = func_name.substr(0, func_name.size() - 7);
+        return split.substr(split.find("get_enum_name_str_view<") + 23);
 #else
-  static_assert(false,
-                "You are using an unsupported compiler. Please use GCC, Clang "
-                "or MSVC or use rfl::Literal.");
+        static_assert(
+            false,
+            "You are using an unsupported compiler. Please use GCC, Clang "
+            "or MSVC or use rfl::Literal.");
 #endif
-}
+      }
 
-template <auto e>
-consteval auto get_enum_name() {
-  constexpr auto name = get_enum_name_str_view<e>();
-  const auto to_str_lit = [&]<auto... Ns>(std::index_sequence<Ns...>) {
-    return StringLiteral<sizeof...(Ns) + 1>{name[Ns]...};
-  };
-  return to_str_lit(std::make_index_sequence<name.size()>{});
-}
+      template <auto e>
+      consteval auto get_enum_name() {
+        constexpr auto name   = get_enum_name_str_view<e>();
+        const auto to_str_lit = [&]<auto... Ns>(std::index_sequence<Ns...>) {
+          return StringLiteral<sizeof...(Ns) + 1> {name[Ns]...};
+        };
+        return to_str_lit(std::make_index_sequence<name.size()> {});
+      }
 
-template <class T>
-consteval T calc_greatest_power_of_two() {
-  if constexpr (std::is_signed_v<T>) {
-    return static_cast<T>(1) << (sizeof(T) * 8 - 2);
-  } else {
-    return static_cast<T>(1) << (sizeof(T) * 8 - 1);
-  }
-}
+      template <class T>
+      consteval T calc_greatest_power_of_two() {
+        if constexpr (std::is_signed_v<T>) {
+          return static_cast<T>(1) << (sizeof(T) * 8 - 2);
+        } else {
+          return static_cast<T>(1) << (sizeof(T) * 8 - 1);
+        }
+      }
 
-template <class T, bool _is_flag>
-consteval T get_max() {
-  if constexpr (_is_flag) {
-    return calc_greatest_power_of_two<T>();
-  } else {
-    return std::numeric_limits<T>::max() > 127 ? static_cast<T>(127)
-                                               : std::numeric_limits<T>::max();
-  }
-}
+      template <class T, bool _is_flag>
+      consteval T get_max() {
+        if constexpr (_is_flag) {
+          return calc_greatest_power_of_two<T>();
+        } else {
+          return std::numeric_limits<T>::max() > 127
+                     ? static_cast<T>(127)
+                     : std::numeric_limits<T>::max();
+        }
+      }
 
-template <class T, bool _is_flag, int _i>
-consteval T calc_j() {
-  if constexpr (_is_flag) {
-    return static_cast<T>(1) << _i;
-  } else {
-    return static_cast<T>(_i);
-  }
-}
+      template <class T, bool _is_flag, int _i>
+      consteval T calc_j() {
+        if constexpr (_is_flag) {
+          return static_cast<T>(1) << _i;
+        } else {
+          return static_cast<T>(_i);
+        }
+      }
 
-template <class EnumType, class NamesType, auto _max, bool _is_flag, int _i>
-consteval auto get_enum_names_impl() {
-  using T = std::underlying_type_t<EnumType>;
+      template <class EnumType,
+                class NamesType,
+                auto _max,
+                bool _is_flag,
+                int _i>
+      consteval auto get_enum_names_impl() {
+        using T = std::underlying_type_t<EnumType>;
 
-  constexpr T j = calc_j<T, _is_flag, _i>();
+        constexpr T j = calc_j<T, _is_flag, _i>();
 
-  constexpr auto name = get_enum_name<static_cast<EnumType>(j)>();
+        constexpr auto name = get_enum_name<static_cast<EnumType>(j)>();
 
-  if constexpr (std::get<0>(name.arr_) == '(') {
-    if constexpr (j == _max) {
-      return NamesType{};
-    } else {
-      return get_enum_names_impl<EnumType, NamesType, _max, _is_flag, _i + 1>();
-    }
-  } else {
-    using NewNames = typename NamesType::template AddOneType<
-        Literal<remove_namespaces<name>()>, static_cast<EnumType>(j)>;
+        if constexpr (std::get<0>(name.arr_) == '(') {
+          if constexpr (j == _max) {
+            return NamesType {};
+          } else {
+            return get_enum_names_impl<EnumType, NamesType, _max, _is_flag,
+                                       _i + 1>();
+          }
+        } else {
+          using NewNames = typename NamesType::template AddOneType<
+              Literal<remove_namespaces<name>()>, static_cast<EnumType>(j)>;
 
-    if constexpr (j == _max) {
-      return NewNames{};
-    } else {
-      return get_enum_names_impl<EnumType, NewNames, _max, _is_flag, _i + 1>();
-    }
-  }
-}
+          if constexpr (j == _max) {
+            return NewNames {};
+          } else {
+            return get_enum_names_impl<EnumType, NewNames, _max, _is_flag,
+                                       _i + 1>();
+          }
+        }
+      }
 
-template <class EnumType, bool _is_flag>
-consteval auto get_enum_names() {
-  static_assert(is_scoped_enum<EnumType>,
-                "You must use scoped enums (using class or struct) for the "
-                "parsing to work!");
+      template <class EnumType, bool _is_flag>
+      consteval auto get_enum_names() {
+        static_assert(
+            is_scoped_enum<EnumType>,
+            "You must use scoped enums (using class or struct) for the "
+            "parsing to work!");
 
-  static_assert(std::is_integral_v<std::underlying_type_t<EnumType>>,
-                "The underlying type of any Enum must be integral!");
+        static_assert(std::is_integral_v<std::underlying_type_t<EnumType>>,
+                      "The underlying type of any Enum must be integral!");
 
-  constexpr auto max = get_max<std::underlying_type_t<EnumType>, _is_flag>();
+        constexpr auto max =
+            get_max<std::underlying_type_t<EnumType>, _is_flag>();
 
-  using EmptyNames = Names<EnumType, rfl::Literal<"">, 0>;
+        using EmptyNames = Names<EnumType, rfl::Literal<"">, 0>;
 
-  return get_enum_names_impl<EnumType, EmptyNames, max, _is_flag, 0>();
-}
+        return get_enum_names_impl<EnumType, EmptyNames, max, _is_flag, 0>();
+      }
 
-}  // namespace enums
-}  // namespace internal
-}  // namespace rfl
+    } // namespace enums
+  } // namespace internal
+} // namespace rfl
 
 #endif

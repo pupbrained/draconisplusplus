@@ -7,9 +7,9 @@
 
 namespace rfl::toml {
 
-template <class T, class ProcessorsType>
-using Parser = parsing::Parser<Reader, Writer, T, ProcessorsType>;
+  template <class T, class ProcessorsType>
+  using Parser = parsing::Parser<Reader, Writer, T, ProcessorsType>;
 
-}  // namespace rfl::toml
+} // namespace rfl::toml
 
 #endif

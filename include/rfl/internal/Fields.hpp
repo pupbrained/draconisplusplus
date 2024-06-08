@@ -8,16 +8,16 @@
 #include <unordered_map>
 
 namespace rfl {
-namespace internal {
+  namespace internal {
 
-template <int N>
-struct Fields {
-  std::array<std::string, N> names_;
+    template <int N>
+    struct Fields {
+      std::array<std::string, N> names_;
 
-  std::unordered_map<std::string_view, std::int16_t> indices_;
-};
+      std::unordered_map<std::string_view, std::int16_t> indices_;
+    };
 
-}  // namespace internal
-}  // namespace rfl
+  } // namespace internal
+} // namespace rfl
 
 #endif

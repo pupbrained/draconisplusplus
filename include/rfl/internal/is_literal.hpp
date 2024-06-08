@@ -7,22 +7,22 @@
 #include "StringLiteral.hpp"
 
 namespace rfl {
-namespace internal {
+  namespace internal {
 
-template <class T>
-class is_literal;
+    template <class T>
+    class is_literal;
 
-template <class T>
-class is_literal : public std::false_type {};
+    template <class T>
+    class is_literal : public std::false_type {};
 
-template <StringLiteral... _s>
-class is_literal<Literal<_s...>> : public std::true_type {};
+    template <StringLiteral... _s>
+    class is_literal<Literal<_s...>> : public std::true_type {};
 
-template <class T>
-constexpr bool is_literal_v =
-    is_literal<std::remove_cvref_t<std::remove_pointer_t<T>>>::value;
+    template <class T>
+    constexpr bool is_literal_v =
+        is_literal<std::remove_cvref_t<std::remove_pointer_t<T>>>::value;
 
-}  // namespace internal
-}  // namespace rfl
+  } // namespace internal
+} // namespace rfl
 
 #endif

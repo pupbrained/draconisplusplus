@@ -11,17 +11,17 @@
 #include "write.hpp"
 
 namespace rfl {
-namespace yaml {
+  namespace yaml {
 
-template <class... Ps>
-Result<Nothing> save(const std::string& _fname, const auto& _obj) {
-  const auto write_func = [](const auto& _obj, auto& _stream) -> auto& {
-    return write<Ps...>(_obj, _stream);
-  };
-  return rfl::io::save_string(_fname, _obj, write_func);
-}
+    template <class... Ps>
+    Result<Nothing> save(const std::string& _fname, const auto& _obj) {
+      const auto write_func = [](const auto& _obj, auto& _stream) -> auto& {
+        return write<Ps...>(_obj, _stream);
+      };
+      return rfl::io::save_string(_fname, _obj, write_func);
+    }
 
-}  // namespace yaml
-}  // namespace rfl
+  } // namespace yaml
+} // namespace rfl
 
 #endif

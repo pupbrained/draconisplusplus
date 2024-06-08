@@ -6,10 +6,10 @@
 
 namespace rfl {
 
-template <class... FieldTypes>
-using define_named_tuple_t =
-    typename internal::define_named_tuple<FieldTypes...>::type;
+  template <class... FieldTypes>
+  using define_named_tuple_t =
+      typename internal::define_named_tuple<FieldTypes...>::type;
 
-}  // namespace rfl
+} // namespace rfl
 
-#endif  // RFL_DEFINENAMEDTUPLE_HPP_
+#endif // RFL_DEFINENAMEDTUPLE_HPP_

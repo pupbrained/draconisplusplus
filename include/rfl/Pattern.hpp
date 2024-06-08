@@ -6,9 +6,9 @@
 
 namespace rfl {
 
-template <internal::StringLiteral _regex, internal::StringLiteral _name>
-using Pattern = Validator<std::string, PatternValidator<_regex, _name>>;
+  template <internal::StringLiteral _regex, internal::StringLiteral _name>
+  using Pattern = Validator<std::string, PatternValidator<_regex, _name>>;
 
-}  // namespace rfl
+} // namespace rfl
 
 #endif

@@ -2,7 +2,7 @@
 #define RFL_INTERNAL_GETFAKEOBJECT_HPP_
 
 namespace rfl {
-namespace internal {
+  namespace internal {
 
 #if __GNUC__
 #ifndef __clang__
@@ -21,16 +21,16 @@ namespace internal {
 #pragma warning(disable : 7631)
 #endif
 
-template <class T>
-struct wrapper {
-  const T value;
-  static const wrapper<T> report_if_you_see_a_link_error_with_this_object;
-};
+    template <class T>
+    struct wrapper {
+      const T value;
+      static const wrapper<T> report_if_you_see_a_link_error_with_this_object;
+    };
 
-template <class T>
-consteval const T& get_fake_object() noexcept {
-  return wrapper<T>::report_if_you_see_a_link_error_with_this_object.value;
-}
+    template <class T>
+    consteval const T& get_fake_object() noexcept {
+      return wrapper<T>::report_if_you_see_a_link_error_with_this_object.value;
+    }
 
 #ifdef __clang__
 #pragma clang diagnostic pop
@@ -40,7 +40,7 @@ consteval const T& get_fake_object() noexcept {
 #pragma warning(pop)
 #endif
 
-}  // namespace internal
-}  // namespace rfl
+  } // namespace internal
+} // namespace rfl
 
 #endif

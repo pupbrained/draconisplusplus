@@ -9,21 +9,21 @@
 #include "../Result.hpp"
 
 namespace rfl {
-namespace io {
+  namespace io {
 
-inline Result<std::vector<char>> load_bytes(const std::string& _fname) {
-  std::ifstream input(_fname, std::ios::binary);
-  if (input.is_open()) {
-    std::istreambuf_iterator<char> begin(input), end;
-    const auto bytes = std::vector<char>(begin, end);
-    input.close();
-    return bytes;
-  } else {
-    return rfl::Error("File '" + _fname + "' not found!");
-  }
-}
+    inline Result<std::vector<char>> load_bytes(const std::string& _fname) {
+      std::ifstream input(_fname, std::ios::binary);
+      if (input.is_open()) {
+        std::istreambuf_iterator<char> begin(input), end;
+        const auto bytes = std::vector<char>(begin, end);
+        input.close();
+        return bytes;
+      } else {
+        return rfl::Error("File '" + _fname + "' not found!");
+      }
+    }
 
-}  // namespace io
-}  // namespace rfl
+  } // namespace io
+} // namespace rfl
 
 #endif

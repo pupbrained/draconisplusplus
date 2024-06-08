@@ -3,12 +3,12 @@
 
 namespace rfl {
 
-/// Helper class that can be passed to a field
-/// to trigger the default value of the type.
-struct Default {};
+  /// Helper class that can be passed to a field
+  /// to trigger the default value of the type.
+  struct Default {};
 
-inline static const auto default_value = Default{};
+  inline static const auto default_value = Default {};
 
-}  // namespace rfl
+} // namespace rfl
 
 #endif

@@ -6,14 +6,14 @@
 #include "../Result.hpp"
 
 namespace rfl {
-namespace internal {
+  namespace internal {
 
-template <class Class, typename T>
-concept HasValidation = requires(Class obj, T value) {
-  { Class::validate(value) } -> std::same_as<rfl::Result<T>>;
-};
+    template <class Class, typename T>
+    concept HasValidation = requires(Class obj, T value) {
+      { Class::validate(value) } -> std::same_as<rfl::Result<T>>;
+    };
 
-}  // namespace internal
-}  // namespace rfl
+  } // namespace internal
+} // namespace rfl
 
 #endif

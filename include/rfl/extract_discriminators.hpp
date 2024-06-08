@@ -10,11 +10,12 @@
 
 namespace rfl {
 
-/// Extracts a Literal containing all of the discriminators from a TaggedUnion.
-template <class TaggedUnionType>
-using extract_discriminators_t =
-    typename internal::extract_discriminators<TaggedUnionType>::type;
+  /// Extracts a Literal containing all of the discriminators from a
+  /// TaggedUnion.
+  template <class TaggedUnionType>
+  using extract_discriminators_t =
+      typename internal::extract_discriminators<TaggedUnionType>::type;
 
-}  // namespace rfl
+} // namespace rfl
 
-#endif  // RFL_EXTRACTDISTRIMINATORS_HPP_
+#endif // RFL_EXTRACTDISTRIMINATORS_HPP_

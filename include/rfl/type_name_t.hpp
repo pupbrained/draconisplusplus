@@ -8,10 +8,10 @@
 
 namespace rfl {
 
-/// Returns a rfl::Literal containing the type name of T.
-template <class T>
-using type_name_t = rfl::Literal<internal::get_type_name<T>()>;
+  /// Returns a rfl::Literal containing the type name of T.
+  template <class T>
+  using type_name_t = rfl::Literal<internal::get_type_name<T>()>;
 
-}  // namespace rfl
+} // namespace rfl
 
 #endif

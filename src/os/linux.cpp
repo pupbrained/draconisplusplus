@@ -45,8 +45,35 @@ u64 MeminfoParse(std::ifstream input) {
   return num;
 }
 
-u64 GetMemInfo() {
-  return MeminfoParse(std::ifstream("/proc/meminfo")) * 1024;
+u64 GetMemInfo() { return MeminfoParse(std::ifstream("/proc/meminfo")) * 1024; }
+
+const char* GetOSVersion() {
+  static std::string prettyName;
+
+  std::ifstream file("/etc/os-release");
+
+  if (!file.is_open()) {
+    std::cerr << "Failed to open /etc/os-release" << std::endl;
+    return nullptr;
+  }
+
+  std::string line;
+  while (std::getline(file, line)) {
+    if (line.find("PRETTY_NAME=") == 0) {
+      // Remove the "PRETTY_NAME=" part and any surrounding quotes
+      prettyName = line.substr(12);
+
+      if (!prettyName.empty() && prettyName.front() == '"' &&
+          prettyName.back() == '"')
+        prettyName = prettyName.substr(1, prettyName.size() - 2);
+
+      file.close();
+      return prettyName.c_str();
+    }
+  }
+
+  file.close();
+  return nullptr;
 }
 
 std::vector<std::string> GetMprisPlayers(sdbus::IConnection& connection) {
