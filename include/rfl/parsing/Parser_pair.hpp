@@ -46,7 +46,9 @@ namespace rfl {
       ) noexcept {
         const auto tup = std::make_tuple(&_p.first, &_p.second);
         Parser<
-            R, W, std::tuple<const FirstType*, const SecondType*>,
+            R,
+            W,
+            std::tuple<const FirstType*, const SecondType*>,
             ProcessorsType>::write(_w, tup, _parent);
       }
 

@@ -6,7 +6,6 @@ AllowShortBlocksOnASingleLine: Always
 AllowShortCompoundRequirementOnASingleLine: true
 AllowShortEnumsOnASingleLine: true
 AllowShortFunctionsOnASingleLine: true
-AllowShortIfStatementsOnASingleLine: WithoutElse
 AllowShortLoopsOnASingleLine: true
 BasedOnStyle: Chromium
 BinPackArguments: false

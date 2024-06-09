@@ -47,19 +47,27 @@ namespace rfl::toml {
     rfl::Result<T> to_basic_type(const InputVarType& _var) const noexcept {
       if constexpr (std::is_same<std::remove_cvref_t<T>, std::string>()) {
         const auto ptr = _var->as<std::string>();
-        if (!ptr) { return Error("Could not cast the node to std::string!"); }
+        if (!ptr) {
+          return Error("Could not cast the node to std::string!");
+        }
         return **ptr;
       } else if constexpr (std::is_same<std::remove_cvref_t<T>, bool>()) {
         const auto ptr = _var->as<bool>();
-        if (!ptr) { return Error("Could not cast the node to bool!"); }
+        if (!ptr) {
+          return Error("Could not cast the node to bool!");
+        }
         return **ptr;
       } else if constexpr (std::is_floating_point<std::remove_cvref_t<T>>()) {
         const auto ptr = _var->as<double>();
-        if (!ptr) { return Error("Could not cast the node to double!"); }
+        if (!ptr) {
+          return Error("Could not cast the node to double!");
+        }
         return static_cast<std::remove_cvref_t<T>>(**ptr);
       } else if constexpr (std::is_integral<std::remove_cvref_t<T>>()) {
         const auto ptr = _var->as<int64_t>();
-        if (!ptr) { return Error("Could not cast the node to int64_t!"); }
+        if (!ptr) {
+          return Error("Could not cast the node to int64_t!");
+        }
         return static_cast<std::remove_cvref_t<T>>(**ptr);
       } else {
         static_assert(rfl::always_false_v<T>, "Unsupported type.");
@@ -69,7 +77,9 @@ namespace rfl::toml {
     rfl::Result<InputArrayType> to_array(const InputVarType& _var
     ) const noexcept {
       const auto ptr = _var->as_array();
-      if (!ptr) { return rfl::Error("Could not cast to an array!"); }
+      if (!ptr) {
+        return rfl::Error("Could not cast to an array!");
+      }
       return ptr;
     }
 
@@ -80,7 +90,9 @@ namespace rfl::toml {
     ) const noexcept {
       for (auto& node : *_arr) {
         const auto err = _array_reader.read(&node);
-        if (err) { return err; }
+        if (err) {
+          return err;
+        }
       }
       return std::nullopt;
     }
@@ -99,7 +111,9 @@ namespace rfl::toml {
     rfl::Result<InputObjectType> to_object(const InputVarType& _var
     ) const noexcept {
       const auto ptr = _var->as_table();
-      if (!ptr) { return rfl::Error("Could not cast to a table!"); }
+      if (!ptr) {
+        return rfl::Error("Could not cast to a table!");
+      }
       return ptr;
     }
 

@@ -65,7 +65,9 @@ namespace rfl {
         using ViewType = std::remove_cvref_t<decltype(view)>;
         const auto err =
             Parser<R, W, ViewType, ProcessorsType>::read_view(_r, _var, &view);
-        if (err) [[unlikely]] { return *err; }
+        if (err) [[unlikely]] {
+          return *err;
+        }
         return *ptr;
       }
 
@@ -76,7 +78,9 @@ namespace rfl {
           NamedTuple<FieldTypes...>* _view
       ) noexcept {
         auto obj = _r.to_object(_var);
-        if (!obj) [[unlikely]] { return obj.error(); }
+        if (!obj) [[unlikely]] {
+          return obj.error();
+        }
         return read_object(_r, *obj, _view);
       }
 
@@ -106,8 +110,8 @@ namespace rfl {
         if constexpr (_i == size) {
           return Type {Type::Object {_values}};
         } else {
-          using F = std::tuple_element_t<
-              _i, typename NamedTuple<FieldTypes...>::Fields>;
+          using F = std::
+              tuple_element_t<_i, typename NamedTuple<FieldTypes...>::Fields>;
           using U = typename F::Type;
           if constexpr (!internal::is_skip_v<U>) {
             _values[std::string(F::name())] =
@@ -217,9 +221,14 @@ namespace rfl {
                 &_r, _view, &found, &set, &errors
             );
         const auto err = _r.read_object(object_reader, _obj);
-        if (err) { return *err; }
+        if (err) {
+          return *err;
+        }
         handle_missing_fields(
-            found, *_view, &set, &errors,
+            found,
+            *_view,
+            &set,
+            &errors,
             std::make_integer_sequence<int, size_>()
         );
         if (errors.size() != 0) {

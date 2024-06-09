@@ -24,7 +24,9 @@ namespace rfl::parsing {
 
     static Result<std::shared_ptr<T>>
     read(const R& _r, const InputVarType& _var) noexcept {
-      if (_r.is_empty(_var)) { return std::shared_ptr<T>(); }
+      if (_r.is_empty(_var)) {
+        return std::shared_ptr<T>();
+      }
       const auto to_ptr = [](auto&& _t) {
         return std::make_shared<T>(std::move(_t));
       };

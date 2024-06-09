@@ -25,7 +25,9 @@ namespace rfl {
     /// You can generate them from unique_ptrs as well, in which case it will
     /// return an Error, if the unique_ptr is not set.
     static Result<Box<T>> make(std::unique_ptr<T>&& _ptr) {
-      if (!_ptr) { return Error("std::unique_ptr was a nullptr."); }
+      if (!_ptr) {
+        return Error("std::unique_ptr was a nullptr.");
+      }
       return Box<T>(std::move(_ptr));
     }
 

@@ -13,10 +13,9 @@ struct BytesToGiB {
 
 template <>
 struct fmt::formatter<BytesToGiB> : formatter<double> {
-  template <typename FormatContext>
-  typename FormatContext::iterator
-  format(const BytesToGiB BTG, FormatContext& ctx) {
-    typename FormatContext::iterator out = formatter<double>::format(
+  template <typename FmtCtx>
+  fn format(const BytesToGiB BTG, FmtCtx& ctx) -> typename FmtCtx::iterator {
+    typename FmtCtx::iterator out = formatter<double>::format(
         static_cast<double>(BTG.value) / pow(1024, 3), ctx
     );
     *out++ = 'G';
@@ -26,53 +25,35 @@ struct fmt::formatter<BytesToGiB> : formatter<double> {
   }
 };
 
-enum DateNum { Ones, Twos, Threes, Default };
-
-DateNum ParseDate(string const& input) {
-  if (input == "1" || input == "21" || input == "31") return Ones;
-  if (input == "2" || input == "22") return Twos;
-  if (input == "3" || input == "23") return Threes;
-  return Default;
-}
-
-int main() {
-  const Config& config = Config::getInstance();
-
-  if (config.getNowPlaying().getEnabled()) fmt::println("{}", GetNowPlaying());
-
-  fmt::println("Hello {}!", config.getGeneral().getName());
-
-  const u64 memInfo = GetMemInfo();
-
-  fmt::println("{:.2f}", BytesToGiB {memInfo});
-
+fn GetDate() -> string {
   const std::tm localTime = fmt::localtime(time(nullptr));
 
   string date = fmt::format("{:%e}", localTime);
 
-  auto start = date.begin();
-  while (start != date.end() && std::isspace(*start)) ++start;
-  date.erase(date.begin(), start);
+  if (!date.empty() && std::isspace(date.front()))
+    date.erase(date.begin());
 
-  switch (ParseDate(date)) {
-    case Ones:
-      date += "st";
-      break;
+  if (date == "1" || date == "21" || date == "31")
+    date += "st";
+  else if (date == "2" || date == "22")
+    date += "nd";
+  else if (date == "3" || date == "23")
+    date += "rd";
+  else
+    date += "th";
 
-    case Twos:
-      date += "nd";
-      break;
+  return fmt::format("{:%B} {}, {:%-I:%0M %p}", localTime, date, localTime);
+}
 
-    case Threes:
-      date += "rd";
-      break;
+fn main() -> int {
+  const Config& config = Config::getInstance();
 
-    case Default:
-      date += "th";
-      break;
-  }
+  if (config.getNowPlaying().getEnabled())
+    fmt::println("{}", GetNowPlaying());
 
-  fmt::println("{:%B} {}, {:%-I:%0M %p}", localTime, date, localTime);
+  fmt::println("Hello {}!", config.getGeneral().getName());
+  fmt::println("Installed RAM: {:.2f}", BytesToGiB {GetMemInfo()});
+  fmt::println("Today is: {}", GetDate());
 
   Weather::WeatherOutput json = config.getWeather().getWeatherInfo();
 

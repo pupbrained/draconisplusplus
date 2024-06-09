@@ -297,7 +297,9 @@ namespace rfl {
     template <int _i = 0>
     static Result<int> find_value(const std::string& _str) {
       using FieldType = typename std::tuple_element<_i, FieldsType>::type;
-      if (FieldType::field_.str() == _str) { return _i; }
+      if (FieldType::field_.str() == _str) {
+        return _i;
+      }
       if constexpr (_i + 1 == num_fields_) {
         return Error(
             "Literal does not support string '" + _str +

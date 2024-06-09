@@ -97,8 +97,12 @@ namespace rfl {
         const auto         map_reader =
             MapReader<R, W, MapType, ProcessorsType>(&_r, &map, &errors);
         const auto err = _r.read_object(map_reader, _obj);
-        if (err) { return *err; }
-        if (errors.size() != 0) { return to_single_error_message(errors); }
+        if (err) {
+          return *err;
+        }
+        if (errors.size() != 0) {
+          return to_single_error_message(errors);
+        }
         return map;
       }
     };

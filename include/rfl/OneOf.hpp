@@ -52,7 +52,9 @@ namespace rfl {
         _r.or_else(push_back);
 
         if constexpr (sizeof...(Tail) == 0) {
-          if (_errors.size() == sizeof...(Cs)) { return _value; }
+          if (_errors.size() == sizeof...(Cs)) {
+            return _value;
+          }
           return make_error_message(_errors);
         } else {
           return validate_impl<T, Tail...>(

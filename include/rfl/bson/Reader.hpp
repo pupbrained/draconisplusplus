@@ -60,7 +60,9 @@ namespace rfl {
           if (bson_iter_init(&iter, &b)) {
             while (bson_iter_next(&iter)) {
               auto key = std::string(bson_iter_key(&iter));
-              if (key == _name) { return to_input_var(&iter); }
+              if (key == _name) {
+                return to_input_var(&iter);
+              }
             }
           }
         }
@@ -146,7 +148,9 @@ namespace rfl {
           if (bson_iter_init(&iter, &b)) {
             while (bson_iter_next(&iter)) {
               const auto err = _array_reader.read(to_input_var(&iter));
-              if (err) { return err; }
+              if (err) {
+                return err;
+              }
             }
           }
         }

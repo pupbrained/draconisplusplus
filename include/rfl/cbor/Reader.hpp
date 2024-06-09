@@ -52,21 +52,33 @@ namespace rfl {
         CborValue val;
         auto      buffer = std::vector<char>();
         auto      err    = cbor_value_enter_container(_obj.val_, &val);
-        if (err != CborNoError) { return Error(cbor_error_string(err)); }
+        if (err != CborNoError) {
+          return Error(cbor_error_string(err));
+        }
         size_t length = 0;
         err           = cbor_value_get_map_length(_obj.val_, &length);
-        if (err != CborNoError) { return Error(cbor_error_string(err)); }
+        if (err != CborNoError) {
+          return Error(cbor_error_string(err));
+        }
         for (size_t i = 0; i < length; ++i) {
           if (!cbor_value_is_text_string(&val)) {
             return Error("Expected the key to be a string value.");
           }
           err = get_string(&val, &buffer);
-          if (err != CborNoError) { return Error(cbor_error_string(err)); }
+          if (err != CborNoError) {
+            return Error(cbor_error_string(err));
+          }
           err = cbor_value_advance(&val);
-          if (err != CborNoError) { return Error(cbor_error_string(err)); }
-          if (_name == buffer.data()) { return to_input_var(&val); }
+          if (err != CborNoError) {
+            return Error(cbor_error_string(err));
+          }
+          if (_name == buffer.data()) {
+            return to_input_var(&val);
+          }
           err = cbor_value_advance(&val);
-          if (err != CborNoError) { return Error(cbor_error_string(err)); }
+          if (err != CborNoError) {
+            return Error(cbor_error_string(err));
+          }
         }
         return Error("No field named '" + _name + "' was found.");
       }
@@ -83,7 +95,9 @@ namespace rfl {
           }
           std::vector<char> buffer;
           const auto        err = get_string(_var.val_, &buffer);
-          if (err != CborNoError) { return Error(cbor_error_string(err)); }
+          if (err != CborNoError) {
+            return Error(cbor_error_string(err));
+          }
           return std::string(buffer.data());
         } else if constexpr (std::is_same<std::remove_cvref_t<T>, bool>()) {
           if (!cbor_value_is_boolean(_var.val_)) {
@@ -91,24 +105,32 @@ namespace rfl {
           }
           bool       result = false;
           const auto err    = cbor_value_get_boolean(_var.val_, &result);
-          if (err != CborNoError) { return Error(cbor_error_string(err)); }
+          if (err != CborNoError) {
+            return Error(cbor_error_string(err));
+          }
           return result;
         } else if constexpr (std::is_floating_point<std::remove_cvref_t<T>>() ||
                              std::is_integral<std::remove_cvref_t<T>>()) {
           if (cbor_value_is_integer(_var.val_)) {
             std::int64_t result = 0;
             const auto   err    = cbor_value_get_int64(_var.val_, &result);
-            if (err != CborNoError) { return Error(cbor_error_string(err)); }
+            if (err != CborNoError) {
+              return Error(cbor_error_string(err));
+            }
             return static_cast<T>(result);
           } else if (cbor_value_is_float(_var.val_)) {
             float      result = 0.0;
             const auto err    = cbor_value_get_float(_var.val_, &result);
-            if (err != CborNoError) { return Error(cbor_error_string(err)); }
+            if (err != CborNoError) {
+              return Error(cbor_error_string(err));
+            }
             return static_cast<T>(result);
           } else if (cbor_value_is_double(_var.val_)) {
             double     result = 0.0;
             const auto err    = cbor_value_get_double(_var.val_, &result);
-            if (err != CborNoError) { return Error(cbor_error_string(err)); }
+            if (err != CborNoError) {
+              return Error(cbor_error_string(err));
+            }
             return static_cast<T>(result);
           }
           return rfl::Error(
@@ -156,7 +178,9 @@ namespace rfl {
         }
         for (size_t i = 0; i < length; ++i) {
           const auto err2 = _array_reader.read(to_input_var(&val));
-          if (err2) { return err2; }
+          if (err2) {
+            return err2;
+          }
           err = cbor_value_advance(&val);
           if (err != CborNoError && err != CborErrorOutOfMemory) {
             return Error(cbor_error_string(err));
@@ -172,19 +196,27 @@ namespace rfl {
       ) const noexcept {
         size_t length = 0;
         auto   err    = cbor_value_get_map_length(_obj.val_, &length);
-        if (err != CborNoError) { return Error(cbor_error_string(err)); }
+        if (err != CborNoError) {
+          return Error(cbor_error_string(err));
+        }
 
         CborValue val;
         err = cbor_value_enter_container(_obj.val_, &val);
-        if (err != CborNoError) { return Error(cbor_error_string(err)); }
+        if (err != CborNoError) {
+          return Error(cbor_error_string(err));
+        }
 
         auto buffer = std::vector<char>();
 
         for (size_t i = 0; i < length; ++i) {
           err = get_string(&val, &buffer);
-          if (err != CborNoError) { return Error(cbor_error_string(err)); }
+          if (err != CborNoError) {
+            return Error(cbor_error_string(err));
+          }
           err = cbor_value_advance(&val);
-          if (err != CborNoError) { return Error(cbor_error_string(err)); }
+          if (err != CborNoError) {
+            return Error(cbor_error_string(err));
+          }
           const auto name = std::string_view(buffer.data(), buffer.size() - 1);
           _object_reader.read(name, InputVarType {&val});
           cbor_value_advance(&val);
@@ -206,7 +238,9 @@ namespace rfl {
           const noexcept {
         size_t length = 0;
         auto   err    = cbor_value_get_string_length(_ptr, &length);
-        if (err != CborNoError && err != CborErrorOutOfMemory) { return err; }
+        if (err != CborNoError && err != CborErrorOutOfMemory) {
+          return err;
+        }
         _buffer->resize(length + 1);
         (*_buffer)[length] = '\0';
         return cbor_value_copy_text_string(

@@ -41,8 +41,9 @@ namespace rfl {
           );
         } else {
           const auto to_skip = [&](auto&& _t) {
-            return internal::Skip<
-                T, _skip_serialization, _skip_deserialization>(std::move(_t));
+            return internal::
+                Skip<T, _skip_serialization, _skip_deserialization>(std::move(_t
+                ));
           };
           return Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::read(
                      _r, _var
@@ -60,7 +61,9 @@ namespace rfl {
       ) noexcept {
         if constexpr (_skip_serialization) {
           using ReflectionType = std::remove_cvref_t<typename internal::Skip<
-              T, _skip_serialization, _skip_deserialization>::ReflectionType>;
+              T,
+              _skip_serialization,
+              _skip_deserialization>::ReflectionType>;
           Parser<R, W, ReflectionType, ProcessorsType>::write(
               _w, ReflectionType(), _parent
           );

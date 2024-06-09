@@ -48,7 +48,9 @@ namespace rfl::parsing {
       using K = std::remove_cvref_t<typename T::first_type>;
       using V = std::remove_cvref_t<typename T::second_type>;
       return Parser<
-          R, W, std::remove_cvref_t<std::pair<K, V>>,
+          R,
+          W,
+          std::remove_cvref_t<std::pair<K, V>>,
           ProcessorsType>::read(*r_, _var);
     }
 

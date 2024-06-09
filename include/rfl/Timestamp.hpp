@@ -78,7 +78,9 @@ namespace rfl {
       std::istringstream input(_s);
       input.imbue(std::locale(setlocale(LC_ALL, nullptr)));
       input >> std::get_time(_tm, _f);
-      if (input.fail()) { return NULL; }
+      if (input.fail()) {
+        return NULL;
+      }
       return (char*)(_s + input.tellg());
     }
 #endif

@@ -45,7 +45,8 @@ namespace rfl {
         using FieldType = typename std::tuple_element<i, Fields>::type;
         using T         = std::remove_cvref_t<typename FieldType::Type>;
         return nt_to_ptr_named_tuple(
-            _nt, _a...,
+            _nt,
+            _a...,
             Field<FieldType::name_, const T*>(&std::get<i>(_nt.values()))
         );
       }

@@ -487,13 +487,16 @@ namespace rfl {
 
         if constexpr (size == _index) {
           return make_replaced<_index, V, T>(
-              std::forward<V>(_values), std::forward<T>(_val),
-              std::forward<Args>(_args)..., FieldType(std::forward<T>(_val))
+              std::forward<V>(_values),
+              std::forward<T>(_val),
+              std::forward<Args>(_args)...,
+              FieldType(std::forward<T>(_val))
           );
         } else {
           using U = typename FieldType::Type;
           return make_replaced<_index, V, T>(
-              std::forward<V>(_values), std::forward<T>(_val),
+              std::forward<V>(_values),
+              std::forward<T>(_val),
               std::forward<Args>(_args)...,
               FieldType(std::forward<U>(std::get<size>(_values)))
           );

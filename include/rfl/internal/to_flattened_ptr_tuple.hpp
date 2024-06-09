@@ -22,12 +22,14 @@ namespace rfl {
         using T = std::tuple_element_t<i, std::remove_cvref_t<PtrTuple>>;
         if constexpr (is_flatten_field_v<T>) {
           return flatten_ptr_tuple(
-              std::forward<PtrTuple>(_t), std::forward<Args>(_args)...,
+              std::forward<PtrTuple>(_t),
+              std::forward<Args>(_args)...,
               flatten_ptr_tuple(to_ptr_tuple(std::get<i>(_t)->get()))
           );
         } else {
           return flatten_ptr_tuple(
-              std::forward<PtrTuple>(_t), std::forward<Args>(_args)...,
+              std::forward<PtrTuple>(_t),
+              std::forward<Args>(_args)...,
               std::make_tuple(std::get<i>(_t))
           );
         }

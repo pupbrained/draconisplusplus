@@ -225,7 +225,9 @@ namespace rfl::json {
         auto required   = std::vector<std::string>();
         for (const auto& [k, v] : _t.types_) {
           properties[k] = type_to_json_schema_type(v);
-          if (!is_optional(v)) { required.push_back(k); }
+          if (!is_optional(v)) {
+            required.push_back(k);
+          }
         }
         return schema::Type {
             .value =

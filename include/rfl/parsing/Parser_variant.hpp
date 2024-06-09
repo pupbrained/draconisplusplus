@@ -73,8 +73,8 @@ namespace rfl {
           std::vector<schema::Type>            _types = {}
       ) {
         if constexpr (internal::all_fields<std::tuple<FieldTypes...>>()) {
-          return FieldVariantParser<
-              R, W, ProcessorsType, FieldTypes...>::to_schema(_definitions);
+          return FieldVariantParser<R, W, ProcessorsType, FieldTypes...>::
+              to_schema(_definitions);
         } else {
           using Type            = schema::Type;
           constexpr size_t size = sizeof...(FieldTypes);

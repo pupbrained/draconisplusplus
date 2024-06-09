@@ -30,10 +30,18 @@ namespace rfl::internal {
       return transform_snake_case<_name, false, _name.arr_.size(), chars...>();
     } else if constexpr (_capitalize) {
       return transform_snake_case<
-          _name, false, _i + 1, chars..., to_upper<_name.arr_[_i]>()>();
+          _name,
+          false,
+          _i + 1,
+          chars...,
+          to_upper<_name.arr_[_i]>()>();
     } else {
       return transform_snake_case<
-          _name, false, _i + 1, chars..., _name.arr_[_i]>();
+          _name,
+          false,
+          _i + 1,
+          chars...,
+          _name.arr_[_i]>();
     }
   }
 } // namespace rfl::internal

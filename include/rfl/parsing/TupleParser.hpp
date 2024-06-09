@@ -38,7 +38,11 @@ namespace rfl::parsing {
         alignas(std::tuple<Ts...>) unsigned char buf[sizeof(std::tuple<Ts...>)];
         auto       ptr          = reinterpret_cast<std::tuple<Ts...>*>(buf);
         const auto tuple_reader = TupleReader<
-            R, W, std::tuple<Ts...>, _ignore_empty_containers, _all_required,
+            R,
+            W,
+            std::tuple<Ts...>,
+            _ignore_empty_containers,
+            _all_required,
             ProcessorsType>(&_r, ptr);
         auto err = _r.read_array(tuple_reader, _arr);
         if (err) {

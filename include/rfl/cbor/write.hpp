@@ -23,8 +23,10 @@ namespace rfl {
       using T          = std::remove_cvref_t<decltype(_obj)>;
       using ParentType = parsing::Parent<Writer>;
       cbor_encoder_init(
-          _encoder, reinterpret_cast<uint8_t*>(_buffer->data()),
-          _buffer->size(), 0
+          _encoder,
+          reinterpret_cast<uint8_t*>(_buffer->data()),
+          _buffer->size(),
+          0
       );
       const auto writer = Writer(_encoder);
       Parser<T, Processors<Ps...>>::write(

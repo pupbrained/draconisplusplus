@@ -127,7 +127,9 @@ namespace rfl {
       ) const noexcept {
         subdocs_->emplace_back(rfl::Box<BSONType>());
         bson_append_document_begin(
-            _parent->val_, _name.data(), static_cast<int>(_name.size()),
+            _parent->val_,
+            _name.data(),
+            static_cast<int>(_name.size()),
             &(subdocs_->back()->val_)
         );
         return OutputObjectType(
@@ -169,8 +171,11 @@ namespace rfl {
       ) const noexcept {
         if constexpr (std::is_same<std::remove_cvref_t<T>, std::string>()) {
           bson_append_utf8(
-              _parent->val_, _name.data(), static_cast<int>(_name.size()),
-              _var.c_str(), static_cast<int>(_var.size())
+              _parent->val_,
+              _name.data(),
+              static_cast<int>(_name.size()),
+              _var.c_str(),
+              static_cast<int>(_var.size())
           );
         } else if constexpr (std::is_same<std::remove_cvref_t<T>, bool>()) {
           bson_append_bool(
@@ -178,12 +183,16 @@ namespace rfl {
           );
         } else if constexpr (std::is_floating_point<std::remove_cvref_t<T>>()) {
           bson_append_double(
-              _parent->val_, _name.data(), static_cast<int>(_name.size()),
+              _parent->val_,
+              _name.data(),
+              static_cast<int>(_name.size()),
               static_cast<double>(_var)
           );
         } else if constexpr (std::is_integral<std::remove_cvref_t<T>>()) {
           bson_append_int64(
-              _parent->val_, _name.data(), static_cast<int>(_name.size()),
+              _parent->val_,
+              _name.data(),
+              static_cast<int>(_name.size()),
               static_cast<std::int64_t>(_var)
           );
         } else if constexpr (std::is_same<std::remove_cvref_t<T>, bson_oid_t>(

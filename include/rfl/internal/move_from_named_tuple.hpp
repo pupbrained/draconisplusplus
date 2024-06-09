@@ -29,8 +29,8 @@ namespace rfl {
             std::remove_cvref_t<std::remove_pointer_t<typename Field::Type>>;
 
         if constexpr (is_named_tuple_v<T>) {
-          using SubPtrNamedTupleType = typename std::invoke_result<
-              decltype(nt_to_ptr_named_tuple<T>), T>::type;
+          using SubPtrNamedTupleType = typename std::
+              invoke_result<decltype(nt_to_ptr_named_tuple<T>), T>::type;
 
           return make_ptr_fields<PtrFieldTupleType>(
               _n, _args..., SubPtrNamedTupleType(_n).fields()
@@ -63,7 +63,8 @@ namespace rfl {
 
         if constexpr (is_field_v<FieldType>) {
           return move_from_ptr_fields<T>(
-              _ptrs, std::move(_args)...,
+              _ptrs,
+              std::move(_args)...,
               rfl::make_field<FieldType::name_>(
                   std::move(*std::get<i>(_ptrs).value())
               )
@@ -76,7 +77,8 @@ namespace rfl {
               typename std::tuple_element_t<i, PtrFieldTupleType>::Type>>;
 
           return move_from_ptr_fields<T>(
-              _ptrs, std::move(_args)...,
+              _ptrs,
+              std::move(_args)...,
               move_from_ptr_fields<U>(std::get<i>(_ptrs))
           );
         }

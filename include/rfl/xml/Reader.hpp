@@ -142,7 +142,9 @@ namespace rfl {
         const auto name = _arr.node_.name();
         for (auto node = _arr.node_; node; node = node.next_sibling(name)) {
           const auto err = _array_reader.read(InputVarType(node));
-          if (err) { return err; }
+          if (err) {
+            return err;
+          }
         }
         return std::nullopt;
       }

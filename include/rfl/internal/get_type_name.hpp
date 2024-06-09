@@ -29,7 +29,9 @@ namespace rfl {
       auto split = func_name.substr(0, func_name.size() - 7);
       split      = split.substr(split.find("get_type_name_str_view<") + 23);
       auto pos   = split.find(" ");
-      if (pos != std::string_view::npos) { return split.substr(pos + 1); }
+      if (pos != std::string_view::npos) {
+        return split.substr(pos + 1);
+      }
       return split;
 #else
       static_assert(

@@ -54,8 +54,11 @@ namespace rfl {
               calc_flattened_size<SubTargetTupleType>();
 
           return unflatten_ptr_tuple<
-              TargetTupleType, PtrTupleType, _j + flattened_size>(
-              _t, _args...,
+              TargetTupleType,
+              PtrTupleType,
+              _j + flattened_size>(
+              _t,
+              _args...,
               unflatten_ptr_tuple<SubTargetTupleType, PtrTupleType, _j>(_t)
           );
 
@@ -88,7 +91,8 @@ namespace rfl {
               typename std::tuple_element_t<i, PtrTupleType>>::Type>;
 
           return move_from_pointers<T>(
-              _ptrs, std::move(_args)...,
+              _ptrs,
+              std::move(_args)...,
               move_from_pointers<U>(std::get<i>(_ptrs))
           );
         }

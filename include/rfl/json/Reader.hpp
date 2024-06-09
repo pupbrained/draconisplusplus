@@ -71,7 +71,9 @@ namespace rfl {
         yyjson_arr_iter_init(_arr.val_, &iter);
         while ((val = yyjson_arr_iter_next(&iter))) {
           const auto err = _array_reader.read(InputVarType(val));
-          if (err) { return err; }
+          if (err) {
+            return err;
+          }
         }
         return std::nullopt;
       }
@@ -95,7 +97,9 @@ namespace rfl {
       rfl::Result<T> to_basic_type(const InputVarType _var) const noexcept {
         if constexpr (std::is_same<std::remove_cvref_t<T>, std::string>()) {
           const auto r = yyjson_get_str(_var.val_);
-          if (r == NULL) { return rfl::Error("Could not cast to string."); }
+          if (r == NULL) {
+            return rfl::Error("Could not cast to string.");
+          }
           return std::string(r);
         } else if constexpr (std::is_same<std::remove_cvref_t<T>, bool>()) {
           if (!yyjson_is_bool(_var.val_)) {

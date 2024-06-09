@@ -1,6 +1,9 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+
+#define fn auto
 
 // Unsigned integers
 using u8  = std::uint8_t;

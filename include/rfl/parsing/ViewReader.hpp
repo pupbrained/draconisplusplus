@@ -34,7 +34,13 @@ namespace rfl::parsing {
     /// such a field exists in the underlying view.
     void read(const std::string_view& _name, const InputVarType& _var) const {
       assign_to_matching_field(
-          *r_, _name, _var, view_, errors_, found_, set_,
+          *r_,
+          _name,
+          _var,
+          view_,
+          errors_,
+          found_,
+          set_,
           std::make_integer_sequence<int, size_>()
       );
     }
@@ -90,7 +96,13 @@ namespace rfl::parsing {
     assign_to_matching_field(const R& _r, const std::string_view& _current_name, const auto& _var, auto* _view, auto* _errors, auto* _found, auto* _set, std::integer_sequence<int, is...>) {
       bool already_assigned = false;
       (assign_if_field_matches<is>(
-           _r, _current_name, _var, _view, _errors, _found, _set,
+           _r,
+           _current_name,
+           _var,
+           _view,
+           _errors,
+           _found,
+           _set,
            &already_assigned
        ),
        ...);
@@ -116,7 +128,9 @@ namespace rfl::parsing {
       if constexpr (!std::is_array_v<ValueType> &&
                     std::is_pointer_v<OriginalType> &&
                     std::is_destructible_v<ValueType>) {
-        if (std::get<_i>(*set_)) { rfl::get<_i>(*view_)->~ValueType(); }
+        if (std::get<_i>(*set_)) {
+          rfl::get<_i>(*view_)->~ValueType();
+        }
       } else if constexpr (std::is_array_v<ValueType>) {
         if (std::get<_i>(*set_)) {
           auto ptr = rfl::get<_i>(*view_);

@@ -31,7 +31,9 @@ namespace rfl::parsing {
 
     std::optional<Error> handle_missing_fields() const {
       std::optional<Error> err;
-      if (i_ < size_) { handle_missing_fields_impl(&err); }
+      if (i_ < size_) {
+        handle_missing_fields_impl(&err);
+      }
       return err;
     }
 
@@ -46,7 +48,9 @@ namespace rfl::parsing {
     template <size_t _i = 0>
     void call_destructors_where_necessary() const {
       if constexpr (_i < size_) {
-        if (_i >= i_) { return; }
+        if (_i >= i_) {
+          return;
+        }
         using CurrentType =
             std::remove_cvref_t<std::tuple_element_t<_i, TupleType>>;
         if constexpr (!std::is_array_v<CurrentType> &&

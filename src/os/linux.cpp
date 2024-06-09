@@ -93,13 +93,15 @@ std::vector<std::string> GetMprisPlayers(sdbus::IConnection& connection) {
   std::vector<std::string> mprisPlayers;
 
   for (const std::basic_string<char>& name : names)
-    if (name.contains(mprisInterfaceName)) mprisPlayers.push_back(name);
+    if (name.contains(mprisInterfaceName))
+      mprisPlayers.push_back(name);
 
   return mprisPlayers;
 }
 
 std::string GetActivePlayer(const std::vector<std::string>& mprisPlayers) {
-  if (!mprisPlayers.empty()) return mprisPlayers.front();
+  if (!mprisPlayers.empty())
+    return mprisPlayers.front();
 
   return "";
 }
@@ -114,11 +116,13 @@ std::string GetNowPlaying() {
 
     std::vector<std::string> mprisPlayers = GetMprisPlayers(*connection);
 
-    if (mprisPlayers.empty()) return "";
+    if (mprisPlayers.empty())
+      return "";
 
     std::string activePlayer = GetActivePlayer(mprisPlayers);
 
-    if (activePlayer.empty()) return "";
+    if (activePlayer.empty())
+      return "";
 
     std::unique_ptr<sdbus::IProxy> playerProxy =
         sdbus::createProxy(*connection, activePlayer, playerObjectPath);

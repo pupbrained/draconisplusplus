@@ -49,7 +49,9 @@ namespace rfl {
       ) const noexcept {
         const auto keys = _obj.Keys();
         for (size_t i = 0; i < keys.size(); ++i) {
-          if (_name == keys[i].AsString().c_str()) { return _obj.Values()[i]; }
+          if (_name == keys[i].AsString().c_str()) {
+            return _obj.Values()[i];
+          }
         }
         return rfl::Error(
             "Map does not contain any element called '" + _name + "'."
@@ -95,7 +97,9 @@ namespace rfl {
         const auto size = _arr.size();
         for (size_t i = 0; i < size; ++i) {
           const auto err = _array_reader.read(InputVarType(_arr[i]));
-          if (err) { return err; }
+          if (err) {
+            return err;
+          }
         }
         return std::nullopt;
       }
@@ -128,7 +132,9 @@ namespace rfl {
 
       rfl::Result<InputObjectType> to_object(const InputVarType& _var
       ) const noexcept {
-        if (!_var.IsMap()) { return rfl::Error("Could not cast to Map!"); }
+        if (!_var.IsMap()) {
+          return rfl::Error("Could not cast to Map!");
+        }
         return _var.AsMap();
       }
 

@@ -165,7 +165,8 @@ namespace rfl {
                                .description_ = typename U::Content().str(),
                                .type_ =
                     Ref<Type>::make(Parser<
-                                    R, W, std::remove_cvref_t<typename U::Type>,
+                                    R, W,
+                               std::remove_cvref_t<typename U::Type>,
                                ProcessorsType>::to_schema(_definitions))
             }
         };
@@ -244,7 +245,9 @@ namespace rfl {
         using ViewType = std::remove_cvref_t<decltype(view)>;
         const auto err =
             Parser<R, W, ViewType, ProcessorsType>::read_view(_r, _var, &view);
-        if (err) [[unlikely]] { return *err; }
+        if (err) [[unlikely]] {
+          return *err;
+        }
         return std::move(*ptr);
       }
 

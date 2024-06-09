@@ -188,7 +188,9 @@ namespace rfl {
 
     /// Assigns the underlying object.
     Result<T>& operator=(const Result<T>& _other) {
-      if (this == &_other) { return *this; }
+      if (this == &_other) {
+        return *this;
+      }
       destroy();
       success_ = _other.success_;
       copy_from_other(_other);
@@ -197,7 +199,9 @@ namespace rfl {
 
     /// Assigns the underlying object.
     Result<T>& operator=(Result<T>&& _other) noexcept {
-      if (this == &_other) { return *this; }
+      if (this == &_other) {
+        return *this;
+      }
       destroy();
       success_ = _other.success_;
       move_from_other(_other);

@@ -24,7 +24,9 @@ namespace rfl {
 
       static Result<std::wstring>
       read(const R& _r, const InputVarType& _var) noexcept {
-        if (_r.is_empty(_var)) { return std::wstring(); }
+        if (_r.is_empty(_var)) {
+          return std::wstring();
+        }
 
         auto inStr = Parser<R, W, std::string, ProcessorsType>::read(_r, _var);
         if (auto err = inStr.error(); err.has_value()) {

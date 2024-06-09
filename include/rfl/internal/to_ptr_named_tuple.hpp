@@ -30,7 +30,8 @@ namespace rfl {
         if constexpr (internal::is_flatten_field<T>::value) {
           auto subtuple = internal::to_ptr_field_tuple(*std::get<i>(_t).get());
           return flatten_ptr_field_tuple(
-              _t, std::forward<Args>(_args)...,
+              _t,
+              std::forward<Args>(_args)...,
               flatten_ptr_field_tuple(subtuple)
           );
         } else {

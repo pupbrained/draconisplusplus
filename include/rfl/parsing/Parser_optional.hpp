@@ -25,7 +25,9 @@ namespace rfl {
 
       static Result<std::optional<T>>
       read(const R& _r, const InputVarType& _var) noexcept {
-        if (_r.is_empty(_var)) { return std::optional<T>(); }
+        if (_r.is_empty(_var)) {
+          return std::optional<T>();
+        }
         const auto to_opt = [](auto&& _t) { return std::make_optional<T>(_t); };
         return Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::read(
                    _r, _var

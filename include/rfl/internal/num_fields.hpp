@@ -83,11 +83,13 @@ namespace rfl {
       template <std::size_t l, std::size_t nested, std::size_t r>
       static consteval bool constructible_with_nested() {
         return
-            []<std::size_t... i, std::size_t... j,
+            []<std::size_t... i,
+               std::size_t... j,
                std::
                    size_t... k>(std::index_sequence<i...>, std::index_sequence<j...>, std::index_sequence<k...>) {
               return requires { T {any(i)..., {any(j)...}, any(k)...}; };
-            }(std::make_index_sequence<l>(), std::make_index_sequence<nested>(),
+            }(std::make_index_sequence<l>(),
+              std::make_index_sequence<nested>(),
               std::make_index_sequence<r>());
       }
 
@@ -122,7 +124,8 @@ namespace rfl {
                std::
                    size_t... r>(std::index_sequence<l...>, std::index_sequence<r...>) {
               return requires {
-                T {any_empty_base<T>(l)..., any_base<T>(0),
+                T {any_empty_base<T>(l)...,
+                   any_base<T>(0),
                    any_empty_base<T>(r)...};
               };
             };

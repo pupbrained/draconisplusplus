@@ -42,7 +42,8 @@ namespace rfl::internal {
       static_assert(
           std::is_same<
               typename std::tuple_element<
-                  index, typename NamedTupleType::Fields>::type::Type,
+                  index,
+                  typename NamedTupleType::Fields>::type::Type,
               typename Field::Type>(),
           "If two fields have the same name, "
           "their type must be the same as "
@@ -73,7 +74,8 @@ namespace rfl::internal {
       static_assert(
           std::is_same<
               typename std::tuple_element<
-                  index, typename NamedTupleType::Fields>::type::Type,
+                  index,
+                  typename NamedTupleType::Fields>::type::Type,
               typename Field::Type>(),
           "If two fields have the same name, "
           "their type must be the same as "

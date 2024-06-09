@@ -39,7 +39,8 @@ namespace rfl {
       using Type = std::remove_cvref_t<std::remove_pointer_t<T>>;
       if constexpr (internal::has_reflection_type_v<Type>) {
         return is_required<
-            typename Type::ReflectionType, _ignore_empty_containers>();
+            typename Type::ReflectionType,
+            _ignore_empty_containers>();
       } else if constexpr (internal::is_rename_v<Type>) {
         return is_required<typename Type::Type, _ignore_empty_containers>();
       } else {

@@ -91,7 +91,9 @@ namespace rfl {
       ) const noexcept {
         for (size_t i = 0; i < _arr.node_.size(); ++i) {
           const auto err = _array_reader.read(_arr.node_[i]);
-          if (err) { return err; }
+          if (err) {
+            return err;
+          }
         }
         return std::nullopt;
       }

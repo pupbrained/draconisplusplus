@@ -124,17 +124,26 @@ namespace rfl {
             return NamesType {};
           } else {
             return get_enum_names_impl<
-                EnumType, NamesType, _max, _is_flag, _i + 1>();
+                EnumType,
+                NamesType,
+                _max,
+                _is_flag,
+                _i + 1>();
           }
         } else {
           using NewNames = typename NamesType::template AddOneType<
-              Literal<remove_namespaces<name>()>, static_cast<EnumType>(j)>;
+              Literal<remove_namespaces<name>()>,
+              static_cast<EnumType>(j)>;
 
           if constexpr (j == _max) {
             return NewNames {};
           } else {
             return get_enum_names_impl<
-                EnumType, NewNames, _max, _is_flag, _i + 1>();
+                EnumType,
+                NewNames,
+                _max,
+                _is_flag,
+                _i + 1>();
           }
         }
       }

@@ -38,7 +38,9 @@ namespace rfl {
         const StringLiteral<N1>& _first,
         const StringLiteral<N2>& _second
     ) {
-      if constexpr (N1 != N2) { return false; }
+      if constexpr (N1 != N2) {
+        return false;
+      }
       return _first.string_view() == _second.string_view();
     }
 

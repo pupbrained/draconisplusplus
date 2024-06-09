@@ -82,8 +82,8 @@ namespace rfl {
           const InputVarType& _var
       ) noexcept {
         if constexpr (_i == sizeof...(AlternativeTypes)) {
-          const auto names = TaggedUnion<
-              _discriminator, AlternativeTypes...>::PossibleTags::names();
+          const auto names = TaggedUnion<_discriminator, AlternativeTypes...>::
+              PossibleTags::names();
           return Error(
               "Could not parse tagged union, could not match " +
               _discriminator.str() + " '" + _disc_value +
@@ -91,9 +91,9 @@ namespace rfl {
               internal::strings::join(",", names)
           );
         } else {
-          using AlternativeType =
-              std::remove_cvref_t<std::variant_alternative_t<
-                  _i, std::variant<AlternativeTypes...>>>;
+          using AlternativeType = std::remove_cvref_t<
+              std::
+                  variant_alternative_t<_i, std::variant<AlternativeTypes...>>>;
 
           if (contains_disc_value<AlternativeType>(_disc_value)) {
             const auto to_tagged_union = [](auto&& _val) {

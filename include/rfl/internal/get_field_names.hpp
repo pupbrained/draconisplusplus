@@ -139,7 +139,8 @@ namespace rfl::internal {
       const auto get = []<std::size_t... Is>(std::index_sequence<Is...>) {
         return concat_literals(
             get_field_name<
-                Type, wrap(std::get<Is>(bind_fake_object_to_tuple<T>()))>()...
+                Type,
+                wrap(std::get<Is>(bind_fake_object_to_tuple<T>()))>()...
         );
       };
 #else

@@ -61,7 +61,9 @@ namespace rfl {
             auto    vector_reader =
                 VectorReader<R, W, VecType, ProcessorsType>(&_r, &vec);
             const auto err = _r.read_array(vector_reader, _arr);
-            if (err) { return *err; }
+            if (err) {
+              return *err;
+            }
             return vec;
           };
           return _r.to_array(_var).and_then(parse);

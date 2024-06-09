@@ -45,7 +45,9 @@ namespace rfl {
           }
           const auto current_name =
               std::string_view(key.via.str.ptr, key.via.str.size);
-          if (_name == current_name) { return _obj.ptr[i].val; }
+          if (_name == current_name) {
+            return _obj.ptr[i].val;
+          }
         }
         return Error("No field named '" + _name + "' was found.");
       }
@@ -111,7 +113,9 @@ namespace rfl {
       ) const noexcept {
         for (uint32_t i = 0; i < _arr.size; ++i) {
           const auto err = _array_reader.read(_arr.ptr[i]);
-          if (err) { return err; }
+          if (err) {
+            return err;
+          }
         }
         return std::nullopt;
       }
