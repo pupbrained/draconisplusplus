@@ -1,18 +1,23 @@
 #ifdef __APPLE__
 
-#import "bridge.h"
 #import <dispatch/dispatch.h>
 #import <objc/runtime.h>
 
+#import "bridge.h"
+
 using MRMediaRemoteGetNowPlayingInfoFunction = void (*)(
-    dispatch_queue_t queue, void (^handler)(NSDictionary *information));
+    dispatch_queue_t queue,
+    void (^handler)(NSDictionary* information)
+);
 
 @implementation Bridge
-+ (NSDictionary *)currentPlayingMetadata {
++ (NSDictionary*)currentPlayingMetadata {
   CFURLRef ref = CFURLCreateWithFileSystemPath(
       kCFAllocatorDefault,
       CFSTR("/System/Library/PrivateFrameworks/MediaRemote.framework"),
-      kCFURLPOSIXPathStyle, false);
+      kCFURLPOSIXPathStyle,
+      false
+  );
 
   if (!ref) {
     NSLog(@"Failed to load MediaRemote framework");
@@ -30,7 +35,9 @@ using MRMediaRemoteGetNowPlayingInfoFunction = void (*)(
   MRMediaRemoteGetNowPlayingInfoFunction mrMediaRemoteGetNowPlayingInfo =
       reinterpret_cast<MRMediaRemoteGetNowPlayingInfoFunction>(
           CFBundleGetFunctionPointerForName(
-              bundle, CFSTR("MRMediaRemoteGetNowPlayingInfo")));
+              bundle, CFSTR("MRMediaRemoteGetNowPlayingInfo")
+          )
+      );
 
   if (!mrMediaRemoteGetNowPlayingInfo) {
     NSLog(@"Failed to get function pointer for MRMediaRemoteGetNowPlayingInfo");
@@ -38,15 +45,16 @@ using MRMediaRemoteGetNowPlayingInfoFunction = void (*)(
     return nil;
   }
 
-  __block NSDictionary *nowPlayingInfo = nil;
-  dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+  __block NSDictionary* nowPlayingInfo = nil;
+  dispatch_semaphore_t  semaphore      = dispatch_semaphore_create(0);
 
   mrMediaRemoteGetNowPlayingInfo(
       dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
-      ^(NSDictionary *information) {
+      ^(NSDictionary* information) {
         nowPlayingInfo = [information copy];
         dispatch_semaphore_signal(semaphore);
-      });
+      }
+  );
 
   dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
 
@@ -54,26 +62,26 @@ using MRMediaRemoteGetNowPlayingInfoFunction = void (*)(
   return nowPlayingInfo;
 }
 
-+ (NSString *)macOSVersion {
-  NSProcessInfo *processInfo = [NSProcessInfo processInfo];
++ (NSString*)macOSVersion {
+  NSProcessInfo* processInfo = [NSProcessInfo processInfo];
 
   NSOperatingSystemVersion osVersion = [processInfo operatingSystemVersion];
 
-  NSString *version = [NSString
-      stringWithFormat:@"%ld.%ld.%ld", osVersion.majorVersion,
-                       osVersion.minorVersion, osVersion.patchVersion];
+  NSString* version = [NSString stringWithFormat:@"%ld.%ld.%ld",
+                                                 osVersion.majorVersion,
+                                                 osVersion.minorVersion,
+                                                 osVersion.patchVersion];
 
   // Dictionary to map macOS versions to their respective names
-  NSDictionary<NSNumber *, NSString *> *versionNames =
+  NSDictionary<NSNumber*, NSString*>* versionNames =
       @{@11 : @"Big Sur", @12 : @"Monterey", @13 : @"Ventura", @14 : @"Sonoma"};
 
-  NSNumber *majorVersionNumber = @(osVersion.majorVersion);
-  NSString *versionName = versionNames[majorVersionNumber];
+  NSNumber* majorVersionNumber = @(osVersion.majorVersion);
+  NSString* versionName        = versionNames[majorVersionNumber];
 
-  if (versionName == nil)
-    versionName = @"Unknown";
+  if (versionName == nil) versionName = @"Unknown";
 
-  NSString *fullVersion =
+  NSString* fullVersion =
       [NSString stringWithFormat:@"macOS %@ %@", version, versionName];
 
   return fullVersion;
@@ -81,44 +89,39 @@ using MRMediaRemoteGetNowPlayingInfoFunction = void (*)(
 @end
 
 extern "C" {
-const char *GetCurrentPlayingTitle() {
-  NSDictionary *metadata = [Bridge currentPlayingMetadata];
+  const char* GetCurrentPlayingTitle() {
+    NSDictionary* metadata = [Bridge currentPlayingMetadata];
 
-  if (metadata == nil)
+    if (metadata == nil) return nullptr;
+
+    NSString* title =
+        [metadata objectForKey:@"kMRMediaRemoteNowPlayingInfoTitle"];
+
+    if (title) return strdup([title UTF8String]);
+
     return nullptr;
+  }
 
-  NSString *title =
-      [metadata objectForKey:@"kMRMediaRemoteNowPlayingInfoTitle"];
+  const char* GetCurrentPlayingArtist() {
+    NSDictionary* metadata = [Bridge currentPlayingMetadata];
 
-  if (title)
-    return strdup([title UTF8String]);
+    if (metadata == nil) return nullptr;
 
-  return nullptr;
-}
+    NSString* artist =
+        [metadata objectForKey:@"kMRMediaRemoteNowPlayingInfoArtist"];
 
-const char *GetCurrentPlayingArtist() {
-  NSDictionary *metadata = [Bridge currentPlayingMetadata];
+    if (artist) return strdup([artist UTF8String]);
 
-  if (metadata == nil)
     return nullptr;
+  }
 
-  NSString *artist =
-      [metadata objectForKey:@"kMRMediaRemoteNowPlayingInfoArtist"];
+  const char* GetMacOSVersion() {
+    NSString* version = [Bridge macOSVersion];
 
-  if (artist)
-    return strdup([artist UTF8String]);
+    if (version) return strdup([version UTF8String]);
 
-  return nullptr;
-}
-
-const char *GetMacOSVersion() {
-  NSString *version = [Bridge macOSVersion];
-
-  if (version)
-    return strdup([version UTF8String]);
-
-  return nullptr;
-}
+    return nullptr;
+  }
 }
 
 #endif

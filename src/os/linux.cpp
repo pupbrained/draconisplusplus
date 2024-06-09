@@ -1,5 +1,6 @@
 #ifdef __linux__
 
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <sdbus-c++/sdbus-c++.h>
@@ -8,13 +9,6 @@
 #include "os.h"
 
 using std::string;
-
-static const char *DBUS_INTERFACE         = "org.freedesktop.DBus",
-                  *DBUS_OBJECT_PATH       = "/org/freedesktop/DBus",
-                  *DBUS_METHOD_LIST_NAMES = "ListNames",
-                  *MPRIS_INTERFACE_NAME   = "org.mpris.MediaPlayer2",
-                  *PLAYER_OBJECT_PATH     = "/org/mpris/MediaPlayer2",
-                  *PLAYER_INTERFACE_NAME  = "org.mpris.MediaPlayer2.Player";
 
 u64 ParseLineAsNumber(const string& input) {
   // Find the first number
@@ -48,8 +42,6 @@ u64 MeminfoParse(std::ifstream input) {
 u64 GetMemInfo() { return MeminfoParse(std::ifstream("/proc/meminfo")) * 1024; }
 
 const char* GetOSVersion() {
-  static std::string prettyName;
-
   std::ifstream file("/etc/os-release");
 
   if (!file.is_open()) {
@@ -57,40 +49,51 @@ const char* GetOSVersion() {
     return nullptr;
   }
 
-  std::string line;
+  std::string       line;
+  const std::string prefix = "PRETTY_NAME=";
+
   while (std::getline(file, line)) {
-    if (line.find("PRETTY_NAME=") == 0) {
-      // Remove the "PRETTY_NAME=" part and any surrounding quotes
-      prettyName = line.substr(12);
+    if (line.find(prefix) == 0) {
+      std::string prettyName = line.substr(prefix.size());
 
-      if (!prettyName.empty() && prettyName.front() == '"' &&
-          prettyName.back() == '"')
+      // Remove surrounding quotes if present
+      // clang-format off
+      if (!prettyName.empty() &&
+           prettyName.front() == '"' &&
+           prettyName.back()  == '"')
         prettyName = prettyName.substr(1, prettyName.size() - 2);
+      // clang-format on
 
-      file.close();
-      return prettyName.c_str();
+      // Allocate memory for the C-string and copy the content
+      char* cstr = new char[prettyName.size() + 1];
+      std::strcpy(cstr, prettyName.c_str());
+
+      return cstr;
     }
   }
 
-  file.close();
   return nullptr;
 }
 
 std::vector<std::string> GetMprisPlayers(sdbus::IConnection& connection) {
+  const char *dbusInterface       = "org.freedesktop.DBus",
+             *dbusObjectPath      = "/org/freedesktop/DBus",
+             *dbusMethodListNames = "ListNames",
+             *mprisInterfaceName  = "org.mpris.MediaPlayer2";
+
   std::unique_ptr<sdbus::IProxy> dbusProxy =
-      sdbus::createProxy(connection, DBUS_INTERFACE, DBUS_OBJECT_PATH);
+      sdbus::createProxy(connection, dbusInterface, dbusObjectPath);
 
   std::vector<std::string> names;
 
-  dbusProxy->callMethod(DBUS_METHOD_LIST_NAMES)
-      .onInterface(DBUS_INTERFACE)
+  dbusProxy->callMethod(dbusMethodListNames)
+      .onInterface(dbusInterface)
       .storeResultsTo(names);
 
   std::vector<std::string> mprisPlayers;
 
   for (const std::basic_string<char>& name : names)
-    if (name.find(MPRIS_INTERFACE_NAME) != std::string::npos)
-      mprisPlayers.push_back(name);
+    if (name.contains(mprisInterfaceName)) mprisPlayers.push_back(name);
 
   return mprisPlayers;
 }
@@ -103,6 +106,9 @@ std::string GetActivePlayer(const std::vector<std::string>& mprisPlayers) {
 
 std::string GetNowPlaying() {
   try {
+    const char *playerObjectPath    = "/org/mpris/MediaPlayer2",
+               *playerInterfaceName = "org.mpris.MediaPlayer2.Player";
+
     std::unique_ptr<sdbus::IConnection> connection =
         sdbus::createSessionBusConnection();
 
@@ -115,10 +121,10 @@ std::string GetNowPlaying() {
     if (activePlayer.empty()) return "";
 
     std::unique_ptr<sdbus::IProxy> playerProxy =
-        sdbus::createProxy(*connection, activePlayer, PLAYER_OBJECT_PATH);
+        sdbus::createProxy(*connection, activePlayer, playerObjectPath);
 
     std::map<std::string, sdbus::Variant> metadata =
-        playerProxy->getProperty("Metadata").onInterface(PLAYER_INTERFACE_NAME);
+        playerProxy->getProperty("Metadata").onInterface(playerInterfaceName);
 
     auto iter = metadata.find("xesam:title");
 

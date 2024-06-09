@@ -1,2 +1,2 @@
 CompileFlags:
-  Add: [-std=c++20, -Wunused-function]
+  Add: [-std=c++23, -Wunused-function]

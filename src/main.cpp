@@ -81,7 +81,12 @@ int main() {
 
   fmt::println("It is {}°F in {}", temp, townName);
 
-  fmt::println("{}", GetOSVersion());
+  const char* version = GetOSVersion();
+
+  fmt::println("{}", version);
+
+  delete[] version;
+  delete &config;
 
   return 0;
 }

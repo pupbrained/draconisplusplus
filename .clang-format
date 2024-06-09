@@ -1,4 +1,3 @@
----
 AlignAfterOpenBracket: BlockIndent
 AlignArrayOfStructures: Right
 AlignConsecutiveAssignments: true
@@ -10,9 +9,10 @@ AllowShortFunctionsOnASingleLine: true
 AllowShortIfStatementsOnASingleLine: WithoutElse
 AllowShortLoopsOnASingleLine: true
 BasedOnStyle: Chromium
+BinPackArguments: false
+BinPackParameters: false
 IndentAccessModifiers: false
 IndentExternBlock: Indent
-Language: Cpp
 NamespaceIndentation: All
 SpaceBeforeCpp11BracedList: true
 SpacesBeforeTrailingComments: 1

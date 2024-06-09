@@ -1,10 +1,12 @@
 Checks: >
     *,
+    -abseil-*,
     -altera-*,
     -bugprone-easily-swappable-parameters,
     -bugprone-implicit-widening-of-multiplication-result,
     -concurrency-mt-unsafe,
     -cppcoreguidelines-avoid-magic-numbers,
+    -cppcoreguidelines-owning-memory,
     -cppcoreguidelines-pro-type-member-init,
     -fuchsia-*,
     -google-*,
@@ -16,6 +18,7 @@ Checks: >
     -modernize-use-trailing-return-type,
     -readability-braces-around-statements,
     -readability-implicit-bool-conversion,
+    -readability-isolate-declaration,
     -readability-magic-numbers
 CheckOptions:
   readability-identifier-naming.ClassCase: CamelCase
