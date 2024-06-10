@@ -11,13 +11,14 @@ struct BytesToGiB {
   u64 value;
 };
 
+constexpr u64 GIB = 1'073'741'824;
+
 template <>
 struct fmt::formatter<BytesToGiB> : formatter<double> {
   template <typename FmtCtx>
   fn format(const BytesToGiB BTG, FmtCtx& ctx) -> typename FmtCtx::iterator {
-    typename FmtCtx::iterator out = formatter<double>::format(
-        static_cast<double>(BTG.value) / pow(1024, 3), ctx
-    );
+    typename FmtCtx::iterator out =
+        formatter<double>::format(static_cast<double>(BTG.value) / GIB, ctx);
     *out++ = 'G';
     *out++ = 'i';
     *out++ = 'B';

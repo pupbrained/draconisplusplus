@@ -8,11 +8,12 @@
 using WeatherOutput = Weather::WeatherOutput;
 
 // Function to read cache from file
-Result<WeatherOutput> ReadCacheFromFile() {
+fn ReadCacheFromFile() -> Result<WeatherOutput> {
   const std::string cacheFile = "/tmp/weather_cache.json";
-  std::ifstream ifs(cacheFile);
+  std::ifstream     ifs(cacheFile);
 
-  if (!ifs.is_open()) return Error("Cache file not found.");
+  if (!ifs.is_open())
+    return Error("Cache file not found.");
 
   fmt::println("Reading from cache file...");
 
@@ -32,12 +33,13 @@ Result<WeatherOutput> ReadCacheFromFile() {
 }
 
 // Function to write cache to file
-Result<> WriteCacheToFile(const WeatherOutput& data) {
+fn WriteCacheToFile(const WeatherOutput& data) -> Result<> {
   const std::string cacheFile = "/tmp/weather_cache.json";
   fmt::println("Writing to cache file...");
   std::ofstream ofs(cacheFile);
 
-  if (!ofs.is_open()) return Error("Failed to open cache file for writing.");
+  if (!ofs.is_open())
+    return Error("Failed to open cache file for writing.");
 
   ofs << rfl::json::write(data);
 
@@ -46,10 +48,8 @@ Result<> WriteCacheToFile(const WeatherOutput& data) {
   return Ok();
 }
 
-size_t WriteCallback(void* contents,
-                     size_t size,
-                     size_t nmemb,
-                     std::string* buffer) {
+fn WriteCallback(void* contents, size_t size, size_t nmemb, std::string* buffer)
+    -> size_t {
   size_t realsize = size * nmemb;
 
   buffer->append(static_cast<char*>(contents), realsize);
@@ -58,7 +58,7 @@ size_t WriteCallback(void* contents,
 }
 
 // Function to make API request
-Result<WeatherOutput> MakeApiRequest(const std::string& url) {
+fn MakeApiRequest(const std::string& url) -> Result<WeatherOutput> {
   fmt::println("Making API request...");
 
   CURL* curl = curl_easy_init();
@@ -73,8 +73,9 @@ Result<WeatherOutput> MakeApiRequest(const std::string& url) {
     curl_easy_cleanup(curl);
 
     if (res != CURLE_OK)
-      return Error(fmt::format("Failed to perform cURL request: {}",
-                               curl_easy_strerror(res)));
+      return Error(fmt::format(
+          "Failed to perform cURL request: {}", curl_easy_strerror(res)
+      ));
 
     fmt::println("Received response from API.");
     // Parse the JSON response
@@ -88,10 +89,10 @@ Result<WeatherOutput> MakeApiRequest(const std::string& url) {
 }
 
 // Core function to get weather information
-WeatherOutput Weather::getWeatherInfo() const {
+fn Weather::getWeatherInfo() const -> WeatherOutput {
   using namespace std::chrono;
 
-  const Location loc       = m_Location;
+  const Location    loc    = m_Location;
   const std::string apiKey = m_ApiKey;
   const std::string units  = m_Units;
 
@@ -116,15 +117,19 @@ WeatherOutput Weather::getWeatherInfo() const {
   if (holds_alternative<std::string>(loc)) {
     const std::string city = get<std::string>(loc);
 
-    const char* location = curl_easy_escape(nullptr, city.c_str(),
-                                            static_cast<int>(city.length()));
+    const char* location = curl_easy_escape(
+        nullptr, city.c_str(), static_cast<int>(city.length())
+    );
 
     fmt::println("City: {}", location);
 
     const std::string apiUrl = fmt::format(
         "https://api.openweathermap.org/data/2.5/"
         "weather?q={}&appid={}&units={}",
-        location, apiKey, units);
+        location,
+        apiKey,
+        units
+    );
 
     result = MakeApiRequest(apiUrl).value();
   } else {
@@ -135,7 +140,11 @@ WeatherOutput Weather::getWeatherInfo() const {
     const std::string apiUrl = fmt::format(
         "https://api.openweathermap.org/data/2.5/"
         "weather?lat={:.3f}&lon={:.3f}&appid={}&units={}",
-        lat, lon, apiKey, units);
+        lat,
+        lon,
+        apiKey,
+        units
+    );
 
     result = MakeApiRequest(apiUrl).value();
   }

@@ -10,30 +10,30 @@
 
 class Weather {
  public:
-  using percentage = rfl::Validator<i8, rfl::Minimum<0>, rfl::Maximum<100>>;
   using degrees    = rfl::Validator<u16, rfl::Minimum<0>, rfl::Maximum<360>>;
+  using percentage = rfl::Validator<i8, rfl::Minimum<0>, rfl::Maximum<100>>;
 
   struct Condition {
-    usize id;
-    rfl::Rename<"main", std::string> group;
     std::string description;
-    rfl::Rename<"icon", std::string> icon_id;
+    std::string icon;
+    std::string main;
+    usize       id;
   };
 
   struct Main {
-    f64 temp;
-    f64 temp_max;
-    f64 temp_min;
-    f64 feels_like;
-    isize pressure;
-    std::optional<isize> sea_level;
+    f64                  feels_like;
+    f64                  temp;
+    f64                  temp_max;
+    f64                  temp_min;
+    isize                pressure;
+    percentage           humidity;
     std::optional<isize> grnd_level;
-    percentage humidity;
+    std::optional<isize> sea_level;
   };
 
   struct Wind {
-    f64 speed;
-    degrees deg;
+    degrees            deg;
+    f64                speed;
     std::optional<f64> gust;
   };
 
@@ -44,10 +44,10 @@ class Weather {
 
   struct Sys {
     std::string country;
-    usize id;
-    usize sunrise;
-    usize sunset;
-    usize type;
+    usize       id;
+    usize       sunrise;
+    usize       sunset;
+    usize       type;
   };
 
   struct Clouds {
@@ -60,47 +60,47 @@ class Weather {
   };
 
   struct WeatherOutput {
-    isize timezone;
-    isize visibility;
-    Main main;
-    Clouds clouds;
+    Clouds                       clouds;
+    Main                         main;
+    Sys                          sys;
+    Wind                         wind;
+    isize                        timezone;
+    isize                        visibility;
     rfl::Rename<"coord", Coords> coords;
     std::optional<Precipitation> rain;
     std::optional<Precipitation> snow;
-    std::vector<Condition> weather;
-    std::string base;
-    std::string name;
-    Sys sys;
-    usize cod;
-    usize dt;
-    usize id;
-    Wind wind;
+    std::string                  base;
+    std::string                  name;
+    std::vector<Condition>       weather;
+    usize                        cod;
+    usize                        dt;
+    usize                        id;
   };
 
   using Location = std::variant<std::string, Coords>;
 
  private:
-  Location m_Location;
+  Location    m_Location;
   std::string m_ApiKey;
   std::string m_Units;
 
  public:
   Weather(Location location, std::string api_key, std::string units);
 
-  [[nodiscard]] WeatherOutput getWeatherInfo() const;
-  [[nodiscard]] const Location getLocation() const;
-  [[nodiscard]] const std::string getApiKey() const;
-  [[nodiscard]] const std::string getUnits() const;
+  [[nodiscard]] fn getWeatherInfo() const -> WeatherOutput;
+  [[nodiscard]] fn getLocation() const -> const Location;
+  [[nodiscard]] fn getApiKey() const -> const std::string;
+  [[nodiscard]] fn getUnits() const -> const std::string;
 };
 
 struct WeatherImpl {
   Weather::Location location;
-  std::string api_key;
-  std::string units;
+  std::string       api_key;
+  std::string       units;
 
-  static WeatherImpl from_class(const Weather& weather) noexcept;
+  static fn from_class(const Weather& weather) noexcept -> WeatherImpl;
 
-  [[nodiscard]] Weather to_class() const;
+  [[nodiscard]] fn to_class() const -> Weather;
 };
 
 class General {
@@ -110,15 +110,15 @@ class General {
  public:
   General(std::string name);
 
-  [[nodiscard]] const std::string getName() const;
+  [[nodiscard]] fn getName() const -> const std::string;
 };
 
 struct GeneralImpl {
   std::string name;
 
-  static GeneralImpl from_class(const General& general) noexcept;
+  static fn from_class(const General& general) noexcept -> GeneralImpl;
 
-  [[nodiscard]] General to_class() const;
+  [[nodiscard]] fn to_class() const -> General;
 };
 
 class NowPlaying {
@@ -128,74 +128,79 @@ class NowPlaying {
  public:
   NowPlaying(bool enabled);
 
-  [[nodiscard]] bool getEnabled() const;
+  [[nodiscard]] fn getEnabled() const -> bool;
 };
 
 struct NowPlayingImpl {
   bool enabled;
 
-  static NowPlayingImpl from_class(const NowPlaying& now_playing) noexcept;
+  static fn from_class(const NowPlaying& now_playing
+  ) noexcept -> NowPlayingImpl;
 
-  [[nodiscard]] NowPlaying to_class() const;
+  [[nodiscard]] fn to_class() const -> NowPlaying;
 };
 
 class Config {
  private:
-  General m_General;
+  General    m_General;
   NowPlaying m_NowPlaying;
-  Weather m_Weather;
+  Weather    m_Weather;
 
  public:
   Config(General general, NowPlaying now_playing, Weather weather);
 
-  static const Config& getInstance();
+  static fn getInstance() -> const Config&;
 
-  [[nodiscard]] const Weather getWeather() const;
-  [[nodiscard]] const General getGeneral() const;
-  [[nodiscard]] const NowPlaying getNowPlaying() const;
+  [[nodiscard]] fn getWeather() const -> const Weather;
+  [[nodiscard]] fn getGeneral() const -> const General;
+  [[nodiscard]] fn getNowPlaying() const -> const NowPlaying;
 };
 
 struct ConfigImpl {
-  General general;
+  General    general;
   NowPlaying now_playing;
-  Weather weather;
+  Weather    weather;
 
-  static ConfigImpl from_class(const Config& config) noexcept;
+  static fn from_class(const Config& config) noexcept -> ConfigImpl;
 
-  [[nodiscard]] Config to_class() const;
+  [[nodiscard]] fn to_class() const -> Config;
 };
 
 // Parsers for Config classes
 namespace rfl::parsing {
   template <class ReaderType, class WriterType, class ProcessorsType>
   struct Parser<ReaderType, WriterType, Weather, ProcessorsType>
-      : public CustomParser<ReaderType,
-                            WriterType,
-                            ProcessorsType,
-                            Weather,
-                            WeatherImpl> {};
+      : public CustomParser<
+            ReaderType,
+            WriterType,
+            ProcessorsType,
+            Weather,
+            WeatherImpl> {};
 
   template <class ReaderType, class WriterType, class ProcessorsType>
   struct Parser<ReaderType, WriterType, General, ProcessorsType>
-      : public CustomParser<ReaderType,
-                            WriterType,
-                            ProcessorsType,
-                            General,
-                            GeneralImpl> {};
+      : public CustomParser<
+            ReaderType,
+            WriterType,
+            ProcessorsType,
+            General,
+            GeneralImpl> {};
 
   template <class ReaderType, class WriterType, class ProcessorsType>
   struct Parser<ReaderType, WriterType, NowPlaying, ProcessorsType>
-      : public CustomParser<ReaderType,
-                            WriterType,
-                            ProcessorsType,
-                            NowPlaying,
-                            NowPlayingImpl> {};
+      : public CustomParser<
+            ReaderType,
+            WriterType,
+            ProcessorsType,
+            NowPlaying,
+            NowPlayingImpl> {};
 
   template <class ReaderType, class WriterType, class ProcessorsType>
   struct Parser<ReaderType, WriterType, Config, ProcessorsType>
-      : public CustomParser<ReaderType,
-                            WriterType,
-                            ProcessorsType,
-                            Config,
-                            ConfigImpl> {};
+      : public CustomParser<
+            ReaderType,
+            WriterType,
+            ProcessorsType,
+            Config,
+            ConfigImpl> {};
 } // namespace rfl::parsing

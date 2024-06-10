@@ -9,10 +9,12 @@
 + (NSString*)macOSVersion;
 @end
 #else
+#include "util/numtypes.h"
+
 extern "C" {
-  const char* GetCurrentPlayingTitle();
-  const char* GetCurrentPlayingArtist();
-  const char* GetMacOSVersion();
+  fn GetCurrentPlayingTitle() -> const char*;
+  fn GetCurrentPlayingArtist() -> const char*;
+  fn GetMacOSVersion() -> const char*;
 }
 #endif
 #endif

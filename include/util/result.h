@@ -5,11 +5,13 @@
 #include <utility>
 #include <variant>
 
+#include "util/numtypes.h"
+
 // Define an error type
 class Error {
  public:
   explicit Error(std::string message) : m_Message(std::move(message)) {}
-  [[nodiscard]] const std::string& message() const { return m_Message; }
+  [[nodiscard]] fn message() const -> const std::string& { return m_Message; }
 
  private:
   std::string m_Message;
@@ -29,10 +31,10 @@ class Result<void> {
   Result(Error&& error) : m_Result(std::move(error)) {}
 
   // Check if the result is an error
-  [[nodiscard]] bool isOk() const {
+  [[nodiscard]] fn isOk() const -> bool {
     return std::holds_alternative<std::monostate>(m_Result);
   }
-  [[nodiscard]] bool isErr() const {
+  [[nodiscard]] fn isErr() const -> bool {
     return std::holds_alternative<Error>(m_Result);
   }
 
@@ -44,7 +46,7 @@ class Result<void> {
   }
 
   // Get the error or throw an exception if it is a value
-  [[nodiscard]] const Error& error() const {
+  [[nodiscard]] fn error() const -> const Error& {
     if (isOk()) {
       throw std::logic_error("Attempted to access error of an ok Result");
     }
@@ -66,15 +68,15 @@ class Result {
   Result(Error&& error) : m_Result(std::move(error)) {}
 
   // Check if the result is an error
-  [[nodiscard]] bool isOk() const {
+  [[nodiscard]] fn isOk() const -> bool {
     return std::holds_alternative<T>(m_Result);
   }
-  [[nodiscard]] bool isErr() const {
+  [[nodiscard]] fn isErr() const -> bool {
     return std::holds_alternative<Error>(m_Result);
   }
 
   // Get the value or throw an exception if it is an error
-  const T& value() const {
+  fn value() const -> const T& {
     if (isErr()) {
       throw std::logic_error("Attempted to access value of an error Result");
     }
@@ -82,7 +84,7 @@ class Result {
   }
 
   // Get the error or throw an exception if it is a value
-  [[nodiscard]] const Error& error() const {
+  [[nodiscard]] fn error() const -> const Error& {
     if (isOk()) {
       throw std::logic_error("Attempted to access error of an ok Result");
     }
@@ -90,7 +92,7 @@ class Result {
   }
 
   // Optional: Get the value or provide a default
-  T valueOr(const T& defaultValue) const {
+  fn valueOr(const T& defaultValue) const -> T {
     return isOk() ? std::get<T>(m_Result) : defaultValue;
   }
 
@@ -99,8 +101,8 @@ class Result {
 };
 
 template <typename T>
-auto Ok(T&& value) {
+fn Ok(T&& value) {
   return Result<std::decay_t<T>>(std::forward<T>(value));
 }
 
-inline auto Ok() { return Result<void>(); }
+inline fn Ok() -> Result<void> { return {}; }

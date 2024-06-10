@@ -5,7 +5,7 @@
 #include "macos/bridge.h"
 #include "os.h"
 
-u64 GetMemInfo() {
+fn GetMemInfo() -> u64 {
   u64   mem  = 0;
   usize size = sizeof(mem);
 
@@ -14,7 +14,7 @@ u64 GetMemInfo() {
   return mem;
 }
 
-std::string GetNowPlaying() {
+fn GetNowPlaying() -> std::string {
   if (const char* title  = GetCurrentPlayingTitle();
       const char* artist = GetCurrentPlayingArtist())
     return "Now Playing: " + std::string(artist) + " - " + std::string(title);
@@ -22,6 +22,6 @@ std::string GetNowPlaying() {
   return "No song playing";
 }
 
-const char* GetOSVersion() { return GetMacOSVersion(); };
+fn GetOSVersion() -> const char* { return GetMacOSVersion(); };
 
 #endif

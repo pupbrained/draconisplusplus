@@ -79,7 +79,8 @@ using MRMediaRemoteGetNowPlayingInfoFunction = void (*)(
   NSNumber* majorVersionNumber = @(osVersion.majorVersion);
   NSString* versionName        = versionNames[majorVersionNumber];
 
-  if (versionName == nil) versionName = @"Unknown";
+  if (versionName == nil)
+    versionName = @"Unknown";
 
   NSString* fullVersion =
       [NSString stringWithFormat:@"macOS %@ %@", version, versionName];
@@ -88,37 +89,44 @@ using MRMediaRemoteGetNowPlayingInfoFunction = void (*)(
 }
 @end
 
+#include "util/numtypes.h"
+
 extern "C" {
-  const char* GetCurrentPlayingTitle() {
+  fn GetCurrentPlayingTitle() -> const char* {
     NSDictionary* metadata = [Bridge currentPlayingMetadata];
 
-    if (metadata == nil) return nullptr;
+    if (metadata == nil)
+      return nullptr;
 
     NSString* title =
         [metadata objectForKey:@"kMRMediaRemoteNowPlayingInfoTitle"];
 
-    if (title) return strdup([title UTF8String]);
+    if (title)
+      return strdup([title UTF8String]);
 
     return nullptr;
   }
 
-  const char* GetCurrentPlayingArtist() {
+  fn GetCurrentPlayingArtist() -> const char* {
     NSDictionary* metadata = [Bridge currentPlayingMetadata];
 
-    if (metadata == nil) return nullptr;
+    if (metadata == nil)
+      return nullptr;
 
     NSString* artist =
         [metadata objectForKey:@"kMRMediaRemoteNowPlayingInfoArtist"];
 
-    if (artist) return strdup([artist UTF8String]);
+    if (artist)
+      return strdup([artist UTF8String]);
 
     return nullptr;
   }
 
-  const char* GetMacOSVersion() {
+  fn GetMacOSVersion() -> const char* {
     NSString* version = [Bridge macOSVersion];
 
-    if (version) return strdup([version UTF8String]);
+    if (version)
+      return strdup([version UTF8String]);
 
     return nullptr;
   }
