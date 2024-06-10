@@ -67,10 +67,17 @@ using MRMediaRemoteGetNowPlayingInfoFunction = void (*)(
 
   NSOperatingSystemVersion osVersion = [processInfo operatingSystemVersion];
 
-  NSString* version = [NSString stringWithFormat:@"%ld.%ld.%ld",
-                                                 osVersion.majorVersion,
-                                                 osVersion.minorVersion,
-                                                 osVersion.patchVersion];
+  NSString* version;
+  if (osVersion.patchVersion == 0) {
+    version = [NSString stringWithFormat:@"%ld.%ld",
+                                         osVersion.majorVersion,
+                                         osVersion.minorVersion];
+  } else {
+    version = [NSString stringWithFormat:@"%ld.%ld.%ld",
+                                         osVersion.majorVersion,
+                                         osVersion.minorVersion,
+                                         osVersion.patchVersion];
+  }
 
   // Dictionary to map macOS versions to their respective names
   NSDictionary<NSNumber*, NSString*>* versionNames =

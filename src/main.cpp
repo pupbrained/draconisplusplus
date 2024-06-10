@@ -47,25 +47,26 @@ fn GetDate() -> string {
 }
 
 fn main() -> int {
+  using WeatherOutput = Weather::WeatherOutput;
+
   const Config& config = Config::getInstance();
-
-  if (config.getNowPlaying().getEnabled())
-    fmt::println("{}", GetNowPlaying());
-
-  fmt::println("Hello {}!", config.getGeneral().getName());
-  fmt::println("Installed RAM: {:.2f}", BytesToGiB {GetMemInfo()});
-  fmt::println("Today is: {}", GetDate());
-
-  Weather::WeatherOutput json = config.getWeather().getWeatherInfo();
+  WeatherOutput json   = config.getWeather().getWeatherInfo();
 
   const long   temp     = std::lround(json.main.temp);
   const string townName = json.name;
 
+  const char*  version           = GetOSVersion();
+  const string name              = config.getGeneral().getName();
+  const bool   nowPlayingEnabled = config.getNowPlaying().getEnabled();
+
+  fmt::println("Hello {}!", name);
+  fmt::println("Today is: {}", GetDate());
   fmt::println("It is {}°F in {}", temp, townName);
-
-  const char* version = GetOSVersion();
-
+  fmt::println("Installed RAM: {:.2f}", BytesToGiB {GetMemInfo()});
   fmt::println("{}", version);
+
+  if (nowPlayingEnabled)
+    fmt::println("{}", GetNowPlaying());
 
   delete[] version;
   delete &config;
