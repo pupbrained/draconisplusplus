@@ -1,4 +1,5 @@
 #include <curl/curl.h>
+#include <fmt/core.h>
 #include <rfl/json.hpp>
 #include <rfl/json/load.hpp>
 #include <util/result.h>
@@ -48,21 +49,17 @@ fn WriteCacheToFile(const WeatherOutput& data) -> Result<> {
   return Ok();
 }
 
-fn WriteCallback(void* contents, size_t size, size_t nmemb, std::string* buffer)
-    -> size_t {
-  size_t realsize = size * nmemb;
-
-  buffer->append(static_cast<char*>(contents), realsize);
-
-  return realsize;
+fn WriteCallback(void* contents, size_t size, size_t nmemb, std::string* str) -> size_t {
+  size_t totalSize = size * nmemb;
+  str->append(static_cast<char*>(contents), totalSize);
+  return totalSize;
 }
 
 // Function to make API request
 fn MakeApiRequest(const std::string& url) -> Result<WeatherOutput> {
-  fmt::println("Making API request...");
+  fmt::println("Making API request to URL: {}", url);
 
   CURL* curl = curl_easy_init();
-
   std::string responseBuffer;
 
   if (curl) {
@@ -72,17 +69,16 @@ fn MakeApiRequest(const std::string& url) -> Result<WeatherOutput> {
     CURLcode res = curl_easy_perform(curl);
     curl_easy_cleanup(curl);
 
-    if (res != CURLE_OK)
-      return Error(fmt::format(
-          "Failed to perform cURL request: {}", curl_easy_strerror(res)
-      ));
+    if (res != CURLE_OK) {
+      return Error(fmt::format("Failed to perform cURL request: {}", curl_easy_strerror(res)));
+    }
 
-    fmt::println("Received response from API.");
-    // Parse the JSON response
+    fmt::println("Received response from API. Response size: {}", responseBuffer.size());
+
     WeatherOutput output =
         rfl::json::read<WeatherOutput>(responseBuffer).value();
 
-    return Ok(output);
+    return Ok(output); // Return an empty result for now
   }
 
   return Error("Failed to initialize cURL.");

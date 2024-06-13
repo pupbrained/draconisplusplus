@@ -29,12 +29,16 @@
           else pkgs # TODO: Remove when fixed on darwin
         );
           [
-            curl
             fmt
             glib
             tomlplusplus
             yyjson
           ]
+          ++ (
+            if !stdenv.isDarwin && system == "x86_64-linux"
+            then [pkgsStatic.curl]
+            else [pkgs.curl]
+          )
           ++ linuxPkgs
           ++ darwinPkgs;
 
