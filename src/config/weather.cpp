@@ -2,16 +2,16 @@
 #include <fmt/core.h>
 #include <rfl/json.hpp>
 #include <rfl/json/load.hpp>
-#include <util/result.h>
 
-#include "config.h"
+#include "weather.h"
+
+#include "util/result.h"
 
 using WeatherOutput = Weather::WeatherOutput;
 
 // Function to read cache from file
 fn ReadCacheFromFile() -> Result<WeatherOutput> {
-  const std::string cacheFile = "/tmp/weather_cache.json";
-  std::ifstream     ifs(cacheFile);
+  std::ifstream ifs("/tmp/weather_cache.json");
 
   if (!ifs.is_open())
     return Error("Cache file not found.");
@@ -35,9 +35,9 @@ fn ReadCacheFromFile() -> Result<WeatherOutput> {
 
 // Function to write cache to file
 fn WriteCacheToFile(const WeatherOutput& data) -> Result<> {
-  const std::string cacheFile = "/tmp/weather_cache.json";
   fmt::println("Writing to cache file...");
-  std::ofstream ofs(cacheFile);
+
+  std::ofstream ofs("/tmp/weather_cache.json");
 
   if (!ofs.is_open())
     return Error("Failed to open cache file for writing.");
@@ -49,7 +49,8 @@ fn WriteCacheToFile(const WeatherOutput& data) -> Result<> {
   return Ok();
 }
 
-fn WriteCallback(void* contents, size_t size, size_t nmemb, std::string* str) -> size_t {
+fn WriteCallback(void* contents, size_t size, size_t nmemb, std::string* str)
+    -> size_t {
   size_t totalSize = size * nmemb;
   str->append(static_cast<char*>(contents), totalSize);
   return totalSize;
@@ -59,7 +60,7 @@ fn WriteCallback(void* contents, size_t size, size_t nmemb, std::string* str) ->
 fn MakeApiRequest(const std::string& url) -> Result<WeatherOutput> {
   fmt::println("Making API request to URL: {}", url);
 
-  CURL* curl = curl_easy_init();
+  CURL*       curl = curl_easy_init();
   std::string responseBuffer;
 
   if (curl) {
@@ -70,10 +71,14 @@ fn MakeApiRequest(const std::string& url) -> Result<WeatherOutput> {
     curl_easy_cleanup(curl);
 
     if (res != CURLE_OK) {
-      return Error(fmt::format("Failed to perform cURL request: {}", curl_easy_strerror(res)));
+      return Error(fmt::format(
+          "Failed to perform cURL request: {}", curl_easy_strerror(res)
+      ));
     }
 
-    fmt::println("Received response from API. Response size: {}", responseBuffer.size());
+    fmt::println(
+        "Received response from API. Response size: {}", responseBuffer.size()
+    );
 
     WeatherOutput output =
         rfl::json::read<WeatherOutput>(responseBuffer).value();

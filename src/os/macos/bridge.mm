@@ -80,8 +80,13 @@ using MRMediaRemoteGetNowPlayingInfoFunction = void (*)(
   }
 
   // Dictionary to map macOS versions to their respective names
-  NSDictionary<NSNumber*, NSString*>* versionNames =
-      @{@11 : @"Big Sur", @12 : @"Monterey", @13 : @"Ventura", @14 : @"Sonoma"};
+  NSDictionary<NSNumber*, NSString*>* versionNames = @{
+    @11 : @"Big Sur",
+    @12 : @"Monterey",
+    @13 : @"Ventura",
+    @14 : @"Sonoma",
+    @15 : @"Sequoia"
+  };
 
   NSNumber* majorVersionNumber = @(osVersion.majorVersion);
   NSString* versionName        = versionNames[majorVersionNumber];
@@ -96,7 +101,7 @@ using MRMediaRemoteGetNowPlayingInfoFunction = void (*)(
 }
 @end
 
-#include "util/numtypes.h"
+#include "util/macros.h"
 
 extern "C" {
   fn GetCurrentPlayingTitle() -> const char* {

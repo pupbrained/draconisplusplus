@@ -4,7 +4,7 @@ project(
   default_options: [
     'objc_std=c++20',
     'objcpp_std=c++20',
-    'cpp_std=c++23',
+    'cpp_std=c++20',
     'default_library=static',
     'warning_level=everything',
     'buildtype=debugoptimized'

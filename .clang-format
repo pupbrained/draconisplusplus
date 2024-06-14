@@ -10,6 +10,7 @@ AllowShortLoopsOnASingleLine: true
 BasedOnStyle: Chromium
 BinPackArguments: false
 BinPackParameters: false
+FixNamespaceComments: false
 IndentAccessModifiers: false
 IndentExternBlock: Indent
 NamespaceIndentation: All

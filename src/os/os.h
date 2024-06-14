@@ -2,8 +2,9 @@
 
 #include <string>
 
+#include "util/macros.h"
 #include "util/numtypes.h"
 
-u64         GetMemInfo();
-std::string GetNowPlaying();
-const char* GetOSVersion();
+fn GetMemInfo() -> u64;
+fn GetNowPlaying() -> std::string;
+fn GetOSVersion() -> const char*;

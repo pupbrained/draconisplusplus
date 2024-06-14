@@ -9,7 +9,7 @@
 + (NSString*)macOSVersion;
 @end
 #else
-#include "util/numtypes.h"
+#include "util/macros.h"
 
 extern "C" {
   fn GetCurrentPlayingTitle() -> const char*;
