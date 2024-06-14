@@ -61,20 +61,20 @@ class Weather {
 
   struct WeatherOutput {
     Clouds                       clouds;
-    Main                         main;
-    Sys                          sys;
-    Wind                         wind;
     isize                        timezone;
     isize                        visibility;
+    Main                         main;
     rfl::Rename<"coord", Coords> coords;
     std::optional<Precipitation> rain;
     std::optional<Precipitation> snow;
     std::string                  base;
     std::string                  name;
     std::vector<Condition>       weather;
+    Sys                          sys;
     usize                        cod;
     usize                        dt;
     usize                        id;
+    Wind                         wind;
   };
 
   using Location = std::variant<std::string, Coords>;
@@ -132,7 +132,7 @@ class NowPlaying {
 };
 
 struct NowPlayingImpl {
-  bool enabled;
+  std::optional<bool> enabled;
 
   static fn from_class(const NowPlaying& now_playing
   ) noexcept -> NowPlayingImpl;

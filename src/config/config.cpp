@@ -58,7 +58,7 @@ fn NowPlayingImpl::from_class(
 }
 //clang-format on
 
-fn NowPlayingImpl::to_class() const -> NowPlaying { return {enabled}; }
+fn NowPlayingImpl::to_class() const -> NowPlaying { return {enabled.value_or(false)}; }
 
 fn ConfigImpl::from_class(const Config& config) noexcept -> ConfigImpl {
   return {
