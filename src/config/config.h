@@ -46,7 +46,7 @@ class Config {
   [[nodiscard]] fn getNowPlaying() const -> const NowPlaying;
 };
 
-// Reflect-CPP Stuff
+// reflect-cpp Stuff
 DEF_IMPL(General, general, std::string name)
 DEF_IMPL(NowPlaying, now_playing, std::optional<bool> enabled)
 DEF_IMPL(Config, config, General general; NowPlaying now_playing; Weather weather)
