@@ -32,7 +32,7 @@ DEFINE_GETTER(General, const std::string, Name)
 
 General::General(std::string name) : m_Name(std::move(name)) {}
 
-fn GeneralImpl::from_class(const General& general) noexcept -> GeneralImpl {
+fn GeneralImpl::from_class(const General& general) -> GeneralImpl {
   return {general.getName()};
 }
 
@@ -46,8 +46,7 @@ DEFINE_GETTER(NowPlaying, bool, Enabled)
 
 NowPlaying::NowPlaying(bool enabled) : m_Enabled(enabled) {}
 
-fn NowPlayingImpl::from_class(const NowPlaying& now_playing
-) noexcept -> NowPlayingImpl {
+fn NowPlayingImpl::from_class(const NowPlaying& now_playing) -> NowPlayingImpl {
   return {.enabled = now_playing.getEnabled()};
 }
 
@@ -74,7 +73,7 @@ fn Config::getInstance() -> const Config& {
   return *INSTANCE;
 }
 
-fn ConfigImpl::from_class(const Config& config) noexcept -> ConfigImpl {
+fn ConfigImpl::from_class(const Config& config) -> ConfigImpl {
   return {
       .general     = config.getGeneral(),
       .now_playing = config.getNowPlaying(),

@@ -20,14 +20,6 @@ class General {
   [[nodiscard]] fn getName() const -> const std::string;
 };
 
-struct GeneralImpl {
-  std::string name;
-
-  static fn from_class(const General& general) noexcept -> GeneralImpl;
-
-  [[nodiscard]] fn to_class() const -> General;
-};
-
 class NowPlaying {
  private:
   bool m_Enabled;
@@ -36,15 +28,6 @@ class NowPlaying {
   NowPlaying(bool enabled);
 
   [[nodiscard]] fn getEnabled() const -> bool;
-};
-
-struct NowPlayingImpl {
-  std::optional<bool> enabled;
-
-  static fn from_class(const NowPlaying& now_playing
-  ) noexcept -> NowPlayingImpl;
-
-  [[nodiscard]] fn to_class() const -> NowPlaying;
 };
 
 class Config {
@@ -63,42 +46,21 @@ class Config {
   [[nodiscard]] fn getNowPlaying() const -> const NowPlaying;
 };
 
-struct ConfigImpl {
-  General    general;
-  NowPlaying now_playing;
-  Weather    weather;
+// Reflect-CPP Stuff
+DEF_IMPL(General, general, std::string name)
+DEF_IMPL(NowPlaying, now_playing, std::optional<bool> enabled)
+DEF_IMPL(Config, config, General general; NowPlaying now_playing; Weather weather)
 
-  static fn from_class(const Config& config) noexcept -> ConfigImpl;
-
-  [[nodiscard]] fn to_class() const -> Config;
-};
-
-// Parsers for Config classes
 namespace rfl::parsing {
   template <class ReaderType, class WriterType, class ProcessorsType>
   struct Parser<ReaderType, WriterType, General, ProcessorsType>
-      : public CustomParser<
-            ReaderType,
-            WriterType,
-            ProcessorsType,
-            General,
-            GeneralImpl> {};
+      : public CustomParser<ReaderType, WriterType, ProcessorsType, General, GeneralImpl> {};
 
   template <class ReaderType, class WriterType, class ProcessorsType>
   struct Parser<ReaderType, WriterType, NowPlaying, ProcessorsType>
-      : public CustomParser<
-            ReaderType,
-            WriterType,
-            ProcessorsType,
-            NowPlaying,
-            NowPlayingImpl> {};
+      : public CustomParser<ReaderType, WriterType, ProcessorsType, NowPlaying, NowPlayingImpl> {};
 
   template <class ReaderType, class WriterType, class ProcessorsType>
   struct Parser<ReaderType, WriterType, Config, ProcessorsType>
-      : public CustomParser<
-            ReaderType,
-            WriterType,
-            ProcessorsType,
-            Config,
-            ConfigImpl> {};
+      : public CustomParser<ReaderType, WriterType, ProcessorsType, Config, ConfigImpl> {};
 }

@@ -10,10 +10,12 @@ AllowShortLoopsOnASingleLine: true
 BasedOnStyle: Chromium
 BinPackArguments: false
 BinPackParameters: false
+ColumnLimit: 100
 FixNamespaceComments: false
 IndentAccessModifiers: false
 IndentExternBlock: Indent
 NamespaceIndentation: All
+SkipMacroDefinitionBody: true
 SpaceBeforeCpp11BracedList: true
 SpacesBeforeTrailingComments: 1
 

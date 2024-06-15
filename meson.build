@@ -98,7 +98,7 @@ if host_machine.system() == 'linux'
 endif
 
 incdir = include_directories(
-  'include',
+  ['include', '/nix/store/pp85qmfpf239b75sm23hhx6cvxfrr4p9-fmt-10.2.1-dev/include'],
   is_system: true # Ignores warnings from include dir
 )
 
