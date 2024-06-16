@@ -11,17 +11,9 @@ namespace rfl {
     struct define_literal;
 
     /// General case
-    template <
-        StringLiteral... _content1,
-        StringLiteral... _content2,
-        class... Tail>
-    struct define_literal<
-        Literal<_content1...>,
-        Literal<_content2...>,
-        Tail...> {
-      using type = typename define_literal<
-          Literal<_content1..., _content2...>,
-          Tail...>::type;
+    template <StringLiteral... _content1, StringLiteral... _content2, class... Tail>
+    struct define_literal<Literal<_content1...>, Literal<_content2...>, Tail...> {
+      using type = typename define_literal<Literal<_content1..., _content2...>, Tail...>::type;
     };
 
     /// Special case - only a single literal is left

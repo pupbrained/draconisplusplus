@@ -23,7 +23,7 @@ namespace rfl {
 
     template <class T>
     constexpr bool is_attribute_v =
-        is_attribute<std::remove_cvref_t<std::remove_pointer_t<T>>>::value;
+      is_attribute<std::remove_cvref_t<std::remove_pointer_t<T>>>::value;
 
   } // namespace internal
 } // namespace rfl

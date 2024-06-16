@@ -1,3 +1,4 @@
+# noinspection SpellCheckingInspection
 Checks: >
     *,
     -abseil-*,

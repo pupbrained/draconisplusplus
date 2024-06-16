@@ -18,10 +18,8 @@ namespace rfl {
         } else if constexpr (_j == -1) {
           return no_duplicate_field_names<Fields, _i + 1, _i>();
         } else {
-          using FieldType1 = std::remove_cvref_t<
-              typename std::tuple_element<_i, Fields>::type>;
-          using FieldType2 = std::remove_cvref_t<
-              typename std::tuple_element<_j, Fields>::type>;
+          using FieldType1 = std::remove_cvref_t<typename std::tuple_element<_i, Fields>::type>;
+          using FieldType2 = std::remove_cvref_t<typename std::tuple_element<_j, Fields>::type>;
 
           constexpr auto field_name_i = FieldType1::name_;
           constexpr auto field_name_j = FieldType2::name_;

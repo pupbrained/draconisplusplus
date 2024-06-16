@@ -20,8 +20,7 @@ namespace rfl {
       if constexpr (!has_flatten_fields<std::remove_cvref_t<FieldTuple>>()) {
         return std::apply(ft_to_nt, std::move(_field_tuple));
       } else {
-        auto flattened_tuple =
-            move_and_flatten_field_tuple(std::move(_field_tuple));
+        auto flattened_tuple = move_and_flatten_field_tuple(std::move(_field_tuple));
         return std::apply(ft_to_nt, std::move(flattened_tuple));
       }
     }

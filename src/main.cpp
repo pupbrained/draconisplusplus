@@ -18,7 +18,7 @@ struct fmt::formatter<BytesToGiB> : formatter<double> {
   template <typename FmtCtx>
   fn format(const BytesToGiB BTG, FmtCtx& ctx) -> typename FmtCtx::iterator {
     typename FmtCtx::iterator out =
-        formatter<double>::format(static_cast<double>(BTG.value) / GIB, ctx);
+      formatter<double>::format(static_cast<double>(BTG.value) / GIB, ctx);
     *out++ = 'G';
     *out++ = 'i';
     *out++ = 'B';
@@ -62,7 +62,7 @@ fn main() -> int {
   fmt::println("Hello {}!", name);
   fmt::println("Today is: {}", GetDate());
   fmt::println("It is {}°F in {}", temp, townName);
-  fmt::println("Installed RAM: {:.2f}", BytesToGiB {GetMemInfo()});
+  fmt::println("Installed RAM: {:.2f}", BytesToGiB { GetMemInfo() });
   fmt::println("{}", version);
 
   if (nowPlayingEnabled)

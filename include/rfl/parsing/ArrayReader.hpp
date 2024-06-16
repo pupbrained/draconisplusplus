@@ -20,31 +20,25 @@ namespace rfl::parsing {
     static constexpr size_t size_ = _size;
 
    public:
-    ArrayReader(const R* _r, std::array<T, _size>* _array)
-        : array_(_array), i_(0), r_(_r) {}
+    ArrayReader(const R* _r, std::array<T, _size>* _array) : array_(_array), i_(0), r_(_r) {}
 
     ~ArrayReader() = default;
 
     std::optional<Error> check_size() const {
       if (i_ != size_) {
         return Error(
-            "Expected " + std::to_string(size_) + " elements, got " +
-            std::to_string(i_) + "."
+          "Expected " + std::to_string(size_) + " elements, got " + std::to_string(i_) + "."
         );
       }
       return std::nullopt;
     }
 
     std::optional<Error> read(const InputVarType& _var) const {
-      auto res =
-          Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::read(*r_, _var);
+      auto res = Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::read(*r_, _var);
       if (res) {
         move_to(&((*array_)[i_]), &(*res));
       } else {
-        return Error(
-            "Failed to parse element " + std::to_string(i_) + ": " +
-            res.error()->what()
-        );
+        return Error("Failed to parse element " + std::to_string(i_) + ": " + res.error()->what());
       }
       ++i_;
       return std::nullopt;
@@ -54,8 +48,7 @@ namespace rfl::parsing {
     /// trigger the destructors.
     void call_destructors_where_necessary() const {
       for (size_t i = 0; i < std::min(i_, size_); ++i) {
-        if constexpr (!std::is_array_v<T> && std::is_pointer_v<T> &&
-                      std::is_destructible_v<T>) {
+        if constexpr (!std::is_array_v<T> && std::is_pointer_v<T> && std::is_destructible_v<T>) {
           (*array_)[i].~T();
         } else if constexpr (std::is_array_v<T>) {
           auto ptr = (*array_)[i];
@@ -80,17 +73,12 @@ namespace rfl::parsing {
     void move_to(Target* _t, Source* _s) const {
       if constexpr (std::is_const_v<Target>) {
         return move_to(const_cast<std::remove_const_t<Target>*>(_t), _s);
-      } else if constexpr (!internal::is_array_v<Source> &&
-                           !std::is_array_v<Target>) {
+      } else if constexpr (!internal::is_array_v<Source> && !std::is_array_v<Target>) {
         ::new (_t) Target(std::move(*_s));
       } else if constexpr (internal::is_array_v<Source>) {
-        for (size_t i = 0; i < _s->arr_.size(); ++i) {
-          move_to(&((*_t)[i]), &(_s->arr_[i]));
-        }
+        for (size_t i = 0; i < _s->arr_.size(); ++i) { move_to(&((*_t)[i]), &(_s->arr_[i])); }
       } else {
-        for (size_t i = 0; i < _s->size(); ++i) {
-          move_to(&((*_t)[i]), &((*_s)[i]));
-        }
+        for (size_t i = 0; i < _s->size(); ++i) { move_to(&((*_t)[i]), &((*_s)[i])); }
       }
     }
 

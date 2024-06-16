@@ -33,29 +33,19 @@ namespace rfl {
     template <class U>
     Attribute(Attribute<U>&& _attr) : value_(_attr.get()) {}
 
-    template <
-        class U,
-        typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type =
-            true>
+    template <class U, typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type = true>
     Attribute(const U& _value) : value_(_value) {}
 
-    template <
-        class U,
-        typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type =
-            true>
+    template <class U, typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type = true>
     Attribute(U&& _value) noexcept : value_(std::forward<U>(_value)) {}
 
-    template <
-        class U,
-        typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type =
-            true>
+    template <class U, typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type = true>
     Attribute(const Attribute<U>& _attr) : value_(_attr.value()) {}
 
     /// Assigns the underlying object to its default value.
     template <
-        class U = Type,
-        typename std::enable_if<std::is_default_constructible_v<U>, bool>::
-            type = true>
+      class U                                                                 = Type,
+      typename std::enable_if<std::is_default_constructible_v<U>, bool>::type = true>
     Attribute(const Default& _default) : value_(Type()) {}
 
     ~Attribute() = default;
@@ -82,10 +72,7 @@ namespace rfl {
     }
 
     /// Assigns the underlying object.
-    template <
-        class U,
-        typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type =
-            true>
+    template <class U, typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type = true>
     auto& operator=(const U& _value) {
       value_ = _value;
       return *this;
@@ -93,9 +80,8 @@ namespace rfl {
 
     /// Assigns the underlying object to its default value.
     template <
-        class U = Type,
-        typename std::enable_if<std::is_default_constructible_v<U>, bool>::
-            type = true>
+      class U                                                                 = Type,
+      typename std::enable_if<std::is_default_constructible_v<U>, bool>::type = true>
     auto& operator=(const Default& _default) {
       value_ = Type();
       return *this;

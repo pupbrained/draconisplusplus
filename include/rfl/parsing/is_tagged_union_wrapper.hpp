@@ -16,18 +16,15 @@ namespace rfl {
     class is_tagged_union_wrapper : public std::false_type {};
 
     template <class T, class TagType, internal::StringLiteral _discriminator>
-    class is_tagged_union_wrapper<
-        TaggedUnionWrapperNoFields<T, TagType, _discriminator>>
-        : public std::true_type {};
+    class is_tagged_union_wrapper<TaggedUnionWrapperNoFields<T, TagType, _discriminator>>
+      : public std::true_type {};
 
     template <class T, class TagType, internal::StringLiteral _discriminator>
-    class is_tagged_union_wrapper<
-        TaggedUnionWrapperWithFields<T, TagType, _discriminator>>
-        : public std::true_type {};
+    class is_tagged_union_wrapper<TaggedUnionWrapperWithFields<T, TagType, _discriminator>>
+      : public std::true_type {};
 
     template <class T>
-    constexpr bool is_tagged_union_wrapper_v =
-        is_tagged_union_wrapper<T>::value;
+    constexpr bool is_tagged_union_wrapper_v = is_tagged_union_wrapper<T>::value;
 
   } // namespace parsing
 } // namespace rfl

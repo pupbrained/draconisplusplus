@@ -8,8 +8,7 @@ namespace rfl {
   /// Contains meta-information about a field in a struct.
   class MetaField {
    public:
-    MetaField(const std::string& _name, const std::string& _type)
-        : name_(_name), type_(_type) {}
+    MetaField(const std::string& _name, const std::string& _type) : name_(_name), type_(_type) {}
 
     ~MetaField() = default;
 

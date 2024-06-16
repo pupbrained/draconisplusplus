@@ -18,16 +18,12 @@ namespace rfl {
     template <class R, class W, class T, class ProcessorsType>
       requires AreReaderAndWriter<R, W, std::map<std::string, T>>
     struct Parser<R, W, std::map<std::string, T>, ProcessorsType>
-        : public MapParser<R, W, std::map<std::string, T>, ProcessorsType> {};
+      : public MapParser<R, W, std::map<std::string, T>, ProcessorsType> {};
 
     template <class R, class W, class T, class ProcessorsType>
       requires AreReaderAndWriter<R, W, std::unordered_map<std::string, T>>
     struct Parser<R, W, std::unordered_map<std::string, T>, ProcessorsType>
-        : public MapParser<
-              R,
-              W,
-              std::unordered_map<std::string, T>,
-              ProcessorsType> {};
+      : public MapParser<R, W, std::unordered_map<std::string, T>, ProcessorsType> {};
 
   } // namespace parsing
 } // namespace rfl

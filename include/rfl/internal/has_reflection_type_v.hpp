@@ -17,8 +17,7 @@ namespace rfl {
       static std::int32_t foo(typename U::ReflectionType*);
 
      public:
-      static constexpr bool value =
-          sizeof(foo<Wrapper>(nullptr)) == sizeof(std::int32_t);
+      static constexpr bool value = sizeof(foo<Wrapper>(nullptr)) == sizeof(std::int32_t);
     };
 
     /// Utility parameter for named tuple parsing, can be used by the

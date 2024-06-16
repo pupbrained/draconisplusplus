@@ -25,12 +25,12 @@ namespace rfl {
       /// Expresses the variables as type T.
       static Result<T*> read(const R& _r, const InputVarType& _var) noexcept {
         static_assert(
-            always_false_v<T>,
-            "Reading into raw pointers is dangerous and "
-            "therefore unsupported. "
-            "Please consider using std::unique_ptr, rfl::Box, "
-            "std::shared_ptr, "
-            "rfl::Ref or std::optional instead."
+          always_false_v<T>,
+          "Reading into raw pointers is dangerous and "
+          "therefore unsupported. "
+          "Please consider using std::unique_ptr, rfl::Box, "
+          "std::shared_ptr, "
+          "rfl::Ref or std::optional instead."
         );
         return Error("Unsupported.");
       }
@@ -41,17 +41,11 @@ namespace rfl {
           ParentType::add_null(_w, _parent);
           return;
         }
-        Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::write(
-            _w, *_ptr, _parent
-        );
+        Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::write(_w, *_ptr, _parent);
       }
 
-      static schema::Type to_schema(
-          std::map<std::string, schema::Type>* _definitions
-      ) {
-        return Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::to_schema(
-            _definitions
-        );
+      static schema::Type to_schema(std::map<std::string, schema::Type>* _definitions) {
+        return Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::to_schema(_definitions);
       }
     };
 

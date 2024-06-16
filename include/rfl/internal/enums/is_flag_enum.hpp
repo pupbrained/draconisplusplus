@@ -10,10 +10,9 @@ namespace rfl {
     namespace enums {
 
       template <class EnumType>
-      concept is_flag_enum =
-          is_scoped_enum<EnumType> && requires(EnumType e1, EnumType e2) {
-            { e1 | e2 } -> std::same_as<EnumType>;
-          };
+      concept is_flag_enum = is_scoped_enum<EnumType> && requires(EnumType e1, EnumType e2) {
+        { e1 | e2 } -> std::same_as<EnumType>;
+      };
 
     } // namespace enums
   } // namespace internal

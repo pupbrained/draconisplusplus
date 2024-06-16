@@ -19,8 +19,7 @@ namespace rfl {
     class is_literal<Literal<_s...>> : public std::true_type {};
 
     template <class T>
-    constexpr bool is_literal_v =
-        is_literal<std::remove_cvref_t<std::remove_pointer_t<T>>>::value;
+    constexpr bool is_literal_v = is_literal<std::remove_cvref_t<std::remove_pointer_t<T>>>::value;
 
   } // namespace internal
 } // namespace rfl

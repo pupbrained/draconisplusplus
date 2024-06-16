@@ -5,18 +5,20 @@ AlignConsecutiveDeclarations: true
 AllowShortBlocksOnASingleLine: Always
 AllowShortCompoundRequirementOnASingleLine: true
 AllowShortEnumsOnASingleLine: true
-AllowShortFunctionsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: All
 AllowShortLoopsOnASingleLine: true
 BasedOnStyle: Chromium
 BinPackArguments: false
 BinPackParameters: false
 ColumnLimit: 100
+ConstructorInitializerIndentWidth: 2
+ContinuationIndentWidth: 2
+Cpp11BracedListStyle: false
 FixNamespaceComments: false
 IndentAccessModifiers: false
 IndentExternBlock: Indent
-IndentPPDirectives: BeforeHash
+IndentWidth: 2
 NamespaceIndentation: All
-SkipMacroDefinitionBody: true
 SpaceBeforeCpp11BracedList: true
 SpacesBeforeTrailingComments: 1
 

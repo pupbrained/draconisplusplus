@@ -12,33 +12,26 @@ namespace rfl {
     /// Because of that, we require all of the fields and then set them to
     /// nullptr, if necessary.
     template <class ProcessorsType, class... FieldTypes>
-      requires AreReaderAndWriter<
+      requires AreReaderAndWriter<cbor::Reader, cbor::Writer, NamedTuple<FieldTypes...>>
+    struct Parser<cbor::Reader, cbor::Writer, NamedTuple<FieldTypes...>, ProcessorsType>
+      : public NamedTupleParser<
           cbor::Reader,
           cbor::Writer,
-          NamedTuple<FieldTypes...>>
-    struct Parser<
-        cbor::Reader,
-        cbor::Writer,
-        NamedTuple<FieldTypes...>,
-        ProcessorsType>
-        : public NamedTupleParser<
-              cbor::Reader,
-              cbor::Writer,
-              /*_ignore_empty_containers=*/false,
-              /*_all_required=*/true,
-              ProcessorsType,
-              FieldTypes...> {};
+          /*_ignore_empty_containers=*/false,
+          /*_all_required=*/true,
+          ProcessorsType,
+          FieldTypes...> {};
 
     template <class ProcessorsType, class... Ts>
       requires AreReaderAndWriter<cbor::Reader, cbor::Writer, std::tuple<Ts...>>
     struct Parser<cbor::Reader, cbor::Writer, std::tuple<Ts...>, ProcessorsType>
-        : public TupleParser<
-              cbor::Reader,
-              cbor::Writer,
-              /*_ignore_empty_containers=*/false,
-              /*_all_required=*/true,
-              ProcessorsType,
-              Ts...> {};
+      : public TupleParser<
+          cbor::Reader,
+          cbor::Writer,
+          /*_ignore_empty_containers=*/false,
+          /*_all_required=*/true,
+          ProcessorsType,
+          Ts...> {};
 
   } // namespace parsing
 } // namespace rfl

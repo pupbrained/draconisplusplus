@@ -19,10 +19,9 @@ namespace rfl {
     template <class T>
     static parsing::schema::ValidationType to_schema() {
       using ValidationType = parsing::schema::ValidationType;
-      const auto types     = std::vector<ValidationType>(
-          {C::template to_schema<T>(), Cs::template to_schema<T>()...}
-      );
-      return ValidationType {ValidationType::AllOf {.types_ = types}};
+      const auto types =
+        std::vector<ValidationType>({ C::template to_schema<T>(), Cs::template to_schema<T>()... });
+      return ValidationType { ValidationType::AllOf { .types_ = types } };
     }
 
    private:

@@ -76,21 +76,22 @@ namespace rfl {
       template <std::size_t n>
       static consteval bool constructible() {
         return []<std::size_t... is>(std::index_sequence<is...>) {
-          return requires { T {any(is)...}; };
+          return requires { T { any(is)... }; };
         }(std::make_index_sequence<n>());
       }
 
       template <std::size_t l, std::size_t nested, std::size_t r>
       static consteval bool constructible_with_nested() {
         return
-            []<std::size_t... i,
-               std::size_t... j,
-               std::
-                   size_t... k>(std::index_sequence<i...>, std::index_sequence<j...>, std::index_sequence<k...>) {
-              return requires { T {any(i)..., {any(j)...}, any(k)...}; };
-            }(std::make_index_sequence<l>(),
-              std::make_index_sequence<nested>(),
-              std::make_index_sequence<r>());
+          []<
+            std::size_t... i,
+            std::size_t... j,
+            std::
+              size_t... k>(std::index_sequence<i...>, std::index_sequence<j...>, std::index_sequence<k...>) {
+            return requires { T { any(i)..., { any(j)... }, any(k)... }; };
+          }(std::make_index_sequence<l>(),
+            std::make_index_sequence<nested>(),
+            std::make_index_sequence<r>());
       }
 
       template <std::size_t n = 0>
@@ -108,8 +109,7 @@ namespace rfl {
         if constexpr (size < 1) {
           return 1;
         } else if constexpr (constructible_with_nested<index, size, rest>() &&
-                             !constructible_with_nested<index, size, rest + 1>(
-                             )) {
+                             !constructible_with_nested<index, size, rest + 1>()) {
           return size;
         } else {
           return get_nested_array_size<index, size - 1, rest + 1>();
@@ -120,19 +120,17 @@ namespace rfl {
       static consteval std::size_t find_the_sole_non_empty_base_index() {
         static_assert(index < max_args);
         constexpr auto check =
-            []<std::size_t... l,
-               std::
-                   size_t... r>(std::index_sequence<l...>, std::index_sequence<r...>) {
-              return requires {
-                T {any_empty_base<T>(l)...,
-                   any_base<T>(0),
-                   any_empty_base<T>(r)...};
-              };
+          []<
+            std::size_t... l,
+            std::size_t... r>(std::index_sequence<l...>, std::index_sequence<r...>) {
+            return requires {
+              T { any_empty_base<T>(l)..., any_base<T>(0), any_empty_base<T>(r)... };
             };
+          };
 
         if constexpr (check(
-                          std::make_index_sequence<index>(),
-                          std::make_index_sequence<max_args - index - 1>()
+                        std::make_index_sequence<index>(),
+                        std::make_index_sequence<max_args - index - 1>()
                       )) {
           return index;
         } else {
@@ -154,13 +152,11 @@ namespace rfl {
       template <std::size_t n, std::size_t max_arg_num>
       static consteval bool has_n_base_param() {
         constexpr auto right_len = max_arg_num >= n ? max_arg_num - n : 0;
-        return
-            []<std::size_t... l,
-               std::
-                   size_t... r>(std::index_sequence<l...>, std::index_sequence<r...>) {
-              return requires { T {any_base<T>(l)..., any(r)...}; };
-            }(std::make_index_sequence<n>(),
-              std::make_index_sequence<right_len>());
+        return []<
+                 std::size_t... l,
+                 std::size_t... r>(std::index_sequence<l...>, std::index_sequence<r...>) {
+          return requires { T { any_base<T>(l)..., any(r)... }; };
+        }(std::make_index_sequence<n>(), std::make_index_sequence<right_len>());
       }
 
       template <std::size_t max_arg_num, std::size_t index = 0>
@@ -179,17 +175,16 @@ namespace rfl {
           return 0;
         } else {
           return 1 + constructible_no_brace_elision<
-                         index + get_nested_array_size<index, max - index, 0>(),
-                         max>();
+                       index + get_nested_array_size<index, max - index, 0>(),
+                       max>();
         }
       }
 
       static consteval std::size_t count_fields() {
         constexpr std::size_t max_agg_args = count_max_args_in_agg_init();
         constexpr std::size_t no_brace_ellison_args =
-            constructible_no_brace_elision<0, max_agg_args>();
-        constexpr std::size_t base_args =
-            base_param_num<no_brace_ellison_args>();
+          constructible_no_brace_elision<0, max_agg_args>();
+        constexpr std::size_t base_args = base_param_num<no_brace_ellison_args>();
         if constexpr (no_brace_ellison_args == 0 && base_args == 0) {
           // Empty struct
           return 0;
@@ -197,8 +192,7 @@ namespace rfl {
           // Special case when the derived class is empty.
           // In such cases the filed number is the fields in base class.
           // Note that there should be only one base class in this case.
-          return get_nested_base_field_count<
-              find_the_sole_non_empty_base_index<max_agg_args>()>();
+          return get_nested_base_field_count<find_the_sole_non_empty_base_index<max_agg_args>()>();
         } else {
           return no_brace_ellison_args - base_args;
         }

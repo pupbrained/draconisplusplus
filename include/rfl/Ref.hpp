@@ -50,8 +50,7 @@ namespace rfl {
     Ref(const Ref<U>& _other) : ptr_(_other.ptr()) {}
 
     template <class U>
-    Ref(Ref<U>&& _other) noexcept
-        : ptr_(std::forward<std::shared_ptr<U>>(_other.ptr())) {}
+    Ref(Ref<U>&& _other) noexcept : ptr_(std::forward<std::shared_ptr<U>>(_other.ptr())) {}
 
     ~Ref() = default;
 
@@ -132,9 +131,7 @@ namespace std {
 
   template <class T>
   struct hash<rfl::Ref<T>> {
-    size_t operator()(const rfl::Ref<T>& _r) const {
-      return hash<shared_ptr<T>>()(_r.ptr());
-    }
+    size_t operator()(const rfl::Ref<T>& _r) const { return hash<shared_ptr<T>>()(_r.ptr()); }
   };
 
   template <class T>

@@ -22,21 +22,18 @@ namespace rfl {
     template <class PtrFieldTuple, class... Args>
     auto flatten_ptr_field_tuple(PtrFieldTuple& _t, Args&&... _args) {
       constexpr auto i = sizeof...(Args);
-      if constexpr (i ==
-                    std::tuple_size_v<std::remove_cvref_t<PtrFieldTuple>>) {
+      if constexpr (i == std::tuple_size_v<std::remove_cvref_t<PtrFieldTuple>>) {
         return std::tuple_cat(std::forward<Args>(_args)...);
       } else {
         using T = std::tuple_element_t<i, std::remove_cvref_t<PtrFieldTuple>>;
         if constexpr (internal::is_flatten_field<T>::value) {
           auto subtuple = internal::to_ptr_field_tuple(*std::get<i>(_t).get());
           return flatten_ptr_field_tuple(
-              _t,
-              std::forward<Args>(_args)...,
-              flatten_ptr_field_tuple(subtuple)
+            _t, std::forward<Args>(_args)..., flatten_ptr_field_tuple(subtuple)
           );
         } else {
           return flatten_ptr_field_tuple(
-              _t, std::forward<Args>(_args)..., std::make_tuple(std::get<i>(_t))
+            _t, std::forward<Args>(_args)..., std::make_tuple(std::get<i>(_t))
           );
         }
       }
@@ -74,9 +71,7 @@ namespace rfl {
       } else {
         using FieldNames         = rfl::field_names_t<T>;
         auto flattened_ptr_tuple = to_flattened_ptr_tuple(_t);
-        return copy_flattened_tuple_to_named_tuple<FieldNames>(
-            flattened_ptr_tuple
-        );
+        return copy_flattened_tuple_to_named_tuple<FieldNames>(flattened_ptr_tuple);
       }
     }
 

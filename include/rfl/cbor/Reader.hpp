@@ -43,12 +43,10 @@ namespace rfl {
 
       template <class T>
       static constexpr bool has_custom_constructor =
-          (requires(InputVarType var) { T::from_cbor_obj(var); });
+        (requires(InputVarType var) { T::from_cbor_obj(var); });
 
-      rfl::Result<InputVarType> get_field(
-          const std::string&     _name,
-          const InputObjectType& _obj
-      ) const noexcept {
+      rfl::Result<InputVarType> get_field(const std::string& _name, const InputObjectType& _obj)
+        const noexcept {
         CborValue val;
         auto      buffer = std::vector<char>();
         auto      err    = cbor_value_enter_container(_obj.val_, &val);
@@ -134,9 +132,9 @@ namespace rfl {
             return static_cast<T>(result);
           }
           return rfl::Error(
-              "Could not cast to numeric value. The type must be integral, "
-              "float "
-              "or double."
+            "Could not cast to numeric value. The type must be integral, "
+            "float "
+            "or double."
           );
 
         } else {
@@ -144,27 +142,23 @@ namespace rfl {
         }
       }
 
-      rfl::Result<InputArrayType> to_array(const InputVarType& _var
-      ) const noexcept {
+      rfl::Result<InputArrayType> to_array(const InputVarType& _var) const noexcept {
         if (!cbor_value_is_array(_var.val_)) {
           return Error("Could not cast to an array.");
         }
-        return InputArrayType {_var.val_};
+        return InputArrayType { _var.val_ };
       }
 
-      rfl::Result<InputObjectType> to_object(const InputVarType& _var
-      ) const noexcept {
+      rfl::Result<InputObjectType> to_object(const InputVarType& _var) const noexcept {
         if (!cbor_value_is_map(_var.val_)) {
           return Error("Could not cast to an object.");
         }
-        return InputObjectType {_var.val_};
+        return InputObjectType { _var.val_ };
       }
 
       template <class ArrayReader>
-      std::optional<Error> read_array(
-          const ArrayReader&    _array_reader,
-          const InputArrayType& _arr
-      ) const noexcept {
+      std::optional<Error> read_array(const ArrayReader& _array_reader, const InputArrayType& _arr)
+        const noexcept {
         CborValue val;
         auto      buffer = std::vector<char>();
         auto      err    = cbor_value_enter_container(_arr.val_, &val);
@@ -190,10 +184,8 @@ namespace rfl {
       }
 
       template <class ObjectReader>
-      std::optional<Error> read_object(
-          const ObjectReader&    _object_reader,
-          const InputObjectType& _obj
-      ) const noexcept {
+      std::optional<Error>
+      read_object(const ObjectReader& _object_reader, const InputObjectType& _obj) const noexcept {
         size_t length = 0;
         auto   err    = cbor_value_get_map_length(_obj.val_, &length);
         if (err != CborNoError) {
@@ -218,7 +210,7 @@ namespace rfl {
             return Error(cbor_error_string(err));
           }
           const auto name = std::string_view(buffer.data(), buffer.size() - 1);
-          _object_reader.read(name, InputVarType {&val});
+          _object_reader.read(name, InputVarType { &val });
           cbor_value_advance(&val);
         }
 
@@ -226,16 +218,14 @@ namespace rfl {
       }
 
       template <class T>
-      rfl::Result<T> use_custom_constructor(const InputVarType& _var
-      ) const noexcept {
+      rfl::Result<T> use_custom_constructor(const InputVarType& _var) const noexcept {
         try {
           return T::from_cbor_obj(_var);
         } catch (std::exception& e) { return rfl::Error(e.what()); }
       }
 
      private:
-      CborError get_string(const CborValue* _ptr, std::vector<char>* _buffer)
-          const noexcept {
+      CborError get_string(const CborValue* _ptr, std::vector<char>* _buffer) const noexcept {
         size_t length = 0;
         auto   err    = cbor_value_get_string_length(_ptr, &length);
         if (err != CborNoError && err != CborErrorOutOfMemory) {
@@ -243,15 +233,13 @@ namespace rfl {
         }
         _buffer->resize(length + 1);
         (*_buffer)[length] = '\0';
-        return cbor_value_copy_text_string(
-            _ptr, _buffer->data(), &length, NULL
-        );
+        return cbor_value_copy_text_string(_ptr, _buffer->data(), &length, NULL);
       }
 
       InputVarType to_input_var(CborValue* _ptr) const noexcept {
         values_->emplace_back(rfl::Box<CborValue>::make(*_ptr));
         auto* last_value = values_->back().get();
-        return InputVarType {last_value};
+        return InputVarType { last_value };
       }
 
      private:

@@ -7,8 +7,7 @@
 namespace rfl {
 
   template <class... FieldTypes>
-  using define_named_tuple_t =
-      typename internal::define_named_tuple<FieldTypes...>::type;
+  using define_named_tuple_t = typename internal::define_named_tuple<FieldTypes...>::type;
 
 } // namespace rfl
 

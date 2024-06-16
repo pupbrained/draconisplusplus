@@ -10,8 +10,8 @@ namespace rfl {
   namespace internal {
 
     template <class T>
-    using flattened_ptr_tuple_t = typename std::
-        invoke_result<decltype(to_flattened_ptr_tuple<T>), T>::type;
+    using flattened_ptr_tuple_t =
+      typename std::invoke_result<decltype(to_flattened_ptr_tuple<T>), T>::type;
 
   } // namespace internal
 } // namespace rfl

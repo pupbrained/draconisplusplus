@@ -18,8 +18,7 @@ namespace rfl {
     class is_map_like_not_multimap<std::map<K, V>> : public std::true_type {};
 
     template <class K, class V>
-    class is_map_like_not_multimap<std::unordered_map<K, V>>
-        : public std::true_type {};
+    class is_map_like_not_multimap<std::unordered_map<K, V>> : public std::true_type {};
 
   } // namespace parsing
 } // namespace rfl

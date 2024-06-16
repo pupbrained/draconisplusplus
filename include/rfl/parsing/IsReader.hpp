@@ -18,27 +18,24 @@ namespace rfl {
 
     template <class R>
     struct MockArrayReader {
-      std::optional<Error> read(typename R::InputVarType& _var) const {
-        return std::nullopt;
-      }
+      std::optional<Error> read(typename R::InputVarType& _var) const { return std::nullopt; }
     };
 
     template <class R>
     struct MockObjectReader {
-      void read(const std::string_view& _name, typename R::InputVarType& _var)
-          const {}
+      void read(const std::string_view& _name, typename R::InputVarType& _var) const {}
     };
 
     template <class R, class T>
     concept IsReader = requires(
-        R                                             r,
-        std::string                                   name,
-        std::function<std::int16_t(std::string_view)> fct,
-        MockArrayReader<R>                            array_reader,
-        MockObjectReader<R>                           object_reader,
-        typename R::InputArrayType                    arr,
-        typename R::InputObjectType                   obj,
-        typename R::InputVarType                      var
+      R                                             r,
+      std::string                                   name,
+      std::function<std::int16_t(std::string_view)> fct,
+      MockArrayReader<R>                            array_reader,
+      MockObjectReader<R>                           object_reader,
+      typename R::InputArrayType                    arr,
+      typename R::InputObjectType                   obj,
+      typename R::InputVarType                      var
     ) {
       /// Any Reader needs to define the following:
       ///
@@ -52,9 +49,7 @@ namespace rfl {
       ///    be called something like from_json_obj(...).
 
       /// Retrieves a particular field from an object.
-      {
-        r.get_field(name, obj)
-      } -> std::same_as<rfl::Result<typename R::InputVarType>>;
+      { r.get_field(name, obj) } -> std::same_as<rfl::Result<typename R::InputVarType>>;
 
       /// Determines whether a variable is empty (the NULL type).
       { r.is_empty(var) } -> std::same_as<bool>;
@@ -66,9 +61,7 @@ namespace rfl {
       /// Iterates through an object and writes the key-value pairs into an
       /// object reader. This is what we use to handle structs and named tuples,
       /// making it a very important function.
-      {
-        r.read_object(object_reader, obj)
-      } -> std::same_as<std::optional<Error>>;
+      { r.read_object(object_reader, obj) } -> std::same_as<std::optional<Error>>;
 
       /// Transforms var to a basic type (bool, integral,
       /// floating point, std::string)
@@ -77,14 +70,10 @@ namespace rfl {
       } -> std::same_as<rfl::Result<internal::wrap_in_rfl_array_t<T>>>;
 
       /// Casts var as an InputArrayType.
-      {
-        r.to_array(var)
-      } -> std::same_as<rfl::Result<typename R::InputArrayType>>;
+      { r.to_array(var) } -> std::same_as<rfl::Result<typename R::InputArrayType>>;
 
       /// Casts var as an InputObjectType.
-      {
-        r.to_object(var)
-      } -> std::same_as<rfl::Result<typename R::InputObjectType>>;
+      { r.to_object(var) } -> std::same_as<rfl::Result<typename R::InputObjectType>>;
 
       /// Uses the custom constructor, if it has been determined that T has one
       /// (see above).

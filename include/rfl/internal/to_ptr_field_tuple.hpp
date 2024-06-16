@@ -29,7 +29,7 @@ namespace rfl {
         return std::tuple();
       } else {
         using FieldNames = field_names_t<T>;
-        auto tup = bind_to_tuple(_t, [](auto& x) { return to_ptr_field(x); });
+        auto tup         = bind_to_tuple(_t, [](auto& x) { return to_ptr_field(x); });
         return wrap_in_fields<FieldNames>(std::move(tup));
       }
     }

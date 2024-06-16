@@ -22,8 +22,7 @@ namespace rfl {
 
       using ParentType = Parent<W>;
 
-      static Result<std::wstring>
-      read(const R& _r, const InputVarType& _var) noexcept {
+      static Result<std::wstring> read(const R& _r, const InputVarType& _var) noexcept {
         if (_r.is_empty(_var)) {
           return std::wstring();
         }
@@ -51,8 +50,7 @@ namespace rfl {
       }
 
       template <class P>
-      static void
-      write(const W& _w, const std::wstring& _str, const P& _parent) noexcept {
+      static void write(const W& _w, const std::wstring& _str, const P& _parent) noexcept {
         if (_str.empty()) {
           ParentType::add_value(_w, std::string(), _parent);
           return;
@@ -69,11 +67,8 @@ namespace rfl {
         ParentType::add_value(_w, outStr, _parent);
       }
 
-      static schema::Type to_schema(
-          std::map<std::string, schema::Type>* _definitions
-      ) {
-        return Parser<R, W, std::string, ProcessorsType>::to_schema(_definitions
-        );
+      static schema::Type to_schema(std::map<std::string, schema::Type>* _definitions) {
+        return Parser<R, W, std::string, ProcessorsType>::to_schema(_definitions);
       }
     };
 

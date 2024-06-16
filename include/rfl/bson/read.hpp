@@ -30,7 +30,7 @@ namespace rfl {
       value.val_.value.v_doc.data_len = static_cast<uint32_t>(_size);
       value.val_.value.v_doc.data     = const_cast<uint8_t*>(_bytes);
       value.val_.value_type           = BSON_TYPE_DOCUMENT;
-      auto doc                        = InputVarType {&value};
+      auto doc                        = InputVarType { &value };
       return read<T, Ps...>(doc);
     }
 

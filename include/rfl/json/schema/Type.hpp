@@ -132,26 +132,26 @@ namespace rfl::json::schema {
     };
 
     using ReflectionType = std::variant<
-        AllOf,
-        AnyOf,
-        Boolean,
-        ExclusiveMaximum,
-        ExclusiveMinimum,
-        FixedSizeTypedArray,
-        Integer,
-        Maximum,
-        Minimum,
-        Number,
-        Null,
-        Object,
-        OneOf,
-        Reference,
-        Regex,
-        String,
-        StringEnum,
-        StringMap,
-        Tuple,
-        TypedArray>;
+      AllOf,
+      AnyOf,
+      Boolean,
+      ExclusiveMaximum,
+      ExclusiveMinimum,
+      FixedSizeTypedArray,
+      Integer,
+      Maximum,
+      Minimum,
+      Number,
+      Null,
+      Object,
+      OneOf,
+      Reference,
+      Regex,
+      String,
+      StringEnum,
+      StringMap,
+      Tuple,
+      TypedArray>;
 
     const auto& reflection() const { return value; }
 

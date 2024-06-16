@@ -14,10 +14,9 @@ namespace rfl {
       // Clang on Windows. For all other compilers, function_name works as
       // intended.
 #if defined(__clang__) && defined(_MSC_VER)
-      const auto func_name = std::string_view {__PRETTY_FUNCTION__};
+      const auto func_name = std::string_view { __PRETTY_FUNCTION__ };
 #else
-      const auto func_name =
-          std::string_view {std::source_location::current().function_name()};
+      const auto func_name = std::string_view { std::source_location::current().function_name() };
 #endif
 #if defined(__clang__)
       const auto split = func_name.substr(0, func_name.size() - 1);
@@ -35,22 +34,19 @@ namespace rfl {
       return split;
 #else
       static_assert(
-          false,
-          "You are using an unsupported compiler. Please use GCC, Clang "
-          "or MSVC or explicitly tag your structs using 'Tag' or 'Name'."
+        false,
+        "You are using an unsupported compiler. Please use GCC, Clang "
+        "or MSVC or explicitly tag your structs using 'Tag' or 'Name'."
       );
 #endif
     }
 
     template <class T>
     consteval auto get_type_name() {
-      static_assert(
-          get_type_name_str_view<int>() == "int",
-          "Expected 'int', got something else."
-      );
+      static_assert(get_type_name_str_view<int>() == "int", "Expected 'int', got something else.");
       constexpr auto name       = get_type_name_str_view<T>();
       const auto     to_str_lit = [&]<auto... Ns>(std::index_sequence<Ns...>) {
-        return StringLiteral<sizeof...(Ns) + 1> {name[Ns]...};
+        return StringLiteral<sizeof...(Ns) + 1> { name[Ns]... };
       };
       return to_str_lit(std::make_index_sequence<name.size()> {});
     }

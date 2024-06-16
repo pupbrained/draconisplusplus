@@ -246,27 +246,24 @@ namespace ctll {
     uint8_t  length;
   };
 
-  constexpr length_value_t length_and_value_of_utf8_code_point(
-      uint8_t first_unit
-  ) noexcept {
+  constexpr length_value_t length_and_value_of_utf8_code_point(uint8_t first_unit) noexcept {
     if ((first_unit & 0b1000'0000) == 0b0000'0000)
-      return {static_cast<uint32_t>(first_unit), 1};
+      return { static_cast<uint32_t>(first_unit), 1 };
     else if ((first_unit & 0b1110'0000) == 0b1100'0000)
-      return {static_cast<uint32_t>(first_unit & 0b0001'1111), 2};
+      return { static_cast<uint32_t>(first_unit & 0b0001'1111), 2 };
     else if ((first_unit & 0b1111'0000) == 0b1110'0000)
-      return {static_cast<uint32_t>(first_unit & 0b0000'1111), 3};
+      return { static_cast<uint32_t>(first_unit & 0b0000'1111), 3 };
     else if ((first_unit & 0b1111'1000) == 0b1111'0000)
-      return {static_cast<uint32_t>(first_unit & 0b0000'0111), 4};
+      return { static_cast<uint32_t>(first_unit & 0b0000'0111), 4 };
     else if ((first_unit & 0b1111'1100) == 0b1111'1000)
-      return {static_cast<uint32_t>(first_unit & 0b0000'0011), 5};
+      return { static_cast<uint32_t>(first_unit & 0b0000'0011), 5 };
     else if ((first_unit & 0b1111'1100) == 0b1111'1100)
-      return {static_cast<uint32_t>(first_unit & 0b0000'0001), 6};
+      return { static_cast<uint32_t>(first_unit & 0b0000'0001), 6 };
     else
-      return {0, 0};
+      return { 0, 0 };
   }
 
-  constexpr char32_t
-  value_of_trailing_utf8_code_point(uint8_t unit, bool& correct) noexcept {
+  constexpr char32_t value_of_trailing_utf8_code_point(uint8_t unit, bool& correct) noexcept {
     if ((unit & 0b1100'0000) == 0b1000'0000)
       return unit & 0b0011'1111;
     else {
@@ -275,13 +272,11 @@ namespace ctll {
     }
   }
 
-  constexpr length_value_t length_and_value_of_utf16_code_point(
-      uint16_t first_unit
-  ) noexcept {
+  constexpr length_value_t length_and_value_of_utf16_code_point(uint16_t first_unit) noexcept {
     if ((first_unit & 0b1111110000000000) == 0b1101'1000'0000'0000)
-      return {static_cast<uint32_t>(first_unit & 0b0000001111111111), 2};
+      return { static_cast<uint32_t>(first_unit & 0b0000001111111111), 2 };
     else
-      return {first_unit, 1};
+      return { first_unit, 1 };
   }
 
   struct construct_from_pointer_t {};
@@ -291,47 +286,43 @@ namespace ctll {
   template <size_t N>
   struct fixed_string {
     char32_t content[N] = {};
-    size_t   real_size {0};
-    bool     correct_flag {true};
+    size_t   real_size { 0 };
+    bool     correct_flag { true };
 
     template <typename T>
     constexpr fixed_string(construct_from_pointer_t, const T* input) noexcept {
       if constexpr (std::is_same_v<T, char>) {
 #ifdef CTRE_STRING_IS_UTF8
-        size_t out {0};
-        for (size_t i {0}; i < N; ++i) {
-          if ((i == (N - 1)) && (input[i] == 0)) break;
+        size_t out { 0 };
+        for (size_t i { 0 }; i < N; ++i) {
+          if ((i == (N - 1)) && (input[i] == 0))
+            break;
           length_value_t info = length_and_value_of_utf8_code_point(input[i]);
           switch (info.length) {
             case 6:
               if (++i < N)
                 info.value =
-                    (info.value << 6) |
-                    value_of_trailing_utf8_code_point(input[i], correct_flag);
+                  (info.value << 6) | value_of_trailing_utf8_code_point(input[i], correct_flag);
               [[fallthrough]];
             case 5:
               if (++i < N)
                 info.value =
-                    (info.value << 6) |
-                    value_of_trailing_utf8_code_point(input[i], correct_flag);
+                  (info.value << 6) | value_of_trailing_utf8_code_point(input[i], correct_flag);
               [[fallthrough]];
             case 4:
               if (++i < N)
                 info.value =
-                    (info.value << 6) |
-                    value_of_trailing_utf8_code_point(input[i], correct_flag);
+                  (info.value << 6) | value_of_trailing_utf8_code_point(input[i], correct_flag);
               [[fallthrough]];
             case 3:
               if (++i < N)
                 info.value =
-                    (info.value << 6) |
-                    value_of_trailing_utf8_code_point(input[i], correct_flag);
+                  (info.value << 6) | value_of_trailing_utf8_code_point(input[i], correct_flag);
               [[fallthrough]];
             case 2:
               if (++i < N)
                 info.value =
-                    (info.value << 6) |
-                    value_of_trailing_utf8_code_point(input[i], correct_flag);
+                  (info.value << 6) | value_of_trailing_utf8_code_point(input[i], correct_flag);
               [[fallthrough]];
             case 1:
               content[out++] = static_cast<char32_t>(info.value);
@@ -343,48 +334,45 @@ namespace ctll {
           }
         }
 #else
-        for (size_t i {0}; i < N; ++i) {
+        for (size_t i { 0 }; i < N; ++i) {
           content[i] = static_cast<uint8_t>(input[i]);
-          if ((i == (N - 1)) && (input[i] == 0)) break;
+          if ((i == (N - 1)) && (input[i] == 0))
+            break;
           real_size++;
         }
 #endif
 #if __cpp_char8_t
       } else if constexpr (std::is_same_v<T, char8_t>) {
-        size_t out {0};
-        for (size_t i {0}; i < N; ++i) {
-          if ((i == (N - 1)) && (input[i] == 0)) break;
+        size_t out { 0 };
+        for (size_t i { 0 }; i < N; ++i) {
+          if ((i == (N - 1)) && (input[i] == 0))
+            break;
           length_value_t info = length_and_value_of_utf8_code_point(input[i]);
           switch (info.length) {
             case 6:
               if (++i < N)
                 info.value =
-                    (info.value << 6) |
-                    value_of_trailing_utf8_code_point(input[i], correct_flag);
+                  (info.value << 6) | value_of_trailing_utf8_code_point(input[i], correct_flag);
               [[fallthrough]];
             case 5:
               if (++i < N)
                 info.value =
-                    (info.value << 6) |
-                    value_of_trailing_utf8_code_point(input[i], correct_flag);
+                  (info.value << 6) | value_of_trailing_utf8_code_point(input[i], correct_flag);
               [[fallthrough]];
             case 4:
               if (++i < N)
                 info.value =
-                    (info.value << 6) |
-                    value_of_trailing_utf8_code_point(input[i], correct_flag);
+                  (info.value << 6) | value_of_trailing_utf8_code_point(input[i], correct_flag);
               [[fallthrough]];
             case 3:
               if (++i < N)
                 info.value =
-                    (info.value << 6) |
-                    value_of_trailing_utf8_code_point(input[i], correct_flag);
+                  (info.value << 6) | value_of_trailing_utf8_code_point(input[i], correct_flag);
               [[fallthrough]];
             case 2:
               if (++i < N)
                 info.value =
-                    (info.value << 6) |
-                    value_of_trailing_utf8_code_point(input[i], correct_flag);
+                  (info.value << 6) | value_of_trailing_utf8_code_point(input[i], correct_flag);
               [[fallthrough]];
             case 1:
               content[out++] = static_cast<char32_t>(info.value);
@@ -397,31 +385,31 @@ namespace ctll {
         }
 #endif
       } else if constexpr (std::is_same_v<T, char16_t>) {
-        size_t out {0};
-        for (size_t i {0}; i < N; ++i) {
+        size_t out { 0 };
+        for (size_t i { 0 }; i < N; ++i) {
           length_value_t info = length_and_value_of_utf16_code_point(input[i]);
           if (info.length == 2) {
             if (++i < N) {
               if ((input[i] & 0b1111'1100'0000'0000) == 0b1101'1100'0000'0000) {
                 content[out++] =
-                    ((info.value << 10) | (input[i] & 0b0000'0011'1111'1111)) +
-                    0x10000;
+                  ((info.value << 10) | (input[i] & 0b0000'0011'1111'1111)) + 0x10000;
               } else {
                 correct_flag = false;
                 break;
               }
             }
           } else {
-            if ((i == (N - 1)) && (input[i] == 0)) break;
+            if ((i == (N - 1)) && (input[i] == 0))
+              break;
             content[out++] = info.value;
           }
         }
         real_size = out;
-      } else if constexpr (std::is_same_v<T, wchar_t> ||
-                           std::is_same_v<T, char32_t>) {
-        for (size_t i {0}; i < N; ++i) {
+      } else if constexpr (std::is_same_v<T, wchar_t> || std::is_same_v<T, char32_t>) {
+        for (size_t i { 0 }; i < N; ++i) {
           content[i] = static_cast<char32_t>(input[i]);
-          if ((i == (N - 1)) && (input[i] == 0)) break;
+          if ((i == (N - 1)) && (input[i] == 0))
+            break;
           real_size++;
         }
       }
@@ -429,13 +417,13 @@ namespace ctll {
 
     template <typename T>
     constexpr fixed_string(const std::array<T, N>& in) noexcept
-        : fixed_string {construct_from_pointer, in.data()} {}
+      : fixed_string { construct_from_pointer, in.data() } {}
     template <typename T>
     constexpr fixed_string(const T (&input)[N + 1]) noexcept
-        : fixed_string {construct_from_pointer, input} {}
+      : fixed_string { construct_from_pointer, input } {}
 
     constexpr fixed_string(const fixed_string& other) noexcept {
-      for (size_t i {0}; i < N; ++i) { content[i] = other.content[i]; }
+      for (size_t i { 0 }; i < N; ++i) { content[i] = other.content[i]; }
       real_size    = other.real_size;
       correct_flag = other.correct_flag;
     }
@@ -443,25 +431,25 @@ namespace ctll {
     constexpr size_t          size() const noexcept { return real_size; }
     constexpr const char32_t* begin() const noexcept { return content; }
     constexpr const char32_t* end() const noexcept { return content + size(); }
-    constexpr char32_t        operator[](size_t i) const noexcept {
-      return content[i];
-    }
+    constexpr char32_t        operator[](size_t i) const noexcept { return content[i]; }
     template <size_t M>
     constexpr bool is_same_as(const fixed_string<M>& rhs) const noexcept {
-      if (real_size != rhs.size()) return false;
-      for (size_t i {0}; i != real_size; ++i) {
-        if (content[i] != rhs[i]) return false;
+      if (real_size != rhs.size())
+        return false;
+      for (size_t i { 0 }; i != real_size; ++i) {
+        if (content[i] != rhs[i])
+          return false;
       }
       return true;
     }
     constexpr operator std::basic_string_view<char32_t>() const noexcept {
-      return std::basic_string_view<char32_t> {content, size()};
+      return std::basic_string_view<char32_t> { content, size() };
     }
   };
 
   template <>
   class fixed_string<0> {
-    static constexpr char32_t empty[1] = {0};
+    static constexpr char32_t empty[1] = { 0 };
 
    public:
     template <typename T>
@@ -473,8 +461,8 @@ namespace ctll {
     constexpr const char32_t* begin() const noexcept { return empty; }
     constexpr const char32_t* end() const noexcept { return empty + size(); }
     constexpr char32_t        operator[](size_t) const noexcept { return 0; }
-    constexpr operator std::basic_string_view<char32_t>() const noexcept {
-      return std::basic_string_view<char32_t> {empty, 0};
+    constexpr                 operator std::basic_string_view<char32_t>() const noexcept {
+      return std::basic_string_view<char32_t> { empty, 0 };
     }
   };
 
@@ -583,8 +571,7 @@ namespace ctll {
 
   // concat two lists together left to right
   template <typename... As, typename... Bs>
-  constexpr auto concat(list<As...>, list<Bs...>) noexcept
-      -> list<As..., Bs...> {
+  constexpr auto concat(list<As...>, list<Bs...>) noexcept -> list<As..., Bs...> {
     return {};
   }
 
@@ -611,12 +598,11 @@ namespace ctll {
 
   template <typename Head, typename... As, typename T = _nothing>
   constexpr auto pop_and_get_front(list<Head, As...>, T = T()) noexcept
-      -> list_pop_pair<Head, list<As...>> {
+    -> list_pop_pair<Head, list<As...>> {
     return {};
   }
   template <typename T = _nothing>
-  constexpr auto pop_and_get_front(empty_list, T = T()) noexcept
-      -> list_pop_pair<T, empty_list> {
+  constexpr auto pop_and_get_front(empty_list, T = T()) noexcept -> list_pop_pair<T, empty_list> {
     return {};
   }
 
@@ -634,15 +620,13 @@ namespace ctll {
   template <typename T>
   struct rotate_item {
     template <typename... Ts>
-    friend constexpr auto operator+(list<Ts...>, rotate_item<T>) noexcept
-        -> list<T, Ts...> {
+    friend constexpr auto operator+(list<Ts...>, rotate_item<T>) noexcept -> list<T, Ts...> {
       return {};
     }
   };
 
   template <typename... Ts>
-  constexpr auto rotate(list<Ts...>)
-      -> decltype((list<> {} + ... + rotate_item<Ts> {})) {
+  constexpr auto rotate(list<Ts...>) -> decltype((list<> {} + ... + rotate_item<Ts> {})) {
     return {};
   }
 
@@ -656,8 +640,7 @@ namespace ctll {
     template <typename Y>
     struct wrapper {
       template <typename... Ts>
-      friend constexpr auto operator+(list<Ts...>, wrapper<Y>)
-          -> list<Ts..., Y>;
+      friend constexpr auto operator+(list<Ts...>, wrapper<Y>) -> list<Ts..., Y>;
     };
 
     static constexpr auto check(T) { return std::true_type {}; }
@@ -804,9 +787,7 @@ namespace ctll {
     template <auto V, typename = std::enable_if_t<!contains<V, Def...>::value>>
     constexpr inline neg_set(term<V>) noexcept;
 #else
-    template <
-        auto V,
-        typename = std::enable_if_t<!((Def == V) || ... || false)>>
+    template <auto V, typename = std::enable_if_t<!((Def == V) || ... || false)>>
     constexpr inline neg_set(term<V>) noexcept;
 #endif
   };
@@ -828,9 +809,7 @@ namespace ctll {
     // from the terminal => pop_input
     template <typename Expected, auto V>
     static constexpr auto rule(Expected, term<V>)
-        -> std::enable_if_t<
-            std::is_constructible_v<Expected, term<V>>,
-            ctll::pop_input>;
+      -> std::enable_if_t<std::is_constructible_v<Expected, term<V>>, ctll::pop_input>;
 
     // empty stack and empty input means we are accepting
     static constexpr auto rule(empty_stack_symbol, epsilon) -> ctll::accept;
@@ -865,13 +844,11 @@ namespace ctll {
     using Actions::apply;
     // allow empty_subject to exists
     template <typename Action, auto V>
-    constexpr static auto apply(Action, term<V>, empty_subject)
-        -> empty_subject {
+    constexpr static auto apply(Action, term<V>, empty_subject) -> empty_subject {
       return {};
     }
     template <typename Action>
-    constexpr static auto apply(Action, epsilon, empty_subject)
-        -> empty_subject {
+    constexpr static auto apply(Action, epsilon, empty_subject) -> empty_subject {
       return {};
     }
   };
@@ -906,17 +883,17 @@ namespace ctll {
 
 #if CTLL_CNTTP_COMPILER_CHECK
   template <
-      typename Grammar,
-      ctll::fixed_string input,
-      typename ActionSelector   = empty_actions,
-      bool IgnoreUnknownActions = false>
+    typename Grammar,
+    ctll::fixed_string input,
+    typename ActionSelector   = empty_actions,
+    bool IgnoreUnknownActions = false>
   struct parser { // in c++20
 #else
   template <
-      typename Grammar,
-      const auto& input,
-      typename ActionSelector   = empty_actions,
-      bool IgnoreUnknownActions = false>
+    typename Grammar,
+    const auto& input,
+    typename ActionSelector   = empty_actions,
+    bool IgnoreUnknownActions = false>
   struct parser {
 #endif
 
@@ -930,19 +907,15 @@ namespace ctll {
     static constexpr auto _input = input; // everyone else
 #endif
 
-    using Actions = ctll::conditional<
-        IgnoreUnknownActions,
-        ignore_unknown<ActionSelector>,
-        identity<ActionSelector>>;
+    using Actions = ctll::
+      conditional<IgnoreUnknownActions, ignore_unknown<ActionSelector>, identity<ActionSelector>>;
     using grammar = augment_grammar<Grammar>;
 
     template <size_t Pos, typename Stack, typename Subject, decision Decision>
     struct results {
       static constexpr bool is_correct = Decision == decision::accept;
 
-      constexpr inline CTLL_FORCE_INLINE operator bool() const noexcept {
-        return is_correct;
-      }
+      constexpr inline CTLL_FORCE_INLINE operator bool() const noexcept { return is_correct; }
 
 #ifdef __GNUC__ // workaround to GCC bug
 #if CTLL_CNTTP_COMPILER_CHECK
@@ -961,7 +934,7 @@ namespace ctll {
         if constexpr (Decision == decision::undecided) {
           // parse for current char (RPos) with previous stack and subject :)
           return parser<Grammar, _input, ActionSelector, IgnoreUnknownActions>::
-              template decide<Pos, Stack, Subject>({}, {});
+            template decide<Pos, Stack, Subject>({}, {});
         } else {
           // if there is decision already => just push it to the end of fold
           // expression
@@ -974,9 +947,7 @@ namespace ctll {
     static constexpr auto get_current_term() noexcept {
       if constexpr (Pos < input.size()) {
         constexpr auto value = input[Pos];
-        if constexpr (value <= static_cast<decltype(value)>(
-                                   (std::numeric_limits<char>::max)()
-                               )) {
+        if constexpr (value <= static_cast<decltype(value)>((std::numeric_limits<char>::max)())) {
           return term<static_cast<char>(value)> {};
         } else {
           return term<value> {};
@@ -994,9 +965,7 @@ namespace ctll {
         return epsilon {};
       } else if constexpr ((Pos - 1) < input.size()) {
         constexpr auto value = input[Pos - 1];
-        if constexpr (value <= static_cast<decltype(value)>(
-                                   (std::numeric_limits<char>::max)()
-                               )) {
+        if constexpr (value <= static_cast<decltype(value)>((std::numeric_limits<char>::max)())) {
           return term<static_cast<char>(value)> {};
         } else {
           return term<value> {};
@@ -1007,108 +976,76 @@ namespace ctll {
     }
     // if rule is accept => return true and subject
     template <size_t Pos, typename Terminal, typename Stack, typename Subject>
-    static constexpr auto
-    move(ctll::accept, Terminal, Stack, Subject) noexcept {
-      return typename parser<
-          Grammar, _input, ActionSelector, IgnoreUnknownActions>::
-          template results<Pos, Stack, Subject, decision::accept>();
+    static constexpr auto move(ctll::accept, Terminal, Stack, Subject) noexcept {
+      return typename parser<Grammar, _input, ActionSelector, IgnoreUnknownActions>::
+        template results<Pos, Stack, Subject, decision::accept>();
     }
     // if rule is reject => return false and subject
     template <size_t Pos, typename Terminal, typename Stack, typename Subject>
-    static constexpr auto
-    move(ctll::reject, Terminal, Stack, Subject) noexcept {
-      return typename parser<
-          Grammar, _input, ActionSelector, IgnoreUnknownActions>::
-          template results<Pos, Stack, Subject, decision::reject>();
+    static constexpr auto move(ctll::reject, Terminal, Stack, Subject) noexcept {
+      return typename parser<Grammar, _input, ActionSelector, IgnoreUnknownActions>::
+        template results<Pos, Stack, Subject, decision::reject>();
     }
     // if rule is pop_input => move to next character
     template <size_t Pos, typename Terminal, typename Stack, typename Subject>
-    static constexpr auto
-    move(ctll::pop_input, Terminal, Stack, Subject) noexcept {
-      return typename parser<
-          Grammar, _input, ActionSelector, IgnoreUnknownActions>::
-          template results<Pos + 1, Stack, Subject, decision::undecided>();
+    static constexpr auto move(ctll::pop_input, Terminal, Stack, Subject) noexcept {
+      return typename parser<Grammar, _input, ActionSelector, IgnoreUnknownActions>::
+        template results<Pos + 1, Stack, Subject, decision::undecided>();
     }
     // if rule is string => push it to the front of stack
-    template <
-        size_t Pos,
-        typename... Content,
-        typename Terminal,
-        typename Stack,
-        typename Subject>
-    static constexpr auto move(
-        push<Content...> string,
-        Terminal,
-        Stack   stack,
-        Subject subject
-    ) noexcept {
+    template <size_t Pos, typename... Content, typename Terminal, typename Stack, typename Subject>
+    static constexpr auto
+    move(push<Content...> string, Terminal, Stack stack, Subject subject) noexcept {
       return decide<Pos>(push_front(string, stack), subject);
     }
     // if rule is epsilon (empty string) => continue
     template <size_t Pos, typename Terminal, typename Stack, typename Subject>
-    static constexpr auto
-    move(epsilon, Terminal, Stack stack, Subject subject) noexcept {
+    static constexpr auto move(epsilon, Terminal, Stack stack, Subject subject) noexcept {
       return decide<Pos>(stack, subject);
     }
     // if rule is string with current character at the beginning (term<V>) =>
     // move to next character and push string without the character (quick
     // LL(1))
-    template <
-        size_t Pos,
-        auto   V,
-        typename... Content,
-        typename Stack,
-        typename Subject>
-    static constexpr auto
-    move(push<term<V>, Content...>, term<V>, Stack stack, Subject) noexcept {
+    template <size_t Pos, auto V, typename... Content, typename Stack, typename Subject>
+    static constexpr auto move(push<term<V>, Content...>, term<V>, Stack stack, Subject) noexcept {
       constexpr auto local_input = input;
-      return typename parser<
-          Grammar, local_input, ActionSelector, IgnoreUnknownActions>::
-          template results<
-              Pos + 1, decltype(push_front(list<Content...>(), stack)), Subject,
-              decision::undecided>();
+      return typename parser<Grammar, local_input, ActionSelector, IgnoreUnknownActions>::
+        template results<
+          Pos + 1,
+          decltype(push_front(list<Content...>(), stack)),
+          Subject,
+          decision::undecided>();
     }
     // if rule is string with any character at the beginning (compatible with
     // current term<T>) => move to next character and push string without the
     // character (quick LL(1))
-    template <
-        size_t Pos,
-        auto   V,
-        typename... Content,
-        auto T,
-        typename Stack,
-        typename Subject>
-    static constexpr auto
-    move(push<anything, Content...>, term<T>, Stack stack, Subject) noexcept {
+    template <size_t Pos, auto V, typename... Content, auto T, typename Stack, typename Subject>
+    static constexpr auto move(push<anything, Content...>, term<T>, Stack stack, Subject) noexcept {
       constexpr auto local_input = input;
-      return typename parser<
-          Grammar, local_input, ActionSelector, IgnoreUnknownActions>::
-          template results<
-              Pos + 1, decltype(push_front(list<Content...>(), stack)), Subject,
-              decision::undecided>();
+      return typename parser<Grammar, local_input, ActionSelector, IgnoreUnknownActions>::
+        template results<
+          Pos + 1,
+          decltype(push_front(list<Content...>(), stack)),
+          Subject,
+          decision::undecided>();
     }
     // decide if we need to take action or move
     template <size_t Pos, typename Stack, typename Subject>
-    static constexpr auto
-    decide(Stack previous_stack, Subject previous_subject) noexcept {
+    static constexpr auto decide(Stack previous_stack, Subject previous_subject) noexcept {
       // each call means we pop something from stack
-      auto top_symbol =
-          decltype(ctll::front(previous_stack, empty_stack_symbol()))();
+      auto top_symbol = decltype(ctll::front(previous_stack, empty_stack_symbol()))();
       // gcc pedantic warning
       [[maybe_unused]] auto stack = decltype(ctll::pop_front(previous_stack))();
 
       // in case top_symbol is action type (apply it on previous subject and get
       // new one)
       if constexpr (std::is_base_of_v<ctll::action, decltype(top_symbol)>) {
-        auto subject = Actions::apply(
-            top_symbol, get_previous_term<Pos>(), previous_subject
-        );
+        auto subject = Actions::apply(top_symbol, get_previous_term<Pos>(), previous_subject);
 
         // in case that semantic action is error => reject input
         if constexpr (std::is_same_v<ctll::reject, decltype(subject)>) {
-          return typename parser<
-              Grammar, _input, ActionSelector, IgnoreUnknownActions>::
-              template results<Pos, Stack, Subject, decision::reject>();
+          return typename parser<Grammar, _input, ActionSelector, IgnoreUnknownActions>::
+            template results<Pos, Stack, Subject, decision::reject>();
         } else {
           return decide<Pos>(stack, subject);
         }
@@ -1122,22 +1059,19 @@ namespace ctll {
 
     // trampolines with folded expression
     template <typename Subject, size_t... Pos>
-    static constexpr auto
-    trampoline_decide(Subject, std::index_sequence<Pos...>) noexcept {
+    static constexpr auto trampoline_decide(Subject, std::index_sequence<Pos...>) noexcept {
       // parse everything for first char and than for next and next ...
       // Pos+1 is needed as we want to finish calculation with epsilons on stack
       auto v =
-          (decide<0, typename grammar::start_stack, Subject>({}, {}) + ... +
-           index_placeholder<Pos + 1>());
+        (decide<0, typename grammar::start_stack, Subject>({}, {}) + ... +
+         index_placeholder<Pos + 1>());
       return v;
     }
 
     template <typename Subject = empty_subject>
     static constexpr auto trampoline_decide(Subject subject = {}) noexcept {
       // there will be no recursion, just sequence long as the input
-      return trampoline_decide(
-          subject, std::make_index_sequence<input.size()>()
-      );
+      return trampoline_decide(subject, std::make_index_sequence<input.size()>());
     }
 
     template <typename Subject = empty_subject>
@@ -1294,1250 +1228,982 @@ namespace ctre {
 
     // (q)LL1 function:
     using _others = ctll::neg_set<
-        '!',
-        '$',
-        '\x28',
-        '\x29',
-        '*',
-        '+',
-        ',',
-        '-',
-        '.',
-        '/',
-        ':',
-        '<',
-        '=',
-        '>',
-        '?',
-        'A',
-        'B',
-        'C',
-        'D',
-        'E',
-        'F',
-        'G',
-        'H',
-        'I',
-        'J',
-        'K',
-        'L',
-        'M',
-        'N',
-        'O',
-        'P',
-        'Q',
-        'R',
-        'S',
-        'T',
-        'U',
-        'V',
-        'W',
-        'X',
-        'Y',
-        'Z',
-        '[',
-        '\\',
-        '0',
-        '\"',
-        ']',
-        '^',
-        '_',
-        'a',
-        'b',
-        'c',
-        'd',
-        'e',
-        'f',
-        'g',
-        'h',
-        'i',
-        'j',
-        'k',
-        'l',
-        'm',
-        'n',
-        'o',
-        'p',
-        'q',
-        'r',
-        's',
-        't',
-        'u',
-        'v',
-        'w',
-        'x',
-        'y',
-        'z',
-        '\x7B',
-        '|',
-        '\x7D',
-        '1',
-        '2',
-        '3',
-        '4',
-        '5',
-        '6',
-        '7',
-        '8',
-        '9'>;
+      '!',
+      '$',
+      '\x28',
+      '\x29',
+      '*',
+      '+',
+      ',',
+      '-',
+      '.',
+      '/',
+      ':',
+      '<',
+      '=',
+      '>',
+      '?',
+      'A',
+      'B',
+      'C',
+      'D',
+      'E',
+      'F',
+      'G',
+      'H',
+      'I',
+      'J',
+      'K',
+      'L',
+      'M',
+      'N',
+      'O',
+      'P',
+      'Q',
+      'R',
+      'S',
+      'T',
+      'U',
+      'V',
+      'W',
+      'X',
+      'Y',
+      'Z',
+      '[',
+      '\\',
+      '0',
+      '\"',
+      ']',
+      '^',
+      '_',
+      'a',
+      'b',
+      'c',
+      'd',
+      'e',
+      'f',
+      'g',
+      'h',
+      'i',
+      'j',
+      'k',
+      'l',
+      'm',
+      'n',
+      'o',
+      'p',
+      'q',
+      'r',
+      's',
+      't',
+      'u',
+      'v',
+      'w',
+      'x',
+      'y',
+      'z',
+      '\x7B',
+      '|',
+      '\x7D',
+      '1',
+      '2',
+      '3',
+      '4',
+      '5',
+      '6',
+      '7',
+      '8',
+      '9'>;
     static constexpr auto rule(s, ctll::term<'\\'>)
-        -> ctll::push<ctll::anything, backslash, repeat, string2, content2>;
+      -> ctll::push<ctll::anything, backslash, repeat, string2, content2>;
     static constexpr auto rule(s, ctll::term<'['>)
-        -> ctll::push<ctll::anything, c, repeat, string2, content2>;
-    static constexpr auto rule(s, ctll::term<'\x28'>) -> ctll::push<
-                                                          ctll::anything,
-                                                          prepare_capture,
-                                                          block,
-                                                          repeat,
-                                                          string2,
-                                                          content2>;
+      -> ctll::push<ctll::anything, c, repeat, string2, content2>;
+    static constexpr auto rule(s, ctll::term<'\x28'>)
+      -> ctll::push<ctll::anything, prepare_capture, block, repeat, string2, content2>;
     static constexpr auto rule(s, ctll::term<'^'>)
-        -> ctll::
-            push<ctll::anything, push_assert_begin, repeat, string2, content2>;
+      -> ctll::push<ctll::anything, push_assert_begin, repeat, string2, content2>;
     static constexpr auto rule(s, ctll::term<'$'>)
-        -> ctll::
-            push<ctll::anything, push_assert_end, repeat, string2, content2>;
-    static constexpr auto
-        rule(s, ctll::set<'!', ',', '/', ':', '<', '0', '-', '=', '>', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '\"', ']', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-            -> ctll::
-                push<ctll::anything, push_character, repeat, string2, content2>;
-    static constexpr auto rule(
-        s,
-        _others
-    ) -> ctll::push<ctll::anything, push_character, repeat, string2, content2>;
-    static constexpr auto rule(s, ctll::term<'.'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       push_character_anything,
-                                                       repeat,
-                                                       string2,
-                                                       content2>;
+      -> ctll::push<ctll::anything, push_assert_end, repeat, string2, content2>;
+    static constexpr auto rule(s, ctll::set<'!', ',', '/', ':', '<', '0', '-', '=', '>', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '\"', ']', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+      -> ctll::push<ctll::anything, push_character, repeat, string2, content2>;
+    static constexpr auto rule(s, _others)
+      -> ctll::push<ctll::anything, push_character, repeat, string2, content2>;
+    static constexpr auto rule(s, ctll::term<'.'>)
+      -> ctll::push<ctll::anything, push_character_anything, repeat, string2, content2>;
     static constexpr auto rule(s, ctll::term<'|'>)
-        -> ctll::push<ctll::anything, push_empty, content, make_alternate>;
+      -> ctll::push<ctll::anything, push_empty, content, make_alternate>;
     static constexpr auto rule(s, ctll::epsilon) -> ctll::push<push_empty>;
-    static constexpr auto
-        rule(s, ctll::set<'\x29', '*', '+', '?', '\x7B', '\x7D'>)
-            -> ctll::reject;
+    static constexpr auto rule(s, ctll::set<'\x29', '*', '+', '?', '\x7B', '\x7D'>) -> ctll::reject;
 
-    static constexpr auto rule(a, ctll::term<'\\'>) -> ctll::push<
-                                                        ctll::anything,
-                                                        backslash,
-                                                        repeat,
-                                                        string2,
-                                                        content2,
-                                                        make_alternate>;
+    static constexpr auto rule(a, ctll::term<'\\'>)
+      -> ctll::push<ctll::anything, backslash, repeat, string2, content2, make_alternate>;
     static constexpr auto rule(a, ctll::term<'['>)
-        -> ctll::
-            push<ctll::anything, c, repeat, string2, content2, make_alternate>;
-    static constexpr auto rule(a, ctll::term<'\x28'>) -> ctll::push<
+      -> ctll::push<ctll::anything, c, repeat, string2, content2, make_alternate>;
+    static constexpr auto rule(a, ctll::term<'\x28'>)
+      -> ctll::
+        push<ctll::anything, prepare_capture, block, repeat, string2, content2, make_alternate>;
+    static constexpr auto rule(a, ctll::term<'^'>)
+      -> ctll::push<ctll::anything, push_assert_begin, repeat, string2, content2, make_alternate>;
+    static constexpr auto rule(a, ctll::term<'$'>)
+      -> ctll::push<ctll::anything, push_assert_end, repeat, string2, content2, make_alternate>;
+    static constexpr auto rule(a, ctll::set<'!', ',', '/', ':', '<', '0', '-', '=', '>', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '\"', ']', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+      -> ctll::push<ctll::anything, push_character, repeat, string2, content2, make_alternate>;
+    static constexpr auto rule(a, _others)
+      -> ctll::push<ctll::anything, push_character, repeat, string2, content2, make_alternate>;
+    static constexpr auto rule(a, ctll::term<'.'>)
+      -> ctll::
+        push<ctll::anything, push_character_anything, repeat, string2, content2, make_alternate>;
+    static constexpr auto rule(a, ctll::term<'\x29'>) -> ctll::push<push_empty, make_alternate>;
+    static constexpr auto rule(a, ctll::epsilon) -> ctll::push<push_empty, make_alternate>;
+    static constexpr auto rule(a, ctll::set<'*', '+', '?', '\x7B', '|', '\x7D'>) -> ctll::reject;
+
+    static constexpr auto rule(b, ctll::term<','>) -> ctll::push<ctll::anything, n>;
+    static constexpr auto rule(b, ctll::term<'\x7D'>) -> ctll::push<repeat_exactly, ctll::anything>;
+
+    static constexpr auto rule(backslash, ctll::term<'d'>)
+      -> ctll::push<ctll::anything, class_digit>;
+    static constexpr auto rule(backslash, ctll::term<'h'>)
+      -> ctll::push<ctll::anything, class_horizontal_space>;
+    static constexpr auto rule(backslash, ctll::term<'H'>)
+      -> ctll::push<ctll::anything, class_non_horizontal_space>;
+    static constexpr auto rule(backslash, ctll::term<'V'>)
+      -> ctll::push<ctll::anything, class_non_vertical_space>;
+    static constexpr auto rule(backslash, ctll::term<'D'>)
+      -> ctll::push<ctll::anything, class_nondigit>;
+    static constexpr auto rule(backslash, ctll::term<'N'>)
+      -> ctll::push<ctll::anything, class_nonnewline>;
+    static constexpr auto rule(backslash, ctll::term<'S'>)
+      -> ctll::push<ctll::anything, class_nonspace>;
+    static constexpr auto rule(backslash, ctll::term<'W'>)
+      -> ctll::push<ctll::anything, class_nonword>;
+    static constexpr auto rule(backslash, ctll::term<'s'>)
+      -> ctll::push<ctll::anything, class_space>;
+    static constexpr auto rule(backslash, ctll::term<'v'>)
+      -> ctll::push<ctll::anything, class_vertical_space>;
+    static constexpr auto rule(backslash, ctll::term<'w'>)
+      -> ctll::push<ctll::anything, class_word>;
+    static constexpr auto rule(backslash, ctll::set<'1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+      -> ctll::push<ctll::anything, create_number, make_back_reference>;
+    static constexpr auto rule(backslash, ctll::term<'g'>)
+      -> ctll::push<ctll::anything, ctll::term<'\x7B'>, m>;
+    static constexpr auto rule(backslash, ctll::term<'p'>)
+      -> ctll::
+        push<ctll::anything, ctll::term<'\x7B'>, property_name, ctll::term<'\x7D'>, make_property>;
+    static constexpr auto rule(backslash, ctll::term<'P'>) -> ctll::push<
+                                                             ctll::anything,
+                                                             ctll::term<'\x7B'>,
+                                                             property_name,
+                                                             ctll::term<'\x7D'>,
+                                                             make_property_negative>;
+    static constexpr auto rule(backslash, ctll::term<'u'>) -> ctll::push<ctll::anything, k>;
+    static constexpr auto rule(backslash, ctll::term<'x'>) -> ctll::push<ctll::anything, l>;
+    static constexpr auto rule(backslash, ctll::term<'A'>)
+      -> ctll::push<ctll::anything, push_assert_subject_begin>;
+    static constexpr auto rule(backslash, ctll::term<'z'>)
+      -> ctll::push<ctll::anything, push_assert_subject_end>;
+    static constexpr auto rule(backslash, ctll::term<'Z'>)
+      -> ctll::push<ctll::anything, push_assert_subject_end_with_lineend>;
+    static constexpr auto
+      rule(backslash, ctll::set<'$', '\x28', '\x29', '*', '+', '-', '.', '/', '<', '>', '?', '[', '\\', '\"', ']', '^', '\x7B', '|', '\x7D'>)
+        -> ctll::push<ctll::anything, push_character>;
+    static constexpr auto rule(backslash, ctll::term<'a'>)
+      -> ctll::push<ctll::anything, push_character_alarm>;
+    static constexpr auto rule(backslash, ctll::term<'e'>)
+      -> ctll::push<ctll::anything, push_character_escape>;
+    static constexpr auto rule(backslash, ctll::term<'f'>)
+      -> ctll::push<ctll::anything, push_character_formfeed>;
+    static constexpr auto rule(backslash, ctll::term<'n'>)
+      -> ctll::push<ctll::anything, push_character_newline>;
+    static constexpr auto rule(backslash, ctll::term<'0'>)
+      -> ctll::push<ctll::anything, push_character_null>;
+    static constexpr auto rule(backslash, ctll::term<'r'>)
+      -> ctll::push<ctll::anything, push_character_return_carriage>;
+    static constexpr auto rule(backslash, ctll::term<'t'>)
+      -> ctll::push<ctll::anything, push_character_tab>;
+    static constexpr auto rule(backslash, ctll::term<'B'>)
+      -> ctll::push<ctll::anything, push_not_word_boundary>;
+    static constexpr auto rule(backslash, ctll::term<'b'>)
+      -> ctll::push<ctll::anything, push_word_boundary>;
+
+    static constexpr auto rule(backslash_range, ctll::term<'u'>) -> ctll::push<ctll::anything, k>;
+    static constexpr auto rule(backslash_range, ctll::term<'x'>) -> ctll::push<ctll::anything, l>;
+    static constexpr auto
+      rule(backslash_range, ctll::set<'$', '\x28', '\x29', '*', '+', '-', '.', '/', '<', '>', '?', '[', '\\', '\"', ']', '^', '\x7B', '|', '\x7D'>)
+        -> ctll::push<ctll::anything, push_character>;
+    static constexpr auto rule(backslash_range, ctll::term<'a'>)
+      -> ctll::push<ctll::anything, push_character_alarm>;
+    static constexpr auto rule(backslash_range, ctll::term<'e'>)
+      -> ctll::push<ctll::anything, push_character_escape>;
+    static constexpr auto rule(backslash_range, ctll::term<'f'>)
+      -> ctll::push<ctll::anything, push_character_formfeed>;
+    static constexpr auto rule(backslash_range, ctll::term<'n'>)
+      -> ctll::push<ctll::anything, push_character_newline>;
+    static constexpr auto rule(backslash_range, ctll::term<'0'>)
+      -> ctll::push<ctll::anything, push_character_null>;
+    static constexpr auto rule(backslash_range, ctll::term<'r'>)
+      -> ctll::push<ctll::anything, push_character_return_carriage>;
+    static constexpr auto rule(backslash_range, ctll::term<'t'>)
+      -> ctll::push<ctll::anything, push_character_tab>;
+
+    static constexpr auto rule(block, ctll::term<'\\'>) -> ctll::push<
                                                           ctll::anything,
-                                                          prepare_capture,
-                                                          block,
+                                                          backslash,
                                                           repeat,
                                                           string2,
                                                           content2,
-                                                          make_alternate>;
-    static constexpr auto rule(a, ctll::term<'^'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       push_assert_begin,
-                                                       repeat,
-                                                       string2,
-                                                       content2,
-                                                       make_alternate>;
-    static constexpr auto rule(a, ctll::term<'$'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       push_assert_end,
-                                                       repeat,
-                                                       string2,
-                                                       content2,
-                                                       make_alternate>;
-    static constexpr auto
-        rule(a, ctll::set<'!', ',', '/', ':', '<', '0', '-', '=', '>', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '\"', ']', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-            -> ctll::push<
-                ctll::anything,
-                push_character,
-                repeat,
-                string2,
-                content2,
-                make_alternate>;
-    static constexpr auto rule(a, _others) -> ctll::push<
-                                               ctll::anything,
-                                               push_character,
-                                               repeat,
-                                               string2,
-                                               content2,
-                                               make_alternate>;
-    static constexpr auto rule(a, ctll::term<'.'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       push_character_anything,
-                                                       repeat,
-                                                       string2,
-                                                       content2,
-                                                       make_alternate>;
-    static constexpr auto rule(a, ctll::term<'\x29'>)
-        -> ctll::push<push_empty, make_alternate>;
-    static constexpr auto rule(a, ctll::epsilon)
-        -> ctll::push<push_empty, make_alternate>;
-    static constexpr auto rule(a, ctll::set<'*', '+', '?', '\x7B', '|', '\x7D'>)
-        -> ctll::reject;
-
-    static constexpr auto rule(b, ctll::term<','>)
-        -> ctll::push<ctll::anything, n>;
-    static constexpr auto rule(b, ctll::term<'\x7D'>)
-        -> ctll::push<repeat_exactly, ctll::anything>;
-
-    static constexpr auto rule(backslash, ctll::term<'d'>)
-        -> ctll::push<ctll::anything, class_digit>;
-    static constexpr auto rule(backslash, ctll::term<'h'>)
-        -> ctll::push<ctll::anything, class_horizontal_space>;
-    static constexpr auto rule(backslash, ctll::term<'H'>)
-        -> ctll::push<ctll::anything, class_non_horizontal_space>;
-    static constexpr auto rule(backslash, ctll::term<'V'>)
-        -> ctll::push<ctll::anything, class_non_vertical_space>;
-    static constexpr auto rule(backslash, ctll::term<'D'>)
-        -> ctll::push<ctll::anything, class_nondigit>;
-    static constexpr auto rule(backslash, ctll::term<'N'>)
-        -> ctll::push<ctll::anything, class_nonnewline>;
-    static constexpr auto rule(backslash, ctll::term<'S'>)
-        -> ctll::push<ctll::anything, class_nonspace>;
-    static constexpr auto rule(backslash, ctll::term<'W'>)
-        -> ctll::push<ctll::anything, class_nonword>;
-    static constexpr auto rule(backslash, ctll::term<'s'>)
-        -> ctll::push<ctll::anything, class_space>;
-    static constexpr auto rule(backslash, ctll::term<'v'>)
-        -> ctll::push<ctll::anything, class_vertical_space>;
-    static constexpr auto rule(backslash, ctll::term<'w'>)
-        -> ctll::push<ctll::anything, class_word>;
-    static constexpr auto
-        rule(backslash, ctll::set<'1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-            -> ctll::push<ctll::anything, create_number, make_back_reference>;
-    static constexpr auto rule(backslash, ctll::term<'g'>)
-        -> ctll::push<ctll::anything, ctll::term<'\x7B'>, m>;
-    static constexpr auto rule(backslash, ctll::term<'p'>)
-        -> ctll::push<
-            ctll::anything,
-            ctll::term<'\x7B'>,
-            property_name,
-            ctll::term<'\x7D'>,
-            make_property>;
-    static constexpr auto rule(backslash, ctll::term<'P'>)
-        -> ctll::push<
-            ctll::anything,
-            ctll::term<'\x7B'>,
-            property_name,
-            ctll::term<'\x7D'>,
-            make_property_negative>;
-    static constexpr auto rule(backslash, ctll::term<'u'>)
-        -> ctll::push<ctll::anything, k>;
-    static constexpr auto rule(backslash, ctll::term<'x'>)
-        -> ctll::push<ctll::anything, l>;
-    static constexpr auto rule(backslash, ctll::term<'A'>)
-        -> ctll::push<ctll::anything, push_assert_subject_begin>;
-    static constexpr auto rule(backslash, ctll::term<'z'>)
-        -> ctll::push<ctll::anything, push_assert_subject_end>;
-    static constexpr auto rule(backslash, ctll::term<'Z'>)
-        -> ctll::push<ctll::anything, push_assert_subject_end_with_lineend>;
-    static constexpr auto
-        rule(backslash, ctll::set<'$', '\x28', '\x29', '*', '+', '-', '.', '/', '<', '>', '?', '[', '\\', '\"', ']', '^', '\x7B', '|', '\x7D'>)
-            -> ctll::push<ctll::anything, push_character>;
-    static constexpr auto rule(backslash, ctll::term<'a'>)
-        -> ctll::push<ctll::anything, push_character_alarm>;
-    static constexpr auto rule(backslash, ctll::term<'e'>)
-        -> ctll::push<ctll::anything, push_character_escape>;
-    static constexpr auto rule(backslash, ctll::term<'f'>)
-        -> ctll::push<ctll::anything, push_character_formfeed>;
-    static constexpr auto rule(backslash, ctll::term<'n'>)
-        -> ctll::push<ctll::anything, push_character_newline>;
-    static constexpr auto rule(backslash, ctll::term<'0'>)
-        -> ctll::push<ctll::anything, push_character_null>;
-    static constexpr auto rule(backslash, ctll::term<'r'>)
-        -> ctll::push<ctll::anything, push_character_return_carriage>;
-    static constexpr auto rule(backslash, ctll::term<'t'>)
-        -> ctll::push<ctll::anything, push_character_tab>;
-    static constexpr auto rule(backslash, ctll::term<'B'>)
-        -> ctll::push<ctll::anything, push_not_word_boundary>;
-    static constexpr auto rule(backslash, ctll::term<'b'>)
-        -> ctll::push<ctll::anything, push_word_boundary>;
-
-    static constexpr auto rule(backslash_range, ctll::term<'u'>)
-        -> ctll::push<ctll::anything, k>;
-    static constexpr auto rule(backslash_range, ctll::term<'x'>)
-        -> ctll::push<ctll::anything, l>;
-    static constexpr auto
-        rule(backslash_range, ctll::set<'$', '\x28', '\x29', '*', '+', '-', '.', '/', '<', '>', '?', '[', '\\', '\"', ']', '^', '\x7B', '|', '\x7D'>)
-            -> ctll::push<ctll::anything, push_character>;
-    static constexpr auto rule(backslash_range, ctll::term<'a'>)
-        -> ctll::push<ctll::anything, push_character_alarm>;
-    static constexpr auto rule(backslash_range, ctll::term<'e'>)
-        -> ctll::push<ctll::anything, push_character_escape>;
-    static constexpr auto rule(backslash_range, ctll::term<'f'>)
-        -> ctll::push<ctll::anything, push_character_formfeed>;
-    static constexpr auto rule(backslash_range, ctll::term<'n'>)
-        -> ctll::push<ctll::anything, push_character_newline>;
-    static constexpr auto rule(backslash_range, ctll::term<'0'>)
-        -> ctll::push<ctll::anything, push_character_null>;
-    static constexpr auto rule(backslash_range, ctll::term<'r'>)
-        -> ctll::push<ctll::anything, push_character_return_carriage>;
-    static constexpr auto rule(backslash_range, ctll::term<'t'>)
-        -> ctll::push<ctll::anything, push_character_tab>;
-
-    static constexpr auto rule(block, ctll::term<'\\'>) -> ctll::push<
+                                                          make_capture,
+                                                          ctll::term<'\x29'>>;
+    static constexpr auto rule(block, ctll::term<'['>)
+      -> ctll::push<ctll::anything, c, repeat, string2, content2, make_capture, ctll::term<'\x29'>>;
+    static constexpr auto rule(block, ctll::term<'?'>) -> ctll::push<ctll::anything, d>;
+    static constexpr auto rule(block, ctll::term<'\x28'>) -> ctll::push<
                                                             ctll::anything,
-                                                            backslash,
+                                                            prepare_capture,
+                                                            block,
                                                             repeat,
                                                             string2,
                                                             content2,
                                                             make_capture,
                                                             ctll::term<'\x29'>>;
-    static constexpr auto rule(block, ctll::term<'['>) -> ctll::push<
-                                                           ctll::anything,
-                                                           c,
-                                                           repeat,
-                                                           string2,
-                                                           content2,
-                                                           make_capture,
-                                                           ctll::term<'\x29'>>;
-    static constexpr auto rule(block, ctll::term<'?'>)
-        -> ctll::push<ctll::anything, d>;
-    static constexpr auto rule(block, ctll::term<'\x28'>)
-        -> ctll::push<
-            ctll::anything,
-            prepare_capture,
-            block,
-            repeat,
-            string2,
-            content2,
-            make_capture,
-            ctll::term<'\x29'>>;
     static constexpr auto rule(block, ctll::term<'^'>) -> ctll::push<
-                                                           ctll::anything,
-                                                           push_assert_begin,
-                                                           repeat,
-                                                           string2,
-                                                           content2,
-                                                           make_capture,
-                                                           ctll::term<'\x29'>>;
+                                                         ctll::anything,
+                                                         push_assert_begin,
+                                                         repeat,
+                                                         string2,
+                                                         content2,
+                                                         make_capture,
+                                                         ctll::term<'\x29'>>;
     static constexpr auto rule(block, ctll::term<'$'>) -> ctll::push<
-                                                           ctll::anything,
-                                                           push_assert_end,
-                                                           repeat,
-                                                           string2,
-                                                           content2,
-                                                           make_capture,
-                                                           ctll::term<'\x29'>>;
-    static constexpr auto
-        rule(block, ctll::set<'!', ',', '/', ':', '<', '0', '-', '=', '>', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '\"', ']', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-            -> ctll::push<
-                ctll::anything,
-                push_character,
-                repeat,
-                string2,
-                content2,
-                make_capture,
-                ctll::term<'\x29'>>;
+                                                         ctll::anything,
+                                                         push_assert_end,
+                                                         repeat,
+                                                         string2,
+                                                         content2,
+                                                         make_capture,
+                                                         ctll::term<'\x29'>>;
+    static constexpr auto rule(block, ctll::set<'!', ',', '/', ':', '<', '0', '-', '=', '>', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '\"', ']', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+      -> ctll::push<
+        ctll::anything,
+        push_character,
+        repeat,
+        string2,
+        content2,
+        make_capture,
+        ctll::term<'\x29'>>;
     static constexpr auto rule(block, _others) -> ctll::push<
-                                                   ctll::anything,
-                                                   push_character,
-                                                   repeat,
-                                                   string2,
-                                                   content2,
-                                                   make_capture,
-                                                   ctll::term<'\x29'>>;
-    static constexpr auto rule(block, ctll::term<'.'>)
-        -> ctll::push<
-            ctll::anything,
-            push_character_anything,
-            repeat,
-            string2,
-            content2,
-            make_capture,
-            ctll::term<'\x29'>>;
-    static constexpr auto rule(block, ctll::term<'|'>) -> ctll::push<
-                                                           ctll::anything,
-                                                           push_empty,
-                                                           content,
-                                                           make_alternate,
-                                                           make_capture,
-                                                           ctll::term<'\x29'>>;
+                                                 ctll::anything,
+                                                 push_character,
+                                                 repeat,
+                                                 string2,
+                                                 content2,
+                                                 make_capture,
+                                                 ctll::term<'\x29'>>;
+    static constexpr auto rule(block, ctll::term<'.'>) -> ctll::push<
+                                                         ctll::anything,
+                                                         push_character_anything,
+                                                         repeat,
+                                                         string2,
+                                                         content2,
+                                                         make_capture,
+                                                         ctll::term<'\x29'>>;
+    static constexpr auto rule(block, ctll::term<'|'>)
+      -> ctll::
+        push<ctll::anything, push_empty, content, make_alternate, make_capture, ctll::term<'\x29'>>;
     static constexpr auto rule(block, ctll::term<'\x29'>)
-        -> ctll::push<push_empty, make_capture, ctll::anything>;
-    static constexpr auto rule(block, ctll::set<'*', '+', '\x7B', '\x7D'>)
-        -> ctll::reject;
+      -> ctll::push<push_empty, make_capture, ctll::anything>;
+    static constexpr auto rule(block, ctll::set<'*', '+', '\x7B', '\x7D'>) -> ctll::reject;
 
-    static constexpr auto rule(block_name2, ctll::set<'>', '\x7D'>)
-        -> ctll::epsilon;
-    static constexpr auto rule(block_name2, ctll::set<'0', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9'>) -> ctll::
-                                                                                                                                                                                                                                                                                                                                                                                      push<ctll::anything, push_name, block_name2>;
+    static constexpr auto rule(block_name2, ctll::set<'>', '\x7D'>) -> ctll::epsilon;
+    static constexpr auto rule(block_name2, ctll::set<'0', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+      -> ctll::push<ctll::anything, push_name, block_name2>;
 
     static constexpr auto rule(c, ctll::term<'['>) -> ctll::push<
-                                                       ctll::anything,
-                                                       ctll::term<':'>,
-                                                       i,
-                                                       range,
-                                                       set_start,
-                                                       set2b,
-                                                       set_make,
-                                                       ctll::term<']'>>;
-    static constexpr auto rule(c, ctll::term<'\\'>) -> ctll::push<
-                                                        ctll::anything,
-                                                        e,
-                                                        set_start,
-                                                        set2b,
-                                                        set_make,
-                                                        ctll::term<']'>>;
-    static constexpr auto
-        rule(c, ctll::set<'!', '0', '$', '\x28', '\x29', '*', '+', ',', '.', '/', ':', '<', '=', '>', '?', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '\"', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '\x7B', '|', '\x7D', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-            -> ctll::push<
-                ctll::anything,
-                push_character,
-                range,
-                set_start,
-                set2b,
-                set_make,
-                ctll::term<']'>>;
-    static constexpr auto rule(c, _others) -> ctll::push<
-                                               ctll::anything,
-                                               push_character,
-                                               range,
-                                               set_start,
-                                               set2b,
-                                               set_make,
-                                               ctll::term<']'>>;
+                                                     ctll::anything,
+                                                     ctll::term<':'>,
+                                                     i,
+                                                     range,
+                                                     set_start,
+                                                     set2b,
+                                                     set_make,
+                                                     ctll::term<']'>>;
+    static constexpr auto rule(c, ctll::term<'\\'>)
+      -> ctll::push<ctll::anything, e, set_start, set2b, set_make, ctll::term<']'>>;
+    static constexpr auto rule(c, ctll::set<'!', '0', '$', '\x28', '\x29', '*', '+', ',', '.', '/', ':', '<', '=', '>', '?', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '\"', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '\x7B', '|', '\x7D', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+      -> ctll::
+        push<ctll::anything, push_character, range, set_start, set2b, set_make, ctll::term<']'>>;
+    static constexpr auto rule(c, _others)
+      -> ctll::
+        push<ctll::anything, push_character, range, set_start, set2b, set_make, ctll::term<']'>>;
     static constexpr auto rule(c, ctll::term<'^'>)
-        -> ctll::
-            push<ctll::anything, set2a, set_make_negative, ctll::term<']'>>;
+      -> ctll::push<ctll::anything, set2a, set_make_negative, ctll::term<']'>>;
     static constexpr auto rule(c, ctll::set<'-', ']'>) -> ctll::reject;
 
-    static constexpr auto rule(class_named_name, ctll::term<'x'>)
-        -> ctll::push<
-            ctll::anything,
-            ctll::term<'d'>,
-            ctll::term<'i'>,
-            ctll::term<'g'>,
-            ctll::term<'i'>,
-            ctll::term<'t'>,
-            class_named_xdigit>;
-    static constexpr auto rule(class_named_name, ctll::term<'d'>)
-        -> ctll::push<
-            ctll::anything,
-            ctll::term<'i'>,
-            ctll::term<'g'>,
-            ctll::term<'i'>,
-            ctll::term<'t'>,
-            class_named_digit>;
-    static constexpr auto rule(class_named_name, ctll::term<'b'>)
-        -> ctll::push<
-            ctll::anything,
-            ctll::term<'l'>,
-            ctll::term<'a'>,
-            ctll::term<'n'>,
-            ctll::term<'k'>,
-            class_named_blank>;
-    static constexpr auto rule(class_named_name, ctll::term<'c'>)
-        -> ctll::push<
-            ctll::anything,
-            ctll::term<'n'>,
-            ctll::term<'t'>,
-            ctll::term<'r'>,
-            ctll::term<'l'>,
-            class_named_cntrl>;
+    static constexpr auto rule(class_named_name, ctll::term<'x'>) -> ctll::push<
+                                                                    ctll::anything,
+                                                                    ctll::term<'d'>,
+                                                                    ctll::term<'i'>,
+                                                                    ctll::term<'g'>,
+                                                                    ctll::term<'i'>,
+                                                                    ctll::term<'t'>,
+                                                                    class_named_xdigit>;
+    static constexpr auto rule(class_named_name, ctll::term<'d'>) -> ctll::push<
+                                                                    ctll::anything,
+                                                                    ctll::term<'i'>,
+                                                                    ctll::term<'g'>,
+                                                                    ctll::term<'i'>,
+                                                                    ctll::term<'t'>,
+                                                                    class_named_digit>;
+    static constexpr auto rule(class_named_name, ctll::term<'b'>) -> ctll::push<
+                                                                    ctll::anything,
+                                                                    ctll::term<'l'>,
+                                                                    ctll::term<'a'>,
+                                                                    ctll::term<'n'>,
+                                                                    ctll::term<'k'>,
+                                                                    class_named_blank>;
+    static constexpr auto rule(class_named_name, ctll::term<'c'>) -> ctll::push<
+                                                                    ctll::anything,
+                                                                    ctll::term<'n'>,
+                                                                    ctll::term<'t'>,
+                                                                    ctll::term<'r'>,
+                                                                    ctll::term<'l'>,
+                                                                    class_named_cntrl>;
     static constexpr auto rule(class_named_name, ctll::term<'w'>)
-        -> ctll::push<
-            ctll::anything,
-            ctll::term<'o'>,
-            ctll::term<'r'>,
-            ctll::term<'d'>,
-            class_named_word>;
-    static constexpr auto rule(class_named_name, ctll::term<'l'>)
-        -> ctll::push<
-            ctll::anything,
-            ctll::term<'o'>,
-            ctll::term<'w'>,
-            ctll::term<'e'>,
-            ctll::term<'r'>,
-            class_named_lower>;
-    static constexpr auto rule(class_named_name, ctll::term<'s'>)
-        -> ctll::push<
-            ctll::anything,
-            ctll::term<'p'>,
-            ctll::term<'a'>,
-            ctll::term<'c'>,
-            ctll::term<'e'>,
-            class_named_space>;
-    static constexpr auto rule(class_named_name, ctll::term<'u'>)
-        -> ctll::push<
-            ctll::anything,
-            ctll::term<'p'>,
-            ctll::term<'p'>,
-            ctll::term<'e'>,
-            ctll::term<'r'>,
-            class_named_upper>;
-    static constexpr auto rule(class_named_name, ctll::term<'g'>)
-        -> ctll::push<
-            ctll::anything,
-            ctll::term<'r'>,
-            ctll::term<'a'>,
-            ctll::term<'p'>,
-            ctll::term<'h'>,
-            class_named_graph>;
-    static constexpr auto rule(class_named_name, ctll::term<'a'>)
-        -> ctll::push<ctll::anything, g>;
-    static constexpr auto rule(class_named_name, ctll::term<'p'>)
-        -> ctll::push<ctll::anything, h>;
+      -> ctll::
+        push<ctll::anything, ctll::term<'o'>, ctll::term<'r'>, ctll::term<'d'>, class_named_word>;
+    static constexpr auto rule(class_named_name, ctll::term<'l'>) -> ctll::push<
+                                                                    ctll::anything,
+                                                                    ctll::term<'o'>,
+                                                                    ctll::term<'w'>,
+                                                                    ctll::term<'e'>,
+                                                                    ctll::term<'r'>,
+                                                                    class_named_lower>;
+    static constexpr auto rule(class_named_name, ctll::term<'s'>) -> ctll::push<
+                                                                    ctll::anything,
+                                                                    ctll::term<'p'>,
+                                                                    ctll::term<'a'>,
+                                                                    ctll::term<'c'>,
+                                                                    ctll::term<'e'>,
+                                                                    class_named_space>;
+    static constexpr auto rule(class_named_name, ctll::term<'u'>) -> ctll::push<
+                                                                    ctll::anything,
+                                                                    ctll::term<'p'>,
+                                                                    ctll::term<'p'>,
+                                                                    ctll::term<'e'>,
+                                                                    ctll::term<'r'>,
+                                                                    class_named_upper>;
+    static constexpr auto rule(class_named_name, ctll::term<'g'>) -> ctll::push<
+                                                                    ctll::anything,
+                                                                    ctll::term<'r'>,
+                                                                    ctll::term<'a'>,
+                                                                    ctll::term<'p'>,
+                                                                    ctll::term<'h'>,
+                                                                    class_named_graph>;
+    static constexpr auto rule(class_named_name, ctll::term<'a'>) -> ctll::push<ctll::anything, g>;
+    static constexpr auto rule(class_named_name, ctll::term<'p'>) -> ctll::push<ctll::anything, h>;
 
     static constexpr auto rule(content2, ctll::term<'\x29'>) -> ctll::epsilon;
     static constexpr auto rule(content2, ctll::epsilon) -> ctll::epsilon;
-    static constexpr auto rule(content2, ctll::term<'|'>)
-        -> ctll::push<ctll::anything, a>;
+    static constexpr auto rule(content2, ctll::term<'|'>) -> ctll::push<ctll::anything, a>;
 
     static constexpr auto rule(content, ctll::term<'\\'>)
-        -> ctll::push<ctll::anything, backslash, repeat, string2, content2>;
+      -> ctll::push<ctll::anything, backslash, repeat, string2, content2>;
     static constexpr auto rule(content, ctll::term<'['>)
-        -> ctll::push<ctll::anything, c, repeat, string2, content2>;
-    static constexpr auto rule(content, ctll::term<'\x28'>) -> ctll::push<
-                                                                ctll::anything,
-                                                                prepare_capture,
-                                                                block,
-                                                                repeat,
-                                                                string2,
-                                                                content2>;
+      -> ctll::push<ctll::anything, c, repeat, string2, content2>;
+    static constexpr auto rule(content, ctll::term<'\x28'>)
+      -> ctll::push<ctll::anything, prepare_capture, block, repeat, string2, content2>;
     static constexpr auto rule(content, ctll::term<'^'>)
-        -> ctll::
-            push<ctll::anything, push_assert_begin, repeat, string2, content2>;
+      -> ctll::push<ctll::anything, push_assert_begin, repeat, string2, content2>;
     static constexpr auto rule(content, ctll::term<'$'>)
-        -> ctll::
-            push<ctll::anything, push_assert_end, repeat, string2, content2>;
-    static constexpr auto
-        rule(content, ctll::set<'!', ',', '/', ':', '<', '0', '-', '=', '>', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '\"', ']', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-            -> ctll::
-                push<ctll::anything, push_character, repeat, string2, content2>;
-    static constexpr auto rule(
-        content,
-        _others
-    ) -> ctll::push<ctll::anything, push_character, repeat, string2, content2>;
+      -> ctll::push<ctll::anything, push_assert_end, repeat, string2, content2>;
+    static constexpr auto rule(content, ctll::set<'!', ',', '/', ':', '<', '0', '-', '=', '>', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '\"', ']', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+      -> ctll::push<ctll::anything, push_character, repeat, string2, content2>;
+    static constexpr auto rule(content, _others)
+      -> ctll::push<ctll::anything, push_character, repeat, string2, content2>;
     static constexpr auto rule(content, ctll::term<'.'>)
-        -> ctll::push<
-            ctll::anything,
-            push_character_anything,
-            repeat,
-            string2,
-            content2>;
-    static constexpr auto
-        rule(content, ctll::set<'\x29', '*', '+', '?', '\x7B', '|', '\x7D'>)
-            -> ctll::reject;
+      -> ctll::push<ctll::anything, push_character_anything, repeat, string2, content2>;
+    static constexpr auto rule(content, ctll::set<'\x29', '*', '+', '?', '\x7B', '|', '\x7D'>)
+      -> ctll::reject;
 
     static constexpr auto rule(content_in_capture, ctll::term<'\\'>)
-        -> ctll::push<ctll::anything, backslash, repeat, string2, content2>;
+      -> ctll::push<ctll::anything, backslash, repeat, string2, content2>;
     static constexpr auto rule(content_in_capture, ctll::term<'['>)
-        -> ctll::push<ctll::anything, c, repeat, string2, content2>;
+      -> ctll::push<ctll::anything, c, repeat, string2, content2>;
     static constexpr auto rule(content_in_capture, ctll::term<'\x28'>)
-        -> ctll::push<
-            ctll::anything,
-            prepare_capture,
-            block,
-            repeat,
-            string2,
-            content2>;
+      -> ctll::push<ctll::anything, prepare_capture, block, repeat, string2, content2>;
     static constexpr auto rule(content_in_capture, ctll::term<'^'>)
-        -> ctll::
-            push<ctll::anything, push_assert_begin, repeat, string2, content2>;
+      -> ctll::push<ctll::anything, push_assert_begin, repeat, string2, content2>;
     static constexpr auto rule(content_in_capture, ctll::term<'$'>)
-        -> ctll::
-            push<ctll::anything, push_assert_end, repeat, string2, content2>;
+      -> ctll::push<ctll::anything, push_assert_end, repeat, string2, content2>;
     static constexpr auto
-        rule(content_in_capture, ctll::set<'!', ',', '/', ':', '<', '0', '-', '=', '>', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '\"', ']', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-            -> ctll::
-                push<ctll::anything, push_character, repeat, string2, content2>;
-    static constexpr auto rule(
-        content_in_capture,
-        _others
-    ) -> ctll::push<ctll::anything, push_character, repeat, string2, content2>;
+      rule(content_in_capture, ctll::set<'!', ',', '/', ':', '<', '0', '-', '=', '>', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '\"', ']', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+        -> ctll::push<ctll::anything, push_character, repeat, string2, content2>;
+    static constexpr auto rule(content_in_capture, _others)
+      -> ctll::push<ctll::anything, push_character, repeat, string2, content2>;
     static constexpr auto rule(content_in_capture, ctll::term<'.'>)
-        -> ctll::push<
-            ctll::anything,
-            push_character_anything,
-            repeat,
-            string2,
-            content2>;
+      -> ctll::push<ctll::anything, push_character_anything, repeat, string2, content2>;
     static constexpr auto rule(content_in_capture, ctll::term<'|'>)
-        -> ctll::push<ctll::anything, push_empty, content, make_alternate>;
-    static constexpr auto rule(content_in_capture, ctll::term<'\x29'>)
-        -> ctll::push<push_empty>;
-    static constexpr auto
-        rule(content_in_capture, ctll::set<'*', '+', '?', '\x7B', '\x7D'>)
-            -> ctll::reject;
+      -> ctll::push<ctll::anything, push_empty, content, make_alternate>;
+    static constexpr auto rule(content_in_capture, ctll::term<'\x29'>) -> ctll::push<push_empty>;
+    static constexpr auto rule(content_in_capture, ctll::set<'*', '+', '?', '\x7B', '\x7D'>)
+      -> ctll::reject;
 
     static constexpr auto rule(d, ctll::term<'i'>)
-        -> ctll::push<ctll::anything, mode_case_insensitive, mode_switch2>;
+      -> ctll::push<ctll::anything, mode_case_insensitive, mode_switch2>;
     static constexpr auto rule(d, ctll::term<'c'>)
-        -> ctll::push<ctll::anything, mode_case_sensitive, mode_switch2>;
+      -> ctll::push<ctll::anything, mode_case_sensitive, mode_switch2>;
     static constexpr auto rule(d, ctll::term<'m'>)
-        -> ctll::push<ctll::anything, mode_multiline, mode_switch2>;
+      -> ctll::push<ctll::anything, mode_multiline, mode_switch2>;
     static constexpr auto rule(d, ctll::term<'s'>)
-        -> ctll::push<ctll::anything, mode_singleline, mode_switch2>;
-    static constexpr auto rule(d, ctll::term<'<'>)
-        -> ctll::push<ctll::anything, o>;
-    static constexpr auto rule(d, ctll::term<':'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       reset_capture,
-                                                       content_in_capture,
-                                                       ctll::term<'\x29'>>;
+      -> ctll::push<ctll::anything, mode_singleline, mode_switch2>;
+    static constexpr auto rule(d, ctll::term<'<'>) -> ctll::push<ctll::anything, o>;
+    static constexpr auto rule(d, ctll::term<':'>)
+      -> ctll::push<ctll::anything, reset_capture, content_in_capture, ctll::term<'\x29'>>;
     static constexpr auto rule(d, ctll::term<'>'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       reset_capture,
-                                                       start_atomic,
-                                                       content_in_capture,
-                                                       make_atomic,
-                                                       ctll::term<'\x29'>>;
+                                                     ctll::anything,
+                                                     reset_capture,
+                                                     start_atomic,
+                                                     content_in_capture,
+                                                     make_atomic,
+                                                     ctll::term<'\x29'>>;
     static constexpr auto rule(d, ctll::term<'!'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       reset_capture,
-                                                       start_lookahead_negative,
-                                                       content_in_capture,
-                                                       look_finish,
-                                                       ctll::term<'\x29'>>;
+                                                     ctll::anything,
+                                                     reset_capture,
+                                                     start_lookahead_negative,
+                                                     content_in_capture,
+                                                     look_finish,
+                                                     ctll::term<'\x29'>>;
     static constexpr auto rule(d, ctll::term<'='>) -> ctll::push<
-                                                       ctll::anything,
-                                                       reset_capture,
-                                                       start_lookahead_positive,
-                                                       content_in_capture,
-                                                       look_finish,
-                                                       ctll::term<'\x29'>>;
+                                                     ctll::anything,
+                                                     reset_capture,
+                                                     start_lookahead_positive,
+                                                     content_in_capture,
+                                                     look_finish,
+                                                     ctll::term<'\x29'>>;
 
-    static constexpr auto rule(e, ctll::term<'d'>)
-        -> ctll::push<ctll::anything, class_digit>;
+    static constexpr auto rule(e, ctll::term<'d'>) -> ctll::push<ctll::anything, class_digit>;
     static constexpr auto rule(e, ctll::term<'h'>)
-        -> ctll::push<ctll::anything, class_horizontal_space>;
+      -> ctll::push<ctll::anything, class_horizontal_space>;
     static constexpr auto rule(e, ctll::term<'H'>)
-        -> ctll::push<ctll::anything, class_non_horizontal_space>;
+      -> ctll::push<ctll::anything, class_non_horizontal_space>;
     static constexpr auto rule(e, ctll::term<'V'>)
-        -> ctll::push<ctll::anything, class_non_vertical_space>;
-    static constexpr auto rule(e, ctll::term<'D'>)
-        -> ctll::push<ctll::anything, class_nondigit>;
-    static constexpr auto rule(e, ctll::term<'N'>)
-        -> ctll::push<ctll::anything, class_nonnewline>;
-    static constexpr auto rule(e, ctll::term<'S'>)
-        -> ctll::push<ctll::anything, class_nonspace>;
-    static constexpr auto rule(e, ctll::term<'W'>)
-        -> ctll::push<ctll::anything, class_nonword>;
-    static constexpr auto rule(e, ctll::term<'s'>)
-        -> ctll::push<ctll::anything, class_space>;
+      -> ctll::push<ctll::anything, class_non_vertical_space>;
+    static constexpr auto rule(e, ctll::term<'D'>) -> ctll::push<ctll::anything, class_nondigit>;
+    static constexpr auto rule(e, ctll::term<'N'>) -> ctll::push<ctll::anything, class_nonnewline>;
+    static constexpr auto rule(e, ctll::term<'S'>) -> ctll::push<ctll::anything, class_nonspace>;
+    static constexpr auto rule(e, ctll::term<'W'>) -> ctll::push<ctll::anything, class_nonword>;
+    static constexpr auto rule(e, ctll::term<'s'>) -> ctll::push<ctll::anything, class_space>;
     static constexpr auto rule(e, ctll::term<'v'>)
-        -> ctll::push<ctll::anything, class_vertical_space>;
-    static constexpr auto rule(e, ctll::term<'w'>)
-        -> ctll::push<ctll::anything, class_word>;
-    static constexpr auto rule(e, ctll::term<'p'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       ctll::term<'\x7B'>,
-                                                       property_name,
-                                                       ctll::term<'\x7D'>,
-                                                       make_property>;
+      -> ctll::push<ctll::anything, class_vertical_space>;
+    static constexpr auto rule(e, ctll::term<'w'>) -> ctll::push<ctll::anything, class_word>;
+    static constexpr auto rule(e, ctll::term<'p'>)
+      -> ctll::
+        push<ctll::anything, ctll::term<'\x7B'>, property_name, ctll::term<'\x7D'>, make_property>;
     static constexpr auto rule(e, ctll::term<'P'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       ctll::term<'\x7B'>,
-                                                       property_name,
-                                                       ctll::term<'\x7D'>,
-                                                       make_property_negative>;
-    static constexpr auto rule(e, ctll::term<'u'>)
-        -> ctll::push<ctll::anything, k, range>;
-    static constexpr auto rule(e, ctll::term<'x'>)
-        -> ctll::push<ctll::anything, l, range>;
+                                                     ctll::anything,
+                                                     ctll::term<'\x7B'>,
+                                                     property_name,
+                                                     ctll::term<'\x7D'>,
+                                                     make_property_negative>;
+    static constexpr auto rule(e, ctll::term<'u'>) -> ctll::push<ctll::anything, k, range>;
+    static constexpr auto rule(e, ctll::term<'x'>) -> ctll::push<ctll::anything, l, range>;
     static constexpr auto
-        rule(e, ctll::set<'$', '\x28', '\x29', '*', '+', '-', '.', '/', '<', '>', '?', '[', '\\', '\"', ']', '^', '\x7B', '|', '\x7D'>)
-            -> ctll::push<ctll::anything, push_character, range>;
+      rule(e, ctll::set<'$', '\x28', '\x29', '*', '+', '-', '.', '/', '<', '>', '?', '[', '\\', '\"', ']', '^', '\x7B', '|', '\x7D'>)
+        -> ctll::push<ctll::anything, push_character, range>;
     static constexpr auto rule(e, ctll::term<'a'>)
-        -> ctll::push<ctll::anything, push_character_alarm, range>;
+      -> ctll::push<ctll::anything, push_character_alarm, range>;
     static constexpr auto rule(e, ctll::term<'e'>)
-        -> ctll::push<ctll::anything, push_character_escape, range>;
+      -> ctll::push<ctll::anything, push_character_escape, range>;
     static constexpr auto rule(e, ctll::term<'f'>)
-        -> ctll::push<ctll::anything, push_character_formfeed, range>;
+      -> ctll::push<ctll::anything, push_character_formfeed, range>;
     static constexpr auto rule(e, ctll::term<'n'>)
-        -> ctll::push<ctll::anything, push_character_newline, range>;
+      -> ctll::push<ctll::anything, push_character_newline, range>;
     static constexpr auto rule(e, ctll::term<'0'>)
-        -> ctll::push<ctll::anything, push_character_null, range>;
+      -> ctll::push<ctll::anything, push_character_null, range>;
     static constexpr auto rule(e, ctll::term<'r'>)
-        -> ctll::push<ctll::anything, push_character_return_carriage, range>;
+      -> ctll::push<ctll::anything, push_character_return_carriage, range>;
     static constexpr auto rule(e, ctll::term<'t'>)
-        -> ctll::push<ctll::anything, push_character_tab, range>;
+      -> ctll::push<ctll::anything, push_character_tab, range>;
 
-    static constexpr auto rule(f, ctll::term<'d'>)
-        -> ctll::push<ctll::anything, class_digit>;
+    static constexpr auto rule(f, ctll::term<'d'>) -> ctll::push<ctll::anything, class_digit>;
     static constexpr auto rule(f, ctll::term<'h'>)
-        -> ctll::push<ctll::anything, class_horizontal_space>;
+      -> ctll::push<ctll::anything, class_horizontal_space>;
     static constexpr auto rule(f, ctll::term<'H'>)
-        -> ctll::push<ctll::anything, class_non_horizontal_space>;
+      -> ctll::push<ctll::anything, class_non_horizontal_space>;
     static constexpr auto rule(f, ctll::term<'V'>)
-        -> ctll::push<ctll::anything, class_non_vertical_space>;
-    static constexpr auto rule(f, ctll::term<'D'>)
-        -> ctll::push<ctll::anything, class_nondigit>;
-    static constexpr auto rule(f, ctll::term<'N'>)
-        -> ctll::push<ctll::anything, class_nonnewline>;
-    static constexpr auto rule(f, ctll::term<'S'>)
-        -> ctll::push<ctll::anything, class_nonspace>;
-    static constexpr auto rule(f, ctll::term<'W'>)
-        -> ctll::push<ctll::anything, class_nonword>;
-    static constexpr auto rule(f, ctll::term<'s'>)
-        -> ctll::push<ctll::anything, class_space>;
+      -> ctll::push<ctll::anything, class_non_vertical_space>;
+    static constexpr auto rule(f, ctll::term<'D'>) -> ctll::push<ctll::anything, class_nondigit>;
+    static constexpr auto rule(f, ctll::term<'N'>) -> ctll::push<ctll::anything, class_nonnewline>;
+    static constexpr auto rule(f, ctll::term<'S'>) -> ctll::push<ctll::anything, class_nonspace>;
+    static constexpr auto rule(f, ctll::term<'W'>) -> ctll::push<ctll::anything, class_nonword>;
+    static constexpr auto rule(f, ctll::term<'s'>) -> ctll::push<ctll::anything, class_space>;
     static constexpr auto rule(f, ctll::term<'v'>)
-        -> ctll::push<ctll::anything, class_vertical_space>;
-    static constexpr auto rule(f, ctll::term<'w'>)
-        -> ctll::push<ctll::anything, class_word>;
-    static constexpr auto rule(f, ctll::term<'p'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       ctll::term<'\x7B'>,
-                                                       property_name,
-                                                       ctll::term<'\x7D'>,
-                                                       make_property>;
+      -> ctll::push<ctll::anything, class_vertical_space>;
+    static constexpr auto rule(f, ctll::term<'w'>) -> ctll::push<ctll::anything, class_word>;
+    static constexpr auto rule(f, ctll::term<'p'>)
+      -> ctll::
+        push<ctll::anything, ctll::term<'\x7B'>, property_name, ctll::term<'\x7D'>, make_property>;
     static constexpr auto rule(f, ctll::term<'P'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       ctll::term<'\x7B'>,
-                                                       property_name,
-                                                       ctll::term<'\x7D'>,
-                                                       make_property_negative>;
-    static constexpr auto rule(f, ctll::term<'u'>)
-        -> ctll::push<ctll::anything, k, range>;
-    static constexpr auto rule(f, ctll::term<'x'>)
-        -> ctll::push<ctll::anything, l, range>;
+                                                     ctll::anything,
+                                                     ctll::term<'\x7B'>,
+                                                     property_name,
+                                                     ctll::term<'\x7D'>,
+                                                     make_property_negative>;
+    static constexpr auto rule(f, ctll::term<'u'>) -> ctll::push<ctll::anything, k, range>;
+    static constexpr auto rule(f, ctll::term<'x'>) -> ctll::push<ctll::anything, l, range>;
     static constexpr auto
-        rule(f, ctll::set<'$', '\x28', '\x29', '*', '+', '-', '.', '/', '<', '>', '?', '[', '\\', '\"', ']', '^', '\x7B', '|', '\x7D'>)
-            -> ctll::push<ctll::anything, push_character, range>;
+      rule(f, ctll::set<'$', '\x28', '\x29', '*', '+', '-', '.', '/', '<', '>', '?', '[', '\\', '\"', ']', '^', '\x7B', '|', '\x7D'>)
+        -> ctll::push<ctll::anything, push_character, range>;
     static constexpr auto rule(f, ctll::term<'a'>)
-        -> ctll::push<ctll::anything, push_character_alarm, range>;
+      -> ctll::push<ctll::anything, push_character_alarm, range>;
     static constexpr auto rule(f, ctll::term<'e'>)
-        -> ctll::push<ctll::anything, push_character_escape, range>;
+      -> ctll::push<ctll::anything, push_character_escape, range>;
     static constexpr auto rule(f, ctll::term<'f'>)
-        -> ctll::push<ctll::anything, push_character_formfeed, range>;
+      -> ctll::push<ctll::anything, push_character_formfeed, range>;
     static constexpr auto rule(f, ctll::term<'n'>)
-        -> ctll::push<ctll::anything, push_character_newline, range>;
+      -> ctll::push<ctll::anything, push_character_newline, range>;
     static constexpr auto rule(f, ctll::term<'0'>)
-        -> ctll::push<ctll::anything, push_character_null, range>;
+      -> ctll::push<ctll::anything, push_character_null, range>;
     static constexpr auto rule(f, ctll::term<'r'>)
-        -> ctll::push<ctll::anything, push_character_return_carriage, range>;
+      -> ctll::push<ctll::anything, push_character_return_carriage, range>;
     static constexpr auto rule(f, ctll::term<'t'>)
-        -> ctll::push<ctll::anything, push_character_tab, range>;
+      -> ctll::push<ctll::anything, push_character_tab, range>;
 
-    static constexpr auto rule(g, ctll::term<'s'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       ctll::term<'c'>,
-                                                       ctll::term<'i'>,
-                                                       ctll::term<'i'>,
-                                                       class_named_ascii>;
-    static constexpr auto rule(g, ctll::term<'l'>)
-        -> ctll::push<ctll::anything, p>;
+    static constexpr auto rule(g, ctll::term<'s'>)
+      -> ctll::
+        push<ctll::anything, ctll::term<'c'>, ctll::term<'i'>, ctll::term<'i'>, class_named_ascii>;
+    static constexpr auto rule(g, ctll::term<'l'>) -> ctll::push<ctll::anything, p>;
 
-    static constexpr auto rule(h, ctll::term<'r'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       ctll::term<'i'>,
-                                                       ctll::term<'n'>,
-                                                       ctll::term<'t'>,
-                                                       class_named_print>;
-    static constexpr auto rule(h, ctll::term<'u'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       ctll::term<'n'>,
-                                                       ctll::term<'c'>,
-                                                       ctll::term<'t'>,
-                                                       class_named_punct>;
+    static constexpr auto rule(h, ctll::term<'r'>)
+      -> ctll::
+        push<ctll::anything, ctll::term<'i'>, ctll::term<'n'>, ctll::term<'t'>, class_named_print>;
+    static constexpr auto rule(h, ctll::term<'u'>)
+      -> ctll::
+        push<ctll::anything, ctll::term<'n'>, ctll::term<'c'>, ctll::term<'t'>, class_named_punct>;
 
-    static constexpr auto rule(hexdec_repeat, ctll::term<'\x7D'>)
-        -> ctll::epsilon;
+    static constexpr auto rule(hexdec_repeat, ctll::term<'\x7D'>) -> ctll::epsilon;
     static constexpr auto
-        rule(hexdec_repeat, ctll::set<'0', 'A', 'B', 'C', 'D', 'E', 'F', 'a', 'b', 'c', 'd', 'e', 'f', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-            -> ctll::push<ctll::anything, push_hexdec, hexdec_repeat>;
+      rule(hexdec_repeat, ctll::set<'0', 'A', 'B', 'C', 'D', 'E', 'F', 'a', 'b', 'c', 'd', 'e', 'f', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+        -> ctll::push<ctll::anything, push_hexdec, hexdec_repeat>;
 
     static constexpr auto rule(i, ctll::term<'^'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       class_named_name,
-                                                       negate_class_named,
-                                                       ctll::term<':'>,
-                                                       ctll::term<']'>>;
+                                                     ctll::anything,
+                                                     class_named_name,
+                                                     negate_class_named,
+                                                     ctll::term<':'>,
+                                                     ctll::term<']'>>;
     static constexpr auto rule(i, ctll::term<'x'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       ctll::term<'d'>,
-                                                       ctll::term<'i'>,
-                                                       ctll::term<'g'>,
-                                                       ctll::term<'i'>,
-                                                       ctll::term<'t'>,
-                                                       class_named_xdigit,
-                                                       ctll::term<':'>,
-                                                       ctll::term<']'>>;
+                                                     ctll::anything,
+                                                     ctll::term<'d'>,
+                                                     ctll::term<'i'>,
+                                                     ctll::term<'g'>,
+                                                     ctll::term<'i'>,
+                                                     ctll::term<'t'>,
+                                                     class_named_xdigit,
+                                                     ctll::term<':'>,
+                                                     ctll::term<']'>>;
     static constexpr auto rule(i, ctll::term<'d'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       ctll::term<'i'>,
-                                                       ctll::term<'g'>,
-                                                       ctll::term<'i'>,
-                                                       ctll::term<'t'>,
-                                                       class_named_digit,
-                                                       ctll::term<':'>,
-                                                       ctll::term<']'>>;
+                                                     ctll::anything,
+                                                     ctll::term<'i'>,
+                                                     ctll::term<'g'>,
+                                                     ctll::term<'i'>,
+                                                     ctll::term<'t'>,
+                                                     class_named_digit,
+                                                     ctll::term<':'>,
+                                                     ctll::term<']'>>;
     static constexpr auto rule(i, ctll::term<'b'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       ctll::term<'l'>,
-                                                       ctll::term<'a'>,
-                                                       ctll::term<'n'>,
-                                                       ctll::term<'k'>,
-                                                       class_named_blank,
-                                                       ctll::term<':'>,
-                                                       ctll::term<']'>>;
+                                                     ctll::anything,
+                                                     ctll::term<'l'>,
+                                                     ctll::term<'a'>,
+                                                     ctll::term<'n'>,
+                                                     ctll::term<'k'>,
+                                                     class_named_blank,
+                                                     ctll::term<':'>,
+                                                     ctll::term<']'>>;
     static constexpr auto rule(i, ctll::term<'c'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       ctll::term<'n'>,
-                                                       ctll::term<'t'>,
-                                                       ctll::term<'r'>,
-                                                       ctll::term<'l'>,
-                                                       class_named_cntrl,
-                                                       ctll::term<':'>,
-                                                       ctll::term<']'>>;
+                                                     ctll::anything,
+                                                     ctll::term<'n'>,
+                                                     ctll::term<'t'>,
+                                                     ctll::term<'r'>,
+                                                     ctll::term<'l'>,
+                                                     class_named_cntrl,
+                                                     ctll::term<':'>,
+                                                     ctll::term<']'>>;
     static constexpr auto rule(i, ctll::term<'w'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       ctll::term<'o'>,
-                                                       ctll::term<'r'>,
-                                                       ctll::term<'d'>,
-                                                       class_named_word,
-                                                       ctll::term<':'>,
-                                                       ctll::term<']'>>;
+                                                     ctll::anything,
+                                                     ctll::term<'o'>,
+                                                     ctll::term<'r'>,
+                                                     ctll::term<'d'>,
+                                                     class_named_word,
+                                                     ctll::term<':'>,
+                                                     ctll::term<']'>>;
     static constexpr auto rule(i, ctll::term<'l'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       ctll::term<'o'>,
-                                                       ctll::term<'w'>,
-                                                       ctll::term<'e'>,
-                                                       ctll::term<'r'>,
-                                                       class_named_lower,
-                                                       ctll::term<':'>,
-                                                       ctll::term<']'>>;
+                                                     ctll::anything,
+                                                     ctll::term<'o'>,
+                                                     ctll::term<'w'>,
+                                                     ctll::term<'e'>,
+                                                     ctll::term<'r'>,
+                                                     class_named_lower,
+                                                     ctll::term<':'>,
+                                                     ctll::term<']'>>;
     static constexpr auto rule(i, ctll::term<'s'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       ctll::term<'p'>,
-                                                       ctll::term<'a'>,
-                                                       ctll::term<'c'>,
-                                                       ctll::term<'e'>,
-                                                       class_named_space,
-                                                       ctll::term<':'>,
-                                                       ctll::term<']'>>;
+                                                     ctll::anything,
+                                                     ctll::term<'p'>,
+                                                     ctll::term<'a'>,
+                                                     ctll::term<'c'>,
+                                                     ctll::term<'e'>,
+                                                     class_named_space,
+                                                     ctll::term<':'>,
+                                                     ctll::term<']'>>;
     static constexpr auto rule(i, ctll::term<'u'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       ctll::term<'p'>,
-                                                       ctll::term<'p'>,
-                                                       ctll::term<'e'>,
-                                                       ctll::term<'r'>,
-                                                       class_named_upper,
-                                                       ctll::term<':'>,
-                                                       ctll::term<']'>>;
+                                                     ctll::anything,
+                                                     ctll::term<'p'>,
+                                                     ctll::term<'p'>,
+                                                     ctll::term<'e'>,
+                                                     ctll::term<'r'>,
+                                                     class_named_upper,
+                                                     ctll::term<':'>,
+                                                     ctll::term<']'>>;
     static constexpr auto rule(i, ctll::term<'g'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       ctll::term<'r'>,
-                                                       ctll::term<'a'>,
-                                                       ctll::term<'p'>,
-                                                       ctll::term<'h'>,
-                                                       class_named_graph,
-                                                       ctll::term<':'>,
-                                                       ctll::term<']'>>;
+                                                     ctll::anything,
+                                                     ctll::term<'r'>,
+                                                     ctll::term<'a'>,
+                                                     ctll::term<'p'>,
+                                                     ctll::term<'h'>,
+                                                     class_named_graph,
+                                                     ctll::term<':'>,
+                                                     ctll::term<']'>>;
     static constexpr auto rule(i, ctll::term<'a'>)
-        -> ctll::push<ctll::anything, g, ctll::term<':'>, ctll::term<']'>>;
+      -> ctll::push<ctll::anything, g, ctll::term<':'>, ctll::term<']'>>;
     static constexpr auto rule(i, ctll::term<'p'>)
-        -> ctll::push<ctll::anything, h, ctll::term<':'>, ctll::term<']'>>;
+      -> ctll::push<ctll::anything, h, ctll::term<':'>, ctll::term<']'>>;
 
     static constexpr auto rule(j, ctll::term<'\\'>)
-        -> ctll::push<ctll::anything, backslash_range, make_range>;
-    static constexpr auto
-        rule(j, ctll::set<'!', '$', '\x28', '\x29', '*', '+', ',', '.', '/', ':', '<', '=', '>', '?', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '\"', '^', '0', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '\x7B', '|', '\x7D', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-            -> ctll::push<ctll::anything, push_character, make_range>;
+      -> ctll::push<ctll::anything, backslash_range, make_range>;
+    static constexpr auto rule(j, ctll::set<'!', '$', '\x28', '\x29', '*', '+', ',', '.', '/', ':', '<', '=', '>', '?', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '\"', '^', '0', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '\x7B', '|', '\x7D', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+      -> ctll::push<ctll::anything, push_character, make_range>;
     static constexpr auto rule(j, _others)
-        -> ctll::push<ctll::anything, push_character, make_range>;
+      -> ctll::push<ctll::anything, push_character, make_range>;
     static constexpr auto rule(j, ctll::set<'-', '[', ']'>) -> ctll::reject;
 
     static constexpr auto rule(k, ctll::term<'\x7B'>) -> ctll::push<
-                                                          create_hexdec,
-                                                          ctll::anything,
-                                                          ctll::set<
-                                                              '0',
-                                                              '1',
-                                                              '2',
-                                                              '3',
-                                                              '4',
-                                                              '5',
-                                                              '6',
-                                                              '7',
-                                                              '8',
-                                                              '9',
-                                                              'A',
-                                                              'B',
-                                                              'C',
-                                                              'D',
-                                                              'E',
-                                                              'F',
-                                                              'a',
-                                                              'b',
-                                                              'c',
-                                                              'd',
-                                                              'e',
-                                                              'f'>,
-                                                          push_hexdec,
-                                                          hexdec_repeat,
-                                                          ctll::term<'\x7D'>,
-                                                          finish_hexdec>;
+                                                        create_hexdec,
+                                                        ctll::anything,
+                                                        ctll::set<
+                                                          '0',
+                                                          '1',
+                                                          '2',
+                                                          '3',
+                                                          '4',
+                                                          '5',
+                                                          '6',
+                                                          '7',
+                                                          '8',
+                                                          '9',
+                                                          'A',
+                                                          'B',
+                                                          'C',
+                                                          'D',
+                                                          'E',
+                                                          'F',
+                                                          'a',
+                                                          'b',
+                                                          'c',
+                                                          'd',
+                                                          'e',
+                                                          'f'>,
+                                                        push_hexdec,
+                                                        hexdec_repeat,
+                                                        ctll::term<'\x7D'>,
+                                                        finish_hexdec>;
     static constexpr auto
-        rule(k, ctll::set<'0', 'A', 'B', 'C', 'D', 'E', 'F', 'a', 'b', 'c', 'd', 'e', 'f', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-            -> ctll::push<
-                create_hexdec,
-                ctll::anything,
-                push_hexdec,
-                ctll::set<
-                    '0',
-                    '1',
-                    '2',
-                    '3',
-                    '4',
-                    '5',
-                    '6',
-                    '7',
-                    '8',
-                    '9',
-                    'A',
-                    'B',
-                    'C',
-                    'D',
-                    'E',
-                    'F',
-                    'a',
-                    'b',
-                    'c',
-                    'd',
-                    'e',
-                    'f'>,
-                push_hexdec,
-                ctll::set<
-                    '0',
-                    '1',
-                    '2',
-                    '3',
-                    '4',
-                    '5',
-                    '6',
-                    '7',
-                    '8',
-                    '9',
-                    'A',
-                    'B',
-                    'C',
-                    'D',
-                    'E',
-                    'F',
-                    'a',
-                    'b',
-                    'c',
-                    'd',
-                    'e',
-                    'f'>,
-                push_hexdec,
-                ctll::set<
-                    '0',
-                    '1',
-                    '2',
-                    '3',
-                    '4',
-                    '5',
-                    '6',
-                    '7',
-                    '8',
-                    '9',
-                    'A',
-                    'B',
-                    'C',
-                    'D',
-                    'E',
-                    'F',
-                    'a',
-                    'b',
-                    'c',
-                    'd',
-                    'e',
-                    'f'>,
-                push_hexdec,
-                finish_hexdec>;
+      rule(k, ctll::set<'0', 'A', 'B', 'C', 'D', 'E', 'F', 'a', 'b', 'c', 'd', 'e', 'f', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+        -> ctll::push<
+          create_hexdec,
+          ctll::anything,
+          push_hexdec,
+          ctll::set<
+            '0',
+            '1',
+            '2',
+            '3',
+            '4',
+            '5',
+            '6',
+            '7',
+            '8',
+            '9',
+            'A',
+            'B',
+            'C',
+            'D',
+            'E',
+            'F',
+            'a',
+            'b',
+            'c',
+            'd',
+            'e',
+            'f'>,
+          push_hexdec,
+          ctll::set<
+            '0',
+            '1',
+            '2',
+            '3',
+            '4',
+            '5',
+            '6',
+            '7',
+            '8',
+            '9',
+            'A',
+            'B',
+            'C',
+            'D',
+            'E',
+            'F',
+            'a',
+            'b',
+            'c',
+            'd',
+            'e',
+            'f'>,
+          push_hexdec,
+          ctll::set<
+            '0',
+            '1',
+            '2',
+            '3',
+            '4',
+            '5',
+            '6',
+            '7',
+            '8',
+            '9',
+            'A',
+            'B',
+            'C',
+            'D',
+            'E',
+            'F',
+            'a',
+            'b',
+            'c',
+            'd',
+            'e',
+            'f'>,
+          push_hexdec,
+          finish_hexdec>;
 
     static constexpr auto rule(l, ctll::term<'\x7B'>) -> ctll::push<
-                                                          create_hexdec,
-                                                          ctll::anything,
-                                                          ctll::set<
-                                                              '0',
-                                                              '1',
-                                                              '2',
-                                                              '3',
-                                                              '4',
-                                                              '5',
-                                                              '6',
-                                                              '7',
-                                                              '8',
-                                                              '9',
-                                                              'A',
-                                                              'B',
-                                                              'C',
-                                                              'D',
-                                                              'E',
-                                                              'F',
-                                                              'a',
-                                                              'b',
-                                                              'c',
-                                                              'd',
-                                                              'e',
-                                                              'f'>,
-                                                          push_hexdec,
-                                                          hexdec_repeat,
-                                                          ctll::term<'\x7D'>,
-                                                          finish_hexdec>;
+                                                        create_hexdec,
+                                                        ctll::anything,
+                                                        ctll::set<
+                                                          '0',
+                                                          '1',
+                                                          '2',
+                                                          '3',
+                                                          '4',
+                                                          '5',
+                                                          '6',
+                                                          '7',
+                                                          '8',
+                                                          '9',
+                                                          'A',
+                                                          'B',
+                                                          'C',
+                                                          'D',
+                                                          'E',
+                                                          'F',
+                                                          'a',
+                                                          'b',
+                                                          'c',
+                                                          'd',
+                                                          'e',
+                                                          'f'>,
+                                                        push_hexdec,
+                                                        hexdec_repeat,
+                                                        ctll::term<'\x7D'>,
+                                                        finish_hexdec>;
     static constexpr auto
-        rule(l, ctll::set<'0', 'A', 'B', 'C', 'D', 'E', 'F', 'a', 'b', 'c', 'd', 'e', 'f', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-            -> ctll::push<
-                create_hexdec,
-                ctll::anything,
-                push_hexdec,
-                ctll::set<
-                    '0',
-                    '1',
-                    '2',
-                    '3',
-                    '4',
-                    '5',
-                    '6',
-                    '7',
-                    '8',
-                    '9',
-                    'A',
-                    'B',
-                    'C',
-                    'D',
-                    'E',
-                    'F',
-                    'a',
-                    'b',
-                    'c',
-                    'd',
-                    'e',
-                    'f'>,
-                push_hexdec,
-                finish_hexdec>;
+      rule(l, ctll::set<'0', 'A', 'B', 'C', 'D', 'E', 'F', 'a', 'b', 'c', 'd', 'e', 'f', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+        -> ctll::push<
+          create_hexdec,
+          ctll::anything,
+          push_hexdec,
+          ctll::set<
+            '0',
+            '1',
+            '2',
+            '3',
+            '4',
+            '5',
+            '6',
+            '7',
+            '8',
+            '9',
+            'A',
+            'B',
+            'C',
+            'D',
+            'E',
+            'F',
+            'a',
+            'b',
+            'c',
+            'd',
+            'e',
+            'f'>,
+          push_hexdec,
+          finish_hexdec>;
 
-    static constexpr auto
-        rule(m, ctll::set<'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-            -> ctll::push<
-                ctll::anything,
-                create_number,
-                number2,
-                ctll::term<'\x7D'>,
-                make_back_reference>;
+    static constexpr auto rule(m, ctll::set<'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+      -> ctll::
+        push<ctll::anything, create_number, number2, ctll::term<'\x7D'>, make_back_reference>;
     static constexpr auto rule(m, ctll::term<'-'>)
-        -> ctll::push<
-            ctll::anything,
-            number,
-            ctll::term<'\x7D'>,
-            make_relative_back_reference>;
+      -> ctll::push<ctll::anything, number, ctll::term<'\x7D'>, make_relative_back_reference>;
     static constexpr auto rule(m, ctll::set<'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'>)
-        -> ctll::push<
-            ctll::anything,
-            push_name,
-            block_name2,
-            ctll::term<'\x7D'>,
-            make_back_reference>;
+      -> ctll::
+        push<ctll::anything, push_name, block_name2, ctll::term<'\x7D'>, make_back_reference>;
 
     static constexpr auto
-        rule(mod, ctll::set<'!', '$', '\x28', '\x29', ',', '-', '.', '/', '0', ':', '<', '=', '>', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', '\\', '\"', ']', '^', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '|', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-            -> ctll::epsilon;
+      rule(mod, ctll::set<'!', '$', '\x28', '\x29', ',', '-', '.', '/', '0', ':', '<', '=', '>', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', '\\', '\"', ']', '^', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '|', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+        -> ctll::epsilon;
     static constexpr auto rule(mod, ctll::epsilon) -> ctll::epsilon;
     static constexpr auto rule(mod, _others) -> ctll::epsilon;
-    static constexpr auto rule(mod, ctll::term<'?'>)
-        -> ctll::push<ctll::anything, make_lazy>;
-    static constexpr auto rule(mod, ctll::term<'+'>)
-        -> ctll::push<ctll::anything, make_possessive>;
-    static constexpr auto rule(mod, ctll::set<'*', '\x7B', '\x7D'>)
-        -> ctll::reject;
+    static constexpr auto rule(mod, ctll::term<'?'>) -> ctll::push<ctll::anything, make_lazy>;
+    static constexpr auto rule(mod, ctll::term<'+'>) -> ctll::push<ctll::anything, make_possessive>;
+    static constexpr auto rule(mod, ctll::set<'*', '\x7B', '\x7D'>) -> ctll::reject;
 
     static constexpr auto rule(mode_switch2, ctll::term<'i'>)
-        -> ctll::push<ctll::anything, mode_case_insensitive, mode_switch2>;
+      -> ctll::push<ctll::anything, mode_case_insensitive, mode_switch2>;
     static constexpr auto rule(mode_switch2, ctll::term<'c'>)
-        -> ctll::push<ctll::anything, mode_case_sensitive, mode_switch2>;
+      -> ctll::push<ctll::anything, mode_case_sensitive, mode_switch2>;
     static constexpr auto rule(mode_switch2, ctll::term<'m'>)
-        -> ctll::push<ctll::anything, mode_multiline, mode_switch2>;
+      -> ctll::push<ctll::anything, mode_multiline, mode_switch2>;
     static constexpr auto rule(mode_switch2, ctll::term<'s'>)
-        -> ctll::push<ctll::anything, mode_singleline, mode_switch2>;
-    static constexpr auto rule(mode_switch2, ctll::term<'\x29'>)
-        -> ctll::push<ctll::anything>;
+      -> ctll::push<ctll::anything, mode_singleline, mode_switch2>;
+    static constexpr auto rule(mode_switch2, ctll::term<'\x29'>) -> ctll::push<ctll::anything>;
 
-    static constexpr auto
-        rule(n, ctll::set<'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-            -> ctll::push<
-                ctll::anything,
-                create_number,
-                number2,
-                repeat_ab,
-                ctll::term<'\x7D'>,
-                mod>;
+    static constexpr auto rule(n, ctll::set<'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+      -> ctll::push<ctll::anything, create_number, number2, repeat_ab, ctll::term<'\x7D'>, mod>;
     static constexpr auto rule(n, ctll::term<'\x7D'>)
-        -> ctll::push<repeat_at_least, ctll::anything, mod>;
+      -> ctll::push<repeat_at_least, ctll::anything, mod>;
 
-    static constexpr auto rule(number2, ctll::set<',', '\x7D'>)
-        -> ctll::epsilon;
-    static constexpr auto
-        rule(number2, ctll::set<'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-            -> ctll::push<ctll::anything, push_number, number2>;
+    static constexpr auto rule(number2, ctll::set<',', '\x7D'>) -> ctll::epsilon;
+    static constexpr auto rule(number2, ctll::set<'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+      -> ctll::push<ctll::anything, push_number, number2>;
 
-    static constexpr auto
-        rule(number, ctll::set<'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-            -> ctll::push<ctll::anything, create_number, number2>;
+    static constexpr auto rule(number, ctll::set<'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+      -> ctll::push<ctll::anything, create_number, number2>;
 
     static constexpr auto rule(o, ctll::set<'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'>)
-        -> ctll::push<
-            ctll::anything,
-            push_name,
-            block_name2,
-            ctll::term<'>'>,
-            content_in_capture,
-            make_capture_with_name,
-            ctll::term<'\x29'>>;
-    static constexpr auto rule(o, ctll::term<'!'>)
-        -> ctll::push<
-            ctll::anything,
-            reset_capture,
-            start_lookbehind_negative,
-            content_in_capture,
-            look_finish,
-            ctll::term<'\x29'>>;
-    static constexpr auto rule(o, ctll::term<'='>)
-        -> ctll::push<
-            ctll::anything,
-            reset_capture,
-            start_lookbehind_positive,
-            content_in_capture,
-            look_finish,
-            ctll::term<'\x29'>>;
+      -> ctll::push<
+        ctll::anything,
+        push_name,
+        block_name2,
+        ctll::term<'>'>,
+        content_in_capture,
+        make_capture_with_name,
+        ctll::term<'\x29'>>;
+    static constexpr auto rule(o, ctll::term<'!'>) -> ctll::push<
+                                                     ctll::anything,
+                                                     reset_capture,
+                                                     start_lookbehind_negative,
+                                                     content_in_capture,
+                                                     look_finish,
+                                                     ctll::term<'\x29'>>;
+    static constexpr auto rule(o, ctll::term<'='>) -> ctll::push<
+                                                     ctll::anything,
+                                                     reset_capture,
+                                                     start_lookbehind_positive,
+                                                     content_in_capture,
+                                                     look_finish,
+                                                     ctll::term<'\x29'>>;
 
-    static constexpr auto rule(p, ctll::term<'p'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       ctll::term<'h'>,
-                                                       ctll::term<'a'>,
-                                                       class_named_alpha>;
-    static constexpr auto rule(p, ctll::term<'n'>) -> ctll::push<
-                                                       ctll::anything,
-                                                       ctll::term<'u'>,
-                                                       ctll::term<'m'>,
-                                                       class_named_alnum>;
+    static constexpr auto rule(p, ctll::term<'p'>)
+      -> ctll::push<ctll::anything, ctll::term<'h'>, ctll::term<'a'>, class_named_alpha>;
+    static constexpr auto rule(p, ctll::term<'n'>)
+      -> ctll::push<ctll::anything, ctll::term<'u'>, ctll::term<'m'>, class_named_alnum>;
 
-    static constexpr auto rule(property_name2, ctll::term<'\x7D'>)
-        -> ctll::epsilon;
+    static constexpr auto rule(property_name2, ctll::term<'\x7D'>) -> ctll::epsilon;
     static constexpr auto rule(property_name2, ctll::term<'='>)
-        -> ctll::push<ctll::anything, property_value>;
-    static constexpr auto
-        rule(property_name2, ctll::set<'0', '.', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-            -> ctll::push<ctll::anything, push_property_name, property_name2>;
+      -> ctll::push<ctll::anything, property_value>;
+    static constexpr auto rule(property_name2, ctll::set<'0', '.', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+      -> ctll::push<ctll::anything, push_property_name, property_name2>;
 
     static constexpr auto rule(property_name, ctll::set<'0', '.', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-        -> ctll::push<ctll::anything, push_property_name, property_name2>;
+      -> ctll::push<ctll::anything, push_property_name, property_name2>;
 
-    static constexpr auto rule(property_value2, ctll::term<'\x7D'>)
-        -> ctll::epsilon;
-    static constexpr auto
-        rule(property_value2, ctll::set<'0', '.', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-            -> ctll::push<ctll::anything, push_property_value, property_value2>;
+    static constexpr auto rule(property_value2, ctll::term<'\x7D'>) -> ctll::epsilon;
+    static constexpr auto rule(property_value2, ctll::set<'0', '.', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+      -> ctll::push<ctll::anything, push_property_value, property_value2>;
 
-    static constexpr auto
-        rule(property_value, ctll::set<'0', '.', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-            -> ctll::push<ctll::anything, push_property_value, property_value2>;
+    static constexpr auto rule(property_value, ctll::set<'0', '.', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+      -> ctll::push<ctll::anything, push_property_value, property_value2>;
 
     static constexpr auto rule(range, ctll::set<'!', '$', '\x28', '\x29', '*', '+', ',', '.', '/', '0', ':', '<', '=', '>', '?', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', '\\', '\"', ']', '^', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '\x7B', '|', '\x7D', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-        -> ctll::epsilon;
+      -> ctll::epsilon;
     static constexpr auto rule(range, ctll::epsilon) -> ctll::epsilon;
     static constexpr auto rule(range, _others) -> ctll::epsilon;
-    static constexpr auto rule(range, ctll::term<'-'>)
-        -> ctll::push<ctll::anything, j>;
+    static constexpr auto rule(range, ctll::term<'-'>) -> ctll::push<ctll::anything, j>;
 
     static constexpr auto rule(repeat, ctll::set<'!', '$', '\x28', '\x29', ',', '-', '.', '/', '0', ':', '<', '=', '>', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', '\\', '\"', ']', '^', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '|', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-        -> ctll::epsilon;
+      -> ctll::epsilon;
     static constexpr auto rule(repeat, ctll::epsilon) -> ctll::epsilon;
     static constexpr auto rule(repeat, _others) -> ctll::epsilon;
     static constexpr auto rule(repeat, ctll::term<'?'>)
-        -> ctll::push<ctll::anything, make_optional, mod>;
-    static constexpr auto rule(repeat, ctll::term<'\x7B'>)
-        -> ctll::push<ctll::anything, number, b>;
+      -> ctll::push<ctll::anything, make_optional, mod>;
+    static constexpr auto rule(repeat, ctll::term<'\x7B'>) -> ctll::push<ctll::anything, number, b>;
     static constexpr auto rule(repeat, ctll::term<'+'>)
-        -> ctll::push<ctll::anything, repeat_plus, mod>;
+      -> ctll::push<ctll::anything, repeat_plus, mod>;
     static constexpr auto rule(repeat, ctll::term<'*'>)
-        -> ctll::push<ctll::anything, repeat_star, mod>;
+      -> ctll::push<ctll::anything, repeat_star, mod>;
     static constexpr auto rule(repeat, ctll::term<'\x7D'>) -> ctll::reject;
 
     static constexpr auto rule(set2a, ctll::term<']'>) -> ctll::epsilon;
     static constexpr auto rule(set2a, ctll::term<'['>)
-        -> ctll::
-            push<ctll::anything, ctll::term<':'>, i, range, set_start, set2b>;
+      -> ctll::push<ctll::anything, ctll::term<':'>, i, range, set_start, set2b>;
     static constexpr auto rule(set2a, ctll::term<'\\'>)
-        -> ctll::push<ctll::anything, f, set_start, set2b>;
-    static constexpr auto rule(set2a, ctll::set<'!', '$', '\x28', '\x29', '*', '+', ',', '.', '/', ':', '<', '=', '>', '?', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '\"', '^', '0', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '\x7B', '|', '\x7D', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+      -> ctll::push<ctll::anything, f, set_start, set2b>;
+    static constexpr auto
+      rule(set2a, ctll::set<'!', '$', '\x28', '\x29', '*', '+', ',', '.', '/', ':', '<', '=', '>', '?', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '\"', '^', '0', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '\x7B', '|', '\x7D', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
         -> ctll::push<ctll::anything, push_character, range, set_start, set2b>;
     static constexpr auto rule(set2a, _others)
-        -> ctll::push<ctll::anything, push_character, range, set_start, set2b>;
+      -> ctll::push<ctll::anything, push_character, range, set_start, set2b>;
     static constexpr auto rule(set2a, ctll::term<'-'>) -> ctll::reject;
 
     static constexpr auto rule(set2b, ctll::term<']'>) -> ctll::epsilon;
     static constexpr auto rule(set2b, ctll::term<'['>)
-        -> ctll::
-            push<ctll::anything, ctll::term<':'>, i, range, set_combine, set2b>;
+      -> ctll::push<ctll::anything, ctll::term<':'>, i, range, set_combine, set2b>;
     static constexpr auto rule(set2b, ctll::term<'\\'>)
-        -> ctll::push<ctll::anything, f, set_combine, set2b>;
-    static constexpr auto rule(set2b, ctll::set<'!', '$', '\x28', '\x29', '*', '+', ',', '.', '/', ':', '<', '=', '>', '?', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '\"', '^', '0', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '\x7B', '|', '\x7D', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-        -> ctll::
-            push<ctll::anything, push_character, range, set_combine, set2b>;
-    static constexpr auto rule(
-        set2b,
-        _others
-    ) -> ctll::push<ctll::anything, push_character, range, set_combine, set2b>;
+      -> ctll::push<ctll::anything, f, set_combine, set2b>;
+    static constexpr auto
+      rule(set2b, ctll::set<'!', '$', '\x28', '\x29', '*', '+', ',', '.', '/', ':', '<', '=', '>', '?', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '\"', '^', '0', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '\x7B', '|', '\x7D', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+        -> ctll::push<ctll::anything, push_character, range, set_combine, set2b>;
+    static constexpr auto rule(set2b, _others)
+      -> ctll::push<ctll::anything, push_character, range, set_combine, set2b>;
     static constexpr auto rule(set2b, ctll::term<'-'>) -> ctll::reject;
 
-    static constexpr auto rule(string2, ctll::set<'\x29', '|'>)
-        -> ctll::epsilon;
+    static constexpr auto rule(string2, ctll::set<'\x29', '|'>) -> ctll::epsilon;
     static constexpr auto rule(string2, ctll::epsilon) -> ctll::epsilon;
     static constexpr auto rule(string2, ctll::term<'\\'>)
-        -> ctll::
-            push<ctll::anything, backslash, repeat, string2, make_sequence>;
+      -> ctll::push<ctll::anything, backslash, repeat, string2, make_sequence>;
     static constexpr auto rule(string2, ctll::term<'['>)
-        -> ctll::push<ctll::anything, c, repeat, string2, make_sequence>;
-    static constexpr auto rule(string2, ctll::term<'\x28'>) -> ctll::push<
-                                                                ctll::anything,
-                                                                prepare_capture,
-                                                                block,
-                                                                repeat,
-                                                                string2,
-                                                                make_sequence>;
-    static constexpr auto rule(string2, ctll::term<'^'>) -> ctll::push<
-                                                             ctll::anything,
-                                                             push_assert_begin,
-                                                             repeat,
-                                                             string2,
-                                                             make_sequence>;
-    static constexpr auto rule(string2, ctll::term<'$'>) -> ctll::push<
-                                                             ctll::anything,
-                                                             push_assert_end,
-                                                             repeat,
-                                                             string2,
-                                                             make_sequence>;
-    static constexpr auto
-        rule(string2, ctll::set<'!', ',', '/', ':', '<', '0', '-', '=', '>', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '\"', ']', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
-            -> ctll::push<
-                ctll::anything,
-                push_character,
-                repeat,
-                string2,
-                make_sequence>;
-    static constexpr auto rule(
-        string2,
-        _others
-    ) -> ctll::
-          push<ctll::anything, push_character, repeat, string2, make_sequence>;
+      -> ctll::push<ctll::anything, c, repeat, string2, make_sequence>;
+    static constexpr auto rule(string2, ctll::term<'\x28'>)
+      -> ctll::push<ctll::anything, prepare_capture, block, repeat, string2, make_sequence>;
+    static constexpr auto rule(string2, ctll::term<'^'>)
+      -> ctll::push<ctll::anything, push_assert_begin, repeat, string2, make_sequence>;
+    static constexpr auto rule(string2, ctll::term<'$'>)
+      -> ctll::push<ctll::anything, push_assert_end, repeat, string2, make_sequence>;
+    static constexpr auto rule(string2, ctll::set<'!', ',', '/', ':', '<', '0', '-', '=', '>', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '\"', ']', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z', '1', '2', '3', '4', '5', '6', '7', '8', '9'>)
+      -> ctll::push<ctll::anything, push_character, repeat, string2, make_sequence>;
+    static constexpr auto rule(string2, _others)
+      -> ctll::push<ctll::anything, push_character, repeat, string2, make_sequence>;
     static constexpr auto rule(string2, ctll::term<'.'>)
-        -> ctll::push<
-            ctll::anything,
-            push_character_anything,
-            repeat,
-            string2,
-            make_sequence>;
-    static constexpr auto
-        rule(string2, ctll::set<'*', '+', '?', '\x7B', '\x7D'>) -> ctll::reject;
+      -> ctll::push<ctll::anything, push_character_anything, repeat, string2, make_sequence>;
+    static constexpr auto rule(string2, ctll::set<'*', '+', '?', '\x7B', '\x7D'>) -> ctll::reject;
   };
 
 } // namespace ctre
@@ -2617,18 +2283,10 @@ namespace ctre {
     constexpr flags(const flags&) = default;
     constexpr flags(flags&&)      = default;
 
-    constexpr CTRE_FORCE_INLINE flags(ctre::singleline v) noexcept {
-      set_flag(v);
-    }
-    constexpr CTRE_FORCE_INLINE flags(ctre::multiline v) noexcept {
-      set_flag(v);
-    }
-    constexpr CTRE_FORCE_INLINE flags(ctre::case_sensitive v) noexcept {
-      set_flag(v);
-    }
-    constexpr CTRE_FORCE_INLINE flags(ctre::case_insensitive v) noexcept {
-      set_flag(v);
-    }
+    constexpr CTRE_FORCE_INLINE flags(ctre::singleline v) noexcept { set_flag(v); }
+    constexpr CTRE_FORCE_INLINE flags(ctre::multiline v) noexcept { set_flag(v); }
+    constexpr CTRE_FORCE_INLINE flags(ctre::case_sensitive v) noexcept { set_flag(v); }
+    constexpr CTRE_FORCE_INLINE flags(ctre::case_insensitive v) noexcept { set_flag(v); }
 
     template <typename... Args>
     constexpr CTRE_FORCE_INLINE flags(ctll::list<Args...>) noexcept {
@@ -2641,31 +2299,24 @@ namespace ctre {
       return f;
     }
 
-    constexpr friend CTRE_FORCE_INLINE auto
-    operator+(flags f, pcre::mode_case_sensitive) noexcept {
+    constexpr friend CTRE_FORCE_INLINE auto operator+(flags f, pcre::mode_case_sensitive) noexcept {
       f.case_insensitive = false;
       return f;
     }
 
-    constexpr friend CTRE_FORCE_INLINE auto
-    operator+(flags f, pcre::mode_singleline) noexcept {
+    constexpr friend CTRE_FORCE_INLINE auto operator+(flags f, pcre::mode_singleline) noexcept {
       f.multiline = false;
       return f;
     }
 
-    constexpr friend CTRE_FORCE_INLINE auto
-    operator+(flags f, pcre::mode_multiline) noexcept {
+    constexpr friend CTRE_FORCE_INLINE auto operator+(flags f, pcre::mode_multiline) noexcept {
       f.multiline = true;
       return f;
     }
 
-    constexpr CTRE_FORCE_INLINE void set_flag(ctre::singleline) noexcept {
-      multiline = false;
-    }
+    constexpr CTRE_FORCE_INLINE void set_flag(ctre::singleline) noexcept { multiline = false; }
 
-    constexpr CTRE_FORCE_INLINE void set_flag(ctre::multiline) noexcept {
-      multiline = true;
-    }
+    constexpr CTRE_FORCE_INLINE void set_flag(ctre::multiline) noexcept { multiline = true; }
 
     constexpr CTRE_FORCE_INLINE void set_flag(ctre::case_insensitive) noexcept {
       case_insensitive = true;
@@ -2681,23 +2332,17 @@ namespace ctre {
     return f;
   }
 
-  constexpr CTRE_FORCE_INLINE auto
-  consumed_something(flags f, bool condition = true) {
-    if (condition) f.block_empty_match = false;
+  constexpr CTRE_FORCE_INLINE auto consumed_something(flags f, bool condition = true) {
+    if (condition)
+      f.block_empty_match = false;
     return f;
   }
 
-  constexpr CTRE_FORCE_INLINE bool cannot_be_empty_match(flags f) {
-    return f.block_empty_match;
-  }
+  constexpr CTRE_FORCE_INLINE bool cannot_be_empty_match(flags f) { return f.block_empty_match; }
 
-  constexpr CTRE_FORCE_INLINE bool multiline_mode(flags f) {
-    return f.multiline;
-  }
+  constexpr CTRE_FORCE_INLINE bool multiline_mode(flags f) { return f.multiline; }
 
-  constexpr CTRE_FORCE_INLINE bool is_case_insensitive(flags f) {
-    return f.case_insensitive;
-  }
+  constexpr CTRE_FORCE_INLINE bool is_case_insensitive(flags f) { return f.case_insensitive; }
 
 } // namespace ctre
 
@@ -2718,15 +2363,14 @@ namespace ctre {
 
    public:
     template <typename CharT>
-    static inline constexpr bool value =
-        decltype(test<T>(std::declval<CharT>()))();
+    static inline constexpr bool value = decltype(test<T>(std::declval<CharT>()))();
   };
 
   template <typename T>
   constexpr CTRE_FORCE_INLINE bool is_ascii_alpha(T v) {
     return (
-        (v >= static_cast<T>('a') && v <= static_cast<T>('z')) ||
-        (v >= static_cast<T>('A') && v <= static_cast<T>('Z'))
+      (v >= static_cast<T>('a') && v <= static_cast<T>('z')) ||
+      (v >= static_cast<T>('A') && v <= static_cast<T>('Z'))
     );
   }
 
@@ -2743,8 +2387,7 @@ namespace ctre {
   template <auto V>
   struct character {
     template <typename CharT>
-    CTRE_FORCE_INLINE static constexpr bool
-    match_char(CharT value, const flags& f) noexcept {
+    CTRE_FORCE_INLINE static constexpr bool match_char(CharT value, const flags& f) noexcept {
       if constexpr (is_ascii_alpha(V)) {
         if (is_case_insensitive(f)) {
           if (value == (V ^ static_cast<decltype(V)>(0x20))) {
@@ -2759,8 +2402,7 @@ namespace ctre {
   template <typename... Content>
   struct negative_set {
     template <typename CharT>
-    CTRE_FORCE_INLINE static constexpr bool
-    match_char(CharT value, const flags& f) noexcept {
+    CTRE_FORCE_INLINE static constexpr bool match_char(CharT value, const flags& f) noexcept {
       return !(Content::match_char(value, f) || ... || false);
     }
   };
@@ -2768,8 +2410,7 @@ namespace ctre {
   template <typename... Content>
   struct set {
     template <typename CharT>
-    CTRE_FORCE_INLINE static constexpr bool
-    match_char(CharT value, const flags& f) noexcept {
+    CTRE_FORCE_INLINE static constexpr bool match_char(CharT value, const flags& f) noexcept {
       return (Content::match_char(value, f) || ... || false);
     }
   };
@@ -2780,8 +2421,7 @@ namespace ctre {
   template <typename... Content>
   struct negate {
     template <typename CharT>
-    CTRE_FORCE_INLINE static constexpr bool
-    match_char(CharT value, const flags& f) noexcept {
+    CTRE_FORCE_INLINE static constexpr bool match_char(CharT value, const flags& f) noexcept {
       return !(Content::match_char(value, f) || ... || false);
     }
   };
@@ -2789,18 +2429,15 @@ namespace ctre {
   template <auto A, auto B>
   struct char_range {
     template <typename CharT>
-    CTRE_FORCE_INLINE static constexpr bool
-    match_char(CharT value, const flags& f) noexcept {
-      if constexpr (is_ascii_alpha_lowercase(A) &&
-                    is_ascii_alpha_lowercase(B)) {
+    CTRE_FORCE_INLINE static constexpr bool match_char(CharT value, const flags& f) noexcept {
+      if constexpr (is_ascii_alpha_lowercase(A) && is_ascii_alpha_lowercase(B)) {
         if (is_case_insensitive(f)) {
           if (value >= (A ^ static_cast<decltype(A)>(0x20)) &&
               value <= (B ^ static_cast<decltype(B)>(0x20))) {
             return true; //
           }
         }
-      } else if constexpr (is_ascii_alpha_uppercase(A) &&
-                           is_ascii_alpha_uppercase(B)) {
+      } else if constexpr (is_ascii_alpha_uppercase(A) && is_ascii_alpha_uppercase(B)) {
         if (is_case_insensitive(f)) {
           if (value >= (A ^ static_cast<decltype(A)>(0x20)) &&
               value <= (B ^ static_cast<decltype(B)>(0x20))) {
@@ -2812,86 +2449,81 @@ namespace ctre {
     }
   };
   using word_chars =
-      set<char_range<'A', 'Z'>,
-          char_range<'a', 'z'>,
-          char_range<'0', '9'>,
-          character<'_'>>;
+    set<char_range<'A', 'Z'>, char_range<'a', 'z'>, char_range<'0', '9'>, character<'_'>>;
 
   using space_chars = enumeration<' ', '\t', '\n', '\v', '\f', '\r'>;
 
   using vertical_space_chars = enumeration<
-      char {0x000A},     // Linefeed (LF)
-      char {0x000B},     // Vertical tab (VT)
-      char {0x000C},     // Form feed (FF)
-      char {0x000D},     // Carriage return (CR)
-      char32_t {0x0085}, // Next line (NEL)
-      char32_t {0x2028}, // Line separator
-      char32_t {0x2029}  // Paragraph separator
-      >;
+    char { 0x000A },     // Linefeed (LF)
+    char { 0x000B },     // Vertical tab (VT)
+    char { 0x000C },     // Form feed (FF)
+    char { 0x000D },     // Carriage return (CR)
+    char32_t { 0x0085 }, // Next line (NEL)
+    char32_t { 0x2028 }, // Line separator
+    char32_t { 0x2029 }  // Paragraph separator
+    >;
 
   using horizontal_space_chars = enumeration<
-      char {0x0009},     // Horizontal tab (HT)
-      char {0x0020},     // Space
-      char32_t {0x00A0}, // Non-break space
-      char32_t {0x1680}, // Ogham space mark
-      char32_t {0x180E}, // Mongolian vowel separator
-      char32_t {0x2000}, // En quad
-      char32_t {0x2001}, // Em quad
-      char32_t {0x2002}, // En space
-      char32_t {0x2003}, // Em space
-      char32_t {0x2004}, // Three-per-em space
-      char32_t {0x2005}, // Four-per-em space
-      char32_t {0x2006}, // Six-per-em space
-      char32_t {0x2007}, // Figure space
-      char32_t {0x2008}, // Punctuation space
-      char32_t {0x2009}, // Thin space
-      char32_t {0x200A}, // Hair space
-      char32_t {0x202F}, // Narrow no-break space
-      char32_t {0x205F}, // Medium mathematical space
-      char32_t {0x3000}  // Ideographic space
-      >;
+    char { 0x0009 },     // Horizontal tab (HT)
+    char { 0x0020 },     // Space
+    char32_t { 0x00A0 }, // Non-break space
+    char32_t { 0x1680 }, // Ogham space mark
+    char32_t { 0x180E }, // Mongolian vowel separator
+    char32_t { 0x2000 }, // En quad
+    char32_t { 0x2001 }, // Em quad
+    char32_t { 0x2002 }, // En space
+    char32_t { 0x2003 }, // Em space
+    char32_t { 0x2004 }, // Three-per-em space
+    char32_t { 0x2005 }, // Four-per-em space
+    char32_t { 0x2006 }, // Six-per-em space
+    char32_t { 0x2007 }, // Figure space
+    char32_t { 0x2008 }, // Punctuation space
+    char32_t { 0x2009 }, // Thin space
+    char32_t { 0x200A }, // Hair space
+    char32_t { 0x202F }, // Narrow no-break space
+    char32_t { 0x205F }, // Medium mathematical space
+    char32_t { 0x3000 }  // Ideographic space
+    >;
 
-  using alphanum_chars =
-      set<char_range<'A', 'Z'>, char_range<'a', 'z'>, char_range<'0', '9'>>;
+  using alphanum_chars = set<char_range<'A', 'Z'>, char_range<'a', 'z'>, char_range<'0', '9'>>;
 
   using alpha_chars = set<char_range<'A', 'Z'>, char_range<'a', 'z'>>;
 
-  using xdigit_chars =
-      set<char_range<'A', 'F'>, char_range<'a', 'f'>, char_range<'0', '9'>>;
+  using xdigit_chars = set<char_range<'A', 'F'>, char_range<'a', 'f'>, char_range<'0', '9'>>;
 
   using punct_chars = enumeration<
-      '!',
-      '"',
-      '#',
-      '$',
-      '%',
-      '&',
-      '\'',
-      '(',
-      ')',
-      '*',
-      '+',
-      ',',
-      '-',
-      '.',
-      '/',
-      ':',
-      ';',
-      '<',
-      '=',
-      '>',
-      '?',
-      '@',
-      '[',
-      '\\',
-      ']',
-      '^',
-      '_',
-      '`',
-      '{',
-      '|',
-      '}',
-      '~'>;
+    '!',
+    '"',
+    '#',
+    '$',
+    '%',
+    '&',
+    '\'',
+    '(',
+    ')',
+    '*',
+    '+',
+    ',',
+    '-',
+    '.',
+    '/',
+    ':',
+    ';',
+    '<',
+    '=',
+    '>',
+    '?',
+    '@',
+    '[',
+    '\\',
+    ']',
+    '^',
+    '_',
+    '`',
+    '{',
+    '|',
+    '}',
+    '~'>;
 
   using digit_chars = char_range<'0', '9'>;
 
@@ -3083,7 +2715,7 @@ namespace uni {
 
   namespace detail {
     enum class binary_prop;
-    constexpr int propnamecomp(std::string_view sa, std::string_view sb);
+    constexpr int         propnamecomp(std::string_view sa, std::string_view sb);
     constexpr binary_prop binary_prop_from_string(std::string_view s);
 
     template <binary_prop p>
@@ -3126,11 +2758,9 @@ namespace ctre {
   struct property;
 
   template <auto Type>
-  using make_binary_property =
-      binary_property<std::remove_const_t<decltype(Type)>, Type>;
+  using make_binary_property = binary_property<std::remove_const_t<decltype(Type)>, Type>;
   template <auto Type, auto Value>
-  using make_property =
-      property<std::remove_const_t<decltype(Type)>, Type, Value>;
+  using make_property = property<std::remove_const_t<decltype(Type)>, Type, Value>;
 
   // unicode TS#18 level 1.2 general_category
   template <uni::detail::binary_prop Property>
@@ -3160,7 +2790,8 @@ namespace ctre {
     template <typename CharT>
     inline static constexpr bool match_char(CharT c, const flags&) noexcept {
       for (uni::script sc : uni::cp_script_extensions(c)) {
-        if (sc == Script) return true;
+        if (sc == Script)
+          return true;
       }
       return false;
     }
@@ -3186,8 +2817,7 @@ namespace ctre {
 
   template <typename = void> // Make it always a template as propnamecomp isn't
                              // defined yet
-  constexpr property_type property_type_from_name(std::string_view str
-  ) noexcept {
+  constexpr property_type property_type_from_name(std::string_view str) noexcept {
     using namespace std::string_view_literals;
     if (uni::detail::propnamecomp(str, "script"sv) == 0 ||
         uni::detail::propnamecomp(str, "sc"sv) == 0) {
@@ -3214,9 +2844,8 @@ namespace ctre {
 
   template <auto... Name>
   struct property_builder {
-    static constexpr char name[sizeof...(Name)] {static_cast<char>(Name)...};
-    static constexpr property_type type =
-        property_type_from_name(get_string_view(name));
+    static constexpr char          name[sizeof...(Name)] { static_cast<char>(Name)... };
+    static constexpr property_type type = property_type_from_name(get_string_view(name));
 
     using helper = property_type_builder<type>;
 
@@ -3232,9 +2861,8 @@ namespace ctre {
   struct property_type_builder<property_type::script> {
     template <auto... Value>
     static constexpr auto get() {
-      constexpr char value[sizeof...(Value)] {static_cast<char>(Value)...};
-      constexpr auto sc =
-          uni::detail::script_from_string(get_string_view(value));
+      constexpr char value[sizeof...(Value)] { static_cast<char>(Value)... };
+      constexpr auto sc = uni::detail::script_from_string(get_string_view(value));
       if constexpr (uni::detail::is_unknown(sc)) {
         return ctll::reject {};
       } else {
@@ -3247,9 +2875,8 @@ namespace ctre {
   struct property_type_builder<property_type::script_extension> {
     template <auto... Value>
     static constexpr auto get() {
-      constexpr char value[sizeof...(Value)] {static_cast<char>(Value)...};
-      constexpr auto sc =
-          uni::detail::script_from_string(get_string_view(value));
+      constexpr char value[sizeof...(Value)] { static_cast<char>(Value)... };
+      constexpr auto sc = uni::detail::script_from_string(get_string_view(value));
       if constexpr (uni::detail::is_unknown(sc)) {
         return ctll::reject {};
       } else {
@@ -3262,7 +2889,7 @@ namespace ctre {
   struct property_type_builder<property_type::age> {
     template <auto... Value>
     static constexpr auto get() {
-      constexpr char value[sizeof...(Value)] {static_cast<char>(Value)...};
+      constexpr char value[sizeof...(Value)] { static_cast<char>(Value)... };
       constexpr auto age = uni::detail::age_from_string(get_string_view(value));
       if constexpr (uni::detail::is_unassigned(age)) {
         return ctll::reject {};
@@ -3276,9 +2903,8 @@ namespace ctre {
   struct property_type_builder<property_type::block> {
     template <auto... Value>
     static constexpr auto get() {
-      constexpr char value[sizeof...(Value)] {static_cast<char>(Value)...};
-      constexpr auto block =
-          uni::detail::block_from_string(get_string_view(value));
+      constexpr char value[sizeof...(Value)] { static_cast<char>(Value)... };
+      constexpr auto block = uni::detail::block_from_string(get_string_view(value));
       if constexpr (uni::detail::is_unknown(block)) {
         return ctll::reject {};
       } else {
@@ -3298,13 +2924,13 @@ namespace ctre {
   auto convert_to_capture(ctll::list<Content...>) -> capture<Index, Content...>;
   template <size_t Index, typename Name, typename... Content>
   auto convert_to_named_capture(ctll::list<Content...>)
-      -> capture_with_name<Index, Name, Content...>;
+    -> capture_with_name<Index, Name, Content...>;
   template <
-      template <size_t, size_t, typename...>
-      typename CycleType,
-      size_t A,
-      size_t B,
-      typename... Content>
+    template <size_t, size_t, typename...>
+    typename CycleType,
+    size_t A,
+    size_t B,
+    typename... Content>
   auto convert_to_repeat(ctll::list<Content...>) -> CycleType<A, B, Content...>;
   template <template <typename...> typename ListType, typename... Content>
   auto convert_to_basic_list(ctll::list<Content...>) -> ListType<Content...>;
@@ -3312,8 +2938,7 @@ namespace ctre {
   template <auto V>
   struct rotate_value {
     template <auto... Vs>
-    friend constexpr auto operator+(string<Vs...>, rotate_value<V>) noexcept
-        -> string<V, Vs...> {
+    friend constexpr auto operator+(string<Vs...>, rotate_value<V>) noexcept -> string<V, Vs...> {
       return {};
     }
   };
@@ -3361,74 +2986,68 @@ namespace ctre {
 
     template <size_t a, size_t b, typename... Content>
     static auto rotate(repeat<a, b, Content...>)
-        -> decltype(ctre::convert_to_repeat<repeat, a, b>(
-            ctll::rotate(ctll::list<decltype(rotate(Content {}))...> {})
-        ));
+      -> decltype(ctre::convert_to_repeat<repeat, a, b>(
+        ctll::rotate(ctll::list<decltype(rotate(Content {}))...> {})
+      ));
     template <size_t a, size_t b, typename... Content>
     static auto rotate(lazy_repeat<a, b, Content...>)
-        -> decltype(ctre::convert_to_repeat<lazy_repeat, a, b>(
-            ctll::rotate(ctll::list<decltype(rotate(Content {}))...> {})
-        ));
+      -> decltype(ctre::convert_to_repeat<lazy_repeat, a, b>(
+        ctll::rotate(ctll::list<decltype(rotate(Content {}))...> {})
+      ));
     template <size_t a, size_t b, typename... Content>
     static auto rotate(possessive_repeat<a, b, Content...>)
-        -> decltype(ctre::convert_to_repeat<possessive_repeat, a, b>(
-            ctll::rotate(ctll::list<decltype(rotate(Content {}))...> {})
-        ));
+      -> decltype(ctre::convert_to_repeat<possessive_repeat, a, b>(
+        ctll::rotate(ctll::list<decltype(rotate(Content {}))...> {})
+      ));
 
     template <size_t Index, typename... Content>
     static auto rotate(capture<Index, Content...>) {
       return ctre::convert_to_capture<Index>(
-          ctll::rotate(ctll::list<decltype(rotate(Content {}))...> {})
+        ctll::rotate(ctll::list<decltype(rotate(Content {}))...> {})
       );
     }
 
     template <size_t Index, typename Name, typename... Content>
     static auto rotate(capture_with_name<Index, Name, Content...>) {
       return ctre::convert_to_named_capture<Index, Name>(
-          ctll::rotate(ctll::list<decltype(rotate(Content {}))...> {})
+        ctll::rotate(ctll::list<decltype(rotate(Content {}))...> {})
       );
     }
 
     template <size_t Index>
     static auto rotate(back_reference<Index>) -> back_reference<Index>;
     template <typename Name>
-    static auto rotate(back_reference_with_name<Name>)
-        -> back_reference_with_name<Name>;
+    static auto rotate(back_reference_with_name<Name>) -> back_reference_with_name<Name>;
 
     template <typename... Content>
     static auto rotate(look_start<Content...>) -> look_start<Content...>;
 
     template <auto... Str>
-    static auto rotate(string<Str...>)
-        -> decltype((string<> {} + ... + rotate_value<Str> {}));
+    static auto rotate(string<Str...>) -> decltype((string<> {} + ... + rotate_value<Str> {}));
 
     template <typename... Content>
     static auto rotate(sequence<Content...>) {
       return ctre::convert_to_basic_list<sequence>(
-          ctll::rotate(ctll::list<decltype(rotate(Content {}))...> {})
+        ctll::rotate(ctll::list<decltype(rotate(Content {}))...> {})
       );
     }
 
     // we don't rotate lookaheads
     template <typename... Content>
-    static auto rotate(lookahead_positive<Content...>)
-        -> lookahead_positive<Content...>;
+    static auto rotate(lookahead_positive<Content...>) -> lookahead_positive<Content...>;
     template <typename... Content>
-    static auto rotate(lookahead_negative<Content...>)
-        -> lookahead_negative<Content...>;
+    static auto rotate(lookahead_negative<Content...>) -> lookahead_negative<Content...>;
     template <typename... Content>
-    static auto rotate(lookbehind_positive<Content...>)
-        -> lookbehind_positive<Content...>;
+    static auto rotate(lookbehind_positive<Content...>) -> lookbehind_positive<Content...>;
     template <typename... Content>
-    static auto rotate(lookbehind_negative<Content...>)
-        -> lookbehind_negative<Content...>;
+    static auto rotate(lookbehind_negative<Content...>) -> lookbehind_negative<Content...>;
 
     static auto rotate(atomic_start) -> atomic_start;
 
     template <typename... Content>
     static auto rotate(atomic_group<Content...>) {
       return ctre::convert_to_basic_list<atomic_group>(
-          ctll::rotate(ctll::list<decltype(rotate(Content {}))...> {})
+        ctll::rotate(ctll::list<decltype(rotate(Content {}))...> {})
       );
     }
 
@@ -3457,29 +3076,24 @@ namespace ctre {
 
   template <auto... Name>
   struct id {
-    static constexpr auto name =
-        ctll::fixed_string<sizeof...(Name)> {{Name...}};
+    static constexpr auto name = ctll::fixed_string<sizeof...(Name)> { { Name... } };
 
-    friend constexpr auto operator==(id<Name...>, id<Name...>) noexcept
-        -> std::true_type {
+    friend constexpr auto operator==(id<Name...>, id<Name...>) noexcept -> std::true_type {
       return {};
     }
 
     template <auto... Other>
-    friend constexpr auto operator==(id<Name...>, id<Other...>) noexcept
-        -> std::false_type {
+    friend constexpr auto operator==(id<Name...>, id<Other...>) noexcept -> std::false_type {
       return {};
     }
 
     template <typename T>
-    friend constexpr auto operator==(id<Name...>, T) noexcept
-        -> std::false_type {
+    friend constexpr auto operator==(id<Name...>, T) noexcept -> std::false_type {
       return {};
     }
 
     template <typename T>
-    friend constexpr auto operator==(T, id<Name...>) noexcept
-        -> std::false_type {
+    friend constexpr auto operator==(T, id<Name...>) noexcept -> std::false_type {
       return {};
     }
   };
@@ -3499,9 +3113,9 @@ namespace ctre {
   };
 
   template <
-      typename Stack      = ctll::list<>,
-      typename Parameters = pcre_parameters<0>,
-      typename Mode       = ctll::list<>>
+    typename Stack      = ctll::list<>,
+    typename Parameters = pcre_parameters<0>,
+    typename Mode       = ctll::list<>>
   struct pcre_context {
     using stack_type                        = Stack;
     using parameters_type                   = Parameters;
@@ -3516,7 +3130,7 @@ namespace ctre {
 
   template <typename... Content, typename Parameters>
   pcre_context(ctll::list<Content...>, Parameters)
-      -> pcre_context<ctll::list<Content...>, Parameters>;
+    -> pcre_context<ctll::list<Content...>, Parameters>;
 
   template <size_t Value>
   struct number {};
@@ -3532,65 +3146,56 @@ namespace ctre {
     // push_assert_begin
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_assert_begin,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::push_assert_begin,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(assert_line_begin(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(assert_line_begin(), subject.stack),
+                            subject.parameters };
     }
 
     // push_assert_end
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_assert_end,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::push_assert_end,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(assert_line_end(), subject.stack), subject.parameters
-      };
+      return pcre_context { ctll::push_front(assert_line_end(), subject.stack),
+                            subject.parameters };
     }
 
     // push_assert_begin
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_assert_subject_begin,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::push_assert_subject_begin,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(assert_subject_begin(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(assert_subject_begin(), subject.stack),
+                            subject.parameters };
     }
 
     // push_assert_subject_end
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_assert_subject_end,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::push_assert_subject_end,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(assert_subject_end(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(assert_subject_end(), subject.stack),
+                            subject.parameters };
     }
 
     // push_assert_subject_end_with_lineend
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_assert_subject_end_with_lineend,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::push_assert_subject_end_with_lineend,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(assert_subject_end_line(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(assert_subject_end_line(), subject.stack),
+                            subject.parameters };
     }
 
 #endif
@@ -3602,28 +3207,22 @@ namespace ctre {
     template <auto V, typename... Ts, size_t Counter>
     static constexpr auto
     apply(pcre::start_atomic, ctll::term<V>, pcre_context<ctll::list<Ts...>, pcre_parameters<Counter>>) {
-      return pcre_context {
-          ctll::list<atomic_start, Ts...>(), pcre_parameters<Counter>()
-      };
+      return pcre_context { ctll::list<atomic_start, Ts...>(), pcre_parameters<Counter>() };
     }
 
     // atomic
     template <auto V, typename Atomic, typename... Ts, size_t Counter>
     static constexpr auto
     apply(pcre::make_atomic, ctll::term<V>, pcre_context<ctll::list<Atomic, atomic_start, Ts...>, pcre_parameters<Counter>>) {
-      return pcre_context {
-          ctll::list<atomic_group<Atomic>, Ts...>(), pcre_parameters<Counter>()
-      };
+      return pcre_context { ctll::list<atomic_group<Atomic>, Ts...>(), pcre_parameters<Counter>() };
     }
 
     // atomic sequence
     template <auto V, typename... Atomic, typename... Ts, size_t Counter>
     static constexpr auto
     apply(pcre::make_atomic, ctll::term<V>, pcre_context<ctll::list<sequence<Atomic...>, atomic_start, Ts...>, pcre_parameters<Counter>>) {
-      return pcre_context {
-          ctll::list<atomic_group<Atomic...>, Ts...>(),
-          pcre_parameters<Counter>()
-      };
+      return pcre_context { ctll::list<atomic_group<Atomic...>, Ts...>(),
+                            pcre_parameters<Counter>() };
     }
 
 #endif
@@ -3636,10 +3235,8 @@ namespace ctre {
     static constexpr auto
     apply(pcre::make_back_reference, ctll::term<V>, pcre_context<ctll::list<id<Str...>, Ts...>, pcre_parameters<Counter>>) {
       return pcre_context {
-          ctll::push_front(
-              back_reference_with_name<id<Str...>>(), ctll::list<Ts...>()
-          ),
-          pcre_parameters<Counter>()
+        ctll::push_front(back_reference_with_name<id<Str...>>(), ctll::list<Ts...>()),
+        pcre_parameters<Counter>()
       };
     }
 
@@ -3652,10 +3249,8 @@ namespace ctre {
       if constexpr (Counter < Id) {
         return ctll::reject {};
       } else {
-        return pcre_context {
-            ctll::push_front(back_reference<Id>(), ctll::list<Ts...>()),
-            pcre_parameters<Counter>()
-        };
+        return pcre_context { ctll::push_front(back_reference<Id>(), ctll::list<Ts...>()),
+                              pcre_parameters<Counter>() };
       }
     }
 
@@ -3669,12 +3264,8 @@ namespace ctre {
         return ctll::reject {};
       } else {
         constexpr size_t absolute_id = (Counter + 1) - Id;
-        return pcre_context {
-            ctll::push_front(
-                back_reference<absolute_id>(), ctll::list<Ts...>()
-            ),
-            pcre_parameters<Counter>()
-        };
+        return pcre_context { ctll::push_front(back_reference<absolute_id>(), ctll::list<Ts...>()),
+                              pcre_parameters<Counter>() };
       }
     }
 
@@ -3686,27 +3277,23 @@ namespace ctre {
     // push_word_boundary
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_word_boundary,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::push_word_boundary,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(boundary<word_chars>(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(boundary<word_chars>(), subject.stack),
+                            subject.parameters };
     }
 
     // push_not_word_boundary
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_not_word_boundary,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::push_not_word_boundary,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(boundary<negative_set<word_chars>>(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(boundary<negative_set<word_chars>>(), subject.stack),
+                            subject.parameters };
     }
 
 #endif
@@ -3718,98 +3305,63 @@ namespace ctre {
     template <auto V, typename... Ts, size_t Counter>
     static constexpr auto
     apply(pcre::prepare_capture, ctll::term<V>, pcre_context<ctll::list<Ts...>, pcre_parameters<Counter>>) {
-      return pcre_context {
-          ctll::push_front(capture_id<Counter + 1>(), ctll::list<Ts...>()),
-          pcre_parameters<Counter + 1>()
-      };
+      return pcre_context { ctll::push_front(capture_id<Counter + 1>(), ctll::list<Ts...>()),
+                            pcre_parameters<Counter + 1>() };
     }
 
     // reset_capture
     template <auto V, typename... Ts, size_t Id, size_t Counter>
     static constexpr auto
     apply(pcre::reset_capture, ctll::term<V>, pcre_context<ctll::list<capture_id<Id>, Ts...>, pcre_parameters<Counter>>) {
-      return pcre_context {ctll::list<Ts...>(), pcre_parameters<Counter - 1>()};
+      return pcre_context { ctll::list<Ts...>(), pcre_parameters<Counter - 1>() };
     }
 
     // capture
     template <auto V, typename A, size_t Id, typename... Ts, size_t Counter>
     static constexpr auto
     apply(pcre::make_capture, ctll::term<V>, pcre_context<ctll::list<A, capture_id<Id>, Ts...>, pcre_parameters<Counter>>) {
-      return pcre_context {
-          ctll::push_front(capture<Id, A>(), ctll::list<Ts...>()),
-          pcre_parameters<Counter>()
-      };
+      return pcre_context { ctll::push_front(capture<Id, A>(), ctll::list<Ts...>()),
+                            pcre_parameters<Counter>() };
     }
     // capture (sequence)
-    template <
-        auto V,
-        typename... Content,
-        size_t Id,
-        typename... Ts,
-        size_t Counter>
+    template <auto V, typename... Content, size_t Id, typename... Ts, size_t Counter>
     static constexpr auto
     apply(pcre::make_capture, ctll::term<V>, pcre_context<ctll::list<sequence<Content...>, capture_id<Id>, Ts...>, pcre_parameters<Counter>>) {
-      return pcre_context {
-          ctll::push_front(capture<Id, Content...>(), ctll::list<Ts...>()),
-          pcre_parameters<Counter>()
-      };
+      return pcre_context { ctll::push_front(capture<Id, Content...>(), ctll::list<Ts...>()),
+                            pcre_parameters<Counter>() };
     }
     // push_name
     template <auto V, typename... Ts, typename Parameters>
-    static constexpr auto apply(
-        pcre::push_name,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
-    ) {
-      return pcre_context {
-          ctll::push_front(id<V>(), subject.stack), subject.parameters
-      };
+    static constexpr auto
+    apply(pcre::push_name, ctll::term<V>, pcre_context<ctll::list<Ts...>, Parameters> subject) {
+      return pcre_context { ctll::push_front(id<V>(), subject.stack), subject.parameters };
     }
     // push_name (concat)
     template <auto... Str, auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_name,
-        ctll::term<V>,
-        pcre_context<ctll::list<id<Str...>, Ts...>, Parameters> subject
+      pcre::push_name,
+      ctll::term<V>,
+      pcre_context<ctll::list<id<Str...>, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(id<Str..., V>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(id<Str..., V>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
     // capture with name
-    template <
-        auto... Str,
-        auto V,
-        typename A,
-        size_t Id,
-        typename... Ts,
-        size_t Counter>
+    template <auto... Str, auto V, typename A, size_t Id, typename... Ts, size_t Counter>
     static constexpr auto
     apply(pcre::make_capture_with_name, ctll::term<V>, pcre_context<ctll::list<A, id<Str...>, capture_id<Id>, Ts...>, pcre_parameters<Counter>>) {
       return pcre_context {
-          ctll::push_front(
-              capture_with_name<Id, id<Str...>, A>(), ctll::list<Ts...>()
-          ),
-          pcre_parameters<Counter>()
+        ctll::push_front(capture_with_name<Id, id<Str...>, A>(), ctll::list<Ts...>()),
+        pcre_parameters<Counter>()
       };
     }
     // capture with name (sequence)
-    template <
-        auto... Str,
-        auto V,
-        typename... Content,
-        size_t Id,
-        typename... Ts,
-        size_t Counter>
+    template <auto... Str, auto V, typename... Content, size_t Id, typename... Ts, size_t Counter>
     static constexpr auto
     apply(pcre::make_capture_with_name, ctll::term<V>, pcre_context<ctll::list<sequence<Content...>, id<Str...>, capture_id<Id>, Ts...>, pcre_parameters<Counter>>) {
       return pcre_context {
-          ctll::push_front(
-              capture_with_name<Id, id<Str...>, Content...>(),
-              ctll::list<Ts...>()
-          ),
-          pcre_parameters<Counter>()
+        ctll::push_front(capture_with_name<Id, id<Str...>, Content...>(), ctll::list<Ts...>()),
+        pcre_parameters<Counter>()
       };
     }
 
@@ -3821,107 +3373,90 @@ namespace ctre {
     // push character
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_character,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::push_character,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(character<V>(), subject.stack), subject.parameters
-      };
+      return pcre_context { ctll::push_front(character<V>(), subject.stack), subject.parameters };
     }
     // push_any_character
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_character_anything,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::push_character_anything,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(any(), subject.stack), subject.parameters
-      };
+      return pcre_context { ctll::push_front(any(), subject.stack), subject.parameters };
     }
     // character_alarm
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_character_alarm,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::push_character_alarm,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(character<'\x07'>(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(character<'\x07'>(), subject.stack),
+                            subject.parameters };
     }
     // character_escape
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_character_escape,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::push_character_escape,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(character<'\x14'>(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(character<'\x14'>(), subject.stack),
+                            subject.parameters };
     }
     // character_formfeed
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_character_formfeed,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::push_character_formfeed,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(character<'\x0C'>(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(character<'\x0C'>(), subject.stack),
+                            subject.parameters };
     }
     // push_character_newline
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_character_newline,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::push_character_newline,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(character<'\x0A'>(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(character<'\x0A'>(), subject.stack),
+                            subject.parameters };
     }
     // push_character_null
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_character_null,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::push_character_null,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(character<'\0'>(), subject.stack), subject.parameters
-      };
+      return pcre_context { ctll::push_front(character<'\0'>(), subject.stack),
+                            subject.parameters };
     }
     // push_character_return_carriage
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_character_return_carriage,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::push_character_return_carriage,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(character<'\x0D'>(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(character<'\x0D'>(), subject.stack),
+                            subject.parameters };
     }
     // push_character_tab
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_character_tab,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::push_character_tab,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(character<'\x09'>(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(character<'\x09'>(), subject.stack),
+                            subject.parameters };
     }
 
 #endif
@@ -3931,153 +3466,112 @@ namespace ctre {
 
     // class_digit
     template <auto V, typename... Ts, typename Parameters>
-    static constexpr auto apply(
-        pcre::class_digit,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
-    ) {
-      return pcre_context {
-          ctll::push_front(ctre::set<ctre::digit_chars>(), subject.stack),
-          subject.parameters
-      };
+    static constexpr auto
+    apply(pcre::class_digit, ctll::term<V>, pcre_context<ctll::list<Ts...>, Parameters> subject) {
+      return pcre_context { ctll::push_front(ctre::set<ctre::digit_chars>(), subject.stack),
+                            subject.parameters };
     }
     // class_non_digit
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::class_nondigit,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::class_nondigit,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
       return pcre_context {
-          ctll::push_front(
-              ctre::negative_set<ctre::digit_chars>(), subject.stack
-          ),
-          subject.parameters
+        ctll::push_front(ctre::negative_set<ctre::digit_chars>(), subject.stack), subject.parameters
       };
     }
     // class_space
     template <auto V, typename... Ts, typename Parameters>
-    static constexpr auto apply(
-        pcre::class_space,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
-    ) {
-      return pcre_context {
-          ctll::push_front(ctre::set<ctre::space_chars>(), subject.stack),
-          subject.parameters
-      };
+    static constexpr auto
+    apply(pcre::class_space, ctll::term<V>, pcre_context<ctll::list<Ts...>, Parameters> subject) {
+      return pcre_context { ctll::push_front(ctre::set<ctre::space_chars>(), subject.stack),
+                            subject.parameters };
     }
     // class_nonspace
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::class_nonspace,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::class_nonspace,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
       return pcre_context {
-          ctll::push_front(
-              ctre::negative_set<ctre::space_chars>(), subject.stack
-          ),
-          subject.parameters
+        ctll::push_front(ctre::negative_set<ctre::space_chars>(), subject.stack), subject.parameters
       };
     }
 
     // class_horizontal_space
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::class_horizontal_space,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::class_horizontal_space,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
       return pcre_context {
-          ctll::push_front(
-              ctre::set<ctre::horizontal_space_chars>(), subject.stack
-          ),
-          subject.parameters
+        ctll::push_front(ctre::set<ctre::horizontal_space_chars>(), subject.stack),
+        subject.parameters
       };
     }
     // class_horizontal_nonspace
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::class_non_horizontal_space,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::class_non_horizontal_space,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
       return pcre_context {
-          ctll::push_front(
-              ctre::negative_set<ctre::horizontal_space_chars>(), subject.stack
-          ),
-          subject.parameters
+        ctll::push_front(ctre::negative_set<ctre::horizontal_space_chars>(), subject.stack),
+        subject.parameters
       };
     }
     // class_vertical_space
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::class_vertical_space,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::class_vertical_space,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
       return pcre_context {
-          ctll::push_front(
-              ctre::set<ctre::vertical_space_chars>(), subject.stack
-          ),
-          subject.parameters
+        ctll::push_front(ctre::set<ctre::vertical_space_chars>(), subject.stack), subject.parameters
       };
     }
     // class_vertical_nonspace
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::class_non_vertical_space,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::class_non_vertical_space,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
       return pcre_context {
-          ctll::push_front(
-              ctre::negative_set<ctre::vertical_space_chars>(), subject.stack
-          ),
-          subject.parameters
+        ctll::push_front(ctre::negative_set<ctre::vertical_space_chars>(), subject.stack),
+        subject.parameters
       };
     }
 
     // class_word
     template <auto V, typename... Ts, typename Parameters>
-    static constexpr auto apply(
-        pcre::class_word,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
-    ) {
-      return pcre_context {
-          ctll::push_front(ctre::set<ctre::word_chars>(), subject.stack),
-          subject.parameters
-      };
+    static constexpr auto
+    apply(pcre::class_word, ctll::term<V>, pcre_context<ctll::list<Ts...>, Parameters> subject) {
+      return pcre_context { ctll::push_front(ctre::set<ctre::word_chars>(), subject.stack),
+                            subject.parameters };
     }
     // class_nonword
     template <auto V, typename... Ts, typename Parameters>
-    static constexpr auto apply(
-        pcre::class_nonword,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
-    ) {
-      return pcre_context {
-          ctll::push_front(
-              ctre::negative_set<ctre::word_chars>(), subject.stack
-          ),
-          subject.parameters
-      };
+    static constexpr auto
+    apply(pcre::class_nonword, ctll::term<V>, pcre_context<ctll::list<Ts...>, Parameters> subject) {
+      return pcre_context { ctll::push_front(ctre::negative_set<ctre::word_chars>(), subject.stack),
+                            subject.parameters };
     }
     // class_nonnewline
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::class_nonnewline,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::class_nonnewline,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(
-              ctre::negative_set<character<'\n'>>(), subject.stack
-          ),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(ctre::negative_set<character<'\n'>>(), subject.stack),
+                            subject.parameters };
     }
 
 #endif
@@ -4092,36 +3586,19 @@ namespace ctre {
         return 0;
     }
 
-    template <
-        size_t MinA,
-        size_t MaxA,
-        size_t MinB,
-        size_t MaxB,
-        typename... Content>
+    template <size_t MinA, size_t MaxA, size_t MinB, size_t MaxB, typename... Content>
     static constexpr auto
     combine_repeat(repeat<MinA, MaxA, Content...>, repeat<MinB, MaxB, Content...>) {
-      return repeat<
-          MinA + MinB, combine_max_repeat_length(MaxA, MaxB), Content...>();
+      return repeat<MinA + MinB, combine_max_repeat_length(MaxA, MaxB), Content...>();
     }
 
-    template <
-        size_t MinA,
-        size_t MaxA,
-        size_t MinB,
-        size_t MaxB,
-        typename... Content>
+    template <size_t MinA, size_t MaxA, size_t MinB, size_t MaxB, typename... Content>
     static constexpr auto
     combine_repeat(lazy_repeat<MinA, MaxA, Content...>, lazy_repeat<MinB, MaxB, Content...>) {
-      return lazy_repeat<
-          MinA + MinB, combine_max_repeat_length(MaxA, MaxB), Content...>();
+      return lazy_repeat<MinA + MinB, combine_max_repeat_length(MaxA, MaxB), Content...>();
     }
 
-    template <
-        size_t MinA,
-        size_t MaxA,
-        size_t MinB,
-        size_t MaxB,
-        typename... Content>
+    template <size_t MinA, size_t MaxA, size_t MinB, size_t MaxB, typename... Content>
     static constexpr auto
     combine_repeat(possessive_repeat<MinA, MaxA, Content...>, possessive_repeat<MinB, MaxB, Content...>) {
       [[maybe_unused]] constexpr bool first_is_unbounded  = (MaxA == 0);
@@ -4135,203 +3612,180 @@ namespace ctre {
       } else if constexpr (first_is_unbounded) {
         return possessive_repeat<MinA, MaxA, Content...>();
       } else if constexpr (second_can_be_empty) {
-        return possessive_repeat<
-            MinA, combine_max_repeat_length(MaxA, MaxB), Content...>();
+        return possessive_repeat<MinA, combine_max_repeat_length(MaxA, MaxB), Content...>();
       } else {
-        return possessive_repeat<
-            MaxA + MinB, combine_max_repeat_length(MaxA, MaxB), Content...>();
+        return possessive_repeat<MaxA + MinB, combine_max_repeat_length(MaxA, MaxB), Content...>();
       }
     }
 
     // concat repeat sequences
     template <
-        auto   V,
-        size_t MinA,
-        size_t MaxA,
-        size_t MinB,
-        size_t MaxB,
-        typename... Content,
-        typename... Ts,
-        typename Parameters>
+      auto   V,
+      size_t MinA,
+      size_t MaxA,
+      size_t MinB,
+      size_t MaxB,
+      typename... Content,
+      typename... Ts,
+      typename Parameters>
     static constexpr auto apply(
-        pcre::make_sequence,
-        ctll::term<V>,
-        pcre_context<
-            ctll::list<
-                repeat<MinB, MaxB, Content...>,
-                repeat<MinA, MaxA, Content...>,
-                Ts...>,
-            Parameters> subject
+      pcre::make_sequence,
+      ctll::term<V>,
+      pcre_context<
+        ctll::list<repeat<MinB, MaxB, Content...>, repeat<MinA, MaxA, Content...>, Ts...>,
+        Parameters> subject
     ) {
       return pcre_context {
-          ctll::push_front(
-              combine_repeat(
-                  repeat<MinA, MaxA, Content...>(),
-                  repeat<MinB, MaxB, Content...>()
-              ),
-              ctll::list<Ts...>()
-          ),
-          subject.parameters
+        ctll::push_front(
+          combine_repeat(repeat<MinA, MaxA, Content...>(), repeat<MinB, MaxB, Content...>()),
+          ctll::list<Ts...>()
+        ),
+        subject.parameters
       };
     }
 
     // concat lazy repeat sequences
     template <
-        auto   V,
-        size_t MinA,
-        size_t MaxA,
-        size_t MinB,
-        size_t MaxB,
-        typename... Content,
-        typename... Ts,
-        typename Parameters>
+      auto   V,
+      size_t MinA,
+      size_t MaxA,
+      size_t MinB,
+      size_t MaxB,
+      typename... Content,
+      typename... Ts,
+      typename Parameters>
     static constexpr auto apply(
-        pcre::make_sequence,
-        ctll::term<V>,
-        pcre_context<
-            ctll::list<
-                lazy_repeat<MinB, MaxB, Content...>,
-                lazy_repeat<MinA, MaxA, Content...>,
-                Ts...>,
-            Parameters> subject
+      pcre::make_sequence,
+      ctll::term<V>,
+      pcre_context<
+        ctll::list<lazy_repeat<MinB, MaxB, Content...>, lazy_repeat<MinA, MaxA, Content...>, Ts...>,
+        Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(
-              combine_repeat(
-                  lazy_repeat<MinA, MaxA, Content...>(),
-                  lazy_repeat<MinB, MaxB, Content...>()
-              ),
-              ctll::list<Ts...>()
-          ),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(
+                              combine_repeat(
+                                lazy_repeat<MinA, MaxA, Content...>(),
+                                lazy_repeat<MinB, MaxB, Content...>()
+                              ),
+                              ctll::list<Ts...>()
+                            ),
+                            subject.parameters };
     }
 
     // concat possessive repeat seqeunces
     template <
-        auto   V,
-        size_t MinA,
-        size_t MaxA,
-        size_t MinB,
-        size_t MaxB,
-        typename... Content,
-        typename... Ts,
-        typename Parameters>
+      auto   V,
+      size_t MinA,
+      size_t MaxA,
+      size_t MinB,
+      size_t MaxB,
+      typename... Content,
+      typename... Ts,
+      typename Parameters>
     static constexpr auto apply(
-        pcre::make_sequence,
-        ctll::term<V>,
-        pcre_context<
-            ctll::list<
-                possessive_repeat<MinB, MaxB, Content...>,
-                possessive_repeat<MinA, MaxA, Content...>,
-                Ts...>,
-            Parameters> subject
+      pcre::make_sequence,
+      ctll::term<V>,
+      pcre_context<
+        ctll::list<
+          possessive_repeat<MinB, MaxB, Content...>,
+          possessive_repeat<MinA, MaxA, Content...>,
+          Ts...>,
+        Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(
-              combine_repeat(
-                  possessive_repeat<MinA, MaxA, Content...>(),
-                  possessive_repeat<MinB, MaxB, Content...>()
-              ),
-              ctll::list<Ts...>()
-          ),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(
+                              combine_repeat(
+                                possessive_repeat<MinA, MaxA, Content...>(),
+                                possessive_repeat<MinB, MaxB, Content...>()
+                              ),
+                              ctll::list<Ts...>()
+                            ),
+                            subject.parameters };
     }
 
     // concat repeat sequences into sequence
     template <
-        auto   V,
-        size_t MinA,
-        size_t MaxA,
-        size_t MinB,
-        size_t MaxB,
-        typename... Content,
-        typename... As,
-        typename... Ts,
-        typename Parameters>
+      auto   V,
+      size_t MinA,
+      size_t MaxA,
+      size_t MinB,
+      size_t MaxB,
+      typename... Content,
+      typename... As,
+      typename... Ts,
+      typename Parameters>
     static constexpr auto apply(
-        pcre::make_sequence,
-        ctll::term<V>,
-        pcre_context<
-            ctll::list<
-                sequence<repeat<MinB, MaxB, Content...>, As...>,
-                repeat<MinA, MaxA, Content...>,
-                Ts...>,
-            Parameters> subject
+      pcre::make_sequence,
+      ctll::term<V>,
+      pcre_context<
+        ctll::list<
+          sequence<repeat<MinB, MaxB, Content...>, As...>,
+          repeat<MinA, MaxA, Content...>,
+          Ts...>,
+        Parameters> subject
     ) {
-      using result = decltype(combine_repeat(
-          repeat<MinB, MaxB, Content...>(), repeat<MinA, MaxA, Content...>()
-      ));
+      using result =
+        decltype(combine_repeat(repeat<MinB, MaxB, Content...>(), repeat<MinA, MaxA, Content...>())
+        );
 
-      return pcre_context {
-          ctll::push_front(sequence<result, As...>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(sequence<result, As...>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     // concat lazy repeat sequences into sequence
     template <
-        auto   V,
-        size_t MinA,
-        size_t MaxA,
-        size_t MinB,
-        size_t MaxB,
-        typename... Content,
-        typename... As,
-        typename... Ts,
-        typename Parameters>
+      auto   V,
+      size_t MinA,
+      size_t MaxA,
+      size_t MinB,
+      size_t MaxB,
+      typename... Content,
+      typename... As,
+      typename... Ts,
+      typename Parameters>
     static constexpr auto apply(
-        pcre::make_sequence,
-        ctll::term<V>,
-        pcre_context<
-            ctll::list<
-                sequence<lazy_repeat<MinB, MaxB, Content...>, As...>,
-                lazy_repeat<MinA, MaxA, Content...>,
-                Ts...>,
-            Parameters> subject
+      pcre::make_sequence,
+      ctll::term<V>,
+      pcre_context<
+        ctll::list<
+          sequence<lazy_repeat<MinB, MaxB, Content...>, As...>,
+          lazy_repeat<MinA, MaxA, Content...>,
+          Ts...>,
+        Parameters> subject
     ) {
       using result = decltype(combine_repeat(
-          lazy_repeat<MinB, MaxB, Content...>(),
-          lazy_repeat<MinA, MaxA, Content...>()
+        lazy_repeat<MinB, MaxB, Content...>(), lazy_repeat<MinA, MaxA, Content...>()
       ));
 
-      return pcre_context {
-          ctll::push_front(sequence<result, As...>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(sequence<result, As...>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     // concat possessive repeat sequences into sequence
     template <
-        auto   V,
-        size_t MinA,
-        size_t MaxA,
-        size_t MinB,
-        size_t MaxB,
-        typename... Content,
-        typename... As,
-        typename... Ts,
-        typename Parameters>
+      auto   V,
+      size_t MinA,
+      size_t MaxA,
+      size_t MinB,
+      size_t MaxB,
+      typename... Content,
+      typename... As,
+      typename... Ts,
+      typename Parameters>
     static constexpr auto apply(
-        pcre::make_sequence,
-        ctll::term<V>,
-        pcre_context<
-            ctll::list<
-                sequence<possessive_repeat<MinB, MaxB, Content...>, As...>,
-                possessive_repeat<MinA, MaxA, Content...>,
-                Ts...>,
-            Parameters> subject
+      pcre::make_sequence,
+      ctll::term<V>,
+      pcre_context<
+        ctll::list<
+          sequence<possessive_repeat<MinB, MaxB, Content...>, As...>,
+          possessive_repeat<MinA, MaxA, Content...>,
+          Ts...>,
+        Parameters> subject
     ) {
       using result = decltype(combine_repeat(
-          possessive_repeat<MinB, MaxB, Content...>(),
-          possessive_repeat<MinA, MaxA, Content...>()
+        possessive_repeat<MinB, MaxB, Content...>(), possessive_repeat<MinA, MaxA, Content...>()
       ));
 
-      return pcre_context {
-          ctll::push_front(sequence<result, As...>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(sequence<result, As...>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
 #endif
@@ -4341,64 +3795,49 @@ namespace ctre {
 
     // hexdec character support (seed)
     template <auto V, typename... Ts, typename Parameters>
-    static constexpr auto apply(
-        pcre::create_hexdec,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
-    ) {
-      return pcre_context {
-          ctll::push_front(number<0ull>(), subject.stack), subject.parameters
-      };
+    static constexpr auto
+    apply(pcre::create_hexdec, ctll::term<V>, pcre_context<ctll::list<Ts...>, Parameters> subject) {
+      return pcre_context { ctll::push_front(number<0ull>(), subject.stack), subject.parameters };
     }
     // hexdec character support (push value)
     template <auto V, size_t N, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_hexdec,
-        ctll::term<V>,
-        pcre_context<ctll::list<number<N>, Ts...>, Parameters> subject
+      pcre::push_hexdec,
+      ctll::term<V>,
+      pcre_context<ctll::list<number<N>, Ts...>, Parameters> subject
     ) {
       constexpr auto previous = N << 4ull;
       if constexpr (V >= 'a' && V <= 'f') {
         return pcre_context {
-            ctll::push_front(
-                number<(previous + (V - 'a' + 10))>(), ctll::list<Ts...>()
-            ),
-            subject.parameters
+          ctll::push_front(number<(previous + (V - 'a' + 10))>(), ctll::list<Ts...>()),
+          subject.parameters
         };
       } else if constexpr (V >= 'A' && V <= 'F') {
         return pcre_context {
-            ctll::push_front(
-                number<(previous + (V - 'A' + 10))>(), ctll::list<Ts...>()
-            ),
-            subject.parameters
+          ctll::push_front(number<(previous + (V - 'A' + 10))>(), ctll::list<Ts...>()),
+          subject.parameters
         };
       } else {
         return pcre_context {
-            ctll::push_front(
-                number<(previous + (V - '0'))>(), ctll::list<Ts...>()
-            ),
-            subject.parameters
+          ctll::push_front(number<(previous + (V - '0'))>(), ctll::list<Ts...>()),
+          subject.parameters
         };
       }
     }
     // hexdec character support (convert to character)
     template <auto V, size_t N, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::finish_hexdec,
-        ctll::term<V>,
-        pcre_context<ctll::list<number<N>, Ts...>, Parameters> subject
+      pcre::finish_hexdec,
+      ctll::term<V>,
+      pcre_context<ctll::list<number<N>, Ts...>, Parameters> subject
     ) {
       constexpr size_t max_char = (std::numeric_limits<char>::max)();
       if constexpr (N <= max_char) {
-        return pcre_context {
-            ctll::push_front(character<char {N}>(), ctll::list<Ts...>()),
-            subject.parameters
-        };
+        return pcre_context { ctll::push_front(character<char { N }>(), ctll::list<Ts...>()),
+                              subject.parameters };
       } else {
-        return pcre_context {
-            ctll::push_front(character<char32_t {N}>(), ctll::list<Ts...>()),
-            subject.parameters
-        };
+        return pcre_context { ctll::push_front(character<char32_t { N }>(), ctll::list<Ts...>()),
+                              subject.parameters };
       }
     }
 
@@ -4411,60 +3850,48 @@ namespace ctre {
     template <auto V, typename... Ts, size_t Counter>
     static constexpr auto
     apply(pcre::start_lookahead_positive, ctll::term<V>, pcre_context<ctll::list<Ts...>, pcre_parameters<Counter>>) {
-      return pcre_context {
-          ctll::list<look_start<lookahead_positive<>>, Ts...>(),
-          pcre_parameters<Counter>()
-      };
+      return pcre_context { ctll::list<look_start<lookahead_positive<>>, Ts...>(),
+                            pcre_parameters<Counter>() };
     }
 
     // lookahead positive end
     template <auto V, typename Look, typename... Ts, size_t Counter>
     static constexpr auto
     apply(pcre::look_finish, ctll::term<V>, pcre_context<ctll::list<Look, look_start<lookahead_positive<>>, Ts...>, pcre_parameters<Counter>>) {
-      return pcre_context {
-          ctll::list<lookahead_positive<Look>, Ts...>(),
-          pcre_parameters<Counter>()
-      };
+      return pcre_context { ctll::list<lookahead_positive<Look>, Ts...>(),
+                            pcre_parameters<Counter>() };
     }
 
     // lookahead positive end (sequence)
     template <auto V, typename... Look, typename... Ts, size_t Counter>
     static constexpr auto
     apply(pcre::look_finish, ctll::term<V>, pcre_context<ctll::list<ctre::sequence<Look...>, look_start<lookahead_positive<>>, Ts...>, pcre_parameters<Counter>>) {
-      return pcre_context {
-          ctll::list<lookahead_positive<Look...>, Ts...>(),
-          pcre_parameters<Counter>()
-      };
+      return pcre_context { ctll::list<lookahead_positive<Look...>, Ts...>(),
+                            pcre_parameters<Counter>() };
     }
 
     // lookahead negative start
     template <auto V, typename... Ts, size_t Counter>
     static constexpr auto
     apply(pcre::start_lookahead_negative, ctll::term<V>, pcre_context<ctll::list<Ts...>, pcre_parameters<Counter>>) {
-      return pcre_context {
-          ctll::list<look_start<lookahead_negative<>>, Ts...>(),
-          pcre_parameters<Counter>()
-      };
+      return pcre_context { ctll::list<look_start<lookahead_negative<>>, Ts...>(),
+                            pcre_parameters<Counter>() };
     }
 
     // lookahead negative end
     template <auto V, typename Look, typename... Ts, size_t Counter>
     static constexpr auto
     apply(pcre::look_finish, ctll::term<V>, pcre_context<ctll::list<Look, look_start<lookahead_negative<>>, Ts...>, pcre_parameters<Counter>>) {
-      return pcre_context {
-          ctll::list<lookahead_negative<Look>, Ts...>(),
-          pcre_parameters<Counter>()
-      };
+      return pcre_context { ctll::list<lookahead_negative<Look>, Ts...>(),
+                            pcre_parameters<Counter>() };
     }
 
     // lookahead negative end (sequence)
     template <auto V, typename... Look, typename... Ts, size_t Counter>
     static constexpr auto
     apply(pcre::look_finish, ctll::term<V>, pcre_context<ctll::list<ctre::sequence<Look...>, look_start<lookahead_negative<>>, Ts...>, pcre_parameters<Counter>>) {
-      return pcre_context {
-          ctll::list<lookahead_negative<Look...>, Ts...>(),
-          pcre_parameters<Counter>()
-      };
+      return pcre_context { ctll::list<lookahead_negative<Look...>, Ts...>(),
+                            pcre_parameters<Counter>() };
     }
 
     // LOOKBEHIND
@@ -4473,10 +3900,8 @@ namespace ctre {
     template <auto V, typename... Ts, size_t Counter>
     static constexpr auto
     apply(pcre::start_lookbehind_positive, ctll::term<V>, pcre_context<ctll::list<Ts...>, pcre_parameters<Counter>>) {
-      return pcre_context {
-          ctll::list<look_start<lookbehind_positive<>>, Ts...>(),
-          pcre_parameters<Counter>()
-      };
+      return pcre_context { ctll::list<look_start<lookbehind_positive<>>, Ts...>(),
+                            pcre_parameters<Counter>() };
     }
 
     // lookbehind positive end
@@ -4484,11 +3909,10 @@ namespace ctre {
     static constexpr auto
     apply(pcre::look_finish, ctll::term<V>, pcre_context<ctll::list<Look, look_start<lookbehind_positive<>>, Ts...>, pcre_parameters<Counter>>) {
       return pcre_context {
-          ctll::list<
-              lookbehind_positive<
-                  decltype(ctre::rotate_for_lookbehind::rotate(Look {}))>,
-              Ts...>(),
-          pcre_parameters<Counter>()
+        ctll::
+          list<lookbehind_positive<decltype(ctre::rotate_for_lookbehind::rotate(Look {}))>, Ts...>(
+          ),
+        pcre_parameters<Counter>()
       };
     }
 
@@ -4496,26 +3920,18 @@ namespace ctre {
     template <auto V, typename... Look, typename... Ts, size_t Counter>
     static constexpr auto
     apply(pcre::look_finish, ctll::term<V>, pcre_context<ctll::list<ctre::sequence<Look...>, look_start<lookbehind_positive<>>, Ts...>, pcre_parameters<Counter>>) {
-      using my_lookbehind =
-          decltype(ctre::convert_to_basic_list<lookbehind_positive>(
-              ctll::rotate(
-                  ctll::list<decltype(ctre::rotate_for_lookbehind::rotate(Look {
-                  }))...> {}
-              )
-          ));
-      return pcre_context {
-          ctll::list<my_lookbehind, Ts...>(), pcre_parameters<Counter>()
-      };
+      using my_lookbehind = decltype(ctre::convert_to_basic_list<lookbehind_positive>(
+        ctll::rotate(ctll::list<decltype(ctre::rotate_for_lookbehind::rotate(Look {}))...> {})
+      ));
+      return pcre_context { ctll::list<my_lookbehind, Ts...>(), pcre_parameters<Counter>() };
     }
 
     // lookbehind negative start
     template <auto V, typename... Ts, size_t Counter>
     static constexpr auto
     apply(pcre::start_lookbehind_negative, ctll::term<V>, pcre_context<ctll::list<Ts...>, pcre_parameters<Counter>>) {
-      return pcre_context {
-          ctll::list<look_start<lookbehind_negative<>>, Ts...>(),
-          pcre_parameters<Counter>()
-      };
+      return pcre_context { ctll::list<look_start<lookbehind_negative<>>, Ts...>(),
+                            pcre_parameters<Counter>() };
     }
 
     // lookbehind negative end
@@ -4523,11 +3939,10 @@ namespace ctre {
     static constexpr auto
     apply(pcre::look_finish, ctll::term<V>, pcre_context<ctll::list<Look, look_start<lookbehind_negative<>>, Ts...>, pcre_parameters<Counter>>) {
       return pcre_context {
-          ctll::list<
-              lookbehind_negative<
-                  decltype(ctre::rotate_for_lookbehind::rotate(Look {}))>,
-              Ts...>(),
-          pcre_parameters<Counter>()
+        ctll::
+          list<lookbehind_negative<decltype(ctre::rotate_for_lookbehind::rotate(Look {}))>, Ts...>(
+          ),
+        pcre_parameters<Counter>()
       };
     }
 
@@ -4535,16 +3950,10 @@ namespace ctre {
     template <auto V, typename... Look, typename... Ts, size_t Counter>
     static constexpr auto
     apply(pcre::look_finish, ctll::term<V>, pcre_context<ctll::list<ctre::sequence<Look...>, look_start<lookbehind_negative<>>, Ts...>, pcre_parameters<Counter>>) {
-      using my_lookbehind =
-          decltype(ctre::convert_to_basic_list<lookbehind_negative>(
-              ctll::rotate(
-                  ctll::list<decltype(ctre::rotate_for_lookbehind::rotate(Look {
-                  }))...> {}
-              )
-          ));
-      return pcre_context {
-          ctll::list<my_lookbehind, Ts...>(), pcre_parameters<Counter>()
-      };
+      using my_lookbehind = decltype(ctre::convert_to_basic_list<lookbehind_negative>(
+        ctll::rotate(ctll::list<decltype(ctre::rotate_for_lookbehind::rotate(Look {}))...> {})
+      ));
+      return pcre_context { ctll::list<my_lookbehind, Ts...>(), pcre_parameters<Counter>() };
     }
 
 #endif
@@ -4555,170 +3964,142 @@ namespace ctre {
     // class_named_alnum
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::class_named_alnum,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::class_named_alnum,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(ctre::alphanum_chars(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(ctre::alphanum_chars(), subject.stack),
+                            subject.parameters };
     }
     // class_named_alpha
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::class_named_alpha,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::class_named_alpha,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(ctre::alpha_chars(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(ctre::alpha_chars(), subject.stack),
+                            subject.parameters };
     }
     // class_named_digit
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::class_named_digit,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::class_named_digit,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(ctre::digit_chars(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(ctre::digit_chars(), subject.stack),
+                            subject.parameters };
     }
     // class_named_ascii
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::class_named_ascii,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::class_named_ascii,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(ctre::ascii_chars(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(ctre::ascii_chars(), subject.stack),
+                            subject.parameters };
     }
     // class_named_blank
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::class_named_blank,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::class_named_blank,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(ctre::enumeration<' ', '\t'>(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(ctre::enumeration<' ', '\t'>(), subject.stack),
+                            subject.parameters };
     }
     // class_named_cntrl
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::class_named_cntrl,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::class_named_cntrl,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
       return pcre_context {
-          ctll::push_front(
-              ctre::set<
-                  ctre::char_range<'\x00', '\x1F'>, ctre::character<'\x7F'>>(),
-              subject.stack
-          ),
-          subject.parameters
+        ctll::push_front(
+          ctre::set<ctre::char_range<'\x00', '\x1F'>, ctre::character<'\x7F'>>(), subject.stack
+        ),
+        subject.parameters
       };
     }
     // class_named_graph
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::class_named_graph,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::class_named_graph,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(ctre::char_range<'\x21', '\x7E'>(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(ctre::char_range<'\x21', '\x7E'>(), subject.stack),
+                            subject.parameters };
     }
     // class_named_lower
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::class_named_lower,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::class_named_lower,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(ctre::char_range<'a', 'z'>(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(ctre::char_range<'a', 'z'>(), subject.stack),
+                            subject.parameters };
     }
     // class_named_upper
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::class_named_upper,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::class_named_upper,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(ctre::char_range<'A', 'Z'>(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(ctre::char_range<'A', 'Z'>(), subject.stack),
+                            subject.parameters };
     }
     // class_named_print
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::class_named_print,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::class_named_print,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(ctre::char_range<'\x20', '\x7E'>(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(ctre::char_range<'\x20', '\x7E'>(), subject.stack),
+                            subject.parameters };
     }
     // class_named_space
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::class_named_space,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::class_named_space,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(space_chars(), subject.stack), subject.parameters
-      };
+      return pcre_context { ctll::push_front(space_chars(), subject.stack), subject.parameters };
     }
     // class_named_word
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::class_named_word,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::class_named_word,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(word_chars(), subject.stack), subject.parameters
-      };
+      return pcre_context { ctll::push_front(word_chars(), subject.stack), subject.parameters };
     }
     // class_named_punct
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::class_named_punct,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::class_named_punct,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(punct_chars(), subject.stack), subject.parameters
-      };
+      return pcre_context { ctll::push_front(punct_chars(), subject.stack), subject.parameters };
     }
     // class_named_xdigit
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::class_named_xdigit,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::class_named_xdigit,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(xdigit_chars(), subject.stack), subject.parameters
-      };
+      return pcre_context { ctll::push_front(xdigit_chars(), subject.stack), subject.parameters };
     }
 
 #endif
@@ -4728,142 +4109,102 @@ namespace ctre {
 
     // empty option for alternate
     template <auto V, typename... Ts, typename Parameters>
-    static constexpr auto apply(
-        pcre::push_empty,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
-    ) {
-      return pcre_context {
-          ctll::push_front(empty(), subject.stack), subject.parameters
-      };
+    static constexpr auto
+    apply(pcre::push_empty, ctll::term<V>, pcre_context<ctll::list<Ts...>, Parameters> subject) {
+      return pcre_context { ctll::push_front(empty(), subject.stack), subject.parameters };
     }
 
     // empty option for empty regex
     template <typename Parameters>
-    static constexpr auto apply(
-        pcre::push_empty,
-        ctll::epsilon,
-        pcre_context<ctll::list<>, Parameters> subject
-    ) {
-      return pcre_context {
-          ctll::push_front(empty(), subject.stack), subject.parameters
-      };
+    static constexpr auto
+    apply(pcre::push_empty, ctll::epsilon, pcre_context<ctll::list<>, Parameters> subject) {
+      return pcre_context { ctll::push_front(empty(), subject.stack), subject.parameters };
     }
 
     // make_alternate (A|B)
-    template <
-        auto V,
-        typename A,
-        typename B,
-        typename... Ts,
-        typename Parameters>
+    template <auto V, typename A, typename B, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::make_alternate,
-        ctll::term<V>,
-        pcre_context<ctll::list<B, A, Ts...>, Parameters> subject
+      pcre::make_alternate,
+      ctll::term<V>,
+      pcre_context<ctll::list<B, A, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(select<A, B>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(select<A, B>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
     // make_alternate (As..)|B => (As..|B)
-    template <
-        auto V,
-        typename A,
-        typename... Bs,
-        typename... Ts,
-        typename Parameters>
+    template <auto V, typename A, typename... Bs, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::make_alternate,
-        ctll::term<V>,
-        pcre_context<ctll::list<ctre::select<Bs...>, A, Ts...>, Parameters>
-            subject
+      pcre::make_alternate,
+      ctll::term<V>,
+      pcre_context<ctll::list<ctre::select<Bs...>, A, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(select<A, Bs...>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(select<A, Bs...>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     // make_optional
     template <auto V, typename A, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::make_optional,
-        ctll::term<V>,
-        pcre_context<ctll::list<A, Ts...>, Parameters> subject
+      pcre::make_optional,
+      ctll::term<V>,
+      pcre_context<ctll::list<A, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(optional<A>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(optional<A>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     template <auto V, typename... Content, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::make_optional,
-        ctll::term<V>,
-        pcre_context<ctll::list<sequence<Content...>, Ts...>, Parameters>
-            subject
+      pcre::make_optional,
+      ctll::term<V>,
+      pcre_context<ctll::list<sequence<Content...>, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(optional<Content...>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(optional<Content...>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     // prevent from creating wrapped optionals
     template <auto V, typename A, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::make_optional,
-        ctll::term<V>,
-        pcre_context<ctll::list<optional<A>, Ts...>, Parameters> subject
+      pcre::make_optional,
+      ctll::term<V>,
+      pcre_context<ctll::list<optional<A>, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(optional<A>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(optional<A>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     // in case inner optional is lazy, result should be lazy too
     template <auto V, typename A, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::make_optional,
-        ctll::term<V>,
-        pcre_context<ctll::list<lazy_optional<A>, Ts...>, Parameters> subject
+      pcre::make_optional,
+      ctll::term<V>,
+      pcre_context<ctll::list<lazy_optional<A>, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(lazy_optional<A>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(lazy_optional<A>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     // make_lazy (optional)
     template <auto V, typename... Subject, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::make_lazy,
-        ctll::term<V>,
-        pcre_context<ctll::list<optional<Subject...>, Ts...>, Parameters>
-            subject
+      pcre::make_lazy,
+      ctll::term<V>,
+      pcre_context<ctll::list<optional<Subject...>, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(lazy_optional<Subject...>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(lazy_optional<Subject...>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     // if you already got a lazy optional, make_lazy is no-op
     template <auto V, typename... Subject, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::make_lazy,
-        ctll::term<V>,
-        pcre_context<ctll::list<lazy_optional<Subject...>, Ts...>, Parameters>
-            subject
+      pcre::make_lazy,
+      ctll::term<V>,
+      pcre_context<ctll::list<lazy_optional<Subject...>, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(lazy_optional<Subject...>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(lazy_optional<Subject...>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
 #endif
@@ -4874,92 +4215,112 @@ namespace ctre {
     // push_property_name
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_property_name,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::push_property_name,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(property_name<V>(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(property_name<V>(), subject.stack),
+                            subject.parameters };
     }
     // push_property_name (concat)
     template <auto... Str, auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_property_name,
-        ctll::term<V>,
-        pcre_context<ctll::list<property_name<Str...>, Ts...>, Parameters>
-            subject
+      pcre::push_property_name,
+      ctll::term<V>,
+      pcre_context<ctll::list<property_name<Str...>, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(property_name<Str..., V>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(property_name<Str..., V>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     // push_property_value
     template <auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_property_value,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
+      pcre::push_property_value,
+      ctll::term<V>,
+      pcre_context<ctll::list<Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(property_value<V>(), subject.stack),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(property_value<V>(), subject.stack),
+                            subject.parameters };
     }
     // push_property_value (concat)
     template <auto... Str, auto V, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_property_value,
-        ctll::term<V>,
-        pcre_context<ctll::list<property_value<Str...>, Ts...>, Parameters>
-            subject
+      pcre::push_property_value,
+      ctll::term<V>,
+      pcre_context<ctll::list<property_value<Str...>, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(property_value<Str..., V>(), ctll::list<Ts...>()),
+      return pcre_context { ctll::push_front(property_value<Str..., V>(), ctll::list<Ts...>()),
+                            subject.parameters };
+    }
+
+    // make_property
+    template <auto V, auto... Name, typename... Ts, typename Parameters>
+    static constexpr auto apply(
+      pcre::make_property,
+      ctll::term<V>,
+      [[maybe_unused]] pcre_context<ctll::list<property_name<Name...>, Ts...>, Parameters> subject
+    ) {
+      // return ctll::reject{};
+      constexpr char name[sizeof...(Name)] { static_cast<char>(Name)... };
+      constexpr auto p = uni::detail::binary_prop_from_string(get_string_view(name));
+
+      if constexpr (uni::detail::is_unknown(p)) {
+        return ctll::reject {};
+      } else {
+        return pcre_context { ctll::push_front(make_binary_property<p>(), ctll::list<Ts...>()),
+                              subject.parameters };
+      }
+    }
+
+    // make_property
+    template <auto V, auto... Value, auto... Name, typename... Ts, typename Parameters>
+    static constexpr auto apply(
+      pcre::make_property,
+      ctll::term<V>,
+      [[maybe_unused]] pcre_context<
+        ctll::list<property_value<Value...>, property_name<Name...>, Ts...>,
+        Parameters> subject
+    ) {
+      // return ctll::reject{};
+      constexpr auto prop = property_builder<Name...>::template get<Value...>();
+
+      if constexpr (std::is_same_v<decltype(prop), ctll::reject>) {
+        return ctll::reject {};
+      } else {
+        return pcre_context { ctll::push_front(prop, ctll::list<Ts...>()), subject.parameters };
+      }
+    }
+
+    // make_property_negative
+    template <auto V, auto... Name, typename... Ts, typename Parameters>
+    static constexpr auto apply(
+      pcre::make_property_negative,
+      ctll::term<V>,
+      [[maybe_unused]] pcre_context<ctll::list<property_name<Name...>, Ts...>, Parameters> subject
+    ) {
+      // return ctll::reject{};
+      constexpr char name[sizeof...(Name)] { static_cast<char>(Name)... };
+      constexpr auto p = uni::detail::binary_prop_from_string(get_string_view(name));
+
+      if constexpr (uni::detail::is_unknown(p)) {
+        return ctll::reject {};
+      } else {
+        return pcre_context {
+          ctll::push_front(negate<make_binary_property<p>>(), ctll::list<Ts...>()),
           subject.parameters
-      };
-    }
-
-    // make_property
-    template <auto V, auto... Name, typename... Ts, typename Parameters>
-    static constexpr auto apply(
-        pcre::make_property,
-        ctll::term<V>,
-        [[maybe_unused]] pcre_context<
-            ctll::list<property_name<Name...>, Ts...>,
-            Parameters> subject
-    ) {
-      // return ctll::reject{};
-      constexpr char name[sizeof...(Name)] {static_cast<char>(Name)...};
-      constexpr auto p =
-          uni::detail::binary_prop_from_string(get_string_view(name));
-
-      if constexpr (uni::detail::is_unknown(p)) {
-        return ctll::reject {};
-      } else {
-        return pcre_context {
-            ctll::push_front(make_binary_property<p>(), ctll::list<Ts...>()),
-            subject.parameters
         };
       }
     }
 
-    // make_property
-    template <
-        auto V,
-        auto... Value,
-        auto... Name,
-        typename... Ts,
-        typename Parameters>
+    // make_property_negative
+    template <auto V, auto... Value, auto... Name, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::make_property,
-        ctll::term<V>,
-        [[maybe_unused]] pcre_context<
-            ctll::list<property_value<Value...>, property_name<Name...>, Ts...>,
-            Parameters> subject
+      pcre::make_property_negative,
+      ctll::term<V>,
+      [[maybe_unused]] pcre_context<
+        ctll::list<property_value<Value...>, property_name<Name...>, Ts...>,
+        Parameters> subject
     ) {
       // return ctll::reject{};
       constexpr auto prop = property_builder<Name...>::template get<Value...>();
@@ -4967,62 +4328,8 @@ namespace ctre {
       if constexpr (std::is_same_v<decltype(prop), ctll::reject>) {
         return ctll::reject {};
       } else {
-        return pcre_context {
-            ctll::push_front(prop, ctll::list<Ts...>()), subject.parameters
-        };
-      }
-    }
-
-    // make_property_negative
-    template <auto V, auto... Name, typename... Ts, typename Parameters>
-    static constexpr auto apply(
-        pcre::make_property_negative,
-        ctll::term<V>,
-        [[maybe_unused]] pcre_context<
-            ctll::list<property_name<Name...>, Ts...>,
-            Parameters> subject
-    ) {
-      // return ctll::reject{};
-      constexpr char name[sizeof...(Name)] {static_cast<char>(Name)...};
-      constexpr auto p =
-          uni::detail::binary_prop_from_string(get_string_view(name));
-
-      if constexpr (uni::detail::is_unknown(p)) {
-        return ctll::reject {};
-      } else {
-        return pcre_context {
-            ctll::push_front(
-                negate<make_binary_property<p>>(), ctll::list<Ts...>()
-            ),
-            subject.parameters
-        };
-      }
-    }
-
-    // make_property_negative
-    template <
-        auto V,
-        auto... Value,
-        auto... Name,
-        typename... Ts,
-        typename Parameters>
-    static constexpr auto apply(
-        pcre::make_property_negative,
-        ctll::term<V>,
-        [[maybe_unused]] pcre_context<
-            ctll::list<property_value<Value...>, property_name<Name...>, Ts...>,
-            Parameters> subject
-    ) {
-      // return ctll::reject{};
-      constexpr auto prop = property_builder<Name...>::template get<Value...>();
-
-      if constexpr (std::is_same_v<decltype(prop), ctll::reject>) {
-        return ctll::reject {};
-      } else {
-        return pcre_context {
-            ctll::push_front(negate<decltype(prop)>(), ctll::list<Ts...>()),
-            subject.parameters
-        };
+        return pcre_context { ctll::push_front(negate<decltype(prop)>(), ctll::list<Ts...>()),
+                              subject.parameters };
       }
     }
 
@@ -5034,291 +4341,191 @@ namespace ctre {
     // repeat 1..N
     template <auto V, typename A, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::repeat_plus,
-        ctll::term<V>,
-        pcre_context<ctll::list<A, Ts...>, Parameters> subject
+      pcre::repeat_plus,
+      ctll::term<V>,
+      pcre_context<ctll::list<A, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(plus<A>(), ctll::list<Ts...>()), subject.parameters
-      };
+      return pcre_context { ctll::push_front(plus<A>(), ctll::list<Ts...>()), subject.parameters };
     }
     // repeat 1..N (sequence)
     template <auto V, typename... Content, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::repeat_plus,
-        ctll::term<V>,
-        pcre_context<ctll::list<sequence<Content...>, Ts...>, Parameters>
-            subject
+      pcre::repeat_plus,
+      ctll::term<V>,
+      pcre_context<ctll::list<sequence<Content...>, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(plus<Content...>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(plus<Content...>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     // repeat 0..N
     template <auto V, typename A, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::repeat_star,
-        ctll::term<V>,
-        pcre_context<ctll::list<A, Ts...>, Parameters> subject
+      pcre::repeat_star,
+      ctll::term<V>,
+      pcre_context<ctll::list<A, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(star<A>(), ctll::list<Ts...>()), subject.parameters
-      };
+      return pcre_context { ctll::push_front(star<A>(), ctll::list<Ts...>()), subject.parameters };
     }
     // repeat 0..N (sequence)
     template <auto V, typename... Content, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::repeat_star,
-        ctll::term<V>,
-        pcre_context<ctll::list<sequence<Content...>, Ts...>, Parameters>
-            subject
+      pcre::repeat_star,
+      ctll::term<V>,
+      pcre_context<ctll::list<sequence<Content...>, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(star<Content...>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(star<Content...>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     // create_number (seed)
     template <auto V, typename... Ts, typename Parameters>
-    static constexpr auto apply(
-        pcre::create_number,
-        ctll::term<V>,
-        pcre_context<ctll::list<Ts...>, Parameters> subject
-    ) {
-      return pcre_context {
-          ctll::push_front(
-              number<static_cast<size_t>(V - '0')>(), subject.stack
-          ),
-          subject.parameters
-      };
+    static constexpr auto
+    apply(pcre::create_number, ctll::term<V>, pcre_context<ctll::list<Ts...>, Parameters> subject) {
+      return pcre_context { ctll::push_front(number<static_cast<size_t>(V - '0')>(), subject.stack),
+                            subject.parameters };
     }
     // push_number
     template <auto V, size_t N, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::push_number,
-        ctll::term<V>,
-        pcre_context<ctll::list<number<N>, Ts...>, Parameters> subject
+      pcre::push_number,
+      ctll::term<V>,
+      pcre_context<ctll::list<number<N>, Ts...>, Parameters> subject
     ) {
       constexpr size_t previous = N * 10ull;
-      return pcre_context {
-          ctll::push_front(
-              number<(previous + (V - '0'))>(), ctll::list<Ts...>()
-          ),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(number<(previous + (V - '0'))>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     // repeat A..B
-    template <
-        auto V,
-        typename Subject,
-        size_t A,
-        size_t B,
-        typename... Ts,
-        typename Parameters>
+    template <auto V, typename Subject, size_t A, size_t B, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::repeat_ab,
-        ctll::term<V>,
-        pcre_context<
-            ctll::list<number<B>, number<A>, Subject, Ts...>,
-            Parameters> subject
+      pcre::repeat_ab,
+      ctll::term<V>,
+      pcre_context<ctll::list<number<B>, number<A>, Subject, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(repeat<A, B, Subject>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(repeat<A, B, Subject>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
     // repeat A..B (sequence)
-    template <
-        auto V,
-        typename... Content,
-        size_t A,
-        size_t B,
-        typename... Ts,
-        typename Parameters>
+    template <auto V, typename... Content, size_t A, size_t B, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::repeat_ab,
-        ctll::term<V>,
-        pcre_context<
-            ctll::list<number<B>, number<A>, sequence<Content...>, Ts...>,
-            Parameters> subject
+      pcre::repeat_ab,
+      ctll::term<V>,
+      pcre_context<ctll::list<number<B>, number<A>, sequence<Content...>, Ts...>, Parameters>
+        subject
     ) {
-      return pcre_context {
-          ctll::push_front(repeat<A, B, Content...>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(repeat<A, B, Content...>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     // repeat_exactly
-    template <
-        auto V,
-        typename Subject,
-        size_t A,
-        typename... Ts,
-        typename Parameters>
+    template <auto V, typename Subject, size_t A, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::repeat_exactly,
-        ctll::term<V>,
-        pcre_context<ctll::list<number<A>, Subject, Ts...>, Parameters> subject
+      pcre::repeat_exactly,
+      ctll::term<V>,
+      pcre_context<ctll::list<number<A>, Subject, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(repeat<A, A, Subject>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(repeat<A, A, Subject>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
     // repeat_exactly A..B (sequence)
-    template <
-        auto V,
-        typename... Content,
-        size_t A,
-        typename... Ts,
-        typename Parameters>
+    template <auto V, typename... Content, size_t A, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::repeat_exactly,
-        ctll::term<V>,
-        pcre_context<
-            ctll::list<number<A>, sequence<Content...>, Ts...>,
-            Parameters> subject
+      pcre::repeat_exactly,
+      ctll::term<V>,
+      pcre_context<ctll::list<number<A>, sequence<Content...>, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(repeat<A, A, Content...>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(repeat<A, A, Content...>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     // repeat_at_least (A+)
-    template <
-        auto V,
-        typename Subject,
-        size_t A,
-        typename... Ts,
-        typename Parameters>
+    template <auto V, typename Subject, size_t A, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::repeat_at_least,
-        ctll::term<V>,
-        pcre_context<ctll::list<number<A>, Subject, Ts...>, Parameters> subject
+      pcre::repeat_at_least,
+      ctll::term<V>,
+      pcre_context<ctll::list<number<A>, Subject, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(repeat<A, 0, Subject>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(repeat<A, 0, Subject>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
     // repeat_at_least (A+) (sequence)
-    template <
-        auto V,
-        typename... Content,
-        size_t A,
-        typename... Ts,
-        typename Parameters>
+    template <auto V, typename... Content, size_t A, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::repeat_at_least,
-        ctll::term<V>,
-        pcre_context<
-            ctll::list<number<A>, sequence<Content...>, Ts...>,
-            Parameters> subject
+      pcre::repeat_at_least,
+      ctll::term<V>,
+      pcre_context<ctll::list<number<A>, sequence<Content...>, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(repeat<A, 0, Content...>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(repeat<A, 0, Content...>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     // make_lazy (plus)
     template <auto V, typename... Subject, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::make_lazy,
-        ctll::term<V>,
-        pcre_context<ctll::list<plus<Subject...>, Ts...>, Parameters> subject
+      pcre::make_lazy,
+      ctll::term<V>,
+      pcre_context<ctll::list<plus<Subject...>, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(lazy_plus<Subject...>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(lazy_plus<Subject...>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     // make_lazy (star)
     template <auto V, typename... Subject, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::make_lazy,
-        ctll::term<V>,
-        pcre_context<ctll::list<star<Subject...>, Ts...>, Parameters> subject
+      pcre::make_lazy,
+      ctll::term<V>,
+      pcre_context<ctll::list<star<Subject...>, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(lazy_star<Subject...>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(lazy_star<Subject...>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     // make_lazy (repeat<A,B>)
-    template <
-        auto V,
-        typename... Subject,
-        size_t A,
-        size_t B,
-        typename... Ts,
-        typename Parameters>
+    template <auto V, typename... Subject, size_t A, size_t B, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::make_lazy,
-        ctll::term<V>,
-        pcre_context<ctll::list<repeat<A, B, Subject...>, Ts...>, Parameters>
-            subject
+      pcre::make_lazy,
+      ctll::term<V>,
+      pcre_context<ctll::list<repeat<A, B, Subject...>, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(
-              lazy_repeat<A, B, Subject...>(), ctll::list<Ts...>()
-          ),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(lazy_repeat<A, B, Subject...>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     // make_possessive (plus)
     template <auto V, typename... Subject, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::make_possessive,
-        ctll::term<V>,
-        pcre_context<ctll::list<plus<Subject...>, Ts...>, Parameters> subject
+      pcre::make_possessive,
+      ctll::term<V>,
+      pcre_context<ctll::list<plus<Subject...>, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(possessive_plus<Subject...>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(possessive_plus<Subject...>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     // make_possessive (star)
     template <auto V, typename... Subject, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::make_possessive,
-        ctll::term<V>,
-        pcre_context<ctll::list<star<Subject...>, Ts...>, Parameters> subject
+      pcre::make_possessive,
+      ctll::term<V>,
+      pcre_context<ctll::list<star<Subject...>, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(possessive_star<Subject...>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(possessive_star<Subject...>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     // make_possessive (repeat<A,B>)
-    template <
-        auto V,
-        typename... Subject,
-        size_t A,
-        size_t B,
-        typename... Ts,
-        typename Parameters>
+    template <auto V, typename... Subject, size_t A, size_t B, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::make_possessive,
-        ctll::term<V>,
-        pcre_context<ctll::list<repeat<A, B, Subject...>, Ts...>, Parameters>
-            subject
+      pcre::make_possessive,
+      ctll::term<V>,
+      pcre_context<ctll::list<repeat<A, B, Subject...>, Ts...>, Parameters> subject
     ) {
       return pcre_context {
-          ctll::push_front(
-              possessive_repeat<A, B, Subject...>(), ctll::list<Ts...>()
-          ),
-          subject.parameters
+        ctll::push_front(possessive_repeat<A, B, Subject...>(), ctll::list<Ts...>()),
+        subject.parameters
       };
     }
 
@@ -5328,109 +4535,69 @@ namespace ctre {
 #define CTRE__ACTIONS__SEQUENCE__HPP
 
     // make_sequence
-    template <
-        auto V,
-        typename A,
-        typename B,
-        typename... Ts,
-        typename Parameters>
+    template <auto V, typename A, typename B, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::make_sequence,
-        ctll::term<V>,
-        pcre_context<ctll::list<B, A, Ts...>, Parameters> subject
+      pcre::make_sequence,
+      ctll::term<V>,
+      pcre_context<ctll::list<B, A, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(sequence<A, B>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(sequence<A, B>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
     // make_sequence (concat)
-    template <
-        auto V,
-        typename A,
-        typename... Bs,
-        typename... Ts,
-        typename Parameters>
+    template <auto V, typename A, typename... Bs, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::make_sequence,
-        ctll::term<V>,
-        pcre_context<ctll::list<sequence<Bs...>, A, Ts...>, Parameters> subject
+      pcre::make_sequence,
+      ctll::term<V>,
+      pcre_context<ctll::list<sequence<Bs...>, A, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(sequence<A, Bs...>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(sequence<A, Bs...>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     // make_sequence (make string)
     template <auto V, auto A, auto B, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::make_sequence,
-        ctll::term<V>,
-        pcre_context<ctll::list<character<B>, character<A>, Ts...>, Parameters>
-            subject
+      pcre::make_sequence,
+      ctll::term<V>,
+      pcre_context<ctll::list<character<B>, character<A>, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(string<A, B>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(string<A, B>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
     // make_sequence (concat string)
     template <auto V, auto A, auto... Bs, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::make_sequence,
-        ctll::term<V>,
-        pcre_context<ctll::list<string<Bs...>, character<A>, Ts...>, Parameters>
-            subject
+      pcre::make_sequence,
+      ctll::term<V>,
+      pcre_context<ctll::list<string<Bs...>, character<A>, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(string<A, Bs...>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(string<A, Bs...>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     // make_sequence (make string in front of different items)
-    template <
-        auto V,
-        auto A,
-        auto B,
-        typename... Sq,
-        typename... Ts,
-        typename Parameters>
+    template <auto V, auto A, auto B, typename... Sq, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::make_sequence,
-        ctll::term<V>,
-        pcre_context<
-            ctll::list<sequence<character<B>, Sq...>, character<A>, Ts...>,
-            Parameters> subject
+      pcre::make_sequence,
+      ctll::term<V>,
+      pcre_context<ctll::list<sequence<character<B>, Sq...>, character<A>, Ts...>, Parameters>
+        subject
     ) {
-      return pcre_context {
-          ctll::push_front(
-              sequence<string<A, B>, Sq...>(), ctll::list<Ts...>()
-          ),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(sequence<string<A, B>, Sq...>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
     // make_sequence (concat string in front of different items)
-    template <
-        auto V,
-        auto A,
-        auto... Bs,
-        typename... Sq,
-        typename... Ts,
-        typename Parameters>
+    template <auto V, auto A, auto... Bs, typename... Sq, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::make_sequence,
-        ctll::term<V>,
-        pcre_context<
-            ctll::list<sequence<string<Bs...>, Sq...>, character<A>, Ts...>,
-            Parameters> subject
+      pcre::make_sequence,
+      ctll::term<V>,
+      pcre_context<ctll::list<sequence<string<Bs...>, Sq...>, character<A>, Ts...>, Parameters>
+        subject
     ) {
       return pcre_context {
-          ctll::push_front(
-              sequence<string<A, Bs...>, Sq...>(), ctll::list<Ts...>()
-          ),
-          subject.parameters
+        ctll::push_front(sequence<string<A, Bs...>, Sq...>(), ctll::list<Ts...>()),
+        subject.parameters
       };
     }
 
@@ -5442,13 +4609,13 @@ namespace ctre {
     // UTILITY
     // add into set if not exists
     template <
-        template <typename...>
-        typename SetType,
-        typename T,
-        typename... As,
-        bool Exists = (std::is_same_v<T, As> || ... || false)>
+      template <typename...>
+      typename SetType,
+      typename T,
+      typename... As,
+      bool Exists = (std::is_same_v<T, As> || ... || false)>
     static constexpr auto push_back_into_set(T, SetType<As...>)
-        -> ctll::conditional<Exists, SetType<As...>, SetType<As..., T>> {
+      -> ctll::conditional<Exists, SetType<As...>, SetType<As..., T>> {
       return {};
     }
 
@@ -5473,55 +4640,39 @@ namespace ctre {
 
     // set_start
     template <auto V, typename A, typename... Ts, typename Parameters>
-    static constexpr auto apply(
-        pcre::set_start,
-        ctll::term<V>,
-        pcre_context<ctll::list<A, Ts...>, Parameters> subject
-    ) {
-      return pcre_context {
-          ctll::push_front(set<A>(), ctll::list<Ts...>()), subject.parameters
-      };
+    static constexpr auto
+    apply(pcre::set_start, ctll::term<V>, pcre_context<ctll::list<A, Ts...>, Parameters> subject) {
+      return pcre_context { ctll::push_front(set<A>(), ctll::list<Ts...>()), subject.parameters };
     }
     // set_make
     template <auto V, typename... Content, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::set_make,
-        ctll::term<V>,
-        pcre_context<ctll::list<set<Content...>, Ts...>, Parameters> subject
+      pcre::set_make,
+      ctll::term<V>,
+      pcre_context<ctll::list<set<Content...>, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(set<Content...>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(set<Content...>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
     // set_make_negative
     template <auto V, typename... Content, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::set_make_negative,
-        ctll::term<V>,
-        pcre_context<ctll::list<set<Content...>, Ts...>, Parameters> subject
+      pcre::set_make_negative,
+      ctll::term<V>,
+      pcre_context<ctll::list<set<Content...>, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(negative_set<Content...>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(negative_set<Content...>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
     // set{A...} + B = set{A,B}
-    template <
-        auto V,
-        typename A,
-        typename... Content,
-        typename... Ts,
-        typename Parameters>
+    template <auto V, typename A, typename... Content, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::set_combine,
-        ctll::term<V>,
-        pcre_context<ctll::list<A, set<Content...>, Ts...>, Parameters> subject
+      pcre::set_combine,
+      ctll::term<V>,
+      pcre_context<ctll::list<A, set<Content...>, Ts...>, Parameters> subject
     ) {
       auto new_set = push_back_into_set<set>(A(), set<Content...>());
-      return pcre_context {
-          ctll::push_front(new_set, ctll::list<Ts...>()), subject.parameters
-      };
+      return pcre_context { ctll::push_front(new_set, ctll::list<Ts...>()), subject.parameters };
     }
     // TODO checkme
     //// set{A...} + set{B...} = set{A...,B...}
@@ -5535,22 +4686,14 @@ namespace ctre {
     // }
 
     // negative_set{A...} + B = negative_set{A,B}
-    template <
-        auto V,
-        typename A,
-        typename... Content,
-        typename... Ts,
-        typename Parameters>
+    template <auto V, typename A, typename... Content, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::set_combine,
-        ctll::term<V>,
-        pcre_context<ctll::list<A, negative_set<Content...>, Ts...>, Parameters>
-            subject
+      pcre::set_combine,
+      ctll::term<V>,
+      pcre_context<ctll::list<A, negative_set<Content...>, Ts...>, Parameters> subject
     ) {
       auto new_set = push_back_into_set<set>(A(), set<Content...>());
-      return pcre_context {
-          ctll::push_front(new_set, ctll::list<Ts...>()), subject.parameters
-      };
+      return pcre_context { ctll::push_front(new_set, ctll::list<Ts...>()), subject.parameters };
     }
     // TODO checkme
     //// negative_set{A...} + negative_set{B...} = negative_set{A...,B...}
@@ -5566,27 +4709,23 @@ namespace ctre {
     //  negate_class_named: [[^:digit:]] = [^[:digit:]]
     template <auto V, typename A, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::negate_class_named,
-        ctll::term<V>,
-        pcre_context<ctll::list<A, Ts...>, Parameters> subject
+      pcre::negate_class_named,
+      ctll::term<V>,
+      pcre_context<ctll::list<A, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(negate<A>(), ctll::list<Ts...>()), subject.parameters
-      };
+      return pcre_context { ctll::push_front(negate<A>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
     // add range to set
     template <auto V, auto B, auto A, typename... Ts, typename Parameters>
     static constexpr auto apply(
-        pcre::make_range,
-        ctll::term<V>,
-        pcre_context<ctll::list<character<B>, character<A>, Ts...>, Parameters>
-            subject
+      pcre::make_range,
+      ctll::term<V>,
+      pcre_context<ctll::list<character<B>, character<A>, Ts...>, Parameters> subject
     ) {
-      return pcre_context {
-          ctll::push_front(char_range<A, B>(), ctll::list<Ts...>()),
-          subject.parameters
-      };
+      return pcre_context { ctll::push_front(char_range<A, B>(), ctll::list<Ts...>()),
+                            subject.parameters };
     }
 
 #endif
@@ -5603,9 +4742,7 @@ namespace ctre {
     template <typename Mode, typename... Ts, size_t Id, size_t Counter>
     static constexpr auto
     apply_mode(Mode, ctll::list<capture_id<Id>, Ts...>, pcre_parameters<Counter>) {
-      return pcre_context<
-          ctll::list<mode_switch<Mode>, Ts...>, pcre_parameters<Counter - 1>> {
-      };
+      return pcre_context<ctll::list<mode_switch<Mode>, Ts...>, pcre_parameters<Counter - 1>> {};
     }
 
     // catch a semantic action into mode
@@ -5651,8 +4788,7 @@ namespace ctre {
 namespace ctre {
 
   template <typename... Content>
-  constexpr bool
-  starts_with_anchor(const flags&, ctll::list<Content...>) noexcept {
+  constexpr bool starts_with_anchor(const flags&, ctll::list<Content...>) noexcept {
     return false;
   }
 
@@ -5667,8 +4803,7 @@ namespace ctre {
   constexpr bool
   starts_with_anchor(const flags& f, ctll::list<assert_line_begin, Content...>) noexcept {
     // yes! start line anchor is here
-    return !ctre::multiline_mode(f) ||
-           starts_with_anchor(f, ctll::list<Content...> {});
+    return !ctre::multiline_mode(f) || starts_with_anchor(f, ctll::list<Content...> {});
   }
 
   template <typename CharLike, typename... Content>
@@ -5684,9 +4819,7 @@ namespace ctre {
   starts_with_anchor(const flags& f, ctll::list<select<Options...>, Content...>) noexcept {
     // check if all options starts with anchor or if they are empty, there is an
     // anchor behind them
-    return (
-        starts_with_anchor(f, ctll::list<Options, Content...> {}) && ... && true
-    );
+    return (starts_with_anchor(f, ctll::list<Options, Content...> {}) && ... && true);
   }
 
   template <typename... Optional, typename... Content>
@@ -5801,43 +4934,37 @@ namespace ctre {
       friend auto operator==(self_type, self_type) noexcept -> bool;
       auto        operator*() noexcept -> reference;
 
-      friend constexpr auto
-      operator==(self_type, const char8_t* other_ptr) noexcept {
-        return *other_ptr == char8_t {0};
+      friend constexpr auto operator==(self_type, const char8_t* other_ptr) noexcept {
+        return *other_ptr == char8_t { 0 };
       }
 
-      friend constexpr auto
-      operator!=(self_type, const char8_t* other_ptr) noexcept {
-        return *other_ptr != char8_t {0};
+      friend constexpr auto operator!=(self_type, const char8_t* other_ptr) noexcept {
+        return *other_ptr != char8_t { 0 };
       }
 
 #if __cpp_impl_three_way_comparison < 201907L
-      friend constexpr auto
-      operator==(const char8_t* other_ptr, self_type) noexcept {
-        return *other_ptr == char8_t {0};
+      friend constexpr auto operator==(const char8_t* other_ptr, self_type) noexcept {
+        return *other_ptr == char8_t { 0 };
       }
 
-      friend constexpr auto
-      operator!=(const char8_t* other_ptr, self_type) noexcept {
-        return *other_ptr != char8_t {0};
+      friend constexpr auto operator!=(const char8_t* other_ptr, self_type) noexcept {
+        return *other_ptr != char8_t { 0 };
       }
 #endif
     };
 
-    const char8_t* ptr {nullptr};
-    const char8_t* end {nullptr};
+    const char8_t* ptr { nullptr };
+    const char8_t* end { nullptr };
 
     constexpr friend bool operator!=(const utf8_iterator& lhs, sentinel) {
       return lhs.ptr < lhs.end;
     }
 
-    constexpr friend bool
-    operator!=(const utf8_iterator& lhs, const char8_t* rhs) {
+    constexpr friend bool operator!=(const utf8_iterator& lhs, const char8_t* rhs) {
       return lhs.ptr != rhs;
     }
 
-    constexpr friend bool
-    operator!=(const utf8_iterator& lhs, const utf8_iterator& rhs) {
+    constexpr friend bool operator!=(const utf8_iterator& lhs, const utf8_iterator& rhs) {
       return lhs.ptr != rhs.ptr;
     }
 
@@ -5845,13 +4972,11 @@ namespace ctre {
       return lhs.ptr >= lhs.end;
     }
 
-    constexpr friend bool
-    operator==(const utf8_iterator& lhs, const char8_t* rhs) {
+    constexpr friend bool operator==(const utf8_iterator& lhs, const char8_t* rhs) {
       return lhs.ptr == rhs;
     }
 
-    constexpr friend bool
-    operator==(const utf8_iterator& lhs, const utf8_iterator& rhs) {
+    constexpr friend bool operator==(const utf8_iterator& lhs, const utf8_iterator& rhs) {
       return lhs.ptr == rhs.ptr;
     }
 
@@ -5860,8 +4985,7 @@ namespace ctre {
       return rhs.ptr < rhs.end;
     }
 
-    constexpr friend bool
-    operator!=(const char8_t* lhs, const utf8_iterator& rhs) {
+    constexpr friend bool operator!=(const char8_t* lhs, const utf8_iterator& rhs) {
       return lhs == rhs.ptr;
     }
 
@@ -5869,8 +4993,7 @@ namespace ctre {
       return rhs.ptr >= rhs.end;
     }
 
-    constexpr friend bool
-    operator==(const char8_t* lhs, const utf8_iterator& rhs) {
+    constexpr friend bool operator==(const char8_t* lhs, const utf8_iterator& rhs) {
       return lhs == rhs.ptr;
     }
 #endif
@@ -5940,29 +5063,24 @@ namespace ctre {
       constexpr char32_t mojibake = 0xFFFDull;
 
       // quickpath
-      if (!(*ptr & 0b1000'0000u)) CTRE_LIKELY {
-          return *ptr;
-        }
+      if (!(*ptr & 0b1000'0000u))
+        CTRE_LIKELY { return *ptr; }
 
       // calculate length based on first 5 bits
-      const unsigned length =
-          ((0x3A55000000000000ull >> ((*ptr >> 2) & 0b111110u)) & 0b11u);
+      const unsigned length = ((0x3A55000000000000ull >> ((*ptr >> 2) & 0b111110u)) & 0b11u);
 
       // actual length is number + 1 bytes
 
       // length 0 here means it's a bad front unit
-      if (!length) CTRE_UNLIKELY {
-          return mojibake;
-        }
+      if (!length)
+        CTRE_UNLIKELY { return mojibake; }
 
       // if part of the utf-8 sequence is past the end
-      if (((ptr + length) >= end)) CTRE_UNLIKELY {
-          return mojibake;
-        }
+      if (((ptr + length) >= end))
+        CTRE_UNLIKELY { return mojibake; }
 
-      if ((ptr[1] & 0b1100'0000u) != 0b1000'0000) CTRE_UNLIKELY {
-          return mojibake;
-        }
+      if ((ptr[1] & 0b1100'0000u) != 0b1000'0000)
+        CTRE_UNLIKELY { return mojibake; }
 
       const char8_t mask = static_cast<char8_t>(0b0011'1111u >> length);
 
@@ -5973,27 +5091,22 @@ namespace ctre {
       // remove utf8 front bits, get only significant part
       // and add first trailing unit
 
-      char32_t result = static_cast<char32_t>((ptr[0] & mask) << 6u) |
-                        (ptr[1] & 0b0011'1111u);
+      char32_t result = static_cast<char32_t>((ptr[0] & mask) << 6u) | (ptr[1] & 0b0011'1111u);
 
       // add rest of trailing units
-      if (length == 1) CTRE_LIKELY {
-          return result;
-        }
+      if (length == 1)
+        CTRE_LIKELY { return result; }
 
-      if ((ptr[2] & 0b1100'0000u) != 0b1000'0000) CTRE_UNLIKELY {
-          return mojibake;
-        }
+      if ((ptr[2] & 0b1100'0000u) != 0b1000'0000)
+        CTRE_UNLIKELY { return mojibake; }
 
       result = (result << 6) | (ptr[2] & 0b0011'1111u);
 
-      if (length == 2) CTRE_LIKELY {
-          return result;
-        }
+      if (length == 2)
+        CTRE_LIKELY { return result; }
 
-      if ((ptr[3] & 0b1100'0000u) != 0b1000'0000) CTRE_UNLIKELY {
-          return mojibake;
-        }
+      if ((ptr[3] & 0b1100'0000u) != 0b1000'0000)
+        CTRE_UNLIKELY { return mojibake; }
 
       return (result << 6) | (ptr[3] & 0b0011'1111u);
     }
@@ -6002,10 +5115,10 @@ namespace ctre {
 #ifdef CTRE_ENABLE_UTF8_RANGE
   struct utf8_range {
     std::u8string_view range;
-    constexpr utf8_range(std::u8string_view r) noexcept : range {r} {}
+    constexpr utf8_range(std::u8string_view r) noexcept : range { r } {}
 
     constexpr auto begin() const noexcept {
-      return utf8_iterator {range.data(), range.data() + range.size()};
+      return utf8_iterator { range.data(), range.data() + range.size() };
     }
     constexpr auto end() const noexcept { return utf8_iterator::sentinel {}; }
   };
@@ -6032,8 +5145,7 @@ namespace ctre {
 
 namespace ctre {
 
-  constexpr auto
-  is_random_accessible_f(const std::random_access_iterator_tag&) {
+  constexpr auto is_random_accessible_f(const std::random_access_iterator_tag&) {
     return std::true_type {};
   }
   constexpr auto is_random_accessible_f(...) { return std::false_type {}; }
@@ -6046,10 +5158,9 @@ namespace ctre {
 
   template <typename T>
   constexpr bool is_random_accessible =
-      decltype(is_random_accessible_f(std::declval<const T&>())) {};
+    decltype(is_random_accessible_f(std::declval<const T&>())) {};
   template <typename T>
-  constexpr bool is_reverse_iterator =
-      decltype(is_reverse_iterator_f(std::declval<const T&>())) {};
+  constexpr bool is_reverse_iterator = decltype(is_reverse_iterator_f(std::declval<const T&>())) {};
 
   struct not_matched_tag_t {};
 
@@ -6062,7 +5173,7 @@ namespace ctre {
       Iterator _begin {};
       Iterator _end {};
 
-      bool _matched {false};
+      bool _matched { false };
 
      public:
       using char_type = typename std::iterator_traits<Iterator>::value_type;
@@ -6071,32 +5182,23 @@ namespace ctre {
 
       constexpr CTRE_FORCE_INLINE storage() noexcept {}
 
-      constexpr CTRE_FORCE_INLINE void matched() noexcept { _matched = true; }
-      constexpr CTRE_FORCE_INLINE void unmatch() noexcept { _matched = false; }
-      constexpr CTRE_FORCE_INLINE void set_start(Iterator pos) noexcept {
-        _begin = pos;
-      }
+      constexpr CTRE_FORCE_INLINE void     matched() noexcept { _matched = true; }
+      constexpr CTRE_FORCE_INLINE void     unmatch() noexcept { _matched = false; }
+      constexpr CTRE_FORCE_INLINE void     set_start(Iterator pos) noexcept { _begin = pos; }
       constexpr CTRE_FORCE_INLINE storage& set_end(Iterator pos) noexcept {
         _end = pos;
         return *this;
       }
-      constexpr CTRE_FORCE_INLINE Iterator get_end() const noexcept {
-        return _end;
-      }
+      constexpr CTRE_FORCE_INLINE Iterator get_end() const noexcept { return _end; }
 
       constexpr auto begin() const noexcept { return _begin; }
       constexpr auto end() const noexcept { return _end; }
 
-      constexpr explicit CTRE_FORCE_INLINE operator bool() const noexcept {
-        return _matched;
-      }
+      constexpr explicit CTRE_FORCE_INLINE operator bool() const noexcept { return _matched; }
 
       template <typename It = Iterator>
       constexpr CTRE_FORCE_INLINE const auto* data_unsafe() const noexcept {
-        static_assert(
-            !is_reverse_iterator<It>,
-            "Iterator in your capture must not be reverse!"
-        );
+        static_assert(!is_reverse_iterator<It>, "Iterator in your capture must not be reverse!");
 
 #if __cpp_char8_t >= 201811
         if constexpr (std::is_same_v<Iterator, utf8_iterator>) {
@@ -6105,10 +5207,9 @@ namespace ctre {
 #endif
 
 #ifdef _MSC_VER
-          return std::to_address(_begin
-          ); // I'm enabling this only for MSVC for now, as some clang
-             // old versions with various libraries (random
-             // combinations) has different problems
+          return std::to_address(_begin); // I'm enabling this only for MSVC for now, as some clang
+                                          // old versions with various libraries (random
+                                          // combinations) has different problems
 #else
         return &*_begin;
 #endif
@@ -6121,14 +5222,13 @@ namespace ctre {
       template <typename It = Iterator>
       constexpr CTRE_FORCE_INLINE const auto* data() const noexcept {
         constexpr bool must_be_contiguous_nonreverse_iterator =
-            is_random_accessible<
-                typename std::iterator_traits<It>::iterator_category> &&
-            !is_reverse_iterator<It>;
+          is_random_accessible<typename std::iterator_traits<It>::iterator_category> &&
+          !is_reverse_iterator<It>;
 
         static_assert(
-            must_be_contiguous_nonreverse_iterator,
-            "To access result as a pointer you need to provide a random access "
-            "iterator/range to regex (which is not reverse iterator based)."
+          must_be_contiguous_nonreverse_iterator,
+          "To access result as a pointer you need to provide a random access "
+          "iterator/range to regex (which is not reverse iterator based)."
         );
 
         return data_unsafe();
@@ -6152,9 +5252,8 @@ namespace ctre {
 
 #if __has_include(<charconv>)
       template <typename R = int>
-      constexpr CTRE_FORCE_INLINE auto to_number(int base = 10) const noexcept
-          -> R {
-        R          result {0};
+      constexpr CTRE_FORCE_INLINE auto to_number(int base = 10) const noexcept -> R {
+        R          result { 0 };
         const auto view = to_view();
         std::from_chars(view.data(), view.data() + view.size(), result, base);
         return result;
@@ -6168,28 +5267,23 @@ namespace ctre {
       constexpr CTRE_FORCE_INLINE auto to_view() const noexcept {
         // random access, because C++ (waving hands around)
         constexpr bool must_be_nonreverse_contiguous_iterator =
-            is_random_accessible<typename std::iterator_traits<
-                std::remove_const_t<It>>::iterator_category> &&
-            !is_reverse_iterator<It>;
+          is_random_accessible<
+            typename std::iterator_traits<std::remove_const_t<It>>::iterator_category> &&
+          !is_reverse_iterator<It>;
 
         static_assert(
-            must_be_nonreverse_contiguous_iterator,
-            "To convert capture into a basic_string_view you need to provide a "
-            "pointer or a contiguous non-reverse iterator/range to regex."
+          must_be_nonreverse_contiguous_iterator,
+          "To convert capture into a basic_string_view you need to provide a "
+          "pointer or a contiguous non-reverse iterator/range to regex."
         );
 
-        return std::basic_string_view<char_type>(
-            data_unsafe(), static_cast<size_t>(unit_size())
-        );
+        return std::basic_string_view<char_type>(data_unsafe(), static_cast<size_t>(unit_size()));
       }
 
-      constexpr CTRE_FORCE_INLINE std::basic_string<char_type> to_string(
-      ) const noexcept {
+      constexpr CTRE_FORCE_INLINE std::basic_string<char_type> to_string() const noexcept {
 #if __cpp_char8_t >= 201811
         if constexpr (std::is_same_v<Iterator, utf8_iterator>) {
-          return std::basic_string<char_type>(
-              data_unsafe(), static_cast<size_t>(unit_size())
-          );
+          return std::basic_string<char_type>(data_unsafe(), static_cast<size_t>(unit_size()));
         } else {
           return std::basic_string<char_type>(begin(), end());
         }
@@ -6198,52 +5292,37 @@ namespace ctre {
 #endif
       }
 
-      constexpr CTRE_FORCE_INLINE auto view() const noexcept {
+      constexpr CTRE_FORCE_INLINE auto view() const noexcept { return to_view(); }
+
+      constexpr CTRE_FORCE_INLINE auto str() const noexcept { return to_string(); }
+
+      constexpr CTRE_FORCE_INLINE operator std::basic_string_view<char_type>() const noexcept {
         return to_view();
       }
 
-      constexpr CTRE_FORCE_INLINE auto str() const noexcept {
-        return to_string();
-      }
-
-      constexpr CTRE_FORCE_INLINE operator std::basic_string_view<char_type>(
-      ) const noexcept {
-        return to_view();
-      }
-
-      constexpr CTRE_FORCE_INLINE explicit
-      operator std::basic_string<char_type>() const noexcept {
+      constexpr CTRE_FORCE_INLINE explicit operator std::basic_string<char_type>() const noexcept {
         return to_string();
       }
 
       constexpr CTRE_FORCE_INLINE static size_t get_id() noexcept { return Id; }
 
-      friend CTRE_FORCE_INLINE constexpr bool operator==(
-          const storage&                    lhs,
-          std::basic_string_view<char_type> rhs
-      ) noexcept {
+      friend CTRE_FORCE_INLINE constexpr bool
+      operator==(const storage& lhs, std::basic_string_view<char_type> rhs) noexcept {
         return bool(lhs) ? lhs.view() == rhs : false;
       }
-      friend CTRE_FORCE_INLINE constexpr bool operator!=(
-          const storage&                    lhs,
-          std::basic_string_view<char_type> rhs
-      ) noexcept {
+      friend CTRE_FORCE_INLINE constexpr bool
+      operator!=(const storage& lhs, std::basic_string_view<char_type> rhs) noexcept {
         return bool(lhs) ? lhs.view() != rhs : false;
       }
-      friend CTRE_FORCE_INLINE constexpr bool operator==(
-          std::basic_string_view<char_type> lhs,
-          const storage&                    rhs
-      ) noexcept {
+      friend CTRE_FORCE_INLINE constexpr bool
+      operator==(std::basic_string_view<char_type> lhs, const storage& rhs) noexcept {
         return bool(rhs) ? lhs == rhs.view() : false;
       }
-      friend CTRE_FORCE_INLINE constexpr bool operator!=(
-          std::basic_string_view<char_type> lhs,
-          const storage&                    rhs
-      ) noexcept {
+      friend CTRE_FORCE_INLINE constexpr bool
+      operator!=(std::basic_string_view<char_type> lhs, const storage& rhs) noexcept {
         return bool(rhs) ? lhs != rhs.view() : false;
       }
-      friend CTRE_FORCE_INLINE std::ostream&
-      operator<<(std::ostream& str, const storage& rhs) {
+      friend CTRE_FORCE_INLINE std::ostream& operator<<(std::ostream& str, const storage& rhs) {
         return str << rhs.view();
       }
     };
@@ -6332,8 +5411,8 @@ namespace ctre {
     template <const auto& Name>
     CTRE_FORCE_INLINE constexpr auto& select() const noexcept {
 #endif
-        if constexpr (std::is_same_v<typename Head::name, void>) {
-          return captures<Tail...>::template select<Name>();
+      if constexpr (std::is_same_v<typename Head::name, void>) {
+        return captures<Tail...>::template select<Name>();
   } else {
     if constexpr (Head::name::name.is_same_as(Name)) {
       return head;
@@ -6380,7 +5459,7 @@ struct captures<> {
     template <const auto&>
     CTRE_FORCE_INLINE constexpr auto& select() const noexcept {
 #endif
-      return capture_not_exists;
+    return capture_not_exists;
 }
 }
 ;
@@ -6388,9 +5467,9 @@ struct captures<> {
 template <typename Iterator, typename... Captures>
 class regex_results {
   captures<
-      captured_content<0>::template storage<Iterator>,
-      typename Captures::template storage<Iterator>...>
-      _captures {};
+    captured_content<0>::template storage<Iterator>,
+    typename Captures::template storage<Iterator>...>
+    _captures {};
 
  public:
   using char_type = typename std::iterator_traits<Iterator>::value_type;
@@ -6399,35 +5478,31 @@ class regex_results {
   constexpr CTRE_FORCE_INLINE regex_results(not_matched_tag_t) noexcept {}
 
   // special constructor for deducting
-  constexpr CTRE_FORCE_INLINE
-  regex_results(Iterator, ctll::list<Captures...>) noexcept {}
+  constexpr CTRE_FORCE_INLINE regex_results(Iterator, ctll::list<Captures...>) noexcept {}
 
-  template <
-      size_t Id,
-      typename = std::enable_if_t<decltype(_captures)::template exists<Id>()>>
+  template <size_t Id, typename = std::enable_if_t<decltype(_captures)::template exists<Id>()>>
   CTRE_FORCE_INLINE constexpr auto get() const noexcept {
     return _captures.template select<Id>();
   }
   template <
-      typename Name,
-      typename = std::enable_if_t<decltype(_captures)::template exists<Name>()>>
+    typename Name,
+    typename = std::enable_if_t<decltype(_captures)::template exists<Name>()>>
   CTRE_FORCE_INLINE constexpr auto get() const noexcept {
     return _captures.template select<Name>();
   }
 #if CTRE_CNTTP_COMPILER_CHECK
   template <
-      ctll::fixed_string Name,
-      typename = std::enable_if_t<decltype(_captures)::template exists<Name>()>>
+    ctll::fixed_string Name,
+    typename = std::enable_if_t<decltype(_captures)::template exists<Name>()>>
   CTRE_FORCE_INLINE constexpr auto get() const noexcept {
 #else
     template <
-        const auto& Name,
-        typename =
-            std::enable_if_t<decltype(_captures)::template exists<Name>()>>
+      const auto& Name,
+      typename = std::enable_if_t<decltype(_captures)::template exists<Name>()>>
     CTRE_FORCE_INLINE constexpr auto get() const noexcept {
 #endif
-      return _captures.template select<Name>();
-} static constexpr size_t count() noexcept { return sizeof...(Captures) + 1; }
+    return _captures.template select<Name>();
+} static constexpr size_t                  count() noexcept { return sizeof...(Captures) + 1; }
 constexpr CTRE_FORCE_INLINE regex_results& matched() noexcept {
   _captures.template select<0>().matched();
   return *this;
@@ -6440,13 +5515,11 @@ constexpr CTRE_FORCE_INLINE operator bool() const noexcept {
   return bool(_captures.template select<0>());
 }
 
-constexpr CTRE_FORCE_INLINE operator std::basic_string_view<char_type>(
-) const noexcept {
+constexpr CTRE_FORCE_INLINE operator std::basic_string_view<char_type>() const noexcept {
   return to_view();
 }
 
-constexpr CTRE_FORCE_INLINE explicit operator std::basic_string<char_type>(
-) const noexcept {
+constexpr CTRE_FORCE_INLINE explicit operator std::basic_string<char_type>() const noexcept {
   return to_string();
 }
 
@@ -6481,8 +5554,7 @@ constexpr CTRE_FORCE_INLINE const auto* data() const noexcept {
   return _captures.template select<0>().data();
 }
 
-constexpr CTRE_FORCE_INLINE regex_results& set_start_mark(Iterator pos
-) noexcept {
+constexpr CTRE_FORCE_INLINE regex_results& set_start_mark(Iterator pos) noexcept {
   _captures.template select<0>().set_start(pos);
   return *this;
 }
@@ -6494,8 +5566,7 @@ constexpr CTRE_FORCE_INLINE Iterator get_end_position() const noexcept {
   return _captures.template select<0>().get_end();
 }
 template <size_t Id>
-CTRE_FORCE_INLINE constexpr regex_results& start_capture(Iterator pos
-) noexcept {
+CTRE_FORCE_INLINE constexpr regex_results& start_capture(Iterator pos) noexcept {
   _captures.template select<Id>().set_start(pos);
   return *this;
 }
@@ -6504,58 +5575,41 @@ CTRE_FORCE_INLINE constexpr regex_results& end_capture(Iterator pos) noexcept {
   _captures.template select<Id>().set_end(pos).matched();
   return *this;
 }
-constexpr auto begin() const noexcept {
-  return _captures.template select<0>().begin();
-}
-constexpr auto end() const noexcept {
-  return _captures.template select<0>().end();
-}
-friend CTRE_FORCE_INLINE constexpr bool operator==(
-    const regex_results&              lhs,
-    std::basic_string_view<char_type> rhs
-) noexcept {
+constexpr auto begin() const noexcept { return _captures.template select<0>().begin(); }
+constexpr auto end() const noexcept { return _captures.template select<0>().end(); }
+friend CTRE_FORCE_INLINE constexpr bool
+operator==(const regex_results& lhs, std::basic_string_view<char_type> rhs) noexcept {
   return bool(lhs) ? lhs.view() == rhs : false;
 }
-friend CTRE_FORCE_INLINE constexpr bool operator!=(
-    const regex_results&              lhs,
-    std::basic_string_view<char_type> rhs
-) noexcept {
+friend CTRE_FORCE_INLINE constexpr bool
+operator!=(const regex_results& lhs, std::basic_string_view<char_type> rhs) noexcept {
   return bool(lhs) ? lhs.view() != rhs : true;
 }
-friend CTRE_FORCE_INLINE constexpr bool operator==(
-    std::basic_string_view<char_type> lhs,
-    const regex_results&              rhs
-) noexcept {
+friend CTRE_FORCE_INLINE constexpr bool
+operator==(std::basic_string_view<char_type> lhs, const regex_results& rhs) noexcept {
   return bool(rhs) ? lhs == rhs.view() : false;
 }
-friend CTRE_FORCE_INLINE constexpr bool operator!=(
-    std::basic_string_view<char_type> lhs,
-    const regex_results&              rhs
-) noexcept {
+friend CTRE_FORCE_INLINE constexpr bool
+operator!=(std::basic_string_view<char_type> lhs, const regex_results& rhs) noexcept {
   return bool(rhs) ? lhs != rhs.view() : true;
 }
-friend CTRE_FORCE_INLINE std::ostream&
-operator<<(std::ostream& str, const regex_results& rhs) {
+friend CTRE_FORCE_INLINE std::ostream& operator<<(std::ostream& str, const regex_results& rhs) {
   return str << rhs.view();
 }
 }
 ;
 
 template <size_t Id, typename Iterator, typename... Captures>
-constexpr auto get(const regex_results<Iterator, Captures...>& results
-) noexcept {
+constexpr auto get(const regex_results<Iterator, Captures...>& results) noexcept {
   return results.template get<Id>();
 }
 
 template <typename Iterator, typename... Captures>
-regex_results(Iterator, ctll::list<Captures...>)
-    -> regex_results<Iterator, Captures...>;
+regex_results(Iterator, ctll::list<Captures...>) -> regex_results<Iterator, Captures...>;
 
 template <typename ResultIterator, typename Pattern>
-using return_type = decltype(regex_results(
-    std::declval<ResultIterator>(),
-    find_captures(Pattern {})
-));
+using return_type =
+  decltype(regex_results(std::declval<ResultIterator>(), find_captures(Pattern {})));
 
 } // namespace ctre
 
@@ -6570,16 +5624,13 @@ using return_type = decltype(regex_results(
 namespace std {
   template <typename... Captures>
   struct tuple_size<ctre::regex_results<Captures...>>
-      : public std::integral_constant<
-            size_t,
-            ctre::regex_results<Captures...>::count()> {};
+    : public std::integral_constant<size_t, ctre::regex_results<Captures...>::count()> {};
 
   template <size_t N, typename... Captures>
   struct tuple_element<N, ctre::regex_results<Captures...>> {
    public:
     using type =
-        decltype(std::declval<const ctre::regex_results<Captures...>&>()
-                     .template get<N>());
+      decltype(std::declval<const ctre::regex_results<Captures...>&>().template get<N>());
   };
 } // namespace std
 
@@ -6601,204 +5652,133 @@ namespace ctre {
   }
 
   template <typename... Output>
-  constexpr auto
-  find_captures(ctll::list<>, ctll::list<Output...> output) noexcept {
+  constexpr auto find_captures(ctll::list<>, ctll::list<Output...> output) noexcept {
     return output;
   }
 
   template <auto... String, typename... Tail, typename Output>
-  constexpr auto find_captures(
-      ctll::list<string<String...>, Tail...>,
-      Output output
-  ) noexcept {
+  constexpr auto find_captures(ctll::list<string<String...>, Tail...>, Output output) noexcept {
     return find_captures(ctll::list<Tail...>(), output);
   }
 
   template <typename... Options, typename... Tail, typename Output>
-  constexpr auto find_captures(
-      ctll::list<select<Options...>, Tail...>,
-      Output output
-  ) noexcept {
+  constexpr auto find_captures(ctll::list<select<Options...>, Tail...>, Output output) noexcept {
     return find_captures(ctll::list<Options..., Tail...>(), output);
   }
 
   template <typename... Content, typename... Tail, typename Output>
-  constexpr auto find_captures(
-      ctll::list<optional<Content...>, Tail...>,
-      Output output
-  ) noexcept {
+  constexpr auto find_captures(ctll::list<optional<Content...>, Tail...>, Output output) noexcept {
     return find_captures(ctll::list<Content..., Tail...>(), output);
   }
 
   template <typename... Content, typename... Tail, typename Output>
-  constexpr auto find_captures(
-      ctll::list<lazy_optional<Content...>, Tail...>,
-      Output output
-  ) noexcept {
-    return find_captures(ctll::list<Content..., Tail...>(), output);
-  }
-
-  template <typename... Content, typename... Tail, typename Output>
-  constexpr auto find_captures(
-      ctll::list<sequence<Content...>, Tail...>,
-      Output output
-  ) noexcept {
-    return find_captures(ctll::list<Content..., Tail...>(), output);
-  }
-
-  template <typename... Tail, typename Output>
   constexpr auto
-  find_captures(ctll::list<empty, Tail...>, Output output) noexcept {
+  find_captures(ctll::list<lazy_optional<Content...>, Tail...>, Output output) noexcept {
+    return find_captures(ctll::list<Content..., Tail...>(), output);
+  }
+
+  template <typename... Content, typename... Tail, typename Output>
+  constexpr auto find_captures(ctll::list<sequence<Content...>, Tail...>, Output output) noexcept {
+    return find_captures(ctll::list<Content..., Tail...>(), output);
+  }
+
+  template <typename... Tail, typename Output>
+  constexpr auto find_captures(ctll::list<empty, Tail...>, Output output) noexcept {
     return find_captures(ctll::list<Tail...>(), output);
   }
 
   template <typename... Tail, typename Output>
-  constexpr auto find_captures(
-      ctll::list<assert_subject_begin, Tail...>,
-      Output output
-  ) noexcept {
+  constexpr auto find_captures(ctll::list<assert_subject_begin, Tail...>, Output output) noexcept {
     return find_captures(ctll::list<Tail...>(), output);
   }
 
   template <typename... Tail, typename Output>
-  constexpr auto find_captures(
-      ctll::list<assert_subject_end, Tail...>,
-      Output output
-  ) noexcept {
+  constexpr auto find_captures(ctll::list<assert_subject_end, Tail...>, Output output) noexcept {
     return find_captures(ctll::list<Tail...>(), output);
   }
 
   // , typename = std::enable_if_t<(MatchesCharacter<CharacterLike>::template
   // value<char>)
   template <typename CharacterLike, typename... Tail, typename Output>
-  constexpr auto
-  find_captures(ctll::list<CharacterLike, Tail...>, Output output) noexcept {
+  constexpr auto find_captures(ctll::list<CharacterLike, Tail...>, Output output) noexcept {
     return find_captures(ctll::list<Tail...>(), output);
   }
 
   template <typename... Content, typename... Tail, typename Output>
+  constexpr auto find_captures(ctll::list<plus<Content...>, Tail...>, Output output) noexcept {
+    return find_captures(ctll::list<Content..., Tail...>(), output);
+  }
+
+  template <typename... Content, typename... Tail, typename Output>
+  constexpr auto find_captures(ctll::list<star<Content...>, Tail...>, Output output) noexcept {
+    return find_captures(ctll::list<Content..., Tail...>(), output);
+  }
+
+  template <size_t A, size_t B, typename... Content, typename... Tail, typename Output>
   constexpr auto
-  find_captures(ctll::list<plus<Content...>, Tail...>, Output output) noexcept {
+  find_captures(ctll::list<repeat<A, B, Content...>, Tail...>, Output output) noexcept {
+    return find_captures(ctll::list<Content..., Tail...>(), output);
+  }
+
+  template <typename... Content, typename... Tail, typename Output>
+  constexpr auto find_captures(ctll::list<lazy_plus<Content...>, Tail...>, Output output) noexcept {
+    return find_captures(ctll::list<Content..., Tail...>(), output);
+  }
+
+  template <typename... Content, typename... Tail, typename Output>
+  constexpr auto find_captures(ctll::list<lazy_star<Content...>, Tail...>, Output output) noexcept {
+    return find_captures(ctll::list<Content..., Tail...>(), output);
+  }
+
+  template <size_t A, size_t B, typename... Content, typename... Tail, typename Output>
+  constexpr auto
+  find_captures(ctll::list<lazy_repeat<A, B, Content...>, Tail...>, Output output) noexcept {
     return find_captures(ctll::list<Content..., Tail...>(), output);
   }
 
   template <typename... Content, typename... Tail, typename Output>
   constexpr auto
-  find_captures(ctll::list<star<Content...>, Tail...>, Output output) noexcept {
-    return find_captures(ctll::list<Content..., Tail...>(), output);
-  }
-
-  template <
-      size_t A,
-      size_t B,
-      typename... Content,
-      typename... Tail,
-      typename Output>
-  constexpr auto find_captures(
-      ctll::list<repeat<A, B, Content...>, Tail...>,
-      Output output
-  ) noexcept {
+  find_captures(ctll::list<possessive_plus<Content...>, Tail...>, Output output) noexcept {
     return find_captures(ctll::list<Content..., Tail...>(), output);
   }
 
   template <typename... Content, typename... Tail, typename Output>
-  constexpr auto find_captures(
-      ctll::list<lazy_plus<Content...>, Tail...>,
-      Output output
-  ) noexcept {
+  constexpr auto
+  find_captures(ctll::list<possessive_star<Content...>, Tail...>, Output output) noexcept {
+    return find_captures(ctll::list<Content..., Tail...>(), output);
+  }
+
+  template <size_t A, size_t B, typename... Content, typename... Tail, typename Output>
+  constexpr auto
+  find_captures(ctll::list<possessive_repeat<A, B, Content...>, Tail...>, Output output) noexcept {
     return find_captures(ctll::list<Content..., Tail...>(), output);
   }
 
   template <typename... Content, typename... Tail, typename Output>
-  constexpr auto find_captures(
-      ctll::list<lazy_star<Content...>, Tail...>,
-      Output output
-  ) noexcept {
-    return find_captures(ctll::list<Content..., Tail...>(), output);
-  }
-
-  template <
-      size_t A,
-      size_t B,
-      typename... Content,
-      typename... Tail,
-      typename Output>
-  constexpr auto find_captures(
-      ctll::list<lazy_repeat<A, B, Content...>, Tail...>,
-      Output output
-  ) noexcept {
+  constexpr auto
+  find_captures(ctll::list<lookahead_positive<Content...>, Tail...>, Output output) noexcept {
     return find_captures(ctll::list<Content..., Tail...>(), output);
   }
 
   template <typename... Content, typename... Tail, typename Output>
-  constexpr auto find_captures(
-      ctll::list<possessive_plus<Content...>, Tail...>,
-      Output output
-  ) noexcept {
+  constexpr auto
+  find_captures(ctll::list<lookahead_negative<Content...>, Tail...>, Output output) noexcept {
     return find_captures(ctll::list<Content..., Tail...>(), output);
   }
 
-  template <typename... Content, typename... Tail, typename Output>
-  constexpr auto find_captures(
-      ctll::list<possessive_star<Content...>, Tail...>,
-      Output output
-  ) noexcept {
-    return find_captures(ctll::list<Content..., Tail...>(), output);
-  }
-
-  template <
-      size_t A,
-      size_t B,
-      typename... Content,
-      typename... Tail,
-      typename Output>
-  constexpr auto find_captures(
-      ctll::list<possessive_repeat<A, B, Content...>, Tail...>,
-      Output output
-  ) noexcept {
-    return find_captures(ctll::list<Content..., Tail...>(), output);
-  }
-
-  template <typename... Content, typename... Tail, typename Output>
-  constexpr auto find_captures(
-      ctll::list<lookahead_positive<Content...>, Tail...>,
-      Output output
-  ) noexcept {
-    return find_captures(ctll::list<Content..., Tail...>(), output);
-  }
-
-  template <typename... Content, typename... Tail, typename Output>
-  constexpr auto find_captures(
-      ctll::list<lookahead_negative<Content...>, Tail...>,
-      Output output
-  ) noexcept {
-    return find_captures(ctll::list<Content..., Tail...>(), output);
-  }
-
-  template <
-      size_t Id,
-      typename... Content,
-      typename... Tail,
-      typename... Output>
+  template <size_t Id, typename... Content, typename... Tail, typename... Output>
   constexpr auto
   find_captures(ctll::list<capture<Id, Content...>, Tail...>, ctll::list<Output...>) noexcept {
     return find_captures(
-        ctll::list<Content..., Tail...>(),
-        ctll::list<Output..., captured_content<Id>>()
+      ctll::list<Content..., Tail...>(), ctll::list<Output..., captured_content<Id>>()
     );
   }
 
-  template <
-      size_t Id,
-      typename Name,
-      typename... Content,
-      typename... Tail,
-      typename... Output>
+  template <size_t Id, typename Name, typename... Content, typename... Tail, typename... Output>
   constexpr auto
   find_captures(ctll::list<capture_with_name<Id, Name, Content...>, Tail...>, ctll::list<Output...>) noexcept {
     return find_captures(
-        ctll::list<Content..., Tail...>(),
-        ctll::list<Output..., captured_content<Id, Name>>()
+      ctll::list<Content..., Tail...>(), ctll::list<Output..., captured_content<Id, Name>>()
     );
   }
 
@@ -6819,46 +5799,39 @@ namespace ctre {
   }
 
   template <typename... Content, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...> l, ctll::list<accept, Tail...>) noexcept {
+  constexpr auto first(ctll::list<Content...> l, ctll::list<accept, Tail...>) noexcept {
     return l;
   }
 
   template <typename... Content, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...> l, ctll::list<end_mark, Tail...>) noexcept {
+  constexpr auto first(ctll::list<Content...> l, ctll::list<end_mark, Tail...>) noexcept {
     return l;
   }
 
   template <typename... Content, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...> l, ctll::list<end_cycle_mark, Tail...>) noexcept {
+  constexpr auto first(ctll::list<Content...> l, ctll::list<end_cycle_mark, Tail...>) noexcept {
     return l;
   }
 
   template <typename... Content, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...> l, ctll::list<end_lookahead_mark, Tail...>) noexcept {
+  constexpr auto first(ctll::list<Content...> l, ctll::list<end_lookahead_mark, Tail...>) noexcept {
     return l;
   }
 
   template <typename... Content, size_t Id, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...> l, ctll::list<numeric_mark<Id>, Tail...>) noexcept {
+  constexpr auto first(ctll::list<Content...> l, ctll::list<numeric_mark<Id>, Tail...>) noexcept {
     return first(l, ctll::list<Tail...> {});
   }
 
   // empty
   template <typename... Content, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...> l, ctll::list<empty, Tail...>) noexcept {
+  constexpr auto first(ctll::list<Content...> l, ctll::list<empty, Tail...>) noexcept {
     return first(l, ctll::list<Tail...> {});
   }
 
   // boundary
   template <typename... Content, typename CharLike, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...> l, ctll::list<boundary<CharLike>, Tail...>) noexcept {
+  constexpr auto first(ctll::list<Content...> l, ctll::list<boundary<CharLike>, Tail...>) noexcept {
     return first(l, ctll::list<Tail...> {});
   }
 
@@ -6870,8 +5843,7 @@ namespace ctre {
   }
 
   template <typename... Content, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...> l, ctll::list<assert_subject_end, Tail...>) noexcept {
+  constexpr auto first(ctll::list<Content...> l, ctll::list<assert_subject_end, Tail...>) noexcept {
     return l;
   }
 
@@ -6883,23 +5855,20 @@ namespace ctre {
   }
 
   template <typename... Content, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...> l, ctll::list<assert_line_begin, Tail...>) noexcept {
+  constexpr auto first(ctll::list<Content...> l, ctll::list<assert_line_begin, Tail...>) noexcept {
     // FIXME line begin is a bit different than subject begin
     return first(l, ctll::list<Tail...> {});
   }
 
   template <typename... Content, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...> l, ctll::list<assert_line_end, Tail...>) noexcept {
+  constexpr auto first(ctll::list<Content...> l, ctll::list<assert_line_end, Tail...>) noexcept {
     // FIXME line end is a bit different than subject begin
     return l;
   }
 
   // sequence
   template <typename... Content, typename... Seq, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...> l, ctll::list<sequence<Seq...>, Tail...>) noexcept {
+  constexpr auto first(ctll::list<Content...> l, ctll::list<sequence<Seq...>, Tail...>) noexcept {
     return first(l, ctll::list<Seq..., Tail...> {});
   }
 
@@ -6912,15 +5881,13 @@ namespace ctre {
 
   // plus
   template <typename... Content, typename... Seq, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...> l, ctll::list<plus<Seq...>, Tail...>) noexcept {
+  constexpr auto first(ctll::list<Content...> l, ctll::list<plus<Seq...>, Tail...>) noexcept {
     return first(l, ctll::list<Seq..., Tail...> {});
   }
 
   // lazy_plus
   template <typename... Content, typename... Seq, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...> l, ctll::list<lazy_plus<Seq...>, Tail...>) noexcept {
+  constexpr auto first(ctll::list<Content...> l, ctll::list<lazy_plus<Seq...>, Tail...>) noexcept {
     return first(l, ctll::list<Seq..., Tail...> {});
   }
 
@@ -6933,38 +5900,25 @@ namespace ctre {
 
   // star
   template <typename... Content, typename... Seq, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...> l, ctll::list<star<Seq...>, Tail...>) noexcept {
-    return first(
-        first(l, ctll::list<Tail...> {}), ctll::list<Seq..., Tail...> {}
-    );
+  constexpr auto first(ctll::list<Content...> l, ctll::list<star<Seq...>, Tail...>) noexcept {
+    return first(first(l, ctll::list<Tail...> {}), ctll::list<Seq..., Tail...> {});
   }
 
   // lazy_star
   template <typename... Content, typename... Seq, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...> l, ctll::list<lazy_star<Seq...>, Tail...>) noexcept {
-    return first(
-        first(l, ctll::list<Tail...> {}), ctll::list<Seq..., Tail...> {}
-    );
+  constexpr auto first(ctll::list<Content...> l, ctll::list<lazy_star<Seq...>, Tail...>) noexcept {
+    return first(first(l, ctll::list<Tail...> {}), ctll::list<Seq..., Tail...> {});
   }
 
   // possessive_star
   template <typename... Content, typename... Seq, typename... Tail>
   constexpr auto
   first(ctll::list<Content...> l, ctll::list<possessive_star<Seq...>, Tail...>) noexcept {
-    return first(
-        first(l, ctll::list<Tail...> {}), ctll::list<Seq..., Tail...> {}
-    );
+    return first(first(l, ctll::list<Tail...> {}), ctll::list<Seq..., Tail...> {});
   }
 
   // lazy_repeat
-  template <
-      typename... Content,
-      size_t A,
-      size_t B,
-      typename... Seq,
-      typename... Tail>
+  template <typename... Content, size_t A, size_t B, typename... Seq, typename... Tail>
   constexpr auto
   first(ctll::list<Content...> l, ctll::list<lazy_repeat<A, B, Seq...>, Tail...>) noexcept {
     return first(l, ctll::list<Seq..., Tail...> {});
@@ -6973,18 +5927,11 @@ namespace ctre {
   template <typename... Content, size_t B, typename... Seq, typename... Tail>
   constexpr auto
   first(ctll::list<Content...> l, ctll::list<lazy_repeat<0, B, Seq...>, Tail...>) noexcept {
-    return first(
-        first(l, ctll::list<Tail...> {}), ctll::list<Seq..., Tail...> {}
-    );
+    return first(first(l, ctll::list<Tail...> {}), ctll::list<Seq..., Tail...> {});
   }
 
   // possessive_repeat
-  template <
-      typename... Content,
-      size_t A,
-      size_t B,
-      typename... Seq,
-      typename... Tail>
+  template <typename... Content, size_t A, size_t B, typename... Seq, typename... Tail>
   constexpr auto
   first(ctll::list<Content...> l, ctll::list<possessive_repeat<A, B, Seq...>, Tail...>) noexcept {
     return first(l, ctll::list<Seq..., Tail...> {});
@@ -6993,18 +5940,11 @@ namespace ctre {
   template <typename... Content, size_t B, typename... Seq, typename... Tail>
   constexpr auto
   first(ctll::list<Content...> l, ctll::list<possessive_repeat<0, B, Seq...>, Tail...>) noexcept {
-    return first(
-        first(l, ctll::list<Tail...> {}), ctll::list<Seq..., Tail...> {}
-    );
+    return first(first(l, ctll::list<Tail...> {}), ctll::list<Seq..., Tail...> {});
   }
 
   // repeat
-  template <
-      typename... Content,
-      size_t A,
-      size_t B,
-      typename... Seq,
-      typename... Tail>
+  template <typename... Content, size_t A, size_t B, typename... Seq, typename... Tail>
   constexpr auto
   first(ctll::list<Content...> l, ctll::list<repeat<A, B, Seq...>, Tail...>) noexcept {
     return first(l, ctll::list<Seq..., Tail...> {});
@@ -7013,9 +5953,7 @@ namespace ctre {
   template <typename... Content, size_t B, typename... Seq, typename... Tail>
   constexpr auto
   first(ctll::list<Content...> l, ctll::list<repeat<0, B, Seq...>, Tail...>) noexcept {
-    return first(
-        first(l, ctll::list<Tail...> {}), ctll::list<Seq..., Tail...> {}
-    );
+    return first(first(l, ctll::list<Tail...> {}), ctll::list<Seq..., Tail...> {});
   }
 
   // lookahead_positive
@@ -7053,12 +5991,7 @@ namespace ctre {
     return first(l, ctll::list<Seq..., Tail...> {});
   }
 
-  template <
-      typename... Content,
-      size_t Id,
-      typename Name,
-      typename... Seq,
-      typename... Tail>
+  template <typename... Content, size_t Id, typename Name, typename... Seq, typename... Tail>
   constexpr auto
   first(ctll::list<Content...> l, ctll::list<capture_with_name<Id, Name, Seq...>, Tail...>) noexcept {
     return first(l, ctll::list<Seq..., Tail...> {});
@@ -7066,8 +5999,7 @@ namespace ctre {
 
   // backreference
   template <typename... Content, size_t Id, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...>, ctll::list<back_reference<Id>, Tail...>) noexcept {
+  constexpr auto first(ctll::list<Content...>, ctll::list<back_reference<Id>, Tail...>) noexcept {
     return ctll::list<can_be_anything> {};
   }
 
@@ -7085,65 +6017,47 @@ namespace ctre {
   }
 
   template <typename... Content, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...> l, ctll::list<string<>, Tail...>) noexcept {
+  constexpr auto first(ctll::list<Content...> l, ctll::list<string<>, Tail...>) noexcept {
     return first(l, ctll::list<Tail...> {});
   }
 
   // optional
   template <typename... Content, typename... Opt, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...> l, ctll::list<optional<Opt...>, Tail...>) noexcept {
-    return first(
-        first(l, ctll::list<Opt..., Tail...> {}), ctll::list<Tail...> {}
-    );
+  constexpr auto first(ctll::list<Content...> l, ctll::list<optional<Opt...>, Tail...>) noexcept {
+    return first(first(l, ctll::list<Opt..., Tail...> {}), ctll::list<Tail...> {});
   }
 
   template <typename... Content, typename... Opt, typename... Tail>
   constexpr auto
   first(ctll::list<Content...> l, ctll::list<lazy_optional<Opt...>, Tail...>) noexcept {
-    return first(
-        first(l, ctll::list<Opt..., Tail...> {}), ctll::list<Tail...> {}
-    );
+    return first(first(l, ctll::list<Opt..., Tail...> {}), ctll::list<Tail...> {});
   }
 
   // select (alternation)
-  template <
-      typename... Content,
-      typename SHead,
-      typename... STail,
-      typename... Tail>
+  template <typename... Content, typename SHead, typename... STail, typename... Tail>
   constexpr auto
   first(ctll::list<Content...> l, ctll::list<select<SHead, STail...>, Tail...>) noexcept {
-    return first(
-        first(l, ctll::list<SHead, Tail...> {}),
-        ctll::list<select<STail...>, Tail...> {}
-    );
+    return first(first(l, ctll::list<SHead, Tail...> {}), ctll::list<select<STail...>, Tail...> {});
   }
 
   template <typename... Content, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...> l, ctll::list<select<>, Tail...>) noexcept {
+  constexpr auto first(ctll::list<Content...> l, ctll::list<select<>, Tail...>) noexcept {
     return l;
   }
 
   // unicode property => anything
-  template <
-      typename... Content,
-      typename PropertyType,
-      PropertyType Property,
-      typename... Tail>
+  template <typename... Content, typename PropertyType, PropertyType Property, typename... Tail>
   constexpr auto
   first(ctll::list<Content...>, ctll::list<ctre::binary_property<PropertyType, Property>, Tail...>) noexcept {
     return ctll::list<can_be_anything> {};
   }
 
   template <
-      typename... Content,
-      typename PropertyType,
-      PropertyType Property,
-      auto         Value,
-      typename... Tail>
+    typename... Content,
+    typename PropertyType,
+    PropertyType Property,
+    auto         Value,
+    typename... Tail>
   constexpr auto
   first(ctll::list<Content...>, ctll::list<ctre::property<PropertyType, Property, Value>, Tail...>) noexcept {
     return ctll::list<can_be_anything> {};
@@ -7152,8 +6066,7 @@ namespace ctre {
   // characters / sets
 
   template <typename... Content, auto V, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...>, ctll::list<character<V>, Tail...>) noexcept {
+  constexpr auto first(ctll::list<Content...>, ctll::list<character<V>, Tail...>) noexcept {
     return ctll::list<Content..., character<V>> {};
   }
 
@@ -7164,20 +6077,17 @@ namespace ctre {
   }
 
   template <typename... Content, typename... SetContent, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...>, ctll::list<set<SetContent...>, Tail...>) noexcept {
+  constexpr auto first(ctll::list<Content...>, ctll::list<set<SetContent...>, Tail...>) noexcept {
     return ctll::list<Content..., SetContent...> {};
   }
 
   template <typename... Content, auto A, auto B, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...>, ctll::list<char_range<A, B>, Tail...>) noexcept {
+  constexpr auto first(ctll::list<Content...>, ctll::list<char_range<A, B>, Tail...>) noexcept {
     return ctll::list<Content..., char_range<A, B>> {};
   }
 
   template <typename... Content, typename... Tail>
-  constexpr auto
-  first(ctll::list<Content...>, ctll::list<any, Tail...>) noexcept {
+  constexpr auto first(ctll::list<Content...>, ctll::list<any, Tail...>) noexcept {
     return ctll::list<can_be_anything> {};
   }
 
@@ -7226,7 +6136,9 @@ namespace ctre {
   template <auto A, typename CB>
   constexpr int64_t negative_helper(ctre::character<A>, CB& cb, int64_t start) {
     if (A != (std::numeric_limits<int64_t>::min)()) {
-      if (start < A) { cb(start, A - 1); }
+      if (start < A) {
+        cb(start, A - 1);
+      }
     }
     if (A != (std::numeric_limits<int64_t>::max)()) {
       return A + 1;
@@ -7236,10 +6148,11 @@ namespace ctre {
   }
 
   template <auto A, auto B, typename CB>
-  constexpr int64_t
-  negative_helper(ctre::char_range<A, B>, CB& cb, int64_t start) {
+  constexpr int64_t negative_helper(ctre::char_range<A, B>, CB& cb, int64_t start) {
     if (A != (std::numeric_limits<int64_t>::min)()) {
-      if (start < A) { cb(start, A - 1); }
+      if (start < A) {
+        cb(start, A - 1);
+      }
     }
     if (B != (std::numeric_limits<int64_t>::max)()) {
       return B + 1;
@@ -7249,8 +6162,7 @@ namespace ctre {
   }
 
   template <auto Head, auto... Tail, typename CB>
-  constexpr int64_t
-  negative_helper(ctre::enumeration<Head, Tail...>, CB& cb, int64_t start) {
+  constexpr int64_t negative_helper(ctre::enumeration<Head, Tail...>, CB& cb, int64_t start) {
     int64_t nstart = negative_helper(ctre::character<Head> {}, cb, start);
     return negative_helper(ctre::enumeration<Tail...> {}, cb, nstart);
   }
@@ -7266,51 +6178,38 @@ namespace ctre {
   }
 
   template <typename PropertyType, PropertyType Property, typename CB>
-  constexpr auto negative_helper(
-      ctre::binary_property<PropertyType, Property>,
-      CB&&,
-      int64_t start
-  ) {
+  constexpr auto
+  negative_helper(ctre::binary_property<PropertyType, Property>, CB&&, int64_t start) {
     return start;
   }
 
-  template <
-      typename PropertyType,
-      PropertyType Property,
-      auto         Value,
-      typename CB>
-  constexpr auto negative_helper(
-      ctre::property<PropertyType, Property, Value>,
-      CB&&,
-      int64_t start
-  ) {
+  template <typename PropertyType, PropertyType Property, auto Value, typename CB>
+  constexpr auto
+  negative_helper(ctre::property<PropertyType, Property, Value>, CB&&, int64_t start) {
     return start;
   }
 
   template <typename Head, typename... Rest, typename CB>
-  constexpr int64_t
-  negative_helper(ctre::set<Head, Rest...>, CB& cb, int64_t start) {
+  constexpr int64_t negative_helper(ctre::set<Head, Rest...>, CB& cb, int64_t start) {
     start = negative_helper(Head {}, cb, start);
     return negative_helper(ctre::set<Rest...> {}, cb, start);
   }
 
   template <typename Head, typename... Rest, typename CB>
   constexpr void negative_helper(
-      ctre::negative_set<Head, Rest...>,
-      CB&&    cb,
-      int64_t start = (std::numeric_limits<int64_t>::min)()
+    ctre::negative_set<Head, Rest...>,
+    CB&&    cb,
+    int64_t start = (std::numeric_limits<int64_t>::min)()
   ) {
     start = negative_helper(Head {}, cb, start);
-    negative_helper(
-        ctre::negative_set<Rest...> {}, std::forward<CB>(cb), start
-    );
+    negative_helper(ctre::negative_set<Rest...> {}, std::forward<CB>(cb), start);
   }
 
   template <typename CB>
   constexpr void negative_helper(
-      ctre::negative_set<>,
-      CB&&    cb,
-      int64_t start = (std::numeric_limits<int64_t>::min)()
+    ctre::negative_set<>,
+    CB&&    cb,
+    int64_t start = (std::numeric_limits<int64_t>::min)()
   ) {
     if (start < (std::numeric_limits<int64_t>::max)()) {
       cb(start, (std::numeric_limits<int64_t>::max)());
@@ -7326,10 +6225,10 @@ namespace ctre {
       int64_t        high {};
       constexpr bool operator<(const point& rhs) const { return low < rhs.low; }
       constexpr point() {}
-      constexpr point(int64_t l, int64_t h) : low {l}, high {h} {}
+      constexpr point(int64_t l, int64_t h) : low { l }, high { h } {}
     };
     point            points[Capacity + 1] {};
-    size_t           used {0};
+    size_t           used { 0 };
     constexpr point* begin() { return points; }
     constexpr point* begin() const { return points; }
     constexpr point* end() { return points + used; }
@@ -7353,7 +6252,7 @@ namespace ctre {
       return it;
     }
     constexpr point* insert_point(int64_t position, int64_t other) {
-      point obj {position, other};
+      point obj { position, other };
       auto  it = lower_bound(obj);
       if (it == end()) {
         *it = obj;
@@ -7445,9 +6344,7 @@ namespace ctre {
     }
     template <typename... Content>
     constexpr void populate(ctre::negative_set<Content...> nset) {
-      negative_helper(nset, [&](int64_t low, int64_t high) {
-        this->insert(low, high);
-      });
+      negative_helper(nset, [&](int64_t low, int64_t high) { this->insert(low, high); });
     }
     template <typename... Content>
     constexpr void populate(ctre::set<Content...>) {
@@ -7485,9 +6382,7 @@ namespace ctre {
 namespace ctre {
 
   template <size_t Limit>
-  constexpr CTRE_FORCE_INLINE bool less_than_or_infinite(
-      [[maybe_unused]] size_t i
-  ) noexcept {
+  constexpr CTRE_FORCE_INLINE bool less_than_or_infinite([[maybe_unused]] size_t i) noexcept {
     if constexpr (Limit == 0) {
       // infinite
       return true;
@@ -7497,8 +6392,7 @@ namespace ctre {
   }
 
   template <size_t Limit>
-  constexpr CTRE_FORCE_INLINE bool less_than([[maybe_unused]] size_t i
-  ) noexcept {
+  constexpr CTRE_FORCE_INLINE bool less_than([[maybe_unused]] size_t i) noexcept {
     if constexpr (Limit == 0) {
       // infinite
       return false;
@@ -7507,34 +6401,18 @@ namespace ctre {
     }
   }
 
-  constexpr bool is_bidirectional(const std::bidirectional_iterator_tag&) {
-    return true;
-  }
+  constexpr bool is_bidirectional(const std::bidirectional_iterator_tag&) { return true; }
   constexpr bool is_bidirectional(...) { return false; }
 
   // sink for making the errors shorter
-  template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator>
-  constexpr CTRE_FORCE_INLINE R evaluate(
-      const BeginIterator,
-      Iterator,
-      const EndIterator,
-      flags,
-      R,
-      ...
-  ) noexcept {
+  template <typename R, typename BeginIterator, typename Iterator, typename EndIterator>
+  constexpr CTRE_FORCE_INLINE R
+  evaluate(const BeginIterator, Iterator, const EndIterator, flags, R, ...) noexcept {
     return not_matched;
   }
 
   // if we found "accept" object on stack => ACCEPT
-  template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator>
+  template <typename R, typename BeginIterator, typename Iterator, typename EndIterator>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator, Iterator, const EndIterator, flags, R captures, ctll::list<accept>) noexcept {
     return captures.matched();
@@ -7542,11 +6420,11 @@ namespace ctre {
 
   // if we found "reject" object on stack => REJECT
   template <
-      typename R,
-      typename... Rest,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator>
+    typename R,
+    typename... Rest,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator, Iterator, const EndIterator, flags, R, ctll::list<reject, Rest...>) noexcept {
     return not_matched;
@@ -7554,44 +6432,42 @@ namespace ctre {
 
   // mark start of outer capture
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<start_mark, Tail...>) noexcept {
     return evaluate(
-        begin, current, last, f, captures.set_start_mark(current),
-        ctll::list<Tail...>()
+      begin, current, last, f, captures.set_start_mark(current), ctll::list<Tail...>()
     );
   }
 
   // mark end of outer capture
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<end_mark, Tail...>) noexcept {
-    return evaluate(
-        begin, current, last, f, captures.set_end_mark(current),
-        ctll::list<Tail...>()
-    );
+    return evaluate(begin, current, last, f, captures.set_end_mark(current), ctll::list<Tail...>());
   }
 
   // mark end of cycle
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator, Iterator current, const EndIterator, [[maybe_unused]] const flags& f, R captures, ctll::list<end_cycle_mark>) noexcept {
-    if (cannot_be_empty_match(f)) { return not_matched; }
+    if (cannot_be_empty_match(f)) {
+      return not_matched;
+    }
 
     return captures.set_end_mark(current).matched();
   }
@@ -7599,107 +6475,103 @@ namespace ctre {
   // matching everything which behave as a one character matcher
 
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename CharacterLike,
-      typename... Tail,
-      typename =
-          std::enable_if_t<(MatchesCharacter<CharacterLike>::template value<
-                            decltype(*std::declval<Iterator>())>)>>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename CharacterLike,
+    typename... Tail,
+    typename = std::enable_if_t<
+      (MatchesCharacter<CharacterLike>::template value<decltype(*std::declval<Iterator>())>)>>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<CharacterLike, Tail...>) noexcept {
-    if (current == last) return not_matched;
-    if (!CharacterLike::match_char(*current, f)) return not_matched;
+    if (current == last)
+      return not_matched;
+    if (!CharacterLike::match_char(*current, f))
+      return not_matched;
 
-    return evaluate(
-        begin, ++current, last, consumed_something(f), captures,
-        ctll::list<Tail...>()
-    );
+    return evaluate(begin, ++current, last, consumed_something(f), captures, ctll::list<Tail...>());
   }
 
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<any, Tail...>) noexcept {
-    if (current == last) return not_matched;
+    if (current == last)
+      return not_matched;
 
     if (multiline_mode(f)) {
       // TODO add support for different line ending and unicode (in a future
       // unicode mode)
-      if (*current == '\n') return not_matched;
+      if (*current == '\n')
+        return not_matched;
     }
-    return evaluate(
-        begin, ++current, last, consumed_something(f), captures,
-        ctll::list<Tail...>()
-    );
+    return evaluate(begin, ++current, last, consumed_something(f), captures, ctll::list<Tail...>());
   }
 
   // matching strings in patterns
   template <auto... String, typename Iterator, typename EndIterator>
   constexpr CTRE_FORCE_INLINE bool match_string(
-      [[maybe_unused]] Iterator&         current,
-      [[maybe_unused]] const EndIterator last,
-      [[maybe_unused]] const flags&      f
+    [[maybe_unused]] Iterator&         current,
+    [[maybe_unused]] const EndIterator last,
+    [[maybe_unused]] const flags&      f
   ) {
-    return (
-        (current != last && character<String>::match_char(*current++, f)) &&
-        ... && true
-    );
+    return ((current != last && character<String>::match_char(*current++, f)) && ... && true);
   }
 
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      auto... String,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    auto... String,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, [[maybe_unused]] const flags& f, R captures, ctll::list<string<String...>, Tail...>) noexcept {
-    if (!match_string<String...>(current, last, f)) { return not_matched; }
+    if (!match_string<String...>(current, last, f)) {
+      return not_matched;
+    }
 
     return evaluate(
-        begin, current, last, consumed_something(f, sizeof...(String) > 0),
-        captures, ctll::list<Tail...>()
+      begin,
+      current,
+      last,
+      consumed_something(f, sizeof...(String) > 0),
+      captures,
+      ctll::list<Tail...>()
     );
   }
 
   // matching select in patterns
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename HeadOptions,
-      typename... TailOptions,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename HeadOptions,
+    typename... TailOptions,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<select<HeadOptions, TailOptions...>, Tail...>) noexcept {
-    if (auto r = evaluate(
-            begin, current, last, f, captures,
-            ctll::list<HeadOptions, Tail...>()
-        )) {
+    if (auto r = evaluate(begin, current, last, f, captures, ctll::list<HeadOptions, Tail...>())) {
       return r;
     } else {
       return evaluate(
-          begin, current, last, f, captures,
-          ctll::list<select<TailOptions...>, Tail...>()
+        begin, current, last, f, captures, ctll::list<select<TailOptions...>, Tail...>()
       );
     }
   }
 
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator, Iterator, const EndIterator, flags, R, ctll::list<select<>, Tail...>) noexcept {
     // no previous option was matched => REJECT
@@ -7708,34 +6580,36 @@ namespace ctre {
 
   // matching sequence in patterns
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename HeadContent,
-      typename... TailContent,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename HeadContent,
+    typename... TailContent,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<sequence<HeadContent, TailContent...>, Tail...>) noexcept {
     if constexpr (sizeof...(TailContent) > 0) {
       return evaluate(
-          begin, current, last, f, captures,
-          ctll::list<HeadContent, sequence<TailContent...>, Tail...>()
+        begin,
+        current,
+        last,
+        f,
+        captures,
+        ctll::list<HeadContent, sequence<TailContent...>, Tail...>()
       );
     } else {
-      return evaluate(
-          begin, current, last, f, captures, ctll::list<HeadContent, Tail...>()
-      );
+      return evaluate(begin, current, last, f, captures, ctll::list<HeadContent, Tail...>());
     }
   }
 
   // matching empty in patterns
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<empty, Tail...>) noexcept {
     return evaluate(begin, current, last, f, captures, ctll::list<Tail...>());
@@ -7743,116 +6617,114 @@ namespace ctre {
 
   // matching asserts
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<assert_subject_begin, Tail...>) noexcept {
-    if (begin != current) { return not_matched; }
+    if (begin != current) {
+      return not_matched;
+    }
     return evaluate(begin, current, last, f, captures, ctll::list<Tail...>());
   }
 
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<assert_subject_end, Tail...>) noexcept {
-    if (last != current) { return not_matched; }
+    if (last != current) {
+      return not_matched;
+    }
     return evaluate(begin, current, last, f, captures, ctll::list<Tail...>());
   }
 
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<assert_subject_end_line, Tail...>) noexcept {
     if (multiline_mode(f)) {
       if (last == current) {
-        return evaluate(
-            begin, current, last, f, captures, ctll::list<Tail...>()
-        );
+        return evaluate(begin, current, last, f, captures, ctll::list<Tail...>());
       } else if (*current == '\n' && std::next(current) == last) {
-        return evaluate(
-            begin, current, last, f, captures, ctll::list<Tail...>()
-        );
+        return evaluate(begin, current, last, f, captures, ctll::list<Tail...>());
       } else {
         return not_matched;
       }
     } else {
-      if (last != current) { return not_matched; }
+      if (last != current) {
+        return not_matched;
+      }
       return evaluate(begin, current, last, f, captures, ctll::list<Tail...>());
     }
   }
 
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<assert_line_begin, Tail...>) noexcept {
     if (multiline_mode(f)) {
       if (begin == current) {
-        return evaluate(
-            begin, current, last, f, captures, ctll::list<Tail...>()
-        );
+        return evaluate(begin, current, last, f, captures, ctll::list<Tail...>());
       } else if (*std::prev(current) == '\n') {
-        return evaluate(
-            begin, current, last, f, captures, ctll::list<Tail...>()
-        );
+        return evaluate(begin, current, last, f, captures, ctll::list<Tail...>());
       } else {
         return not_matched;
       }
     } else {
-      if (begin != current) { return not_matched; }
+      if (begin != current) {
+        return not_matched;
+      }
       return evaluate(begin, current, last, f, captures, ctll::list<Tail...>());
     }
   }
 
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<assert_line_end, Tail...>) noexcept {
     if (multiline_mode(f)) {
       if (last == current) {
-        return evaluate(
-            begin, current, last, f, captures, ctll::list<Tail...>()
-        );
+        return evaluate(begin, current, last, f, captures, ctll::list<Tail...>());
       } else if (*current == '\n') {
-        return evaluate(
-            begin, current, last, f, captures, ctll::list<Tail...>()
-        );
+        return evaluate(begin, current, last, f, captures, ctll::list<Tail...>());
       } else {
         return not_matched;
       }
     }
 
     // TODO properly match line end
-    if (last != current) { return not_matched; }
+    if (last != current) {
+      return not_matched;
+    }
     return evaluate(begin, current, last, f, captures, ctll::list<Tail...>());
   }
 
   // matching boundary
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename CharacterLike,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename CharacterLike,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<boundary<CharacterLike>, Tail...>) noexcept {
     // reason why I need bidirectional iterators or some clever hack
@@ -7860,31 +6732,32 @@ namespace ctre {
     bool after  = false;
 
     static_assert(
-        is_bidirectional(
-            typename std::iterator_traits<Iterator>::iterator_category {}
-        ),
-        "To use boundary in regex you need to provide bidirectional iterator "
-        "or range."
+      is_bidirectional(typename std::iterator_traits<Iterator>::iterator_category {}),
+      "To use boundary in regex you need to provide bidirectional iterator "
+      "or range."
     );
 
-    if (last != current) { after = CharacterLike::match_char(*current, f); }
+    if (last != current) {
+      after = CharacterLike::match_char(*current, f);
+    }
     if (begin != current) {
       before = CharacterLike::match_char(*std::prev(current), f);
     }
 
-    if (before == after) return not_matched;
+    if (before == after)
+      return not_matched;
 
     return evaluate(begin, current, last, f, captures, ctll::list<Tail...>());
   }
 
   // matching not_boundary
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename CharacterLike,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename CharacterLike,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<not_boundary<CharacterLike>, Tail...>) noexcept {
     // reason why I need bidirectional iterators or some clever hack
@@ -7892,33 +6765,34 @@ namespace ctre {
     bool after  = false;
 
     static_assert(
-        is_bidirectional(
-            typename std::iterator_traits<Iterator>::iterator_category {}
-        ),
-        "To use boundary in regex you need to provide bidirectional iterator "
-        "or range."
+      is_bidirectional(typename std::iterator_traits<Iterator>::iterator_category {}),
+      "To use boundary in regex you need to provide bidirectional iterator "
+      "or range."
     );
 
-    if (last != current) { after = CharacterLike::match_char(*current, f); }
+    if (last != current) {
+      after = CharacterLike::match_char(*current, f);
+    }
     if (begin != current) {
       before = CharacterLike::match_char(*std::prev(current), f);
     }
 
-    if (before != after) return not_matched;
+    if (before != after)
+      return not_matched;
 
     return evaluate(begin, current, last, f, captures, ctll::list<Tail...>());
   }
 
   // lazy repeat
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      size_t A,
-      size_t B,
-      typename... Content,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    size_t A,
+    size_t B,
+    typename... Content,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, [[maybe_unused]] const flags& f, R captures, ctll::list<lazy_repeat<A, B, Content...>, Tail...>) noexcept {
     if constexpr (B != 0 && A > B) {
@@ -7926,15 +6800,20 @@ namespace ctre {
     } else {
       const Iterator backup_current = current;
 
-      size_t i {0};
+      size_t i { 0 };
 
       while (less_than<A>(i)) {
         auto outer_result = evaluate(
-            begin, current, last, not_empty_match(f), captures,
-            ctll::list<Content..., end_cycle_mark>()
+          begin,
+          current,
+          last,
+          not_empty_match(f),
+          captures,
+          ctll::list<Content..., end_cycle_mark>()
         );
 
-        if (!outer_result) return not_matched;
+        if (!outer_result)
+          return not_matched;
 
         captures = outer_result.unmatch();
         current  = outer_result.get_end_position();
@@ -7943,27 +6822,41 @@ namespace ctre {
       }
 
       if (auto outer_result = evaluate(
-              begin, current, last,
-              consumed_something(f, backup_current != current), captures,
-              ctll::list<Tail...>()
+            begin,
+            current,
+            last,
+            consumed_something(f, backup_current != current),
+            captures,
+            ctll::list<Tail...>()
           )) {
         return outer_result;
       }
 
       while (less_than_or_infinite<B>(i)) {
         auto inner_result = evaluate(
-            begin, current, last, not_empty_match(f), captures,
-            ctll::list<Content..., end_cycle_mark>()
+          begin,
+          current,
+          last,
+          not_empty_match(f),
+          captures,
+          ctll::list<Content..., end_cycle_mark>()
         );
 
-        if (!inner_result) return not_matched;
+        if (!inner_result)
+          return not_matched;
 
         auto outer_result = evaluate(
-            begin, inner_result.get_end_position(), last, consumed_something(f),
-            inner_result.unmatch(), ctll::list<Tail...>()
+          begin,
+          inner_result.get_end_position(),
+          last,
+          consumed_something(f),
+          inner_result.unmatch(),
+          ctll::list<Tail...>()
         );
 
-        if (outer_result) { return outer_result; }
+        if (outer_result) {
+          return outer_result;
+        }
 
         captures = inner_result.unmatch();
         current  = inner_result.get_end_position();
@@ -7972,23 +6865,20 @@ namespace ctre {
       }
 
       // rest of regex
-      return evaluate(
-          begin, current, last, consumed_something(f), captures,
-          ctll::list<Tail...>()
-      );
+      return evaluate(begin, current, last, consumed_something(f), captures, ctll::list<Tail...>());
     }
   }
 
   // possessive repeat
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      size_t A,
-      size_t B,
-      typename... Content,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    size_t A,
+    size_t B,
+    typename... Content,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, [[maybe_unused]] const flags& f, R captures, ctll::list<possessive_repeat<A, B, Content...>, Tail...>) noexcept {
     if constexpr ((B != 0) && (A > B)) {
@@ -7996,15 +6886,20 @@ namespace ctre {
     } else {
       const auto backup_current = current;
 
-      for (size_t i {0}; less_than_or_infinite<B>(i); ++i) {
+      for (size_t i { 0 }; less_than_or_infinite<B>(i); ++i) {
         // try as many of inner as possible and then try outer once
         auto inner_result = evaluate(
-            begin, current, last, not_empty_match(f), captures,
-            ctll::list<Content..., end_cycle_mark>()
+          begin,
+          current,
+          last,
+          not_empty_match(f),
+          captures,
+          ctll::list<Content..., end_cycle_mark>()
         );
 
         if (!inner_result) {
-          if (!less_than<A>(i)) break;
+          if (!less_than<A>(i))
+            break;
           return not_matched;
         }
 
@@ -8013,43 +6908,46 @@ namespace ctre {
       }
 
       return evaluate(
-          begin, current, last,
-          consumed_something(f, backup_current != current), captures,
-          ctll::list<Tail...>()
+        begin,
+        current,
+        last,
+        consumed_something(f, backup_current != current),
+        captures,
+        ctll::list<Tail...>()
       );
     }
   }
 
   // (gready) repeat
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      size_t A,
-      size_t B,
-      typename... Content,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    size_t A,
+    size_t B,
+    typename... Content,
+    typename... Tail>
 #ifdef CTRE_MSVC_GREEDY_WORKAROUND
   constexpr inline void evaluate_recursive(
-      R&                                            result,
-      size_t                                        i,
-      const BeginIterator                           begin,
-      Iterator                                      current,
-      const EndIterator                             last,
-      [[maybe_unused]] const flags&                 f,
-      R                                             captures,
-      ctll::list<repeat<A, B, Content...>, Tail...> stack
+    R&                                            result,
+    size_t                                        i,
+    const BeginIterator                           begin,
+    Iterator                                      current,
+    const EndIterator                             last,
+    [[maybe_unused]] const flags&                 f,
+    R                                             captures,
+    ctll::list<repeat<A, B, Content...>, Tail...> stack
   ) noexcept {
 #else
   constexpr inline R evaluate_recursive(
-      size_t                                        i,
-      const BeginIterator                           begin,
-      Iterator                                      current,
-      const EndIterator                             last,
-      [[maybe_unused]] const flags&                 f,
-      R                                             captures,
-      ctll::list<repeat<A, B, Content...>, Tail...> stack
+    size_t                                        i,
+    const BeginIterator                           begin,
+    Iterator                                      current,
+    const EndIterator                             last,
+    [[maybe_unused]] const flags&                 f,
+    R                                             captures,
+    ctll::list<repeat<A, B, Content...>, Tail...> stack
   ) noexcept {
 #endif
     if (less_than_or_infinite<B>(i)) {
@@ -8057,8 +6955,12 @@ namespace ctre {
       // aab
 
       if (auto inner_result = evaluate(
-              begin, current, last, not_empty_match(f), captures,
-              ctll::list<Content..., end_cycle_mark>()
+            begin,
+            current,
+            last,
+            not_empty_match(f),
+            captures,
+            ctll::list<Content..., end_cycle_mark>()
           )) {
         // TODO MSVC issue:
         // if I uncomment this return it will not fail in constexpr (but the
@@ -8069,14 +6971,14 @@ namespace ctre {
         tmp_current      = inner_result.get_end_position();
 #ifdef CTRE_MSVC_GREEDY_WORKAROUND
         evaluate_recursive(
-            result, i + 1, begin, tmp_current, last, f, inner_result.unmatch(),
-            stack
+          result, i + 1, begin, tmp_current, last, f, inner_result.unmatch(), stack
         );
-        if (result) { return; }
+        if (result) {
+          return;
+        }
 #else
         if (auto rec_result = evaluate_recursive(
-                i + 1, begin, tmp_current, last, f, inner_result.unmatch(),
-                stack
+              i + 1, begin, tmp_current, last, f, inner_result.unmatch(), stack
             )) {
           return rec_result;
         }
@@ -8084,60 +6986,60 @@ namespace ctre {
       }
     }
 #ifdef CTRE_MSVC_GREEDY_WORKAROUND
-    result = evaluate(
-        begin, current, last, consumed_something(f), captures,
-        ctll::list<Tail...>()
-    );
+    result = evaluate(begin, current, last, consumed_something(f), captures, ctll::list<Tail...>());
 #else
-    return evaluate(
-        begin, current, last, consumed_something(f), captures,
-        ctll::list<Tail...>()
-    );
+    return evaluate(begin, current, last, consumed_something(f), captures, ctll::list<Tail...>());
 #endif
   }
 
   // (greedy) repeat
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      size_t A,
-      size_t B,
-      typename... Content,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    size_t A,
+    size_t B,
+    typename... Content,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R evaluate(
-      const BeginIterator                                            begin,
-      Iterator                                                       current,
-      const EndIterator                                              last,
-      [[maybe_unused]] const flags&                                  f,
-      R                                                              captures,
-      [[maybe_unused]] ctll::list<repeat<A, B, Content...>, Tail...> stack
+    const BeginIterator                                            begin,
+    Iterator                                                       current,
+    const EndIterator                                              last,
+    [[maybe_unused]] const flags&                                  f,
+    R                                                              captures,
+    [[maybe_unused]] ctll::list<repeat<A, B, Content...>, Tail...> stack
   ) {
     if constexpr ((B != 0) && (A > B)) {
       return not_matched;
     }
 #ifndef CTRE_DISABLE_GREEDY_OPT
-    else if constexpr (!collides(
-                           calculate_first(Content {}...),
-                           calculate_first(Tail {}...)
-                       )) {
+    else if constexpr (!collides(calculate_first(Content {}...), calculate_first(Tail {}...))) {
       return evaluate(
-          begin, current, last, f, captures,
-          ctll::list<possessive_repeat<A, B, Content...>, Tail...>()
+        begin,
+        current,
+        last,
+        f,
+        captures,
+        ctll::list<possessive_repeat<A, B, Content...>, Tail...>()
       );
     }
 #endif
     else {
       // A..B
-      size_t i {0};
+      size_t i { 0 };
       while (less_than<A>(i)) {
         auto inner_result = evaluate(
-            begin, current, last, not_empty_match(f), captures,
-            ctll::list<Content..., end_cycle_mark>()
+          begin,
+          current,
+          last,
+          not_empty_match(f),
+          captures,
+          ctll::list<Content..., end_cycle_mark>()
         );
 
-        if (!inner_result) return not_matched;
+        if (!inner_result)
+          return not_matched;
 
         captures = inner_result.unmatch();
         current  = inner_result.get_end_position();
@@ -8157,52 +7059,59 @@ namespace ctre {
 
   // capture (numeric ID)
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      size_t Id,
-      typename... Content,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    size_t Id,
+    typename... Content,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<capture<Id, Content...>, Tail...>) noexcept {
     return evaluate(
-        begin, current, last, f, captures.template start_capture<Id>(current),
-        ctll::list<sequence<Content...>, numeric_mark<Id>, Tail...>()
+      begin,
+      current,
+      last,
+      f,
+      captures.template start_capture<Id>(current),
+      ctll::list<sequence<Content...>, numeric_mark<Id>, Tail...>()
     );
   }
 
   // capture end mark (numeric and string ID)
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      size_t Id,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    size_t Id,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<numeric_mark<Id>, Tail...>) noexcept {
     return evaluate(
-        begin, current, last, f, captures.template end_capture<Id>(current),
-        ctll::list<Tail...>()
+      begin, current, last, f, captures.template end_capture<Id>(current), ctll::list<Tail...>()
     );
   }
 
   // capture (string ID)
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      size_t Id,
-      typename Name,
-      typename... Content,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    size_t Id,
+    typename Name,
+    typename... Content,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<capture_with_name<Id, Name, Content...>, Tail...>) noexcept {
     return evaluate(
-        begin, current, last, f, captures.template start_capture<Id>(current),
-        ctll::list<sequence<Content...>, numeric_mark<Id>, Tail...>()
+      begin,
+      current,
+      last,
+      f,
+      captures.template start_capture<Id>(current),
+      ctll::list<sequence<Content...>, numeric_mark<Id>, Tail...>()
     );
   }
 
@@ -8215,41 +7124,43 @@ namespace ctre {
 
   template <typename Iterator, typename EndIterator>
   constexpr CTRE_FORCE_INLINE string_match<Iterator> match_against_range(
-      Iterator          current,
-      const EndIterator last,
-      Iterator          range_current,
-      const Iterator    range_end,
-      flags
+    Iterator          current,
+    const EndIterator last,
+    Iterator          range_current,
+    const Iterator    range_end,
+    flags
   ) noexcept {
     while (last != current && range_end != range_current) {
       if (*current == *range_current) {
         current++;
         range_current++;
       } else {
-        return {current, false};
+        return { current, false };
       }
     }
-    return {current, range_current == range_end};
+    return { current, range_current == range_end };
   }
 
   // backreference with name
   template <
-      typename R,
-      typename Id,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename... Tail>
+    typename R,
+    typename Id,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<back_reference_with_name<Id>, Tail...>) noexcept {
     if (const auto ref = captures.template get<Id>()) {
-      if (auto result =
-              match_against_range(current, last, ref.begin(), ref.end(), f);
+      if (auto result = match_against_range(current, last, ref.begin(), ref.end(), f);
           result.match) {
         return evaluate(
-            begin, result.position, last,
-            consumed_something(f, ref.begin() != ref.end()), captures,
-            ctll::list<Tail...>()
+          begin,
+          result.position,
+          last,
+          consumed_something(f, ref.begin() != ref.end()),
+          captures,
+          ctll::list<Tail...>()
         );
       }
     }
@@ -8258,22 +7169,24 @@ namespace ctre {
 
   // backreference
   template <
-      typename R,
-      size_t Id,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename... Tail>
+    typename R,
+    size_t Id,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<back_reference<Id>, Tail...>) noexcept {
     if (const auto ref = captures.template get<Id>()) {
-      if (auto result =
-              match_against_range(current, last, ref.begin(), ref.end(), f);
+      if (auto result = match_against_range(current, last, ref.begin(), ref.end(), f);
           result.match) {
         return evaluate(
-            begin, result.position, last,
-            consumed_something(f, ref.begin() != ref.end()), captures,
-            ctll::list<Tail...>()
+          begin,
+          result.position,
+          last,
+          consumed_something(f, ref.begin() != ref.end()),
+          captures,
+          ctll::list<Tail...>()
         );
       }
     }
@@ -8282,11 +7195,11 @@ namespace ctre {
 
   // end of lookahead
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator, Iterator, const EndIterator, flags, R captures, ctll::list<end_lookahead_mark>) noexcept {
     // TODO check interaction with non-empty flag
@@ -8294,11 +7207,11 @@ namespace ctre {
   }
 
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator, Iterator, const EndIterator, flags, R captures, ctll::list<end_lookbehind_mark>) noexcept {
     // TODO check interaction with non-empty flag
@@ -8307,17 +7220,16 @@ namespace ctre {
 
   // lookahead positive
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename... Content,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename... Content,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<lookahead_positive<Content...>, Tail...>) noexcept {
     if (auto lookahead_result = evaluate(
-            begin, current, last, f, captures,
-            ctll::list<sequence<Content...>, end_lookahead_mark>()
+          begin, current, last, f, captures, ctll::list<sequence<Content...>, end_lookahead_mark>()
         )) {
       captures = lookahead_result.unmatch();
       return evaluate(begin, current, last, f, captures, ctll::list<Tail...>());
@@ -8328,17 +7240,16 @@ namespace ctre {
 
   // lookahead negative
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename... Content,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename... Content,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<lookahead_negative<Content...>, Tail...>) noexcept {
     if (auto lookahead_result = evaluate(
-            begin, current, last, f, captures,
-            ctll::list<sequence<Content...>, end_lookahead_mark>()
+          begin, current, last, f, captures, ctll::list<sequence<Content...>, end_lookahead_mark>()
         )) {
       return not_matched;
     } else {
@@ -8347,35 +7258,31 @@ namespace ctre {
   }
 
   // lookbehind positive
-  constexpr bool is_at_least_bidirectional(std::input_iterator_tag) {
-    return false;
-  }
+  constexpr bool is_at_least_bidirectional(std::input_iterator_tag) { return false; }
 
-  constexpr bool is_at_least_bidirectional(std::bidirectional_iterator_tag) {
-    return true;
-  }
+  constexpr bool is_at_least_bidirectional(std::bidirectional_iterator_tag) { return true; }
 
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename... Content,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename... Content,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<lookbehind_positive<Content...>, Tail...>) noexcept {
     static_assert(
-        is_at_least_bidirectional(
-            typename std::iterator_traits<Iterator>::iterator_category {}
-        ),
-        "to use lookbehind you must provide bi-directional iterator"
+      is_at_least_bidirectional(typename std::iterator_traits<Iterator>::iterator_category {}),
+      "to use lookbehind you must provide bi-directional iterator"
     );
 
     if (auto lookbehind_result = evaluate(
-            std::make_reverse_iterator(last),
-            std::make_reverse_iterator(current),
-            std::make_reverse_iterator(begin), f, captures,
-            ctll::list<sequence<Content...>, end_lookbehind_mark>()
+          std::make_reverse_iterator(last),
+          std::make_reverse_iterator(current),
+          std::make_reverse_iterator(begin),
+          f,
+          captures,
+          ctll::list<sequence<Content...>, end_lookbehind_mark>()
         )) {
       captures = lookbehind_result.unmatch();
       return evaluate(begin, current, last, f, captures, ctll::list<Tail...>());
@@ -8386,26 +7293,26 @@ namespace ctre {
 
   // lookbehind negative
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename... Content,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename... Content,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<lookbehind_negative<Content...>, Tail...>) noexcept {
     static_assert(
-        is_at_least_bidirectional(
-            typename std::iterator_traits<Iterator>::iterator_category {}
-        ),
-        "to use negative lookbehind you must provide bi-directional iterator"
+      is_at_least_bidirectional(typename std::iterator_traits<Iterator>::iterator_category {}),
+      "to use negative lookbehind you must provide bi-directional iterator"
     );
 
     if (auto lookbehind_result = evaluate(
-            std::make_reverse_iterator(last),
-            std::make_reverse_iterator(current),
-            std::make_reverse_iterator(begin), f, captures,
-            ctll::list<sequence<Content...>, end_lookbehind_mark>()
+          std::make_reverse_iterator(last),
+          std::make_reverse_iterator(current),
+          std::make_reverse_iterator(begin),
+          f,
+          captures,
+          ctll::list<sequence<Content...>, end_lookbehind_mark>()
         )) {
       return not_matched;
     } else {
@@ -8418,33 +7325,30 @@ namespace ctre {
 
   // atomic_group<...> is just transformation to possessive_repeat<1,1,...>
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename... Content,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename... Content,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<atomic_group<Content...>, Tail...>) noexcept {
     return evaluate(
-        begin, current, last, f, captures,
-        ctll::list<possessive_repeat<1, 1, Content...>, Tail...> {}
+      begin, current, last, f, captures, ctll::list<possessive_repeat<1, 1, Content...>, Tail...> {}
     );
   }
 
   // switching modes
   template <
-      typename R,
-      typename BeginIterator,
-      typename Iterator,
-      typename EndIterator,
-      typename Mode,
-      typename... Tail>
+    typename R,
+    typename BeginIterator,
+    typename Iterator,
+    typename EndIterator,
+    typename Mode,
+    typename... Tail>
   constexpr CTRE_FORCE_INLINE R
   evaluate(const BeginIterator begin, Iterator current, const EndIterator last, const flags& f, R captures, ctll::list<mode_switch<Mode>, Tail...>) noexcept {
-    return evaluate(
-        begin, current, last, f + Mode {}, captures, ctll::list<Tail...>()
-    );
+    return evaluate(begin, current, last, f + Mode {}, captures, ctll::list<Tail...>());
   }
 
 } // namespace ctre
@@ -8471,16 +7375,15 @@ namespace ctre {
   };
 
   template <
-      typename BeginIterator,
-      typename EndIterator,
-      typename RE,
-      typename ResultIterator = BeginIterator>
+    typename BeginIterator,
+    typename EndIterator,
+    typename RE,
+    typename ResultIterator = BeginIterator>
   struct regex_iterator {
-    using value_type =
-        decltype(RE::template exec_with_result_iterator<ResultIterator>(
-            std::declval<BeginIterator>(),
-            std::declval<EndIterator>()
-        ));
+    using value_type        = decltype(RE::template exec_with_result_iterator<ResultIterator>(
+      std::declval<BeginIterator>(),
+      std::declval<EndIterator>()
+    ));
     using iterator_category = std::forward_iterator_tag;
     using pointer           = void;
     using reference         = const value_type&;
@@ -8491,28 +7394,22 @@ namespace ctre {
     EndIterator   end {};
     value_type    current_match {};
 
-    constexpr CTRE_FORCE_INLINE regex_iterator() noexcept = default;
-    constexpr CTRE_FORCE_INLINE regex_iterator(const regex_iterator&) noexcept =
-        default;
-    constexpr CTRE_FORCE_INLINE regex_iterator(regex_iterator&&) noexcept =
-        default;
+    constexpr CTRE_FORCE_INLINE regex_iterator() noexcept                      = default;
+    constexpr CTRE_FORCE_INLINE regex_iterator(const regex_iterator&) noexcept = default;
+    constexpr CTRE_FORCE_INLINE regex_iterator(regex_iterator&&) noexcept      = default;
 
-    constexpr CTRE_FORCE_INLINE
-    regex_iterator(BeginIterator begin, EndIterator last) noexcept
-        : orig_begin {begin},
-          current {begin},
-          end {last},
-          current_match {RE::template exec_with_result_iterator<ResultIterator>(
-              current,
-              last
-          )} {
-      if (current_match) { current = current_match.template get<0>().end(); }
+    constexpr CTRE_FORCE_INLINE regex_iterator(BeginIterator begin, EndIterator last) noexcept
+      : orig_begin { begin },
+        current { begin },
+        end { last },
+        current_match { RE::template exec_with_result_iterator<ResultIterator>(current, last) } {
+      if (current_match) {
+        current = current_match.template get<0>().end();
+      }
     }
 
-    constexpr CTRE_FORCE_INLINE regex_iterator&
-    operator=(const regex_iterator&) noexcept = default;
-    constexpr CTRE_FORCE_INLINE regex_iterator&
-    operator=(regex_iterator&&) noexcept = default;
+    constexpr CTRE_FORCE_INLINE regex_iterator& operator=(const regex_iterator&) noexcept = default;
+    constexpr CTRE_FORCE_INLINE regex_iterator& operator=(regex_iterator&&) noexcept      = default;
 
     constexpr CTRE_FORCE_INLINE const value_type& operator*() const noexcept {
       return current_match;
@@ -8523,11 +7420,12 @@ namespace ctre {
         return *this;
       }
 
-      current_match = RE::template exec_with_result_iterator<ResultIterator>(
-          orig_begin, current, end
-      );
+      current_match =
+        RE::template exec_with_result_iterator<ResultIterator>(orig_begin, current, end);
 
-      if (current_match) { current = current_match.template get<0>().end(); }
+      if (current_match) {
+        current = current_match.template get<0>().end();
+      }
       return *this;
     }
     constexpr CTRE_FORCE_INLINE regex_iterator operator++(int) noexcept {
@@ -8536,94 +7434,77 @@ namespace ctre {
       return previous;
     }
     friend constexpr CTRE_FORCE_INLINE bool operator==(
-        const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>&
-            left,
-        const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>&
-            right
+      const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>& left,
+      const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>& right
     ) noexcept {
       return left.current == right.current;
     }
     friend constexpr CTRE_FORCE_INLINE bool operator!=(
-        const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>&
-            left,
-        const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>&
-            right
+      const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>& left,
+      const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>& right
     ) noexcept {
       return !(left.current == right.current);
     }
     friend constexpr CTRE_FORCE_INLINE bool operator<(
-        const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>&
-            left,
-        const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>&
-            right
+      const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>& left,
+      const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>& right
     ) noexcept {
       return left.current < right.current;
     }
     friend constexpr CTRE_FORCE_INLINE bool operator>(
-        const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>&
-            left,
-        const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>&
-            right
+      const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>& left,
+      const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>& right
     ) noexcept {
       return left.current > right.current;
     }
     friend constexpr CTRE_FORCE_INLINE bool operator<=(
-        const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>&
-            left,
-        const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>&
-            right
+      const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>& left,
+      const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>& right
     ) noexcept {
       return left.current <= right.current;
     }
     friend constexpr CTRE_FORCE_INLINE bool operator>=(
-        const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>&
-            left,
-        const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>&
-            right
+      const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>& left,
+      const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>& right
     ) noexcept {
       return left.current >= right.current;
     }
     friend constexpr CTRE_FORCE_INLINE bool operator==(
-        const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>&
-            left,
-        regex_end_iterator
+      const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>& left,
+      regex_end_iterator
     ) noexcept {
       return !bool(left.current_match);
     }
     friend constexpr CTRE_FORCE_INLINE bool operator==(
-        regex_end_iterator,
-        const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>&
-            right
+      regex_end_iterator,
+      const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>& right
     ) noexcept {
       return !bool(right.current_match);
     }
     friend constexpr CTRE_FORCE_INLINE bool operator!=(
-        const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>&
-            left,
-        regex_end_iterator
+      const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>& left,
+      regex_end_iterator
     ) noexcept {
       return bool(left.current_match);
     }
     friend constexpr CTRE_FORCE_INLINE bool operator!=(
-        regex_end_iterator,
-        const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>&
-            right
+      regex_end_iterator,
+      const regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>& right
     ) noexcept {
       return bool(right.current_match);
     }
   };
 
   template <
-      typename BeginIterator,
-      typename EndIterator,
-      typename RE,
-      typename ResultIterator = BeginIterator>
+    typename BeginIterator,
+    typename EndIterator,
+    typename RE,
+    typename ResultIterator = BeginIterator>
   struct regex_split_iterator {
-    using value_type =
-        decltype(RE::template exec_with_result_iterator<ResultIterator>(
-            std::declval<BeginIterator>(),
-            std::declval<EndIterator>()
-        ));
+    using value_type        = decltype(RE::template exec_with_result_iterator<ResultIterator>(
+      std::declval<BeginIterator>(),
+      std::declval<EndIterator>()
+    ));
     using iterator_category = std::forward_iterator_tag;
     using pointer           = void;
     using reference         = const value_type&;
@@ -8633,7 +7514,7 @@ namespace ctre {
     BeginIterator current {};
     EndIterator   end {};
     value_type    current_match {};
-    bool          last_match {false};
+    bool          last_match { false };
 
     constexpr CTRE_FORCE_INLINE void modify_match() {
       auto tmp = current_match.template get<0>().end();
@@ -8651,20 +7532,15 @@ namespace ctre {
     }
 
     constexpr CTRE_FORCE_INLINE regex_split_iterator() noexcept = default;
-    constexpr CTRE_FORCE_INLINE
-    regex_split_iterator(const regex_split_iterator&) noexcept = default;
-    constexpr CTRE_FORCE_INLINE
-    regex_split_iterator(regex_split_iterator&&) noexcept = default;
+    constexpr CTRE_FORCE_INLINE regex_split_iterator(const regex_split_iterator&) noexcept =
+      default;
+    constexpr CTRE_FORCE_INLINE regex_split_iterator(regex_split_iterator&&) noexcept = default;
 
-    constexpr CTRE_FORCE_INLINE
-    regex_split_iterator(BeginIterator begin, EndIterator last) noexcept
-        : orig_begin {begin},
-          current {begin},
-          end {last},
-          current_match {RE::template exec_with_result_iterator<ResultIterator>(
-              current,
-              last
-          )} {
+    constexpr CTRE_FORCE_INLINE regex_split_iterator(BeginIterator begin, EndIterator last) noexcept
+      : orig_begin { begin },
+        current { begin },
+        end { last },
+        current_match { RE::template exec_with_result_iterator<ResultIterator>(current, last) } {
       if (current_match) {
         modify_match();
       } else {
@@ -8674,8 +7550,8 @@ namespace ctre {
 
     constexpr CTRE_FORCE_INLINE regex_split_iterator&
     operator=(const regex_split_iterator&) noexcept = default;
-    constexpr CTRE_FORCE_INLINE regex_split_iterator&
-    operator=(regex_split_iterator&&) noexcept = default;
+    constexpr CTRE_FORCE_INLINE regex_split_iterator& operator=(regex_split_iterator&&) noexcept =
+      default;
 
     constexpr CTRE_FORCE_INLINE const value_type& operator*() const noexcept {
       return current_match;
@@ -8686,9 +7562,8 @@ namespace ctre {
         return *this;
       }
 
-      current_match = RE::template exec_with_result_iterator<ResultIterator>(
-          orig_begin, current, end
-      );
+      current_match =
+        RE::template exec_with_result_iterator<ResultIterator>(orig_begin, current, end);
 
       if (current_match) {
         modify_match();
@@ -8703,126 +7578,62 @@ namespace ctre {
       return previous;
     }
     friend constexpr CTRE_FORCE_INLINE bool operator==(
-        const regex_split_iterator<
-            BeginIterator,
-            EndIterator,
-            RE,
-            ResultIterator>& left,
-        const regex_split_iterator<
-            BeginIterator,
-            EndIterator,
-            RE,
-            ResultIterator>& right
+      const regex_split_iterator<BeginIterator, EndIterator, RE, ResultIterator>& left,
+      const regex_split_iterator<BeginIterator, EndIterator, RE, ResultIterator>& right
     ) noexcept {
       return left.current == right.current;
     }
     friend constexpr CTRE_FORCE_INLINE bool operator!=(
-        const regex_split_iterator<
-            BeginIterator,
-            EndIterator,
-            RE,
-            ResultIterator>& left,
-        const regex_split_iterator<
-            BeginIterator,
-            EndIterator,
-            RE,
-            ResultIterator>& right
+      const regex_split_iterator<BeginIterator, EndIterator, RE, ResultIterator>& left,
+      const regex_split_iterator<BeginIterator, EndIterator, RE, ResultIterator>& right
     ) noexcept {
       return !(left.current == right.current);
     }
     friend constexpr CTRE_FORCE_INLINE bool operator<(
-        const regex_split_iterator<
-            BeginIterator,
-            EndIterator,
-            RE,
-            ResultIterator>& left,
-        const regex_split_iterator<
-            BeginIterator,
-            EndIterator,
-            RE,
-            ResultIterator>& right
+      const regex_split_iterator<BeginIterator, EndIterator, RE, ResultIterator>& left,
+      const regex_split_iterator<BeginIterator, EndIterator, RE, ResultIterator>& right
     ) noexcept {
       return left.current < right.current;
     }
     friend constexpr CTRE_FORCE_INLINE bool operator>(
-        const regex_split_iterator<
-            BeginIterator,
-            EndIterator,
-            RE,
-            ResultIterator>& left,
-        const regex_split_iterator<
-            BeginIterator,
-            EndIterator,
-            RE,
-            ResultIterator>& right
+      const regex_split_iterator<BeginIterator, EndIterator, RE, ResultIterator>& left,
+      const regex_split_iterator<BeginIterator, EndIterator, RE, ResultIterator>& right
     ) noexcept {
       return left.current > right.current;
     }
     friend constexpr CTRE_FORCE_INLINE bool operator<=(
-        const regex_split_iterator<
-            BeginIterator,
-            EndIterator,
-            RE,
-            ResultIterator>& left,
-        const regex_split_iterator<
-            BeginIterator,
-            EndIterator,
-            RE,
-            ResultIterator>& right
+      const regex_split_iterator<BeginIterator, EndIterator, RE, ResultIterator>& left,
+      const regex_split_iterator<BeginIterator, EndIterator, RE, ResultIterator>& right
     ) noexcept {
       return left.current <= right.current;
     }
     friend constexpr CTRE_FORCE_INLINE bool operator>=(
-        const regex_split_iterator<
-            BeginIterator,
-            EndIterator,
-            RE,
-            ResultIterator>& left,
-        const regex_split_iterator<
-            BeginIterator,
-            EndIterator,
-            RE,
-            ResultIterator>& right
+      const regex_split_iterator<BeginIterator, EndIterator, RE, ResultIterator>& left,
+      const regex_split_iterator<BeginIterator, EndIterator, RE, ResultIterator>& right
     ) noexcept {
       return left.current >= right.current;
     }
     friend constexpr CTRE_FORCE_INLINE bool operator==(
-        const regex_split_iterator<
-            BeginIterator,
-            EndIterator,
-            RE,
-            ResultIterator>& left,
-        regex_end_iterator
+      const regex_split_iterator<BeginIterator, EndIterator, RE, ResultIterator>& left,
+      regex_end_iterator
     ) noexcept {
       return !bool(left.current_match);
     }
     friend constexpr CTRE_FORCE_INLINE bool operator==(
-        regex_end_iterator,
-        const regex_split_iterator<
-            BeginIterator,
-            EndIterator,
-            RE,
-            ResultIterator>& right
+      regex_end_iterator,
+      const regex_split_iterator<BeginIterator, EndIterator, RE, ResultIterator>& right
     ) noexcept {
       return !bool(right.current_match);
     }
     friend constexpr CTRE_FORCE_INLINE bool operator!=(
-        const regex_split_iterator<
-            BeginIterator,
-            EndIterator,
-            RE,
-            ResultIterator>& left,
-        regex_end_iterator
+      const regex_split_iterator<BeginIterator, EndIterator, RE, ResultIterator>& left,
+      regex_end_iterator
     ) noexcept {
       return bool(left.current_match);
     }
     friend constexpr CTRE_FORCE_INLINE bool operator!=(
-        regex_end_iterator,
-        const regex_split_iterator<
-            BeginIterator,
-            EndIterator,
-            RE,
-            ResultIterator>& right
+      regex_end_iterator,
+      const regex_split_iterator<BeginIterator, EndIterator, RE, ResultIterator>& right
     ) noexcept {
       return bool(right.current_match);
     }
@@ -8838,51 +7649,42 @@ namespace ctre {
   constexpr bool is_range = false;
 
   template <
-      typename BeginIterator,
-      typename EndIterator,
-      typename RE,
-      typename ResultIterator = BeginIterator>
+    typename BeginIterator,
+    typename EndIterator,
+    typename RE,
+    typename ResultIterator = BeginIterator>
   struct regex_range {
     BeginIterator _begin;
     EndIterator   _end;
 
-    constexpr CTRE_FORCE_INLINE
-    regex_range(BeginIterator begin, EndIterator end) noexcept
-        : _begin {begin}, _end {end} {}
+    constexpr CTRE_FORCE_INLINE regex_range(BeginIterator begin, EndIterator end) noexcept
+      : _begin { begin }, _end { end } {}
 
     constexpr CTRE_FORCE_INLINE auto begin() const noexcept {
-      return regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>(
-          _begin, _end
-      );
+      return regex_iterator<BeginIterator, EndIterator, RE, ResultIterator>(_begin, _end);
     }
-    constexpr CTRE_FORCE_INLINE auto end() const noexcept {
-      return regex_end_iterator {};
-    }
+    constexpr CTRE_FORCE_INLINE auto end() const noexcept { return regex_end_iterator {}; }
   };
 
   template <typename... Ts>
   constexpr bool is_range<regex_range<Ts...>> = true;
 
   template <
-      typename BeginIterator,
-      typename EndIterator,
-      typename RE,
-      typename ResultIterator = BeginIterator>
+    typename BeginIterator,
+    typename EndIterator,
+    typename RE,
+    typename ResultIterator = BeginIterator>
   struct regex_split_range {
     BeginIterator _begin;
     EndIterator   _end;
 
-    constexpr CTRE_FORCE_INLINE
-    regex_split_range(BeginIterator begin, EndIterator end) noexcept
-        : _begin {begin}, _end {end} {}
+    constexpr CTRE_FORCE_INLINE regex_split_range(BeginIterator begin, EndIterator end) noexcept
+      : _begin { begin }, _end { end } {}
 
     constexpr CTRE_FORCE_INLINE auto begin() const noexcept {
-      return regex_split_iterator<
-          BeginIterator, EndIterator, RE, ResultIterator>(_begin, _end);
+      return regex_split_iterator<BeginIterator, EndIterator, RE, ResultIterator>(_begin, _end);
     }
-    constexpr CTRE_FORCE_INLINE auto end() const noexcept {
-      return regex_end_iterator {};
-    }
+    constexpr CTRE_FORCE_INLINE auto end() const noexcept { return regex_end_iterator {}; }
   };
 
   template <typename... Ts>
@@ -8896,9 +7698,8 @@ namespace ctre {
     using last_type  = decltype(std::declval<Range>().end());
 
     struct iterator {
-      using value_type        = decltype(RE::exec(
-          std::declval<typename std::iterator_traits<first_type>::value_type>()
-      ));
+      using value_type =
+        decltype(RE::exec(std::declval<typename std::iterator_traits<first_type>::value_type>()));
       using iterator_category = std::forward_iterator_tag;
       using pointer           = void;
       using reference         = const value_type&;
@@ -8910,7 +7711,7 @@ namespace ctre {
 
       constexpr CTRE_FORCE_INLINE iterator() noexcept = default;
       constexpr CTRE_FORCE_INLINE iterator(first_type f, last_type l) noexcept
-          : first {f}, last {l}, current_result {find_first()} {}
+        : first { f }, last { l }, current_result { find_first() } {}
 
       constexpr CTRE_FORCE_INLINE value_type find_first() noexcept {
         while (first != last) {
@@ -8982,15 +7783,12 @@ namespace ctre {
     Range range {};
 
     constexpr CTRE_FORCE_INLINE multi_subject_range() noexcept = default;
-    constexpr CTRE_FORCE_INLINE multi_subject_range(Range r) noexcept
-        : range {r} {}
+    constexpr CTRE_FORCE_INLINE multi_subject_range(Range r) noexcept : range { r } {}
 
     constexpr CTRE_FORCE_INLINE auto begin() const noexcept {
-      return iterator {range.begin(), range.end()};
+      return iterator { range.begin(), range.end() };
     }
-    constexpr CTRE_FORCE_INLINE auto end() const noexcept {
-      return end_iterator {};
-    }
+    constexpr CTRE_FORCE_INLINE auto end() const noexcept { return end_iterator {}; }
   };
 
   // this is not regex range!
@@ -9003,18 +7801,14 @@ namespace ctre {
 namespace std::ranges {
 
   template <typename... Ts>
-  inline constexpr bool enable_borrowed_range<::ctre::regex_range<Ts...>> =
-      true;
+  inline constexpr bool enable_borrowed_range<::ctre::regex_range<Ts...>> = true;
   template <typename... Ts>
-  inline constexpr bool
-      enable_borrowed_range<::ctre::regex_split_range<Ts...>> = true;
+  inline constexpr bool enable_borrowed_range<::ctre::regex_split_range<Ts...>> = true;
   template <typename Range, typename RE>
-  inline constexpr bool
-      enable_borrowed_range<::ctre::multi_subject_range<Range, RE>> =
-          enable_borrowed_range<Range>;
+  inline constexpr bool enable_borrowed_range<::ctre::multi_subject_range<Range, RE>> =
+    enable_borrowed_range<Range>;
   template <typename Range, typename RE>
-  inline constexpr bool enable_view<::ctre::multi_subject_range<Range, RE>> =
-      true;
+  inline constexpr bool enable_view<::ctre::multi_subject_range<Range, RE>> = true;
 
 } // namespace std::ranges
 #endif
@@ -9049,40 +7843,32 @@ namespace ctre {
     operator==(const char* ptr, zero_terminated_string_end_iterator) noexcept {
       return *ptr == '\0';
     }
-    constexpr CTRE_FORCE_INLINE friend bool operator==(
-        const wchar_t* ptr,
-        zero_terminated_string_end_iterator
-    ) noexcept {
+    constexpr CTRE_FORCE_INLINE friend bool
+    operator==(const wchar_t* ptr, zero_terminated_string_end_iterator) noexcept {
       return *ptr == 0;
     }
     constexpr CTRE_FORCE_INLINE friend bool
     operator!=(const char* ptr, zero_terminated_string_end_iterator) noexcept {
       return *ptr != '\0';
     }
-    constexpr CTRE_FORCE_INLINE friend bool operator!=(
-        const wchar_t* ptr,
-        zero_terminated_string_end_iterator
-    ) noexcept {
+    constexpr CTRE_FORCE_INLINE friend bool
+    operator!=(const wchar_t* ptr, zero_terminated_string_end_iterator) noexcept {
       return *ptr != 0;
     }
     constexpr CTRE_FORCE_INLINE friend bool
     operator==(zero_terminated_string_end_iterator, const char* ptr) noexcept {
       return *ptr == '\0';
     }
-    constexpr CTRE_FORCE_INLINE friend bool operator==(
-        zero_terminated_string_end_iterator,
-        const wchar_t* ptr
-    ) noexcept {
+    constexpr CTRE_FORCE_INLINE friend bool
+    operator==(zero_terminated_string_end_iterator, const wchar_t* ptr) noexcept {
       return *ptr == 0;
     }
     constexpr CTRE_FORCE_INLINE friend bool
     operator!=(zero_terminated_string_end_iterator, const char* ptr) noexcept {
       return *ptr != '\0';
     }
-    constexpr CTRE_FORCE_INLINE friend bool operator!=(
-        zero_terminated_string_end_iterator,
-        const wchar_t* ptr
-    ) noexcept {
+    constexpr CTRE_FORCE_INLINE friend bool
+    operator!=(zero_terminated_string_end_iterator, const wchar_t* ptr) noexcept {
       return *ptr != 0;
     }
   };
@@ -9091,45 +7877,43 @@ namespace ctre {
   class RangeLikeType {
     template <typename Y>
     static auto test(Y*)
-        -> decltype(std::declval<const Y&>().begin(), std::declval<const Y&>().end(), std::true_type());
+      -> decltype(std::declval<const Y&>().begin(), std::declval<const Y&>().end(), std::true_type());
     template <typename>
     static auto test(...) -> std::false_type;
 
    public:
     static inline constexpr bool value =
-        decltype(test<std::remove_reference_t<std::remove_const_t<T>>>(nullptr)
-        )::value;
+      decltype(test<std::remove_reference_t<std::remove_const_t<T>>>(nullptr))::value;
   };
 
   struct match_method {
     template <
-        typename Modifier       = singleline,
-        typename ResultIterator = void,
-        typename RE,
-        typename IteratorBegin,
-        typename IteratorEnd>
-    constexpr CTRE_FORCE_INLINE static auto exec(
-        IteratorBegin orig_begin,
-        IteratorBegin begin,
-        IteratorEnd   end,
-        RE
-    ) noexcept {
-      using result_iterator = std::conditional_t<
-          std::is_same_v<ResultIterator, void>, IteratorBegin, ResultIterator>;
+      typename Modifier       = singleline,
+      typename ResultIterator = void,
+      typename RE,
+      typename IteratorBegin,
+      typename IteratorEnd>
+    constexpr CTRE_FORCE_INLINE static auto
+    exec(IteratorBegin orig_begin, IteratorBegin begin, IteratorEnd end, RE) noexcept {
+      using result_iterator =
+        std::conditional_t<std::is_same_v<ResultIterator, void>, IteratorBegin, ResultIterator>;
 
       return evaluate(
-          orig_begin, begin, end, Modifier {},
-          return_type<result_iterator, RE> {},
-          ctll::list<start_mark, RE, assert_subject_end, end_mark, accept>()
+        orig_begin,
+        begin,
+        end,
+        Modifier {},
+        return_type<result_iterator, RE> {},
+        ctll::list<start_mark, RE, assert_subject_end, end_mark, accept>()
       );
     }
 
     template <
-        typename Modifier       = singleline,
-        typename ResultIterator = void,
-        typename RE,
-        typename IteratorBegin,
-        typename IteratorEnd>
+      typename Modifier       = singleline,
+      typename ResultIterator = void,
+      typename RE,
+      typename IteratorBegin,
+      typename IteratorEnd>
     constexpr CTRE_FORCE_INLINE static auto
     exec(IteratorBegin begin, IteratorEnd end, RE) noexcept {
       return exec<Modifier, ResultIterator>(begin, begin, end, RE {});
@@ -9138,19 +7922,15 @@ namespace ctre {
 
   struct search_method {
     template <
-        typename Modifier       = singleline,
-        typename ResultIterator = void,
-        typename RE,
-        typename IteratorBegin,
-        typename IteratorEnd>
-    constexpr CTRE_FORCE_INLINE static auto exec(
-        IteratorBegin orig_begin,
-        IteratorBegin begin,
-        IteratorEnd   end,
-        RE
-    ) noexcept {
-      using result_iterator = std::conditional_t<
-          std::is_same_v<ResultIterator, void>, IteratorBegin, ResultIterator>;
+      typename Modifier       = singleline,
+      typename ResultIterator = void,
+      typename RE,
+      typename IteratorBegin,
+      typename IteratorEnd>
+    constexpr CTRE_FORCE_INLINE static auto
+    exec(IteratorBegin orig_begin, IteratorBegin begin, IteratorEnd end, RE) noexcept {
+      using result_iterator =
+        std::conditional_t<std::is_same_v<ResultIterator, void>, IteratorBegin, ResultIterator>;
 
       constexpr bool fixed = starts_with_anchor(Modifier {}, ctll::list<RE> {});
 
@@ -9158,9 +7938,12 @@ namespace ctre {
 
       for (; end != it && !fixed; ++it) {
         if (auto out = evaluate(
-                orig_begin, it, end, Modifier {},
-                return_type<result_iterator, RE> {},
-                ctll::list<start_mark, RE, end_mark, accept>()
+              orig_begin,
+              it,
+              end,
+              Modifier {},
+              return_type<result_iterator, RE> {},
+              ctll::list<start_mark, RE, end_mark, accept>()
             )) {
           return out;
         }
@@ -9168,23 +7951,28 @@ namespace ctre {
 
       // in case the RE is empty or fixed
       auto out = evaluate(
-          orig_begin, it, end, Modifier {}, return_type<result_iterator, RE> {},
-          ctll::list<start_mark, RE, end_mark, accept>()
+        orig_begin,
+        it,
+        end,
+        Modifier {},
+        return_type<result_iterator, RE> {},
+        ctll::list<start_mark, RE, end_mark, accept>()
       );
 
       // ALERT: ugly hack
       // propagate end even if it didn't match (this is needed for split
       // function)
-      if (!out) out.set_end_mark(it);
+      if (!out)
+        out.set_end_mark(it);
       return out;
     }
 
     template <
-        typename Modifier       = singleline,
-        typename ResultIterator = void,
-        typename RE,
-        typename IteratorBegin,
-        typename IteratorEnd>
+      typename Modifier       = singleline,
+      typename ResultIterator = void,
+      typename RE,
+      typename IteratorBegin,
+      typename IteratorEnd>
     constexpr CTRE_FORCE_INLINE static auto
     exec(IteratorBegin begin, IteratorEnd end, RE) noexcept {
       return exec<Modifier, ResultIterator>(begin, begin, end, RE {});
@@ -9193,32 +7981,31 @@ namespace ctre {
 
   struct starts_with_method {
     template <
-        typename Modifier       = singleline,
-        typename ResultIterator = void,
-        typename RE,
-        typename IteratorBegin,
-        typename IteratorEnd>
-    constexpr CTRE_FORCE_INLINE static auto exec(
-        IteratorBegin orig_begin,
-        IteratorBegin begin,
-        IteratorEnd   end,
-        RE
-    ) noexcept {
-      using result_iterator = std::conditional_t<
-          std::is_same_v<ResultIterator, void>, IteratorBegin, ResultIterator>;
+      typename Modifier       = singleline,
+      typename ResultIterator = void,
+      typename RE,
+      typename IteratorBegin,
+      typename IteratorEnd>
+    constexpr CTRE_FORCE_INLINE static auto
+    exec(IteratorBegin orig_begin, IteratorBegin begin, IteratorEnd end, RE) noexcept {
+      using result_iterator =
+        std::conditional_t<std::is_same_v<ResultIterator, void>, IteratorBegin, ResultIterator>;
       return evaluate(
-          orig_begin, begin, end, Modifier {},
-          return_type<result_iterator, RE> {},
-          ctll::list<start_mark, RE, end_mark, accept>()
+        orig_begin,
+        begin,
+        end,
+        Modifier {},
+        return_type<result_iterator, RE> {},
+        ctll::list<start_mark, RE, end_mark, accept>()
       );
     }
 
     template <
-        typename Modifier       = singleline,
-        typename ResultIterator = void,
-        typename RE,
-        typename IteratorBegin,
-        typename IteratorEnd>
+      typename Modifier       = singleline,
+      typename ResultIterator = void,
+      typename RE,
+      typename IteratorBegin,
+      typename IteratorEnd>
     constexpr CTRE_FORCE_INLINE static auto
     exec(IteratorBegin begin, IteratorEnd end, RE) noexcept {
       return exec<Modifier, ResultIterator>(begin, begin, end, RE {});
@@ -9228,86 +8015,73 @@ namespace ctre {
   // wrapper which calls search on input
   struct range_method {
     template <
-        typename Modifier       = singleline,
-        typename ResultIterator = void,
-        typename RE,
-        typename IteratorBegin,
-        typename IteratorEnd>
+      typename Modifier       = singleline,
+      typename ResultIterator = void,
+      typename RE,
+      typename IteratorBegin,
+      typename IteratorEnd>
     constexpr CTRE_FORCE_INLINE static auto
     exec(IteratorBegin begin, IteratorEnd end, RE) noexcept {
-      using result_iterator = std::conditional_t<
-          std::is_same_v<ResultIterator, void>, IteratorBegin, ResultIterator>;
+      using result_iterator =
+        std::conditional_t<std::is_same_v<ResultIterator, void>, IteratorBegin, ResultIterator>;
       using wrapped_regex = regular_expression<RE, search_method, Modifier>;
 
-      return regex_range<
-          IteratorBegin, IteratorEnd, wrapped_regex, result_iterator>(
-          begin, end
-      );
+      return regex_range<IteratorBegin, IteratorEnd, wrapped_regex, result_iterator>(begin, end);
     }
   };
 
   struct tokenize_method {
     template <
-        typename Modifier       = singleline,
-        typename ResultIterator = void,
-        typename RE,
-        typename IteratorBegin,
-        typename IteratorEnd>
+      typename Modifier       = singleline,
+      typename ResultIterator = void,
+      typename RE,
+      typename IteratorBegin,
+      typename IteratorEnd>
     constexpr CTRE_FORCE_INLINE static auto
     exec(IteratorBegin begin, IteratorEnd end, RE) noexcept {
-      using result_iterator = std::conditional_t<
-          std::is_same_v<ResultIterator, void>, IteratorBegin, ResultIterator>;
-      using wrapped_regex =
-          regular_expression<RE, starts_with_method, Modifier>;
+      using result_iterator =
+        std::conditional_t<std::is_same_v<ResultIterator, void>, IteratorBegin, ResultIterator>;
+      using wrapped_regex = regular_expression<RE, starts_with_method, Modifier>;
 
-      return regex_range<
-          IteratorBegin, IteratorEnd, wrapped_regex, result_iterator>(
-          begin, end
-      );
+      return regex_range<IteratorBegin, IteratorEnd, wrapped_regex, result_iterator>(begin, end);
     }
   };
 
   struct split_method {
     template <
-        typename Modifier       = singleline,
-        typename ResultIterator = void,
-        typename RE,
-        typename IteratorBegin,
-        typename IteratorEnd>
+      typename Modifier       = singleline,
+      typename ResultIterator = void,
+      typename RE,
+      typename IteratorBegin,
+      typename IteratorEnd>
     constexpr CTRE_FORCE_INLINE static auto
     exec(IteratorBegin begin, IteratorEnd end, RE) noexcept {
-      using result_iterator = std::conditional_t<
-          std::is_same_v<ResultIterator, void>, IteratorBegin, ResultIterator>;
+      using result_iterator =
+        std::conditional_t<std::is_same_v<ResultIterator, void>, IteratorBegin, ResultIterator>;
       using wrapped_regex = regular_expression<RE, search_method, Modifier>;
 
-      return regex_split_range<
-          IteratorBegin, IteratorEnd, wrapped_regex, result_iterator>(
-          begin, end
+      return regex_split_range<IteratorBegin, IteratorEnd, wrapped_regex, result_iterator>(
+        begin, end
       );
     }
   };
 
   struct iterator_method {
     template <
-        typename Modifier       = singleline,
-        typename ResultIterator = void,
-        typename RE,
-        typename IteratorBegin,
-        typename IteratorEnd>
+      typename Modifier       = singleline,
+      typename ResultIterator = void,
+      typename RE,
+      typename IteratorBegin,
+      typename IteratorEnd>
     constexpr CTRE_FORCE_INLINE static auto
     exec(IteratorBegin begin, IteratorEnd end, RE) noexcept {
-      using result_iterator = std::conditional_t<
-          std::is_same_v<ResultIterator, void>, IteratorBegin, ResultIterator>;
+      using result_iterator =
+        std::conditional_t<std::is_same_v<ResultIterator, void>, IteratorBegin, ResultIterator>;
       using wrapped_regex = regular_expression<RE, search_method, Modifier>;
 
-      return regex_iterator<
-          IteratorBegin, IteratorEnd, wrapped_regex, result_iterator>(
-          begin, end
-      );
+      return regex_iterator<IteratorBegin, IteratorEnd, wrapped_regex, result_iterator>(begin, end);
     }
-    constexpr CTRE_FORCE_INLINE static auto exec() noexcept {
-      return regex_end_iterator {};
-    }
+    constexpr CTRE_FORCE_INLINE static auto exec() noexcept { return regex_end_iterator {}; }
   };
 
   template <typename RE, typename Method, typename Modifier>
@@ -9315,77 +8089,54 @@ namespace ctre {
     constexpr CTRE_FORCE_INLINE regular_expression() noexcept {}
     constexpr CTRE_FORCE_INLINE regular_expression(RE) noexcept {}
 
-    template <
-        typename ResultIterator,
-        typename IteratorBegin,
-        typename IteratorEnd>
+    template <typename ResultIterator, typename IteratorBegin, typename IteratorEnd>
     constexpr CTRE_FORCE_INLINE static auto exec_with_result_iterator(
-        IteratorBegin orig_begin,
-        IteratorBegin begin,
-        IteratorEnd   end
+      IteratorBegin orig_begin,
+      IteratorBegin begin,
+      IteratorEnd   end
     ) noexcept {
-      return Method::template exec<Modifier, ResultIterator>(
-          orig_begin, begin, end, RE {}
-      );
+      return Method::template exec<Modifier, ResultIterator>(orig_begin, begin, end, RE {});
     }
-    template <
-        typename ResultIterator,
-        typename IteratorBegin,
-        typename IteratorEnd>
+    template <typename ResultIterator, typename IteratorBegin, typename IteratorEnd>
     constexpr CTRE_FORCE_INLINE static auto
     exec_with_result_iterator(IteratorBegin begin, IteratorEnd end) noexcept {
       return Method::template exec<Modifier, ResultIterator>(begin, end, RE {});
     }
     template <typename Range>
     constexpr CTRE_FORCE_INLINE static auto multi_exec(Range&& range) noexcept {
-      return multi_subject_range<Range, regular_expression> {
-          std::forward<Range>(range)
-      };
+      return multi_subject_range<Range, regular_expression> { std::forward<Range>(range) };
     }
-    constexpr CTRE_FORCE_INLINE static auto exec() noexcept {
-      return Method::template exec();
-    }
+    constexpr CTRE_FORCE_INLINE static auto exec() noexcept { return Method::template exec(); }
     template <typename IteratorBegin, typename IteratorEnd>
-    constexpr CTRE_FORCE_INLINE static auto
-    exec(IteratorBegin begin, IteratorEnd end) noexcept {
+    constexpr CTRE_FORCE_INLINE static auto exec(IteratorBegin begin, IteratorEnd end) noexcept {
       return Method::template exec<Modifier>(begin, end, RE {});
     }
     static constexpr CTRE_FORCE_INLINE auto exec(const char* s) noexcept {
-      return Method::template exec<Modifier>(
-          s, zero_terminated_string_end_iterator(), RE {}
-      );
+      return Method::template exec<Modifier>(s, zero_terminated_string_end_iterator(), RE {});
     }
     static constexpr CTRE_FORCE_INLINE auto exec(const wchar_t* s) noexcept {
-      return Method::template exec<Modifier>(
-          s, zero_terminated_string_end_iterator(), RE {}
-      );
+      return Method::template exec<Modifier>(s, zero_terminated_string_end_iterator(), RE {});
     }
     static constexpr CTRE_FORCE_INLINE auto exec(std::string_view sv) noexcept {
       return exec(sv.begin(), sv.end());
     }
-    static constexpr CTRE_FORCE_INLINE auto exec(std::wstring_view sv
-    ) noexcept {
+    static constexpr CTRE_FORCE_INLINE auto exec(std::wstring_view sv) noexcept {
       return exec(sv.begin(), sv.end());
     }
 #ifdef CTRE_ENABLE_UTF8_RANGE
-    static constexpr CTRE_FORCE_INLINE auto exec(std::u8string_view sv
-    ) noexcept {
+    static constexpr CTRE_FORCE_INLINE auto exec(std::u8string_view sv) noexcept {
       return exec_with_result_iterator<const char8_t*>(
-          utf8_range(sv).begin(), utf8_range(sv).end()
+        utf8_range(sv).begin(), utf8_range(sv).end()
       );
     }
 #endif
-    static constexpr CTRE_FORCE_INLINE auto exec(std::u16string_view sv
-    ) noexcept {
+    static constexpr CTRE_FORCE_INLINE auto exec(std::u16string_view sv) noexcept {
       return exec(sv.begin(), sv.end());
     }
-    static constexpr CTRE_FORCE_INLINE auto exec(std::u32string_view sv
-    ) noexcept {
+    static constexpr CTRE_FORCE_INLINE auto exec(std::u32string_view sv) noexcept {
       return exec(sv.begin(), sv.end());
     }
-    template <
-        typename Range,
-        typename = typename std::enable_if<RangeLikeType<Range>::value>::type>
+    template <typename Range, typename = typename std::enable_if<RangeLikeType<Range>::value>::type>
     static constexpr CTRE_FORCE_INLINE auto exec(Range&& range) noexcept {
       return exec(std::begin(range), std::end(range));
     }
@@ -9397,143 +8148,97 @@ namespace ctre {
     }
     // api for pattern matching
     template <typename... Args>
-    CTRE_FORCE_INLINE constexpr auto try_extract(Args&&... args
-    ) const noexcept {
+    CTRE_FORCE_INLINE constexpr auto try_extract(Args&&... args) const noexcept {
       return exec(std::forward<Args>(args)...);
     }
 
     // for compatibility with _ctre literal
     template <typename... Args>
     static constexpr CTRE_FORCE_INLINE auto match(Args&&... args) noexcept {
-      return regular_expression<RE, match_method, singleline>::exec(
-          std::forward<Args>(args)...
-      );
+      return regular_expression<RE, match_method, singleline>::exec(std::forward<Args>(args)...);
     }
     template <typename... Args>
     static constexpr CTRE_FORCE_INLINE auto search(Args&&... args) noexcept {
-      return regular_expression<RE, search_method, singleline>::exec(
-          std::forward<Args>(args)...
-      );
+      return regular_expression<RE, search_method, singleline>::exec(std::forward<Args>(args)...);
     }
     template <typename... Args>
-    static constexpr CTRE_FORCE_INLINE auto starts_with(Args&&... args
-    ) noexcept {
-      return regular_expression<RE, starts_with_method, singleline>::exec(
-          std::forward<Args>(args)...
-      );
+    static constexpr CTRE_FORCE_INLINE auto starts_with(Args&&... args) noexcept {
+      return regular_expression<RE, starts_with_method, singleline>::exec(std::forward<Args>(args
+      )...);
     }
     template <typename... Args>
     static constexpr CTRE_FORCE_INLINE auto range(Args&&... args) noexcept {
-      return regular_expression<RE, range_method, singleline>::exec(
-          std::forward<Args>(args)...
-      );
+      return regular_expression<RE, range_method, singleline>::exec(std::forward<Args>(args)...);
     }
     template <typename... Args>
     static constexpr CTRE_FORCE_INLINE auto split(Args&&... args) noexcept {
-      return regular_expression<RE, split_method, singleline>::exec(
-          std::forward<Args>(args)...
-      );
+      return regular_expression<RE, split_method, singleline>::exec(std::forward<Args>(args)...);
     }
     template <typename... Args>
     static constexpr CTRE_FORCE_INLINE auto tokenize(Args&&... args) noexcept {
-      return regular_expression<RE, tokenize_method, singleline>::exec(
-          std::forward<Args>(args)...
-      );
+      return regular_expression<RE, tokenize_method, singleline>::exec(std::forward<Args>(args)...);
     }
     template <typename... Args>
     static constexpr CTRE_FORCE_INLINE auto iterator(Args&&... args) noexcept {
-      return regular_expression<RE, iterator_method, singleline>::exec(
-          std::forward<Args>(args)...
-      );
+      return regular_expression<RE, iterator_method, singleline>::exec(std::forward<Args>(args)...);
     }
 
     template <typename... Args>
-    static constexpr CTRE_FORCE_INLINE auto multiline_match(Args&&... args
-    ) noexcept {
-      return regular_expression<RE, match_method, multiline>::exec(
-          std::forward<Args>(args)...
+    static constexpr CTRE_FORCE_INLINE auto multiline_match(Args&&... args) noexcept {
+      return regular_expression<RE, match_method, multiline>::exec(std::forward<Args>(args)...);
+    }
+    template <typename... Args>
+    static constexpr CTRE_FORCE_INLINE auto multiline_search(Args&&... args) noexcept {
+      return regular_expression<RE, search_method, multiline>::exec(std::forward<Args>(args)...);
+    }
+    template <typename... Args>
+    static constexpr CTRE_FORCE_INLINE auto multiline_starts_with(Args&&... args) noexcept {
+      return regular_expression<RE, starts_with_method, multiline>::exec(std::forward<Args>(args)...
       );
     }
     template <typename... Args>
-    static constexpr CTRE_FORCE_INLINE auto multiline_search(Args&&... args
-    ) noexcept {
-      return regular_expression<RE, search_method, multiline>::exec(
-          std::forward<Args>(args)...
-      );
+    static constexpr CTRE_FORCE_INLINE auto multiline_range(Args&&... args) noexcept {
+      return regular_expression<RE, range_method, multiline>::exec(std::forward<Args>(args)...);
     }
     template <typename... Args>
-    static constexpr CTRE_FORCE_INLINE auto multiline_starts_with(Args&&... args
-    ) noexcept {
-      return regular_expression<RE, starts_with_method, multiline>::exec(
-          std::forward<Args>(args)...
-      );
+    static constexpr CTRE_FORCE_INLINE auto multiline_split(Args&&... args) noexcept {
+      return regular_expression<RE, split_method, multiline>::exec(std::forward<Args>(args)...);
     }
     template <typename... Args>
-    static constexpr CTRE_FORCE_INLINE auto multiline_range(Args&&... args
-    ) noexcept {
-      return regular_expression<RE, range_method, multiline>::exec(
-          std::forward<Args>(args)...
-      );
+    static constexpr CTRE_FORCE_INLINE auto multiline_tokenize(Args&&... args) noexcept {
+      return regular_expression<RE, tokenize_method, multiline>::exec(std::forward<Args>(args)...);
     }
     template <typename... Args>
-    static constexpr CTRE_FORCE_INLINE auto multiline_split(Args&&... args
-    ) noexcept {
-      return regular_expression<RE, split_method, multiline>::exec(
-          std::forward<Args>(args)...
-      );
-    }
-    template <typename... Args>
-    static constexpr CTRE_FORCE_INLINE auto multiline_tokenize(Args&&... args
-    ) noexcept {
-      return regular_expression<RE, tokenize_method, multiline>::exec(
-          std::forward<Args>(args)...
-      );
-    }
-    template <typename... Args>
-    static constexpr CTRE_FORCE_INLINE auto multiline_iterator(Args&&... args
-    ) noexcept {
-      return regular_expression<RE, iterator_method, multiline>::exec(
-          std::forward<Args>(args)...
-      );
+    static constexpr CTRE_FORCE_INLINE auto multiline_iterator(Args&&... args) noexcept {
+      return regular_expression<RE, iterator_method, multiline>::exec(std::forward<Args>(args)...);
     }
   };
 
   // range style API support for tokenize/range/split operations
   template <typename Range, typename RE, typename Modifier>
-  constexpr auto operator|(
-      Range&&                                        range,
-      regular_expression<RE, range_method, Modifier> re
-  ) noexcept {
+  constexpr auto
+  operator|(Range&& range, regular_expression<RE, range_method, Modifier> re) noexcept {
     return re.exec(std::forward<Range>(range));
   }
 
   template <typename Range, typename RE, typename Modifier>
-  constexpr auto operator|(
-      Range&&                                           range,
-      regular_expression<RE, tokenize_method, Modifier> re
-  ) noexcept {
+  constexpr auto
+  operator|(Range&& range, regular_expression<RE, tokenize_method, Modifier> re) noexcept {
     return re.exec(std::forward<Range>(range));
   }
 
   template <typename Range, typename RE, typename Modifier>
-  constexpr auto operator|(
-      Range&&                                        range,
-      regular_expression<RE, split_method, Modifier> re
-  ) noexcept {
+  constexpr auto
+  operator|(Range&& range, regular_expression<RE, split_method, Modifier> re) noexcept {
     return re.exec(std::forward<Range>(range));
   }
 
   template <typename Range, typename RE, typename Modifier>
-  constexpr auto operator|(
-      Range&&                                           range,
-      regular_expression<RE, iterator_method, Modifier> re
-  ) noexcept = delete;
+  constexpr auto
+  operator|(Range&& range, regular_expression<RE, iterator_method, Modifier> re) noexcept = delete;
 
   template <typename Range, typename RE, typename Method, typename Modifier>
-  constexpr auto operator|(
-      Range&&                                  range,
-      regular_expression<RE, Method, Modifier> re
-  ) noexcept {
+  constexpr auto operator|(Range&& range, regular_expression<RE, Method, Modifier> re) noexcept {
     return re.multi_exec(std::forward<Range>(range));
   }
 
@@ -9557,67 +8262,65 @@ namespace ctre {
   template <CTRE_REGEX_TEMPLATE_COPY_TYPE input>
   struct regex_builder {
     static constexpr auto _input = input;
-    using result =
-        typename ctll::parser<ctre::pcre, _input, ctre::pcre_actions>::
-            template output<pcre_context<>>;
+    using result = typename ctll::parser<ctre::pcre, _input, ctre::pcre_actions>::template output<
+      pcre_context<>>;
 
-    static constexpr auto n =
-        result::is_correct ? ~static_cast<size_t>(0) : result::position;
+    static constexpr auto n = result::is_correct ? ~static_cast<size_t>(0) : result::position;
 
     static_assert(
-        result::is_correct && problem_at_position<n> {},
-        "Regular Expression contains syntax error."
+      result::is_correct && problem_at_position<n> {},
+      "Regular Expression contains syntax error."
     );
 
     using type = ctll::conditional<
-        result::is_correct,
-        decltype(ctll::front(typename result::output_type::stack_type())),
-        ctll::list<reject>>;
+      result::is_correct,
+      decltype(ctll::front(typename result::output_type::stack_type())),
+      ctll::list<reject>>;
   };
 
   // case-sensitive
 
   template <CTRE_REGEX_INPUT_TYPE input, typename... Modifiers>
   static constexpr inline auto match = regular_expression<
-      typename regex_builder<input>::type,
-      match_method,
-      ctll::list<singleline, Modifiers...>>();
+    typename regex_builder<input>::type,
+    match_method,
+    ctll::list<singleline, Modifiers...>>();
 
   template <CTRE_REGEX_INPUT_TYPE input, typename... Modifiers>
   static constexpr inline auto search = regular_expression<
-      typename regex_builder<input>::type,
-      search_method,
-      ctll::list<singleline, Modifiers...>>();
+    typename regex_builder<input>::type,
+    search_method,
+    ctll::list<singleline, Modifiers...>>();
 
   template <CTRE_REGEX_INPUT_TYPE input, typename... Modifiers>
   static constexpr inline auto starts_with = regular_expression<
-      typename regex_builder<input>::type,
-      starts_with_method,
-      ctll::list<singleline, Modifiers...>>();
+    typename regex_builder<input>::type,
+    starts_with_method,
+    ctll::list<singleline, Modifiers...>>();
 
   template <CTRE_REGEX_INPUT_TYPE input, typename... Modifiers>
   static constexpr inline auto range = regular_expression<
-      typename regex_builder<input>::type,
-      range_method,
-      ctll::list<singleline, Modifiers...>>();
+    typename regex_builder<input>::type,
+    range_method,
+    ctll::list<singleline, Modifiers...>>();
 
   template <CTRE_REGEX_INPUT_TYPE input, typename... Modifiers>
   static constexpr inline auto split = regular_expression<
-      typename regex_builder<input>::type,
-      split_method,
-      ctll::list<singleline, Modifiers...>>();
+    typename regex_builder<input>::type,
+    split_method,
+    ctll::list<singleline, Modifiers...>>();
 
   template <CTRE_REGEX_INPUT_TYPE input, typename... Modifiers>
   static constexpr inline auto tokenize = regular_expression<
-      typename regex_builder<input>::type,
-      tokenize_method,
-      ctll::list<singleline, Modifiers...>>();
+    typename regex_builder<input>::type,
+    tokenize_method,
+    ctll::list<singleline, Modifiers...>>();
 
   template <CTRE_REGEX_INPUT_TYPE input, typename... Modifiers>
   static constexpr inline auto iterator = regular_expression<
-      typename regex_builder<input>::type,
-      iterator_method,
-      ctll::list<singleline, Modifiers...>>();
+    typename regex_builder<input>::type,
+    iterator_method,
+    ctll::list<singleline, Modifiers...>>();
 
   static constexpr inline auto sentinel = regex_end_iterator();
 
@@ -9625,45 +8328,45 @@ namespace ctre {
 
   template <CTRE_REGEX_INPUT_TYPE input, typename... Modifiers>
   static constexpr inline auto multiline_match = regular_expression<
-      typename regex_builder<input>::type,
-      match_method,
-      ctll::list<multiline, Modifiers...>>();
+    typename regex_builder<input>::type,
+    match_method,
+    ctll::list<multiline, Modifiers...>>();
 
   template <CTRE_REGEX_INPUT_TYPE input, typename... Modifiers>
   static constexpr inline auto multiline_search = regular_expression<
-      typename regex_builder<input>::type,
-      search_method,
-      ctll::list<multiline, Modifiers...>>();
+    typename regex_builder<input>::type,
+    search_method,
+    ctll::list<multiline, Modifiers...>>();
 
   template <CTRE_REGEX_INPUT_TYPE input, typename... Modifiers>
   static constexpr inline auto multiline_starts_with = regular_expression<
-      typename regex_builder<input>::type,
-      starts_with_method,
-      ctll::list<multiline, Modifiers...>>();
+    typename regex_builder<input>::type,
+    starts_with_method,
+    ctll::list<multiline, Modifiers...>>();
 
   template <CTRE_REGEX_INPUT_TYPE input, typename... Modifiers>
   static constexpr inline auto multiline_range = regular_expression<
-      typename regex_builder<input>::type,
-      range_method,
-      ctll::list<multiline, Modifiers...>>();
+    typename regex_builder<input>::type,
+    range_method,
+    ctll::list<multiline, Modifiers...>>();
 
   template <CTRE_REGEX_INPUT_TYPE input, typename... Modifiers>
   static constexpr inline auto multiline_split = regular_expression<
-      typename regex_builder<input>::type,
-      split_method,
-      ctll::list<multiline, Modifiers...>>();
+    typename regex_builder<input>::type,
+    split_method,
+    ctll::list<multiline, Modifiers...>>();
 
   template <CTRE_REGEX_INPUT_TYPE input, typename... Modifiers>
   static constexpr inline auto multiline_tokenize = regular_expression<
-      typename regex_builder<input>::type,
-      tokenize_method,
-      ctll::list<multiline, Modifiers...>>();
+    typename regex_builder<input>::type,
+    tokenize_method,
+    ctll::list<multiline, Modifiers...>>();
 
   template <CTRE_REGEX_INPUT_TYPE input, typename... Modifiers>
   static constexpr inline auto multiline_iterator = regular_expression<
-      typename regex_builder<input>::type,
-      iterator_method,
-      ctll::list<multiline, Modifiers...>>();
+    typename regex_builder<input>::type,
+    iterator_method,
+    ctll::list<multiline, Modifiers...>>();
 
   static constexpr inline auto multiline_sentinel = regex_end_iterator();
 
@@ -9682,7 +8385,7 @@ namespace ctre {
 #if !CTRE_CNTTP_COMPILER_CHECK
   template <typename CharT, CharT... input>
   static inline constexpr auto _fixed_string_reference =
-      ctll::fixed_string<sizeof...(input)>({input...});
+    ctll::fixed_string<sizeof...(input)>({ input... });
 #endif
 
   namespace literals {
@@ -9734,9 +8437,8 @@ namespace ctre {
     CTRE_FLATTEN constexpr CTRE_FORCE_INLINE auto operator""_ctre() noexcept {
       constexpr auto _input = input; // workaround for GCC 9 bug 88092
 #endif
-      using tmp =
-          typename ctll::parser<ctre::pcre, _input, ctre::pcre_actions>::
-              template output<pcre_context<>>;
+      using tmp = typename ctll::parser<ctre::pcre, _input, ctre::pcre_actions>::template output<
+        pcre_context<>>;
       static_assert(tmp(), "Regular Expression contains syntax error.");
       if constexpr (tmp()) {
         using re = decltype(front(typename tmp::output_type::stack_type()));
@@ -9749,8 +8451,7 @@ namespace ctre {
 // this will need to be fixed with C++20
 #if !CTRE_CNTTP_COMPILER_CHECK
     template <typename CharT, CharT... charpack>
-    CTRE_FLATTEN constexpr CTRE_FORCE_INLINE auto operator""_ctre_id(
-    ) noexcept {
+    CTRE_FLATTEN constexpr CTRE_FORCE_INLINE auto operator""_ctre_id() noexcept {
       return id<charpack...>();
     }
 #endif
@@ -9784,26 +8485,23 @@ namespace ctre {
     CTRE_FLATTEN constexpr inline auto operator""_ctre_gen() noexcept {
       constexpr auto _input = input; // workaround for GCC 9 bug 88092
 #endif
-      using tmp =
-          typename ctll::parser<ctre::pcre, _input, ctre::pcre_actions>::
-              template output<pcre_context<>>;
+      using tmp = typename ctll::parser<ctre::pcre, _input, ctre::pcre_actions>::template output<
+        pcre_context<>>;
       static_assert(tmp(), "Regular Expression contains syntax error.");
       return typename tmp::output_type::stack_type();
     }
 
 #if !CTRE_CNTTP_COMPILER_CHECK
     template <typename CharT, CharT... charpack>
-    CTRE_FLATTEN constexpr CTRE_FORCE_INLINE auto operator""_ctre_syntax(
-    ) noexcept {
+    CTRE_FLATTEN constexpr CTRE_FORCE_INLINE auto operator""_ctre_syntax() noexcept {
       constexpr auto& _input = _fixed_string_reference<CharT, charpack...>;
 #else
     template <ctll::fixed_string input>
-    CTRE_FLATTEN constexpr CTRE_FORCE_INLINE auto operator""_ctre_syntax(
-    ) noexcept {
+    CTRE_FLATTEN constexpr CTRE_FORCE_INLINE auto operator""_ctre_syntax() noexcept {
       constexpr auto _input = input; // workaround for GCC 9 bug 88092
 #endif
-      return ctll::parser<ctre::pcre, _input, ctre::pcre_actions>::
-          template correct_with<pcre_context<>>;
+      return ctll::parser<ctre::pcre, _input, ctre::pcre_actions>::template correct_with<
+        pcre_context<>>;
     }
 
 #endif
@@ -9861,8 +8559,8 @@ namespace ctre {
     constexpr auto& _input = input;
 #endif
 
-    using tmp = typename ctll::parser<ctre::pcre, _input, ctre::pcre_actions>::
-        template output<pcre_context<>>;
+    using tmp = typename ctll::parser<ctre::pcre, _input, ctre::pcre_actions>::template output<
+      pcre_context<>>;
     static_assert(tmp(), "Regular Expression contains syntax error.");
     using regex = decltype(front(typename tmp::output_type::stack_type()));
     return ctre::regular_expression<regex, Modifier, singleline>();
@@ -9876,16 +8574,14 @@ namespace ctre {
 #define CTRE_V2__CTRE__OPERATORS__HPP
 
 template <typename A, typename B>
-constexpr auto
-operator|(ctre::regular_expression<A>, ctre::regular_expression<B>)
-    -> ctre::regular_expression<ctre::select<A, B>> {
+constexpr auto operator|(ctre::regular_expression<A>, ctre::regular_expression<B>)
+  -> ctre::regular_expression<ctre::select<A, B>> {
   return {};
 }
 
 template <typename A, typename B>
-constexpr auto
-operator>>(ctre::regular_expression<A>, ctre::regular_expression<B>)
-    -> ctre::regular_expression<ctre::sequence<A, B>> {
+constexpr auto operator>>(ctre::regular_expression<A>, ctre::regular_expression<B>)
+  -> ctre::regular_expression<ctre::sequence<A, B>> {
   return {};
 }
 

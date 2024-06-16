@@ -8,8 +8,7 @@ namespace rfl {
 
   /// Allows you to combine several literal types.
   template <class... LiteralTypes>
-  using define_literal_t =
-      typename internal::define_literal<LiteralTypes...>::type;
+  using define_literal_t = typename internal::define_literal<LiteralTypes...>::type;
 
 } // namespace rfl
 

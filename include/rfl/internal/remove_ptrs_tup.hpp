@@ -16,8 +16,7 @@ namespace rfl {
 
     template <class... Ts>
     struct remove_ptrs_tup<std::tuple<Ts...>> {
-      using TupleType =
-          std::tuple<std::remove_cvref_t<std::remove_pointer_t<Ts>>...>;
+      using TupleType = std::tuple<std::remove_cvref_t<std::remove_pointer_t<Ts>>...>;
     };
 
   } // namespace internal

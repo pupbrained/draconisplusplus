@@ -19,8 +19,7 @@ namespace rfl {
     class is_pattern<Pattern<_regex, _name>> : public std::true_type {};
 
     template <class T>
-    constexpr bool is_pattern_v =
-        is_pattern<std::remove_cvref_t<std::remove_pointer_t<T>>>::value;
+    constexpr bool is_pattern_v = is_pattern<std::remove_cvref_t<std::remove_pointer_t<T>>>::value;
 
   } // namespace internal
 } // namespace rfl

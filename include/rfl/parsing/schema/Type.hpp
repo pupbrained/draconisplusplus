@@ -84,26 +84,26 @@ namespace rfl::parsing::schema {
     };
 
     using VariantType = std::variant<
-        Boolean,
-        Int32,
-        Int64,
-        UInt32,
-        UInt64,
-        Integer,
-        Float,
-        Double,
-        String,
-        AnyOf,
-        Description,
-        FixedSizeTypedArray,
-        Literal,
-        Object,
-        Optional,
-        Reference,
-        StringMap,
-        Tuple,
-        TypedArray,
-        Validated>;
+      Boolean,
+      Int32,
+      Int64,
+      UInt32,
+      UInt64,
+      Integer,
+      Float,
+      Double,
+      String,
+      AnyOf,
+      Description,
+      FixedSizeTypedArray,
+      Literal,
+      Object,
+      Optional,
+      Reference,
+      StringMap,
+      Tuple,
+      TypedArray,
+      Validated>;
 
     /// A type can be determined to be any of the above.
     VariantType variant_;

@@ -7,15 +7,13 @@ namespace rfl {
   namespace internal {
 
     template <typename Wrapper>
-    using to_class_method_t =
-        decltype(std::declval<const Wrapper>().to_class());
+    using to_class_method_t = decltype(std::declval<const Wrapper>().to_class());
 
     template <typename Wrapper, typename = std::void_t<>>
     struct has_to_class_m : std::false_type {};
 
     template <typename Wrapper>
-    struct has_to_class_m<Wrapper, std::void_t<to_class_method_t<Wrapper>>>
-        : std::true_type {};
+    struct has_to_class_m<Wrapper, std::void_t<to_class_method_t<Wrapper>>> : std::true_type {};
 
     /// Utility parameter for named tuple parsing, can be used by the
     /// parsers to determine whether a class or struct has a method

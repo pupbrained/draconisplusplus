@@ -21,7 +21,7 @@ namespace rfl {
 
     template <class T>
     constexpr bool is_flatten_field_v =
-        is_flatten_field<std::remove_cvref_t<std::remove_pointer_t<T>>>::value;
+      is_flatten_field<std::remove_cvref_t<std::remove_pointer_t<T>>>::value;
 
   } // namespace internal
 } // namespace rfl

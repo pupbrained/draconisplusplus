@@ -26,9 +26,9 @@ namespace rfl {
 
    public:
     using ValueType = std::conditional_t<
-        sizeof...(fields_) <= std::numeric_limits<std::uint8_t>::max(),
-        std::uint8_t,
-        std::uint16_t>;
+      sizeof...(fields_) <= std::numeric_limits<std::uint8_t>::max(),
+      std::uint8_t,
+      std::uint16_t>;
 
     /// The number of different fields or different options that the literal
     /// can assume.
@@ -46,9 +46,7 @@ namespace rfl {
 
     /// A single-field literal is special because it
     /// can also have a default constructor.
-    template <
-        ValueType num_fields = num_fields_,
-        typename             = std::enable_if_t<num_fields <= 1>>
+    template <ValueType num_fields = num_fields_, typename = std::enable_if_t<num_fields <= 1>>
     Literal() : value_(0) {}
 
     ~Literal() = default;
@@ -69,9 +67,7 @@ namespace rfl {
     /// Constructs a new Literal.
     template <ValueType _value>
     static Literal<fields_...> from_value() {
-      static_assert(
-          _value < num_fields_, "Value cannot exceed number of fields."
-      );
+      static_assert(_value < num_fields_, "Value cannot exceed number of fields.");
       return Literal<fields_...>(_value);
     }
 
@@ -132,9 +128,7 @@ namespace rfl {
     /// Constructs a Literal from a string. Returns an error if the string
     /// cannot be found.
     static Result<Literal> from_string(const std::string& _str) {
-      const auto to_literal = [](const auto& _v) {
-        return Literal<fields_...>(_v);
-      };
+      const auto to_literal = [](const auto& _v) { return Literal<fields_...>(_v); };
       return find_value(_str).transform(to_literal);
     };
 
@@ -156,8 +150,7 @@ namespace rfl {
     Literal<fields_...>& operator=(const Literal<fields_...>& _other) = default;
 
     /// Assigns from another literal.
-    Literal<fields_...>& operator=(Literal<fields_...>&& _other
-    ) noexcept = default;
+    Literal<fields_...>& operator=(Literal<fields_...>&& _other) noexcept = default;
 
     /// Assigns the literal from a string
     Literal<fields_...>& operator=(const std::string& _str) {
@@ -166,9 +159,7 @@ namespace rfl {
     }
 
     /// <=> for other Literals with the same fields.
-    auto operator<=>(const Literal<fields_...>& _other) const {
-      return value() <=> _other.value();
-    }
+    auto operator<=>(const Literal<fields_...>& _other) const { return value() <=> _other.value(); }
 
     /// <=> for other Literals with different fields.
     template <internal::StringLiteral... _fields>
@@ -177,9 +168,7 @@ namespace rfl {
     }
 
     /// <=> for strings.
-    inline auto operator<=>(const std::string& _str) const {
-      return name() <=> _str;
-    }
+    inline auto operator<=>(const std::string& _str) const { return name() <=> _str; }
 
     /// <=> for const char*.
     template <internal::StringLiteral... other_fields>
@@ -233,9 +222,7 @@ namespace rfl {
 
     /// Returns all of the allowed fields.
     template <int _i = 0>
-    static std::vector<std::string> allowed_strings_vec(
-        std::vector<std::string> _values = {}
-    ) {
+    static std::vector<std::string> allowed_strings_vec(std::vector<std::string> _values = {}) {
       using FieldType = typename std::tuple_element<_i, FieldsType>::type;
       const auto head = FieldType::field_.str();
       _values.push_back(head);
@@ -302,8 +289,8 @@ namespace rfl {
       }
       if constexpr (_i + 1 == num_fields_) {
         return Error(
-            "Literal does not support string '" + _str +
-            "'. The following strings are supported: " + allowed_strings() + "."
+          "Literal does not support string '" + _str +
+          "'. The following strings are supported: " + allowed_strings() + "."
         );
       } else {
         return find_value<_i + 1>(_str);
@@ -341,14 +328,11 @@ namespace rfl {
       }
     }
 
-    static_assert(
-        sizeof...(fields_) <= std::numeric_limits<ValueType>::max(),
-        "Too many fields."
-    );
+    static_assert(sizeof...(fields_) <= std::numeric_limits<ValueType>::max(), "Too many fields.");
 
     static_assert(
-        sizeof...(fields_) <= 1 || !has_duplicates(),
-        "Duplicate strings are not allowed in a Literal."
+      sizeof...(fields_) <= 1 || !has_duplicates(),
+      "Duplicate strings are not allowed in a Literal."
     );
 
    private:

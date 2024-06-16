@@ -27,40 +27,32 @@ namespace rfl {
 
       template <class T>
       struct has_from_flexbuf<
-          T,
-          std::enable_if_t<
-              std::is_invocable_r<T, decltype(T::from_flexbuf), InputVarType>::
-                  value>> : std::true_type {};
+        T,
+        std::enable_if_t<std::is_invocable_r<T, decltype(T::from_flexbuf), InputVarType>::value>>
+        : std::true_type {};
 
       template <class T>
       struct has_from_flexbuf<
-          T,
-          std::enable_if_t<std::is_invocable_r<
-              rfl::Result<T>,
-              decltype(T::from_flexbuf),
-              InputVarType>::value>> : std::true_type {};
+        T,
+        std::enable_if_t<
+          std::is_invocable_r<rfl::Result<T>, decltype(T::from_flexbuf), InputVarType>::value>>
+        : std::true_type {};
 
       template <class T>
       static constexpr bool has_custom_constructor = has_from_flexbuf<T>::value;
 
-      rfl::Result<InputVarType> get_field(
-          const std::string&     _name,
-          const InputObjectType& _obj
-      ) const noexcept {
+      rfl::Result<InputVarType> get_field(const std::string& _name, const InputObjectType& _obj)
+        const noexcept {
         const auto keys = _obj.Keys();
         for (size_t i = 0; i < keys.size(); ++i) {
           if (_name == keys[i].AsString().c_str()) {
             return _obj.Values()[i];
           }
         }
-        return rfl::Error(
-            "Map does not contain any element called '" + _name + "'."
-        );
+        return rfl::Error("Map does not contain any element called '" + _name + "'.");
       }
 
-      bool is_empty(const InputVarType& _var) const noexcept {
-        return _var.IsNull();
-      }
+      bool is_empty(const InputVarType& _var) const noexcept { return _var.IsNull(); }
 
       template <class T>
       rfl::Result<T> to_basic_type(const InputVarType& _var) const noexcept {
@@ -90,10 +82,8 @@ namespace rfl {
       }
 
       template <class ArrayReader>
-      std::optional<Error> read_array(
-          const ArrayReader&    _array_reader,
-          const InputArrayType& _arr
-      ) const noexcept {
+      std::optional<Error> read_array(const ArrayReader& _array_reader, const InputArrayType& _arr)
+        const noexcept {
         const auto size = _arr.size();
         for (size_t i = 0; i < size; ++i) {
           const auto err = _array_reader.read(InputVarType(_arr[i]));
@@ -105,33 +95,27 @@ namespace rfl {
       }
 
       template <class ObjectReader>
-      std::optional<Error> read_object(
-          const ObjectReader&    _object_reader,
-          const InputObjectType& _obj
-      ) const noexcept {
+      std::optional<Error>
+      read_object(const ObjectReader& _object_reader, const InputObjectType& _obj) const noexcept {
         const auto keys       = _obj.Keys();
         const auto values     = _obj.Values();
         const auto num_values = std::min(keys.size(), values.size());
 
         for (size_t i = 0; i < num_values; ++i) {
-          _object_reader.read(
-              std::string_view(keys[i].AsString().c_str()), values[i]
-          );
+          _object_reader.read(std::string_view(keys[i].AsString().c_str()), values[i]);
         }
 
         return std::nullopt;
       }
 
-      rfl::Result<InputArrayType> to_array(const InputVarType& _var
-      ) const noexcept {
+      rfl::Result<InputArrayType> to_array(const InputVarType& _var) const noexcept {
         if (!_var.IsVector()) {
           return rfl::Error("Could not cast to Vector.");
         }
         return _var.AsVector();
       }
 
-      rfl::Result<InputObjectType> to_object(const InputVarType& _var
-      ) const noexcept {
+      rfl::Result<InputObjectType> to_object(const InputVarType& _var) const noexcept {
         if (!_var.IsMap()) {
           return rfl::Error("Could not cast to Map!");
         }
@@ -139,8 +123,7 @@ namespace rfl {
       }
 
       template <class T>
-      rfl::Result<T> use_custom_constructor(const InputVarType& _var
-      ) const noexcept {
+      rfl::Result<T> use_custom_constructor(const InputVarType& _var) const noexcept {
         try {
           return T::from_flexbuf(_var);
         } catch (std::exception& e) { return rfl::Error(e.what()); }

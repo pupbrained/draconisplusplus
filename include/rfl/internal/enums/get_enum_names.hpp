@@ -45,10 +45,9 @@ namespace rfl {
         // for Clang on Windows. For all other compilers, function_name works as
         // intended.
 #if defined(__clang__) && defined(_MSC_VER)
-        const auto func_name = std::string_view {__PRETTY_FUNCTION__};
+        const auto func_name = std::string_view { __PRETTY_FUNCTION__ };
 #else
-        const auto func_name =
-            std::string_view {std::source_location::current().function_name()};
+        const auto func_name = std::string_view { std::source_location::current().function_name() };
 #endif
 #if defined(__clang__)
         const auto split = func_name.substr(0, func_name.size() - 1);
@@ -61,18 +60,18 @@ namespace rfl {
         return split.substr(split.find("get_enum_name_str_view<") + 23);
 #else
         static_assert(
-            false,
-            "You are using an unsupported compiler. Please use GCC, Clang "
-            "or MSVC or use rfl::Literal."
+          false,
+          "You are using an unsupported compiler. Please use GCC, Clang "
+          "or MSVC or use rfl::Literal."
         );
 #endif
       }
 
       template <auto e>
       consteval auto get_enum_name() {
-        constexpr auto name   = get_enum_name_str_view<e>();
-        const auto to_str_lit = [&]<auto... Ns>(std::index_sequence<Ns...>) {
-          return StringLiteral<sizeof...(Ns) + 1> {name[Ns]...};
+        constexpr auto name       = get_enum_name_str_view<e>();
+        const auto     to_str_lit = [&]<auto... Ns>(std::index_sequence<Ns...>) {
+          return StringLiteral<sizeof...(Ns) + 1> { name[Ns]... };
         };
         return to_str_lit(std::make_index_sequence<name.size()> {});
       }
@@ -91,9 +90,8 @@ namespace rfl {
         if constexpr (_is_flag) {
           return calc_greatest_power_of_two<T>();
         } else {
-          return std::numeric_limits<T>::max() > 127
-                     ? static_cast<T>(127)
-                     : std::numeric_limits<T>::max();
+          return std::numeric_limits<T>::max() > 127 ? static_cast<T>(127)
+                                                     : std::numeric_limits<T>::max();
         }
       }
 
@@ -106,12 +104,7 @@ namespace rfl {
         }
       }
 
-      template <
-          class EnumType,
-          class NamesType,
-          auto _max,
-          bool _is_flag,
-          int  _i>
+      template <class EnumType, class NamesType, auto _max, bool _is_flag, int _i>
       consteval auto get_enum_names_impl() {
         using T = std::underlying_type_t<EnumType>;
 
@@ -123,27 +116,16 @@ namespace rfl {
           if constexpr (j == _max) {
             return NamesType {};
           } else {
-            return get_enum_names_impl<
-                EnumType,
-                NamesType,
-                _max,
-                _is_flag,
-                _i + 1>();
+            return get_enum_names_impl<EnumType, NamesType, _max, _is_flag, _i + 1>();
           }
         } else {
-          using NewNames = typename NamesType::template AddOneType<
-              Literal<remove_namespaces<name>()>,
-              static_cast<EnumType>(j)>;
+          using NewNames = typename NamesType::
+            template AddOneType<Literal<remove_namespaces<name>()>, static_cast<EnumType>(j)>;
 
           if constexpr (j == _max) {
             return NewNames {};
           } else {
-            return get_enum_names_impl<
-                EnumType,
-                NewNames,
-                _max,
-                _is_flag,
-                _i + 1>();
+            return get_enum_names_impl<EnumType, NewNames, _max, _is_flag, _i + 1>();
           }
         }
       }
@@ -151,18 +133,17 @@ namespace rfl {
       template <class EnumType, bool _is_flag>
       consteval auto get_enum_names() {
         static_assert(
-            is_scoped_enum<EnumType>,
-            "You must use scoped enums (using class or struct) for the "
-            "parsing to work!"
+          is_scoped_enum<EnumType>,
+          "You must use scoped enums (using class or struct) for the "
+          "parsing to work!"
         );
 
         static_assert(
-            std::is_integral_v<std::underlying_type_t<EnumType>>,
-            "The underlying type of any Enum must be integral!"
+          std::is_integral_v<std::underlying_type_t<EnumType>>,
+          "The underlying type of any Enum must be integral!"
         );
 
-        constexpr auto max =
-            get_max<std::underlying_type_t<EnumType>, _is_flag>();
+        constexpr auto max = get_max<std::underlying_type_t<EnumType>, _is_flag>();
 
         using EmptyNames = Names<EnumType, rfl::Literal<"">, 0>;
 

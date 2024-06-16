@@ -13,9 +13,7 @@
 namespace rfl {
   namespace xml {
 
-    template <
-        internal::StringLiteral _root = internal::StringLiteral(""),
-        class... Ps>
+    template <internal::StringLiteral _root = internal::StringLiteral(""), class... Ps>
     Result<Nothing> save(const std::string& _fname, const auto& _obj) {
       const auto write_func = [](const auto& _obj, auto& _stream) -> auto& {
         return write<_root, Ps...>(_obj, _stream);

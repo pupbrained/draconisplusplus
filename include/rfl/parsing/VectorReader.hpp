@@ -25,9 +25,7 @@ namespace rfl::parsing {
         if constexpr (is_map_like_v<VecType>) {
           return get_pair(_var);
         } else {
-          return Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::read(
-              *r_, _var
-          );
+          return Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::read(*r_, _var);
         }
       };
 
@@ -47,11 +45,7 @@ namespace rfl::parsing {
     auto get_pair(const auto& _var) const {
       using K = std::remove_cvref_t<typename T::first_type>;
       using V = std::remove_cvref_t<typename T::second_type>;
-      return Parser<
-          R,
-          W,
-          std::remove_cvref_t<std::pair<K, V>>,
-          ProcessorsType>::read(*r_, _var);
+      return Parser<R, W, std::remove_cvref_t<std::pair<K, V>>, ProcessorsType>::read(*r_, _var);
     }
 
    private:

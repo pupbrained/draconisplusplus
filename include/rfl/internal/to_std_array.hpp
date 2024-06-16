@@ -14,9 +14,8 @@ namespace rfl::internal {
 
   template <class T, size_t _n>
   struct StdArrayType<T[_n]> {
-    using Type =
-        std::array<typename StdArrayType<std::remove_cvref_t<T>>::Type, _n>;
-    using ValueType              = std::remove_cvref_t<T>;
+    using Type      = std::array<typename StdArrayType<std::remove_cvref_t<T>>::Type, _n>;
+    using ValueType = std::remove_cvref_t<T>;
     constexpr static size_t size = _n;
   };
 
@@ -27,11 +26,11 @@ namespace rfl::internal {
   auto to_std_array(T&& _t) {
     using Type = std::remove_cvref_t<T>;
     if constexpr (std::is_array_v<Type>) {
-      constexpr size_t n = StdArrayType<Type>::size;
-      const auto fct     = [&]<std::size_t... _i>(std::index_sequence<_i...>) {
-        return to_std_array_t<Type>({to_std_array(
-            std::forward<typename StdArrayType<Type>::ValueType>(_t[_i])
-        )...});
+      constexpr size_t n   = StdArrayType<Type>::size;
+      const auto       fct = [&]<std::size_t... _i>(std::index_sequence<_i...>) {
+        return to_std_array_t<Type>(
+          { to_std_array(std::forward<typename StdArrayType<Type>::ValueType>(_t[_i]))... }
+        );
       };
       return fct(std::make_index_sequence<n>());
     } else {
@@ -43,9 +42,9 @@ namespace rfl::internal {
   auto to_std_array(const T& _t) {
     using Type = std::remove_cvref_t<T>;
     if constexpr (std::is_array_v<Type>) {
-      constexpr size_t n = StdArrayType<Type>::size;
-      const auto fct     = [&]<std::size_t... _i>(std::index_sequence<_i...>) {
-        return to_std_array_t<Type>({to_std_array(_t[_i])...});
+      constexpr size_t n   = StdArrayType<Type>::size;
+      const auto       fct = [&]<std::size_t... _i>(std::index_sequence<_i...>) {
+        return to_std_array_t<Type>({ to_std_array(_t[_i])... });
       };
       return fct(std::make_index_sequence<n>());
     } else {

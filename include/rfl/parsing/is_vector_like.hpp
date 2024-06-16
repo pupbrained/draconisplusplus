@@ -45,7 +45,7 @@ namespace rfl {
 
     template <class T>
     constexpr bool is_vector_like_v =
-        is_vector_like<std::remove_cvref_t<std::remove_pointer_t<T>>>::value;
+      is_vector_like<std::remove_cvref_t<std::remove_pointer_t<T>>>::value;
 
   } // namespace parsing
 } // namespace rfl

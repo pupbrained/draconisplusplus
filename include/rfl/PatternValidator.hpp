@@ -21,8 +21,8 @@ namespace rfl {
         return _str;
       } else {
         return rfl::Error(
-            "String '" + _str + "' did not match format '" + _name.str() +
-            "': '" + _regex.str() + "'."
+          "String '" + _str + "' did not match format '" + _name.str() + "': '" + _regex.str() +
+          "'."
         );
       }
     }
@@ -30,7 +30,7 @@ namespace rfl {
     template <class T>
     static parsing::schema::ValidationType to_schema() {
       using ValidationType = parsing::schema::ValidationType;
-      return ValidationType {ValidationType::Regex {.pattern_ = Regex().str()}};
+      return ValidationType { ValidationType::Regex { .pattern_ = Regex().str() } };
     }
   };
 

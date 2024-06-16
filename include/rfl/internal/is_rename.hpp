@@ -21,8 +21,7 @@ namespace rfl {
     class is_rename<Rename<_name, Type>> : public std::true_type {};
 
     template <class T>
-    constexpr bool is_rename_v =
-        is_rename<std::remove_cvref_t<std::remove_pointer_t<T>>>::value;
+    constexpr bool is_rename_v = is_rename<std::remove_cvref_t<std::remove_pointer_t<T>>>::value;
 
   } // namespace internal
 } // namespace rfl

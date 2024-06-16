@@ -13,8 +13,7 @@ namespace rfl {
   namespace internal {
 
     template <class T>
-    using flattened_tuple_t =
-        typename remove_ptrs_tup<flattened_ptr_tuple_t<T>>::TupleType;
+    using flattened_tuple_t = typename remove_ptrs_tup<flattened_ptr_tuple_t<T>>::TupleType;
 
   } // namespace internal
 } // namespace rfl

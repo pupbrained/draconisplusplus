@@ -37,7 +37,7 @@ namespace rfl::internal {
   // This workaround is necessary for clang.
   template <class T>
   constexpr auto wrap(const T& arg) noexcept {
-    return Wrapper {arg};
+    return Wrapper { arg };
   }
 
   template <class T, auto ptr>
@@ -46,10 +46,9 @@ namespace rfl::internal {
     // Clang on Windows. For all other compilers, function_name works as
     // intended.
 #if defined(__clang__) && defined(_MSC_VER)
-    const auto func_name = std::string_view {__PRETTY_FUNCTION__};
+    const auto func_name = std::string_view { __PRETTY_FUNCTION__ };
 #else
-    const auto func_name =
-        std::string_view {std::source_location::current().function_name()};
+    const auto func_name = std::string_view { std::source_location::current().function_name() };
 #endif
 #if defined(__clang__)
     const auto split = func_name.substr(0, func_name.size() - 2);
@@ -62,9 +61,9 @@ namespace rfl::internal {
     return split.substr(split.rfind("->") + 2);
 #else
     static_assert(
-        false,
-        "You are using an unsupported compiler. Please use GCC, Clang "
-        "or MSVC or switch to the rfl::Field-syntax."
+      false,
+      "You are using an unsupported compiler. Please use GCC, Clang "
+      "or MSVC or switch to the rfl::Field-syntax."
     );
 #endif
   }
@@ -73,7 +72,7 @@ namespace rfl::internal {
   consteval auto get_field_name_str_lit() {
     constexpr auto name       = get_field_name_str_view<T, ptr>();
     const auto     to_str_lit = [&]<auto... Ns>(std::index_sequence<Ns...>) {
-      return StringLiteral<sizeof...(Ns) + 1> {name[Ns]...};
+      return StringLiteral<sizeof...(Ns) + 1> { name[Ns]... };
     };
     return to_str_lit(std::make_index_sequence<name.size()> {});
   }
@@ -84,8 +83,8 @@ namespace rfl::internal {
   template <class T, auto ptr>
   auto get_field_name() {
 #if defined(__clang__)
-    using Type = std::remove_cvref_t<std::remove_pointer_t<
-        typename std::remove_pointer_t<decltype(ptr)>::Type>>;
+    using Type = std::remove_cvref_t<
+      std::remove_pointer_t<typename std::remove_pointer_t<decltype(ptr)>::Type>>;
 #else
     using Type = std::remove_cvref_t<std::remove_pointer_t<decltype(ptr)>>;
 #endif
@@ -101,8 +100,8 @@ namespace rfl::internal {
 
   template <StringLiteral... _names1, StringLiteral... _names2>
   auto concat_two_literals(
-      const rfl::Literal<_names1...>& _lit1,
-      const rfl::Literal<_names2...>& _lit2
+    const rfl::Literal<_names1...>& _lit1,
+    const rfl::Literal<_names2...>& _lit2
   ) {
     return rfl::Literal<_names1..., _names2...>::template from_value<0>();
   }
@@ -138,17 +137,13 @@ namespace rfl::internal {
 #if defined(__clang__)
       const auto get = []<std::size_t... Is>(std::index_sequence<Is...>) {
         return concat_literals(
-            get_field_name<
-                Type,
-                wrap(std::get<Is>(bind_fake_object_to_tuple<T>()))>()...
+          get_field_name<Type, wrap(std::get<Is>(bind_fake_object_to_tuple<T>()))>()...
         );
       };
 #else
       const auto get = []<std::size_t... Is>(std::index_sequence<Is...>) {
-        return concat_literals(
-            get_field_name<Type, std::get<Is>(bind_fake_object_to_tuple<T>())>(
-            )...
-        );
+        return concat_literals(get_field_name<Type, std::get<Is>(bind_fake_object_to_tuple<T>())>(
+        )...);
       };
 #endif
       return get(std::make_index_sequence<num_fields<T>>());

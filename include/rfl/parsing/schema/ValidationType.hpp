@@ -57,17 +57,17 @@ namespace rfl::parsing::schema {
     };
 
     using VariantType = std::variant<
-        AllOf,
-        AnyOf,
-        EqualTo,
-        ExclusiveMaximum,
-        ExclusiveMinimum,
-        Maximum,
-        Minimum,
-        OneOf,
-        NotEqualTo,
-        Regex,
-        Size>;
+      AllOf,
+      AnyOf,
+      EqualTo,
+      ExclusiveMaximum,
+      ExclusiveMinimum,
+      Maximum,
+      Minimum,
+      OneOf,
+      NotEqualTo,
+      Regex,
+      Size>;
 
     /// A type can be determined to be any of the above.
     VariantType variant_;

@@ -22,8 +22,7 @@ namespace rfl::internal {
 
     Skip(const Type& _value) : value_(_value) {}
 
-    Skip(ReflectionType&& _value) noexcept
-        : value_(_value ? std::move(*_value) : Type()) {}
+    Skip(ReflectionType&& _value) noexcept : value_(_value ? std::move(*_value) : Type()) {}
 
     Skip(const ReflectionType& _value) : value_(_value ? *_value : Type()) {}
 
@@ -39,31 +38,23 @@ namespace rfl::internal {
     template <class U, bool _skip_s, bool _skip_d>
     Skip(Skip<U, _skip_s, _skip_d>&& _other) : value_(_other.get()) {}
 
-    template <
-        class U,
-        typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type =
-            true>
+    template <class U, typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type = true>
     Skip(const U& _value) : value_(_value) {}
 
-    template <
-        class U,
-        typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type =
-            true>
+    template <class U, typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type = true>
     Skip(U&& _value) noexcept : value_(std::forward<U>(_value)) {}
 
     template <
-        class U,
-        bool _skip_s,
-        bool _skip_d,
-        typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type =
-            true>
+      class U,
+      bool _skip_s,
+      bool _skip_d,
+      typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type = true>
     Skip(const Skip<U, _skip_s, _skip_d>& _skip) : value_(_skip.value()) {}
 
     /// Assigns the underlying object to its default value.
     template <
-        class U = Type,
-        typename std::enable_if<std::is_default_constructible_v<U>, bool>::
-            type = true>
+      class U                                                                 = Type,
+      typename std::enable_if<std::is_default_constructible_v<U>, bool>::type = true>
     Skip(const Default& _default) : value_(Type()) {}
 
     ~Skip() = default;
@@ -93,10 +84,7 @@ namespace rfl::internal {
     }
 
     /// Assigns the underlying object.
-    template <
-        class U,
-        typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type =
-            true>
+    template <class U, typename std::enable_if<std::is_convertible_v<U, Type>, bool>::type = true>
     auto& operator=(const U& _value) {
       value_ = _value;
       return *this;
@@ -104,9 +92,8 @@ namespace rfl::internal {
 
     /// Assigns the underlying object to its default value.
     template <
-        class U = Type,
-        typename std::enable_if<std::is_default_constructible_v<U>, bool>::
-            type = true>
+      class U                                                                 = Type,
+      typename std::enable_if<std::is_default_constructible_v<U>, bool>::type = true>
     auto& operator=(const Default& _default) {
       value_ = Type();
       return *this;

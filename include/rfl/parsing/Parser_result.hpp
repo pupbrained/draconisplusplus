@@ -22,8 +22,7 @@ namespace rfl {
       using ErrorType   = NamedTuple<Field<"error", std::string>>;
       using VariantType = std::variant<std::remove_cvref_t<T>, ErrorType>;
 
-      static Result<Result<T>>
-      read(const R& _r, const InputVarType& _var) noexcept {
+      static Result<Result<T>> read(const R& _r, const InputVarType& _var) noexcept {
         const auto handle = [](auto&& _t) -> Result<T> {
           using Type = std::remove_cvref_t<decltype(_t)>;
           if constexpr (std::is_same<Type, ErrorType>()) {
@@ -38,25 +37,20 @@ namespace rfl {
         };
 
         return Result<Result<T>>(
-            Parser<R, W, VariantType, ProcessorsType>::read(_r, _var).transform(
-                to_res
-            )
+          Parser<R, W, VariantType, ProcessorsType>::read(_r, _var).transform(to_res)
         );
       }
 
       template <class P>
-      static void
-      write(const W& _w, const Result<T>& _r, const P& _parent) noexcept {
+      static void write(const W& _w, const Result<T>& _r, const P& _parent) noexcept {
         const auto write_t = [&](const auto& _t) -> Nothing {
-          Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::write(
-              _w, _t, _parent
-          );
+          Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::write(_w, _t, _parent);
           return Nothing {};
         };
 
         const auto write_err = [&](const auto& _err) -> Nothing {
           Parser<R, W, ErrorType, ProcessorsType>::write(
-              _w, ErrorType(make_field<"error">(_err.what())), _parent
+            _w, ErrorType(make_field<"error">(_err.what())), _parent
           );
           return Nothing {};
         };
@@ -64,12 +58,8 @@ namespace rfl {
         _r.transform(write_t).or_else(write_err);
       }
 
-      static schema::Type to_schema(
-          std::map<std::string, schema::Type>* _definitions
-      ) {
-        return Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::to_schema(
-            _definitions
-        );
+      static schema::Type to_schema(std::map<std::string, schema::Type>* _definitions) {
+        return Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::to_schema(_definitions);
       }
     };
 

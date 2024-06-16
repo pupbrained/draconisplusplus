@@ -25,8 +25,7 @@ namespace rfl {
 
     /// Parses an object from MSGPACK using reflection.
     template <class T, class... Ps>
-    Result<internal::wrap_in_rfl_array_t<T>>
-    read(const char* _bytes, const size_t _size) {
+    Result<internal::wrap_in_rfl_array_t<T>> read(const char* _bytes, const size_t _size) {
       msgpack_zone mempool;
       msgpack_zone_init(&mempool, 2048);
       msgpack_object deserialized;

@@ -10,7 +10,7 @@
 
 using std::string;
 
-u64 ParseLineAsNumber(const string& input) {
+fn ParseLineAsNumber(const string& input) -> u64 {
   // Find the first number
   string::size_type start = 0;
 
@@ -27,7 +27,7 @@ u64 ParseLineAsNumber(const string& input) {
   return std::stoul(input.substr(start, end - start));
 }
 
-u64 MeminfoParse(std::ifstream input) {
+fn MeminfoParse(std::ifstream input) -> u64 {
   string line;
 
   // Skip every line before the one that starts with "MemTotal"
@@ -39,9 +39,9 @@ u64 MeminfoParse(std::ifstream input) {
   return num;
 }
 
-u64 GetMemInfo() { return MeminfoParse(std::ifstream("/proc/meminfo")) * 1024; }
+fn GetMemInfo() -> u64 { return MeminfoParse(std::ifstream("/proc/meminfo")) * 1024; }
 
-const char* GetOSVersion() {
+fn GetOSVersion() -> const char* {
   std::ifstream file("/etc/os-release");
 
   if (!file.is_open()) {
@@ -57,12 +57,8 @@ const char* GetOSVersion() {
       std::string prettyName = line.substr(prefix.size());
 
       // Remove surrounding quotes if present
-      // clang-format off
-      if (!prettyName.empty() &&
-           prettyName.front() == '"' &&
-           prettyName.back()  == '"')
+      if (!prettyName.empty() && prettyName.front() == '"' && prettyName.back() == '"')
         prettyName = prettyName.substr(1, prettyName.size() - 2);
-      // clang-format on
 
       // Allocate memory for the C-string and copy the content
       char* cstr = new char[prettyName.size() + 1];
@@ -75,44 +71,40 @@ const char* GetOSVersion() {
   return nullptr;
 }
 
-std::vector<std::string> GetMprisPlayers(sdbus::IConnection& connection) {
-  const char *dbusInterface       = "org.freedesktop.DBus",
-             *dbusObjectPath      = "/org/freedesktop/DBus",
-             *dbusMethodListNames = "ListNames",
-             *mprisInterfaceName  = "org.mpris.MediaPlayer2";
+fn GetMprisPlayers(sdbus::IConnection& connection) -> std::vector<std::string> {
+  const char *dbusInterface = "org.freedesktop.DBus", *dbusObjectPath = "/org/freedesktop/DBus",
+             *dbusMethodListNames = "ListNames";
 
-  std::unique_ptr<sdbus::IProxy> dbusProxy =
-      sdbus::createProxy(connection, dbusInterface, dbusObjectPath);
+  const std::unique_ptr<sdbus::IProxy> dbusProxy =
+    createProxy(connection, dbusInterface, dbusObjectPath);
 
   std::vector<std::string> names;
 
-  dbusProxy->callMethod(dbusMethodListNames)
-      .onInterface(dbusInterface)
-      .storeResultsTo(names);
+  dbusProxy->callMethod(dbusMethodListNames).onInterface(dbusInterface).storeResultsTo(names);
 
   std::vector<std::string> mprisPlayers;
 
   for (const std::basic_string<char>& name : names)
-    if (name.contains(mprisInterfaceName))
+    if (const char* mprisInterfaceName = "org.mpris.MediaPlayer2";
+        name.contains(mprisInterfaceName))
       mprisPlayers.push_back(name);
 
   return mprisPlayers;
 }
 
-std::string GetActivePlayer(const std::vector<std::string>& mprisPlayers) {
+fn GetActivePlayer(const std::vector<std::string>& mprisPlayers) -> std::string {
   if (!mprisPlayers.empty())
     return mprisPlayers.front();
 
   return "";
 }
 
-std::string GetNowPlaying() {
+fn GetNowPlaying() -> std::string {
   try {
     const char *playerObjectPath    = "/org/mpris/MediaPlayer2",
                *playerInterfaceName = "org.mpris.MediaPlayer2.Player";
 
-    std::unique_ptr<sdbus::IConnection> connection =
-        sdbus::createSessionBusConnection();
+    std::unique_ptr<sdbus::IConnection> connection = sdbus::createSessionBusConnection();
 
     std::vector<std::string> mprisPlayers = GetMprisPlayers(*connection);
 
@@ -125,19 +117,16 @@ std::string GetNowPlaying() {
       return "";
 
     std::unique_ptr<sdbus::IProxy> playerProxy =
-        sdbus::createProxy(*connection, activePlayer, playerObjectPath);
+      sdbus::createProxy(*connection, activePlayer, playerObjectPath);
 
     std::map<std::string, sdbus::Variant> metadata =
-        playerProxy->getProperty("Metadata").onInterface(playerInterfaceName);
+      playerProxy->getProperty("Metadata").onInterface(playerInterfaceName);
 
-    auto iter = metadata.find("xesam:title");
+    if (const auto iter = metadata.find("xesam:title");
 
-    if (iter != metadata.end() &&
-        iter->second.containsValueOfType<std::string>())
+        iter != metadata.end() && iter->second.containsValueOfType<std::string>())
       return iter->second.get<std::string>();
-  } catch (const sdbus::Error& e) {
-    std::cerr << "Error: " << e.what() << std::endl;
-  }
+  } catch (const sdbus::Error& e) { std::cerr << "Error: " << e.what() << '\n'; }
 
   return "";
 }

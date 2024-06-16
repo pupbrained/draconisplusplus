@@ -21,8 +21,7 @@ namespace rfl {
     class is_field<Field<_name, Type>> : public std::true_type {};
 
     template <class T>
-    constexpr bool is_field_v =
-        is_field<std::remove_cvref_t<std::remove_pointer_t<T>>>::value;
+    constexpr bool is_field_v = is_field<std::remove_cvref_t<std::remove_pointer_t<T>>>::value;
 
   } // namespace internal
 } // namespace rfl

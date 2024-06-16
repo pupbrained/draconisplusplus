@@ -14,13 +14,11 @@ namespace rfl {
     /// for the parameters names in the NamedTuples.
     template <size_t N>
     struct StringLiteral {
-      constexpr StringLiteral(const auto... _chars) : arr_ {_chars..., '\0'} {}
+      constexpr StringLiteral(const auto... _chars) : arr_ { _chars..., '\0' } {}
 
       constexpr StringLiteral(const std::array<char, N> _arr) : arr_(_arr) {}
 
-      constexpr StringLiteral(const char (&_str)[N]) {
-        std::copy_n(_str, N, std::data(arr_));
-      }
+      constexpr StringLiteral(const char (&_str)[N]) { std::copy_n(_str, N, std::data(arr_)); }
 
       /// Returns the value as a string.
       std::string str() const { return std::string(std::data(arr_), N - 1); }
@@ -34,10 +32,8 @@ namespace rfl {
     };
 
     template <size_t N1, size_t N2>
-    constexpr inline bool operator==(
-        const StringLiteral<N1>& _first,
-        const StringLiteral<N2>& _second
-    ) {
+    constexpr inline bool
+    operator==(const StringLiteral<N1>& _first, const StringLiteral<N2>& _second) {
       if constexpr (N1 != N2) {
         return false;
       }
@@ -45,10 +41,8 @@ namespace rfl {
     }
 
     template <size_t N1, size_t N2>
-    constexpr inline bool operator!=(
-        const StringLiteral<N1>& _first,
-        const StringLiteral<N2>& _second
-    ) {
+    constexpr inline bool
+    operator!=(const StringLiteral<N1>& _first, const StringLiteral<N2>& _second) {
       return !(_first == _second);
     }
 

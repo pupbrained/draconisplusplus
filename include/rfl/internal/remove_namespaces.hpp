@@ -19,7 +19,7 @@ namespace rfl {
       }
       constexpr auto substr     = name.substr(pos + 1);
       const auto     to_str_lit = [&]<auto... Ns>(std::index_sequence<Ns...>) {
-        return StringLiteral<sizeof...(Ns) + 1> {substr[Ns]...};
+        return StringLiteral<sizeof...(Ns) + 1> { substr[Ns]... };
       };
       return to_str_lit(std::make_index_sequence<substr.size()> {});
     }

@@ -38,16 +38,13 @@ namespace rfl {
     consteval bool is_required() {
       using Type = std::remove_cvref_t<std::remove_pointer_t<T>>;
       if constexpr (internal::has_reflection_type_v<Type>) {
-        return is_required<
-            typename Type::ReflectionType,
-            _ignore_empty_containers>();
+        return is_required<typename Type::ReflectionType, _ignore_empty_containers>();
       } else if constexpr (internal::is_rename_v<Type>) {
         return is_required<typename Type::Type, _ignore_empty_containers>();
       } else {
         return !(
-            is_never_required_v<Type> ||
-            (_ignore_empty_containers &&
-             (is_vector_like_v<Type> || is_map_like_v<Type>))
+          is_never_required_v<Type> ||
+          (_ignore_empty_containers && (is_vector_like_v<Type> || is_map_like_v<Type>))
         );
       }
     }

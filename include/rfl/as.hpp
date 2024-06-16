@@ -14,8 +14,7 @@ namespace rfl {
       return from_named_tuple<T>(to_named_tuple(std::forward<Head>(_head)));
     } else {
       return from_named_tuple<T>(
-          to_named_tuple(std::forward<Head>(_head))
-              .add(to_named_tuple(std::forward<Tail>(_tail))...)
+        to_named_tuple(std::forward<Head>(_head)).add(to_named_tuple(std::forward<Tail>(_tail))...)
       );
     }
   }
@@ -26,8 +25,7 @@ namespace rfl {
     if constexpr (sizeof...(_tail) == 0) {
       return from_named_tuple<T>(to_named_tuple(_head));
     } else {
-      return from_named_tuple<T>(to_named_tuple(_head).add(to_named_tuple(_tail
-      )...));
+      return from_named_tuple<T>(to_named_tuple(_head).add(to_named_tuple(_tail)...));
     }
   }
 

@@ -15,8 +15,8 @@ namespace rfl {
       constexpr auto threshold = static_cast<T>(_threshold);
       if (_value != threshold) {
         return Error(
-            "Value expected to be equal to " + std::to_string(threshold) +
-            ", but got " + std::to_string(_value) + "."
+          "Value expected to be equal to " + std::to_string(threshold) + ", but got " +
+          std::to_string(_value) + "."
         );
       }
       return _value;
@@ -25,11 +25,10 @@ namespace rfl {
     template <class T>
     static parsing::schema::ValidationType to_schema() {
       using ValidationType = parsing::schema::ValidationType;
-      const auto value =
-          std::is_floating_point_v<T>
-              ? std::variant<double, int>(static_cast<double>(_threshold))
-              : std::variant<double, int>(static_cast<int>(_threshold));
-      return ValidationType {ValidationType::EqualTo {.value_ = value}};
+      const auto value     = std::is_floating_point_v<T>
+                               ? std::variant<double, int>(static_cast<double>(_threshold))
+                               : std::variant<double, int>(static_cast<int>(_threshold));
+      return ValidationType { ValidationType::EqualTo { .value_ = value } };
     }
   };
 
@@ -40,9 +39,8 @@ namespace rfl {
       constexpr auto threshold = static_cast<T>(_threshold);
       if (_value < threshold) {
         return Error(
-            "Value expected to be greater than or equal to " +
-            std::to_string(threshold) + ", but got " + std::to_string(_value) +
-            "."
+          "Value expected to be greater than or equal to " + std::to_string(threshold) +
+          ", but got " + std::to_string(_value) + "."
         );
       }
       return _value;
@@ -51,11 +49,10 @@ namespace rfl {
     template <class T>
     static parsing::schema::ValidationType to_schema() {
       using ValidationType = parsing::schema::ValidationType;
-      const auto value =
-          std::is_floating_point_v<T>
-              ? std::variant<double, int>(static_cast<double>(_threshold))
-              : std::variant<double, int>(static_cast<int>(_threshold));
-      return ValidationType {ValidationType::Minimum {.value_ = value}};
+      const auto value     = std::is_floating_point_v<T>
+                               ? std::variant<double, int>(static_cast<double>(_threshold))
+                               : std::variant<double, int>(static_cast<int>(_threshold));
+      return ValidationType { ValidationType::Minimum { .value_ = value } };
     }
   };
 
@@ -66,8 +63,8 @@ namespace rfl {
       constexpr auto threshold = static_cast<T>(_threshold);
       if (_value <= threshold) {
         return Error(
-            "Value expected to be greater than " + std::to_string(threshold) +
-            ", but got " + std::to_string(_value) + "."
+          "Value expected to be greater than " + std::to_string(threshold) + ", but got " +
+          std::to_string(_value) + "."
         );
       }
       return _value;
@@ -76,12 +73,10 @@ namespace rfl {
     template <class T>
     static parsing::schema::ValidationType to_schema() {
       using ValidationType = parsing::schema::ValidationType;
-      const auto value =
-          std::is_floating_point_v<T>
-              ? std::variant<double, int>(static_cast<double>(_threshold))
-              : std::variant<double, int>(static_cast<int>(_threshold));
-      return ValidationType {ValidationType::ExclusiveMinimum {.value_ = value}
-      };
+      const auto value     = std::is_floating_point_v<T>
+                               ? std::variant<double, int>(static_cast<double>(_threshold))
+                               : std::variant<double, int>(static_cast<int>(_threshold));
+      return ValidationType { ValidationType::ExclusiveMinimum { .value_ = value } };
     }
   };
 
@@ -92,9 +87,8 @@ namespace rfl {
       constexpr auto threshold = static_cast<T>(_threshold);
       if (_value > threshold) {
         return Error(
-            "Value expected to be less than or equal to " +
-            std::to_string(threshold) + ", but got " + std::to_string(_value) +
-            "."
+          "Value expected to be less than or equal to " + std::to_string(threshold) + ", but got " +
+          std::to_string(_value) + "."
         );
       }
       return _value;
@@ -103,11 +97,10 @@ namespace rfl {
     template <class T>
     static parsing::schema::ValidationType to_schema() {
       using ValidationType = parsing::schema::ValidationType;
-      const auto value =
-          std::is_floating_point_v<T>
-              ? std::variant<double, int>(static_cast<double>(_threshold))
-              : std::variant<double, int>(static_cast<int>(_threshold));
-      return ValidationType {ValidationType::Maximum {.value_ = value}};
+      const auto value     = std::is_floating_point_v<T>
+                               ? std::variant<double, int>(static_cast<double>(_threshold))
+                               : std::variant<double, int>(static_cast<int>(_threshold));
+      return ValidationType { ValidationType::Maximum { .value_ = value } };
     }
   };
 
@@ -118,8 +111,8 @@ namespace rfl {
       constexpr auto threshold = static_cast<T>(_threshold);
       if (_value >= threshold) {
         return Error(
-            "Value expected to be less than " + std::to_string(threshold) +
-            ", but got " + std::to_string(_value) + "."
+          "Value expected to be less than " + std::to_string(threshold) + ", but got " +
+          std::to_string(_value) + "."
         );
       }
       return _value;
@@ -128,12 +121,10 @@ namespace rfl {
     template <class T>
     static parsing::schema::ValidationType to_schema() {
       using ValidationType = parsing::schema::ValidationType;
-      const auto value =
-          std::is_floating_point_v<T>
-              ? std::variant<double, int>(static_cast<double>(_threshold))
-              : std::variant<double, int>(static_cast<int>(_threshold));
-      return ValidationType {ValidationType::ExclusiveMaximum {.value_ = value}
-      };
+      const auto value     = std::is_floating_point_v<T>
+                               ? std::variant<double, int>(static_cast<double>(_threshold))
+                               : std::variant<double, int>(static_cast<int>(_threshold));
+      return ValidationType { ValidationType::ExclusiveMaximum { .value_ = value } };
     }
   };
 
@@ -144,8 +135,8 @@ namespace rfl {
       constexpr auto threshold = static_cast<T>(_threshold);
       if (_value == threshold) {
         return Error(
-            "Value expected to not be equal to " + std::to_string(threshold) +
-            ", but got " + std::to_string(_value) + "."
+          "Value expected to not be equal to " + std::to_string(threshold) + ", but got " +
+          std::to_string(_value) + "."
         );
       }
       return _value;
@@ -154,11 +145,10 @@ namespace rfl {
     template <class T>
     static parsing::schema::ValidationType to_schema() {
       using ValidationType = parsing::schema::ValidationType;
-      const auto value =
-          std::is_floating_point_v<T>
-              ? std::variant<double, int>(static_cast<double>(_threshold))
-              : std::variant<double, int>(static_cast<int>(_threshold));
-      return ValidationType {ValidationType::NotEqualTo {.value_ = value}};
+      const auto value     = std::is_floating_point_v<T>
+                               ? std::variant<double, int>(static_cast<double>(_threshold))
+                               : std::variant<double, int>(static_cast<int>(_threshold));
+      return ValidationType { ValidationType::NotEqualTo { .value_ = value } };
     }
   };
 

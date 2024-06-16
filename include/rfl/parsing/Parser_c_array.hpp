@@ -29,31 +29,24 @@ namespace rfl {
       using ParentType = Parent<W>;
       using CArray     = T[_size];
 
-      static Result<internal::Array<CArray>>
-      read(const R& _r, const InputVarType& _var) noexcept {
+      static Result<internal::Array<CArray>> read(const R& _r, const InputVarType& _var) noexcept {
         using StdArray = internal::to_std_array_t<CArray>;
         return Parser<R, W, StdArray, ProcessorsType>::read(_r, _var);
       }
 
       template <class P>
-      static void
-      write(const W& _w, const CArray& _arr, const P& _parent) noexcept {
+      static void write(const W& _w, const CArray& _arr, const P& _parent) noexcept {
         auto       arr        = ParentType::add_array(_w, _size, _parent);
-        const auto new_parent = typename ParentType::Array {&arr};
+        const auto new_parent = typename ParentType::Array { &arr };
         for (const auto& e : _arr) {
-          Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::write(
-              _w, e, new_parent
-          );
+          Parser<R, W, std::remove_cvref_t<T>, ProcessorsType>::write(_w, e, new_parent);
         }
         _w.end_array(&arr);
       }
 
-      static schema::Type to_schema(
-          std::map<std::string, schema::Type>* _definitions
-      ) {
+      static schema::Type to_schema(std::map<std::string, schema::Type>* _definitions) {
         using StdArray = internal::to_std_array_t<CArray>;
-        return Parser<R, W, std::remove_cvref_t<StdArray>, ProcessorsType>::
-            to_schema(_definitions);
+        return Parser<R, W, std::remove_cvref_t<StdArray>, ProcessorsType>::to_schema(_definitions);
       }
     };
 

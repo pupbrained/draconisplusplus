@@ -19,11 +19,15 @@ namespace rfl {
       /// Returns the underlying value.
       template <class F>
       const T& value(const F& _f) {
-        if (flag_.test()) { return value_; }
+        if (flag_.test()) {
+          return value_;
+        }
 
         std::lock_guard<std::mutex> guard(mtx_);
 
-        if (flag_.test()) { return value_; }
+        if (flag_.test()) {
+          return value_;
+        }
 
         _f(&value_);
 

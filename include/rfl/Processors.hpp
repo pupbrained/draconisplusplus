@@ -22,14 +22,13 @@ namespace rfl {
 
   template <class Head, class... Tail>
   struct Processors<Head, Tail...> {
-    static constexpr bool all_required_ = std::disjunction_v<
-        internal::is_no_optionals<Head>,
-        internal::is_no_optionals<Tail>...>;
+    static constexpr bool all_required_ =
+      std::disjunction_v<internal::is_no_optionals<Head>, internal::is_no_optionals<Tail>...>;
 
     template <class T, class NamedTupleType>
     static auto process(NamedTupleType&& _named_tuple) {
       return Processors<Tail...>::template process<T>(
-          Head::template process<T>(std::move(_named_tuple))
+        Head::template process<T>(std::move(_named_tuple))
       );
     }
   };

@@ -38,8 +38,7 @@ namespace rfl {
     Box(Box<T>&& _other) = default;
 
     template <class U>
-    Box(Box<U>&& _other) noexcept
-        : ptr_(std::forward<std::unique_ptr<U>>(_other.ptr())) {}
+    Box(Box<U>&& _other) noexcept : ptr_(std::forward<std::unique_ptr<U>>(_other.ptr())) {}
 
     ~Box() = default;
 
@@ -110,9 +109,7 @@ namespace std {
 
   template <class T>
   struct hash<rfl::Box<T>> {
-    size_t operator()(const rfl::Box<T>& _b) const {
-      return hash<unique_ptr<T>>()(_b.ptr());
-    }
+    size_t operator()(const rfl::Box<T>& _b) const { return hash<unique_ptr<T>>()(_b.ptr()); }
   };
 
   template <class T>

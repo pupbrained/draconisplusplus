@@ -23,8 +23,7 @@ namespace rfl {
        public:
         static constexpr bool is_flag_enum_ = is_flag_enum<EnumType>;
 
-        static constexpr auto names_ =
-            get_enum_names<EnumType, is_flag_enum_>();
+        static constexpr auto names_ = get_enum_names<EnumType, is_flag_enum_>();
 
         using NamesLiteral = typename decltype(names_)::Literal;
 
@@ -41,9 +40,9 @@ namespace rfl {
         /// Transforms a string to the matching enum.
         static Result<EnumType> string_to_enum(const std::string& _str) {
           static_assert(
-              names_.size != 0,
-              "No enum could be identified. Please choose enum values "
-              "between 0 to 127 or for flag enums choose 1,2,4,8,16,..."
+            names_.size != 0,
+            "No enum could be identified. Please choose enum values "
+            "between 0 to 127 or for flag enums choose 1,2,4,8,16,..."
           );
           if constexpr (is_flag_enum_) {
             return string_to_flag_enum(_str);
@@ -63,9 +62,7 @@ namespace rfl {
           while (val != 0) {
             const auto bit = val & static_cast<T>(1);
             if (bit == 1) {
-              auto str = enum_to_single_string(
-                  static_cast<EnumType>(static_cast<T>(1) << i)
-              );
+              auto str = enum_to_single_string(static_cast<EnumType>(static_cast<T>(1) << i));
               flags.emplace_back(std::move(str));
             }
             ++i;
@@ -81,17 +78,13 @@ namespace rfl {
 
           for (size_t i = 0; i < names_.size; ++i) {
             if (names_.enums_[i] == _enum) {
-              return NamesLiteral::from_value(
-                         static_cast<typename NamesLiteral::ValueType>(i)
-              )
-                  .transform(to_str)
-                  .value();
+              return NamesLiteral::from_value(static_cast<typename NamesLiteral::ValueType>(i))
+                .transform(to_str)
+                .value();
             }
           }
 
-          return std::to_string(
-              static_cast<std::underlying_type_t<EnumType>>(_enum)
-          );
+          return std::to_string(static_cast<std::underlying_type_t<EnumType>>(_enum));
         }
 
         /// Finds the enum matching the literal.
@@ -102,8 +95,7 @@ namespace rfl {
         /// This assumes that _enum can be exactly matched to one of the names
         /// and does not have to be combined using |.
         static Result<EnumType> single_string_to_enum(const std::string& _str) {
-          const auto r =
-              NamesLiteral::from_string(_str).transform(literal_to_enum);
+          const auto r = NamesLiteral::from_string(_str).transform(literal_to_enum);
           if (r) {
             return r;
           } else {
@@ -115,8 +107,7 @@ namespace rfl {
 
         /// Only relevant if this is a flag enum - combines the different
         /// matches using |.
-        static Result<EnumType> string_to_flag_enum(const std::string& _str
-        ) noexcept {
+        static Result<EnumType> string_to_flag_enum(const std::string& _str) noexcept {
           using T          = std::underlying_type_t<EnumType>;
           const auto split = strings::split(_str, "|");
           auto       res   = static_cast<T>(0);

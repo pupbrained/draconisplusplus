@@ -94,23 +94,10 @@ class Weather {
   [[nodiscard]] fn getUnits() const -> const std::string;
 };
 
-struct WeatherImpl {
-  Weather::Location location;
-  std::string       api_key;
-  std::string       units;
-
-  static fn from_class(const Weather& weather) noexcept -> WeatherImpl;
-
-  [[nodiscard]] fn to_class() const -> Weather;
-};
+DEF_IMPL(Weather, Weather::Location location; std::string api_key; std::string units)
 
 namespace rfl::parsing {
   template <class ReaderType, class WriterType, class ProcessorsType>
   struct Parser<ReaderType, WriterType, Weather, ProcessorsType>
-      : public CustomParser<
-            ReaderType,
-            WriterType,
-            ProcessorsType,
-            Weather,
-            WeatherImpl> {};
+    : CustomParser<ReaderType, WriterType, ProcessorsType, Weather, WeatherImpl> {};
 }

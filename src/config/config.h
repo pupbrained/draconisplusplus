@@ -1,8 +1,6 @@
 #pragma once
 
-#include <fmt/core.h>
 #include <rfl.hpp>
-#include <rfl/toml.hpp>
 #include <string>
 
 #include "util/macros.h"
@@ -15,7 +13,7 @@ class General {
   std::string m_Name;
 
  public:
-  General(std::string name);
+  explicit General(std::string name);
 
   [[nodiscard]] fn getName() const -> const std::string;
 };
@@ -25,7 +23,7 @@ class NowPlaying {
   bool m_Enabled;
 
  public:
-  NowPlaying(bool enabled);
+  explicit NowPlaying(bool enabled);
 
   [[nodiscard]] fn getEnabled() const -> bool;
 };
@@ -37,8 +35,20 @@ class Config {
   Weather    m_Weather;
 
  public:
+  /**
+   * @brief Creates a new Config instance.
+   *
+   * @param general     The general section of the configuration.
+   * @param now_playing The now playing section of the configuration.
+   * @param weather     The weather section of the configuration.
+   */
   Config(General general, NowPlaying now_playing, Weather weather);
 
+  /**
+   * @brief Gets the current (read-only) configuration.
+   *
+   * @return The current Config instance.
+   */
   static fn getInstance() -> const Config&;
 
   [[nodiscard]] fn getWeather() const -> const Weather;
@@ -47,20 +57,20 @@ class Config {
 };
 
 // reflect-cpp Stuff
-DEF_IMPL(General, general, std::string name)
-DEF_IMPL(NowPlaying, now_playing, std::optional<bool> enabled)
-DEF_IMPL(Config, config, General general; NowPlaying now_playing; Weather weather)
+DEF_IMPL(General, std::string name)
+DEF_IMPL(NowPlaying, std::optional<bool> enabled)
+DEF_IMPL(Config, General general; NowPlaying now_playing; Weather weather)
 
 namespace rfl::parsing {
   template <class ReaderType, class WriterType, class ProcessorsType>
   struct Parser<ReaderType, WriterType, General, ProcessorsType>
-      : public CustomParser<ReaderType, WriterType, ProcessorsType, General, GeneralImpl> {};
+    : CustomParser<ReaderType, WriterType, ProcessorsType, General, GeneralImpl> {};
 
   template <class ReaderType, class WriterType, class ProcessorsType>
   struct Parser<ReaderType, WriterType, NowPlaying, ProcessorsType>
-      : public CustomParser<ReaderType, WriterType, ProcessorsType, NowPlaying, NowPlayingImpl> {};
+    : CustomParser<ReaderType, WriterType, ProcessorsType, NowPlaying, NowPlayingImpl> {};
 
   template <class ReaderType, class WriterType, class ProcessorsType>
   struct Parser<ReaderType, WriterType, Config, ProcessorsType>
-      : public CustomParser<ReaderType, WriterType, ProcessorsType, Config, ConfigImpl> {};
+    : CustomParser<ReaderType, WriterType, ProcessorsType, Config, ConfigImpl> {};
 }

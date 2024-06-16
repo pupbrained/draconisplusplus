@@ -31,10 +31,8 @@ namespace rfl::toml {
   /// Parses an object from a stringstream.
   template <class T, class... Ps>
   auto read(std::istream& _stream) {
-    const auto toml_str = std::string(
-        std::istreambuf_iterator<char>(_stream),
-        std::istreambuf_iterator<char>()
-    );
+    const auto toml_str =
+      std::string(std::istreambuf_iterator<char>(_stream), std::istreambuf_iterator<char>());
     return read<T, Ps...>(toml_str);
   }
 

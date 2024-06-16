@@ -40,52 +40,33 @@ namespace rfl {
   /// The Result class is used for monadic error handling.
   template <class T>
   class Result {
-    static_assert(
-        !std::is_same<T, Error>(),
-        "The result type cannot be Error."
-    );
+    static_assert(!std::is_same<T, Error>(), "The result type cannot be Error.");
 
-    using TOrErr =
-        std::array<unsigned char, std::max(sizeof(T), sizeof(Error))>;
+    using TOrErr = std::array<unsigned char, std::max(sizeof(T), sizeof(Error))>;
 
    public:
     using Type = T;
 
     Result(const T& _val) : success_(true) { new (&get_t()) T(_val); }
 
-    Result(T&& _val) noexcept : success_(true) {
-      new (&get_t()) T(std::move(_val));
-    }
+    Result(T&& _val) noexcept : success_(true) { new (&get_t()) T(std::move(_val)); }
 
-    Result(const Error& _err) : success_(false) {
-      new (&get_err()) Error(_err);
-    }
+    Result(const Error& _err) : success_(false) { new (&get_err()) Error(_err); }
 
-    Result(Error&& _err) noexcept : success_(false) {
-      new (&get_err()) Error(std::move(_err));
-    }
+    Result(Error&& _err) noexcept : success_(false) { new (&get_err()) Error(std::move(_err)); }
 
-    Result(Result<T>&& _other) noexcept : success_(_other.success_) {
-      move_from_other(_other);
-    }
+    Result(Result<T>&& _other) noexcept : success_(_other.success_) { move_from_other(_other); }
 
-    Result(const Result<T>& _other) : success_(_other.success_) {
-      copy_from_other(_other);
-    }
+    Result(const Result<T>& _other) : success_(_other.success_) { copy_from_other(_other); }
 
-    template <
-        class U,
-        typename std::enable_if<std::is_convertible_v<U, T>, bool>::type = true>
+    template <class U, typename std::enable_if<std::is_convertible_v<U, T>, bool>::type = true>
     Result(Result<U>&& _other) : success_(_other && true) {
-      auto temp = std::forward<Result<U>>(_other).transform([](U&& _u) {
-        return T(std::forward<U>(_u));
-      });
+      auto temp =
+        std::forward<Result<U>>(_other).transform([](U&& _u) { return T(std::forward<U>(_u)); });
       move_from_other(temp);
     }
 
-    template <
-        class U,
-        typename std::enable_if<std::is_convertible_v<U, T>, bool>::type = true>
+    template <class U, typename std::enable_if<std::is_convertible_v<U, T>, bool>::type = true>
     Result(const Result<U>& _other) : success_(_other && true) {
       auto temp = _other.transform([](const U& _u) { return T(_u); });
       move_from_other(temp);
@@ -209,9 +190,7 @@ namespace rfl {
     }
 
     /// Assigns the underlying object.
-    template <
-        class U,
-        typename std::enable_if<std::is_convertible_v<U, T>, bool>::type = true>
+    template <class U, typename std::enable_if<std::is_convertible_v<U, T>, bool>::type = true>
     auto& operator=(const Result<U>& _other) {
       const auto to_t = [](const U& _u) -> T { return _u; };
       t_or_err_       = _other.transform(to_t).t_or_err_;
@@ -320,8 +299,7 @@ namespace rfl {
 
     void destroy() {
       if (success_) {
-        if constexpr (std::is_destructible_v<
-                          T> /*&& !internal::is_array_v<T>*/) {
+        if constexpr (std::is_destructible_v<T> /*&& !internal::is_array_v<T>*/) {
           get_t().~T();
         }
       } else {
@@ -331,13 +309,9 @@ namespace rfl {
 
     T& get_t() noexcept { return *(reinterpret_cast<T*>(t_or_err_.data())); }
 
-    const T& get_t() const noexcept {
-      return *(reinterpret_cast<const T*>(t_or_err_.data()));
-    }
+    const T& get_t() const noexcept { return *(reinterpret_cast<const T*>(t_or_err_.data())); }
 
-    Error& get_err() noexcept {
-      return *(reinterpret_cast<Error*>(t_or_err_.data()));
-    }
+    Error& get_err() noexcept { return *(reinterpret_cast<Error*>(t_or_err_.data())); }
 
     const Error& get_err() const noexcept {
       return *(reinterpret_cast<const Error*>(t_or_err_.data()));

@@ -39,13 +39,9 @@ namespace rfl {
 
       ~Writer() = default;
 
-      OutputArrayType array_as_root(const size_t _size) const noexcept {
-        return new_array();
-      }
+      OutputArrayType array_as_root(const size_t _size) const noexcept { return new_array(); }
 
-      OutputObjectType object_as_root(const size_t _size) const noexcept {
-        return new_object();
-      }
+      OutputObjectType object_as_root(const size_t _size) const noexcept { return new_object(); }
 
       OutputVarType null_as_root() const noexcept {
         fbb_->Null();
@@ -57,47 +53,42 @@ namespace rfl {
         return insert_value(_var);
       }
 
-      OutputArrayType add_array_to_array(
-          const size_t     _size,
-          OutputArrayType* _parent
-      ) const noexcept {
+      OutputArrayType add_array_to_array(const size_t _size, OutputArrayType* _parent)
+        const noexcept {
         return new_array();
       }
 
       OutputArrayType add_array_to_object(
-          const std::string_view& _name,
-          const size_t            _size,
-          OutputObjectType*       _parent
+        const std::string_view& _name,
+        const size_t            _size,
+        OutputObjectType*       _parent
       ) const noexcept {
         return new_array(_name);
       }
 
-      OutputObjectType add_object_to_array(
-          const size_t     _size,
-          OutputArrayType* _parent
-      ) const noexcept {
+      OutputObjectType add_object_to_array(const size_t _size, OutputArrayType* _parent)
+        const noexcept {
         return new_object();
       }
 
       OutputObjectType add_object_to_object(
-          const std::string_view& _name,
-          const size_t            _size,
-          OutputObjectType*       _parent
+        const std::string_view& _name,
+        const size_t            _size,
+        OutputObjectType*       _parent
       ) const noexcept {
         return new_object(_name);
       }
 
       template <class T>
-      OutputVarType add_value_to_array(const T& _var, OutputArrayType* _parent)
-          const noexcept {
+      OutputVarType add_value_to_array(const T& _var, OutputArrayType* _parent) const noexcept {
         return insert_value(_var);
       }
 
       template <class T>
       OutputVarType add_value_to_object(
-          const std::string_view& _name,
-          const T&                _var,
-          OutputObjectType*       _parent
+        const std::string_view& _name,
+        const T&                _var,
+        OutputObjectType*       _parent
       ) const noexcept {
         return insert_value(_name, _var);
       }
@@ -107,10 +98,8 @@ namespace rfl {
         return OutputVarType {};
       }
 
-      OutputVarType add_null_to_object(
-          const std::string_view& _name,
-          OutputObjectType*       _parent
-      ) const noexcept {
+      OutputVarType add_null_to_object(const std::string_view& _name, OutputObjectType* _parent)
+        const noexcept {
         fbb_->Null(_name.data());
         return OutputVarType {};
       }
@@ -119,14 +108,11 @@ namespace rfl {
         fbb_->EndVector(_arr->start_, false, false);
       }
 
-      void end_object(OutputObjectType* _obj) const noexcept {
-        fbb_->EndMap(_obj->start_);
-      }
+      void end_object(OutputObjectType* _obj) const noexcept { fbb_->EndMap(_obj->start_); }
 
      private:
       template <class T>
-      OutputVarType insert_value(const std::string_view& _name, const T& _var)
-          const noexcept {
+      OutputVarType insert_value(const std::string_view& _name, const T& _var) const noexcept {
         if constexpr (std::is_same<std::remove_cvref_t<T>, std::string>()) {
           fbb_->String(_name.data(), _var);
         } else if constexpr (std::is_same<std::remove_cvref_t<T>, bool>()) {
@@ -159,23 +145,22 @@ namespace rfl {
 
       OutputArrayType new_array(const std::string_view& _name) const noexcept {
         const auto start = fbb_->StartVector(_name.data());
-        return OutputArrayType {start};
+        return OutputArrayType { start };
       }
 
       OutputArrayType new_array() const noexcept {
         const auto start = fbb_->StartVector();
-        return OutputArrayType {start};
+        return OutputArrayType { start };
       }
 
-      OutputObjectType new_object(const std::string_view& _name
-      ) const noexcept {
+      OutputObjectType new_object(const std::string_view& _name) const noexcept {
         const auto start = fbb_->StartMap(_name.data());
-        return OutputObjectType {start};
+        return OutputObjectType { start };
       }
 
       OutputObjectType new_object() const noexcept {
         const auto start = fbb_->StartMap();
-        return OutputObjectType {start};
+        return OutputObjectType { start };
       }
 
      private:

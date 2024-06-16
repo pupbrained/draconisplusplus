@@ -35,13 +35,9 @@ namespace rfl::msgpack {
 
     ~Writer() = default;
 
-    OutputArrayType array_as_root(const size_t _size) const noexcept {
-      return new_array(_size);
-    }
+    OutputArrayType array_as_root(const size_t _size) const noexcept { return new_array(_size); }
 
-    OutputObjectType object_as_root(const size_t _size) const noexcept {
-      return new_object(_size);
-    }
+    OutputObjectType object_as_root(const size_t _size) const noexcept { return new_object(_size); }
 
     OutputVarType null_as_root() const noexcept {
       msgpack_pack_nil(pk_);
@@ -53,34 +49,30 @@ namespace rfl::msgpack {
       return new_value(_var);
     }
 
-    OutputArrayType add_array_to_array(
-        const size_t     _size,
-        OutputArrayType* _parent
-    ) const noexcept {
+    OutputArrayType add_array_to_array(const size_t _size, OutputArrayType* _parent)
+      const noexcept {
       return new_array(_size);
     }
 
     OutputArrayType add_array_to_object(
-        const std::string_view& _name,
-        const size_t            _size,
-        OutputObjectType*       _parent
+      const std::string_view& _name,
+      const size_t            _size,
+      OutputObjectType*       _parent
     ) const noexcept {
       msgpack_pack_str(pk_, _name.size());
       msgpack_pack_str_body(pk_, _name.data(), _name.size());
       return new_array(_size);
     }
 
-    OutputObjectType add_object_to_array(
-        const size_t     _size,
-        OutputArrayType* _parent
-    ) const noexcept {
+    OutputObjectType add_object_to_array(const size_t _size, OutputArrayType* _parent)
+      const noexcept {
       return new_object(_size);
     }
 
     OutputObjectType add_object_to_object(
-        const std::string_view& _name,
-        const size_t            _size,
-        OutputObjectType*       _parent
+      const std::string_view& _name,
+      const size_t            _size,
+      OutputObjectType*       _parent
     ) const noexcept {
       msgpack_pack_str(pk_, _name.size());
       msgpack_pack_str_body(pk_, _name.data(), _name.size());
@@ -88,16 +80,15 @@ namespace rfl::msgpack {
     }
 
     template <class T>
-    OutputVarType add_value_to_array(const T& _var, OutputArrayType* _parent)
-        const noexcept {
+    OutputVarType add_value_to_array(const T& _var, OutputArrayType* _parent) const noexcept {
       return new_value(_var);
     }
 
     template <class T>
     OutputVarType add_value_to_object(
-        const std::string_view& _name,
-        const T&                _var,
-        OutputObjectType*       _parent
+      const std::string_view& _name,
+      const T&                _var,
+      OutputObjectType*       _parent
     ) const noexcept {
       msgpack_pack_str(pk_, _name.size());
       msgpack_pack_str_body(pk_, _name.data(), _name.size());
@@ -109,10 +100,8 @@ namespace rfl::msgpack {
       return OutputVarType {};
     }
 
-    OutputVarType add_null_to_object(
-        const std::string_view& _name,
-        OutputObjectType*       _parent
-    ) const noexcept {
+    OutputVarType add_null_to_object(const std::string_view& _name, OutputObjectType* _parent)
+      const noexcept {
       msgpack_pack_str(pk_, _name.size());
       msgpack_pack_str_body(pk_, _name.data(), _name.size());
       msgpack_pack_nil(pk_);

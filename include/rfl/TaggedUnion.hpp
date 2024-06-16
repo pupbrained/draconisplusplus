@@ -19,30 +19,24 @@ namespace rfl {
     using VariantType = std::variant<Ts...>;
 
     /// A literal containing all the tags that are possible
-    using PossibleTags =
-        define_literal_t<internal::tag_t<_discriminator, Ts>...>;
+    using PossibleTags = define_literal_t<internal::tag_t<_discriminator, Ts>...>;
 
     TaggedUnion(const VariantType& _variant) : variant_(_variant) {}
 
-    TaggedUnion(VariantType&& _variant) noexcept
-        : variant_(std::move(_variant)) {}
+    TaggedUnion(VariantType&& _variant) noexcept : variant_(std::move(_variant)) {}
 
-    TaggedUnion(const TaggedUnion<_discriminator, Ts...>& _tagged_union
-    ) = default;
+    TaggedUnion(const TaggedUnion<_discriminator, Ts...>& _tagged_union) = default;
 
-    TaggedUnion(TaggedUnion<_discriminator, Ts...>&& _tagged_union
-    ) noexcept = default;
+    TaggedUnion(TaggedUnion<_discriminator, Ts...>&& _tagged_union) noexcept = default;
 
     template <
-        class T,
-        typename std::enable_if<std::is_convertible_v<T, VariantType>, bool>::
-            type = true>
+      class T,
+      typename std::enable_if<std::is_convertible_v<T, VariantType>, bool>::type = true>
     TaggedUnion(const T& _t) : variant_(_t) {}
 
     template <
-        class T,
-        typename std::enable_if<std::is_convertible_v<T, VariantType>, bool>::
-            type = true>
+      class T,
+      typename std::enable_if<std::is_convertible_v<T, VariantType>, bool>::type = true>
     TaggedUnion(T&& _t) noexcept : variant_(std::forward<T>(_t)) {}
 
     ~TaggedUnion() = default;
@@ -61,9 +55,8 @@ namespace rfl {
 
     /// Assigns the underlying object.
     template <
-        class T,
-        typename std::enable_if<std::is_convertible_v<T, VariantType>, bool>::
-            type = true>
+      class T,
+      typename std::enable_if<std::is_convertible_v<T, VariantType>, bool>::type = true>
     TaggedUnion<_discriminator, Ts...>& operator=(T&& _variant) {
       variant_ = std::forward<T>(_variant);
       return *this;
@@ -71,22 +64,19 @@ namespace rfl {
 
     /// Assigns the underlying object.
     template <
-        class T,
-        typename std::enable_if<std::is_convertible_v<T, VariantType>, bool>::
-            type = true>
+      class T,
+      typename std::enable_if<std::is_convertible_v<T, VariantType>, bool>::type = true>
     TaggedUnion<_discriminator, Ts...>& operator=(const T& _variant) {
       variant_ = _variant;
       return *this;
     }
 
     /// Assigns the underlying object.
-    TaggedUnion<_discriminator, Ts...>& operator=(
-        const TaggedUnion<_discriminator, Ts...>& _other
+    TaggedUnion<_discriminator, Ts...>& operator=(const TaggedUnion<_discriminator, Ts...>& _other
     ) = default;
 
     /// Assigns the underlying object.
-    TaggedUnion<_discriminator, Ts...>& operator=(
-        TaggedUnion<_discriminator, Ts...>&& _other
+    TaggedUnion<_discriminator, Ts...>& operator=(TaggedUnion<_discriminator, Ts...>&& _other
     ) = default;
 
     /// Returns the underlying variant.
@@ -96,8 +86,8 @@ namespace rfl {
     const VariantType& variant() const { return variant_; }
 
     static_assert(
-        !PossibleTags::has_duplicates(),
-        "Duplicate tags are not allowed inside tagged unions."
+      !PossibleTags::has_duplicates(),
+      "Duplicate tags are not allowed inside tagged unions."
     );
 
     /// The underlying variant - a TaggedUnion is a thin wrapper
@@ -112,58 +102,43 @@ namespace rfl {
      public:
       /// Retrieves the indicated value from the tuple.
       template <int _index>
-      static inline auto& get(
-          TaggedUnion<_discriminator, NamedTupleTypes...>& _tu
-      ) {
-        return Getter<std::variant<NamedTupleTypes...>>::template get<_index>(
-            _tu.variant_
-        );
+      static inline auto& get(TaggedUnion<_discriminator, NamedTupleTypes...>& _tu) {
+        return Getter<std::variant<NamedTupleTypes...>>::template get<_index>(_tu.variant_);
       }
 
       /// Gets a field by name.
       template <StringLiteral _field_name>
-      static inline auto& get(
-          TaggedUnion<_discriminator, NamedTupleTypes...>& _tu
-      ) {
-        return Getter<std::variant<NamedTupleTypes...>>::template get<
-            _field_name>(_tu.variant_);
+      static inline auto& get(TaggedUnion<_discriminator, NamedTupleTypes...>& _tu) {
+        return Getter<std::variant<NamedTupleTypes...>>::template get<_field_name>(_tu.variant_);
       }
 
       /// Gets a field by the field type.
       template <class Field>
-      static inline auto& get(
-          TaggedUnion<_discriminator, NamedTupleTypes...>& _tu
-      ) {
-        return Getter<std::variant<NamedTupleTypes...>>::template get<Field>(
-            _tu.variant_
-        );
+      static inline auto& get(TaggedUnion<_discriminator, NamedTupleTypes...>& _tu) {
+        return Getter<std::variant<NamedTupleTypes...>>::template get<Field>(_tu.variant_);
       }
 
       /// Retrieves the indicated value from the tuple.
       template <int _index>
-      static inline const auto& get_const(
-          const TaggedUnion<_discriminator, NamedTupleTypes...>& _tu
+      static inline const auto& get_const(const TaggedUnion<_discriminator, NamedTupleTypes...>& _tu
       ) {
-        return Getter<std::variant<NamedTupleTypes...>>::template get_const<
-            _index>(_tu.variant_);
+        return Getter<std::variant<NamedTupleTypes...>>::template get_const<_index>(_tu.variant_);
       }
 
       /// Gets a field by name.
       template <StringLiteral _field_name>
-      static inline const auto& get_const(
-          const TaggedUnion<_discriminator, NamedTupleTypes...>& _tu
+      static inline const auto& get_const(const TaggedUnion<_discriminator, NamedTupleTypes...>& _tu
       ) {
-        return Getter<std::variant<NamedTupleTypes...>>::template get_const<
-            _field_name>(_tu.variant_);
+        return Getter<std::variant<NamedTupleTypes...>>::template get_const<_field_name>(
+          _tu.variant_
+        );
       }
 
       /// Gets a field by the field type.
       template <class Field>
-      static inline const auto& get_const(
-          const TaggedUnion<_discriminator, NamedTupleTypes...>& _tu
+      static inline const auto& get_const(const TaggedUnion<_discriminator, NamedTupleTypes...>& _tu
       ) {
-        return Getter<std::variant<NamedTupleTypes...>>::template get_const<
-            Field>(_tu.variant_);
+        return Getter<std::variant<NamedTupleTypes...>>::template get_const<Field>(_tu.variant_);
       }
     };
 

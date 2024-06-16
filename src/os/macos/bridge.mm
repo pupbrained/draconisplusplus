@@ -5,18 +5,16 @@
 
 #import "bridge.h"
 
-using MRMediaRemoteGetNowPlayingInfoFunction = void (*)(
-    dispatch_queue_t queue,
-    void (^handler)(NSDictionary* information)
-);
+using MRMediaRemoteGetNowPlayingInfoFunction =
+  void (*)(dispatch_queue_t queue, void (^handler)(NSDictionary* information));
 
 @implementation Bridge
 + (NSDictionary*)currentPlayingMetadata {
   CFURLRef ref = CFURLCreateWithFileSystemPath(
-      kCFAllocatorDefault,
-      CFSTR("/System/Library/PrivateFrameworks/MediaRemote.framework"),
-      kCFURLPOSIXPathStyle,
-      false
+    kCFAllocatorDefault,
+    CFSTR("/System/Library/PrivateFrameworks/MediaRemote.framework"),
+    kCFURLPOSIXPathStyle,
+    false
   );
 
   if (!ref) {
@@ -33,11 +31,9 @@ using MRMediaRemoteGetNowPlayingInfoFunction = void (*)(
   }
 
   MRMediaRemoteGetNowPlayingInfoFunction mrMediaRemoteGetNowPlayingInfo =
-      reinterpret_cast<MRMediaRemoteGetNowPlayingInfoFunction>(
-          CFBundleGetFunctionPointerForName(
-              bundle, CFSTR("MRMediaRemoteGetNowPlayingInfo")
-          )
-      );
+    reinterpret_cast<MRMediaRemoteGetNowPlayingInfoFunction>(
+      CFBundleGetFunctionPointerForName(bundle, CFSTR("MRMediaRemoteGetNowPlayingInfo"))
+    );
 
   if (!mrMediaRemoteGetNowPlayingInfo) {
     NSLog(@"Failed to get function pointer for MRMediaRemoteGetNowPlayingInfo");
@@ -49,11 +45,11 @@ using MRMediaRemoteGetNowPlayingInfoFunction = void (*)(
   dispatch_semaphore_t  semaphore      = dispatch_semaphore_create(0);
 
   mrMediaRemoteGetNowPlayingInfo(
-      dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
-      ^(NSDictionary* information) {
-        nowPlayingInfo = [information copy];
-        dispatch_semaphore_signal(semaphore);
-      }
+    dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
+    ^(NSDictionary* information) {
+      nowPlayingInfo = [information copy];
+      dispatch_semaphore_signal(semaphore);
+    }
   );
 
   dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
@@ -69,9 +65,8 @@ using MRMediaRemoteGetNowPlayingInfoFunction = void (*)(
 
   NSString* version;
   if (osVersion.patchVersion == 0) {
-    version = [NSString stringWithFormat:@"%ld.%ld",
-                                         osVersion.majorVersion,
-                                         osVersion.minorVersion];
+    version =
+      [NSString stringWithFormat:@"%ld.%ld", osVersion.majorVersion, osVersion.minorVersion];
   } else {
     version = [NSString stringWithFormat:@"%ld.%ld.%ld",
                                          osVersion.majorVersion,
@@ -80,13 +75,8 @@ using MRMediaRemoteGetNowPlayingInfoFunction = void (*)(
   }
 
   // Dictionary to map macOS versions to their respective names
-  NSDictionary<NSNumber*, NSString*>* versionNames = @{
-    @11 : @"Big Sur",
-    @12 : @"Monterey",
-    @13 : @"Ventura",
-    @14 : @"Sonoma",
-    @15 : @"Sequoia"
-  };
+  NSDictionary<NSNumber*, NSString*>* versionNames =
+    @{ @11 : @"Big Sur", @12 : @"Monterey", @13 : @"Ventura", @14 : @"Sonoma", @15 : @"Sequoia" };
 
   NSNumber* majorVersionNumber = @(osVersion.majorVersion);
   NSString* versionName        = versionNames[majorVersionNumber];
@@ -94,8 +84,7 @@ using MRMediaRemoteGetNowPlayingInfoFunction = void (*)(
   if (versionName == nil)
     versionName = @"Unknown";
 
-  NSString* fullVersion =
-      [NSString stringWithFormat:@"macOS %@ %@", version, versionName];
+  NSString* fullVersion = [NSString stringWithFormat:@"macOS %@ %@", version, versionName];
 
   return fullVersion;
 }
@@ -110,8 +99,7 @@ extern "C" {
     if (metadata == nil)
       return nullptr;
 
-    NSString* title =
-        [metadata objectForKey:@"kMRMediaRemoteNowPlayingInfoTitle"];
+    NSString* title = [metadata objectForKey:@"kMRMediaRemoteNowPlayingInfoTitle"];
 
     if (title)
       return strdup([title UTF8String]);
@@ -125,8 +113,7 @@ extern "C" {
     if (metadata == nil)
       return nullptr;
 
-    NSString* artist =
-        [metadata objectForKey:@"kMRMediaRemoteNowPlayingInfoArtist"];
+    NSString* artist = [metadata objectForKey:@"kMRMediaRemoteNowPlayingInfoArtist"];
 
     if (artist)
       return strdup([artist UTF8String]);

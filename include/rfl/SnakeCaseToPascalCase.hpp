@@ -26,10 +26,10 @@ namespace rfl {
     template <class FieldType>
     static auto handle_one_field(FieldType&& _f) {
       using NewFieldType = Field<
-          internal::transform_snake_case<
-              FieldType::name_,
-              /*capitalize=*/true>(),
-          typename FieldType::Type>;
+        internal::transform_snake_case<
+          FieldType::name_,
+          /*capitalize=*/true>(),
+        typename FieldType::Type>;
       return NewFieldType(_f.value());
     }
   };

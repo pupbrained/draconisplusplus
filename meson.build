@@ -4,7 +4,7 @@ project(
   default_options: [
     'objc_std=c++20',
     'objcpp_std=c++20',
-    'cpp_std=c++20',
+    'cpp_std=c++23',
     'default_library=static',
     'warning_level=everything',
     'buildtype=debugoptimized'
@@ -76,17 +76,10 @@ endforeach
 
 deps = []
 
-fmt     = dependency('fmt', required: false)
-libcurl = dependency('libcurl', required: false)
-tomlpp  = dependency('tomlplusplus', required: false)
-yyjson  = dependency('yyjson', required: false)
-
-foreach dep : [fmt, libcurl, tomlpp, yyjson]
-  if not dep.found()
-    dep = cpp.find_library(dep.name(), required: true)
-  endif
-  deps += dep
-endforeach
+deps += cpp.find_library('fmt', required: false)
+deps += dependency('libcurl', required: false)
+deps += dependency('tomlplusplus', required: false)
+deps += cpp.find_library('yyjson', required: false)
 
 if host_machine.system() == 'darwin'
   deps += dependency('Foundation')
@@ -94,11 +87,18 @@ if host_machine.system() == 'darwin'
 endif
 
 if host_machine.system() == 'linux'
-  deps += dependency('sdbus-c++')
+  deps += cpp.find_library('sdbus-c++')
 endif
 
+foreach dep : deps
+  if not dep.found()
+    dep = cpp.find_library(dep.name(), required: true)
+  endif
+  deps += dep
+endforeach
+
 incdir = include_directories(
-  ['include', '/nix/store/pp85qmfpf239b75sm23hhx6cvxfrr4p9-fmt-10.2.1-dev/include'],
+  'include',
   is_system: true # Ignores warnings from include dir
 )
 

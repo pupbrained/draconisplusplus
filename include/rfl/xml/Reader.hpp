@@ -52,26 +52,21 @@ namespace rfl {
       /// XML-only helper function. This is needed because XML distinguishes
       /// between nodes and attributes.
       static rfl::Result<pugi::xml_node> cast_as_node(
-          const std::variant<pugi::xml_node, pugi::xml_attribute>&
-              _node_or_attribute
+        const std::variant<pugi::xml_node, pugi::xml_attribute>& _node_or_attribute
       ) {
         const auto cast = [](const auto& _n) -> Result<pugi::xml_node> {
           using Type = std::remove_cvref_t<decltype(_n)>;
           if constexpr (std::is_same<Type, pugi::xml_node>()) {
             return _n;
           } else {
-            return Error(
-                "Field '" + std::string(_n.name()) + "' is an attribute."
-            );
+            return Error("Field '" + std::string(_n.name()) + "' is an attribute.");
           }
         };
         return std::visit(cast, _node_or_attribute);
       }
 
-      rfl::Result<InputVarType> get_field(
-          const std::string&    _name,
-          const InputObjectType _obj
-      ) const noexcept {
+      rfl::Result<InputVarType> get_field(const std::string& _name, const InputObjectType _obj)
+        const noexcept {
         const auto node = _obj.node_.child(_name.c_str());
         if (!node) {
           return rfl::Error("Object contains no field named '" + _name + "'.");
@@ -81,9 +76,7 @@ namespace rfl {
 
       bool is_empty(const InputVarType _var) const noexcept {
         const auto wrap = [](const auto& _node) { return !_node; };
-        return std::visit(cast_as_node, _var.node_or_attribute_)
-            .transform(wrap)
-            .value_or(false);
+        return std::visit(cast_as_node, _var.node_or_attribute_).transform(wrap).value_or(false);
       }
 
       template <class T>
@@ -106,39 +99,28 @@ namespace rfl {
           try {
             return static_cast<T>(std::stod(str));
           } catch (std::exception& e) {
-            return Error(
-                "Could not cast '" + std::string(str) +
-                "' to floating point value."
-            );
+            return Error("Could not cast '" + std::string(str) + "' to floating point value.");
           }
         } else if constexpr (std::is_integral<std::remove_cvref_t<T>>()) {
           const auto str = std::visit(get_value, _var.node_or_attribute_);
           try {
             return static_cast<T>(std::stoi(str));
           } catch (std::exception& e) {
-            return Error(
-                "Could not cast '" + std::string(str) + "' to integer."
-            );
+            return Error("Could not cast '" + std::string(str) + "' to integer.");
           }
         } else {
           static_assert(rfl::always_false_v<T>, "Unsupported type.");
         }
       }
 
-      rfl::Result<InputArrayType> to_array(const InputVarType _var
-      ) const noexcept {
-        const auto wrap = [](const auto& _node) {
-          return InputArrayType(_node);
-        };
-        return std::visit(cast_as_node, _var.node_or_attribute_)
-            .transform(wrap);
+      rfl::Result<InputArrayType> to_array(const InputVarType _var) const noexcept {
+        const auto wrap = [](const auto& _node) { return InputArrayType(_node); };
+        return std::visit(cast_as_node, _var.node_or_attribute_).transform(wrap);
       }
 
       template <class ArrayReader>
-      std::optional<Error> read_array(
-          const ArrayReader&    _array_reader,
-          const InputArrayType& _arr
-      ) const noexcept {
+      std::optional<Error> read_array(const ArrayReader& _array_reader, const InputArrayType& _arr)
+        const noexcept {
         const auto name = _arr.node_.name();
         for (auto node = _arr.node_; node; node = node.next_sibling(name)) {
           const auto err = _array_reader.read(InputVarType(node));
@@ -150,45 +132,30 @@ namespace rfl {
       }
 
       template <class ObjectReader>
-      std::optional<Error> read_object(
-          const ObjectReader&    _object_reader,
-          const InputObjectType& _obj
-      ) const noexcept {
-        for (auto child = _obj.node_.first_child(); child;
-             child      = child.next_sibling()) {
-          _object_reader.read(
-              std::string_view(child.name()), InputVarType(child)
-          );
+      std::optional<Error>
+      read_object(const ObjectReader& _object_reader, const InputObjectType& _obj) const noexcept {
+        for (auto child = _obj.node_.first_child(); child; child = child.next_sibling()) {
+          _object_reader.read(std::string_view(child.name()), InputVarType(child));
         }
 
-        for (auto attr = _obj.node_.first_attribute(); attr;
-             attr      = attr.next_attribute()) {
-          _object_reader.read(
-              std::string_view(attr.name()), InputVarType(attr)
-          );
+        for (auto attr = _obj.node_.first_attribute(); attr; attr = attr.next_attribute()) {
+          _object_reader.read(std::string_view(attr.name()), InputVarType(attr));
         }
 
         if constexpr (parsing::is_view_reader_v<ObjectReader>) {
-          _object_reader.read(
-              std::string_view("xml_content"), InputVarType(_obj.node_)
-          );
+          _object_reader.read(std::string_view("xml_content"), InputVarType(_obj.node_));
         }
 
         return std::nullopt;
       }
 
-      rfl::Result<InputObjectType> to_object(const InputVarType _var
-      ) const noexcept {
-        const auto wrap = [](const auto& _node) {
-          return InputObjectType(_node);
-        };
-        return std::visit(cast_as_node, _var.node_or_attribute_)
-            .transform(wrap);
+      rfl::Result<InputObjectType> to_object(const InputVarType _var) const noexcept {
+        const auto wrap = [](const auto& _node) { return InputObjectType(_node); };
+        return std::visit(cast_as_node, _var.node_or_attribute_).transform(wrap);
       }
 
       template <class T>
-      rfl::Result<T> use_custom_constructor(const InputVarType _var
-      ) const noexcept {
+      rfl::Result<T> use_custom_constructor(const InputVarType _var) const noexcept {
         return rfl::Error("TODO");
       }
     };

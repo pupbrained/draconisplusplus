@@ -17,8 +17,7 @@ namespace rfl {
       static std::int32_t foo(typename U::Tag*);
 
      public:
-      static constexpr bool value =
-          sizeof(foo<Wrapper>(nullptr)) == sizeof(std::int32_t);
+      static constexpr bool value = sizeof(foo<Wrapper>(nullptr)) == sizeof(std::int32_t);
     };
 
     /// Used for tagged unions - determines whether a struct as a Tag.

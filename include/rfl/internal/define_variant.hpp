@@ -12,20 +12,14 @@ namespace rfl {
 
     /// Recursive case - both variants.
     template <class... Vars1, class... Vars2, class... Tail>
-    struct define_variant<
-        std::variant<Vars1...>,
-        std::variant<Vars2...>,
-        Tail...> {
-      using type =
-          typename define_variant<std::variant<Vars1..., Vars2...>, Tail...>::
-              type;
+    struct define_variant<std::variant<Vars1...>, std::variant<Vars2...>, Tail...> {
+      using type = typename define_variant<std::variant<Vars1..., Vars2...>, Tail...>::type;
     };
 
     /// Recursive case - variant plus other type.
     template <class... Vars, class Head, class... Tail>
     struct define_variant<std::variant<Vars...>, Head, Tail...> {
-      using type =
-          typename define_variant<std::variant<Vars..., Head>, Tail...>::type;
+      using type = typename define_variant<std::variant<Vars..., Head>, Tail...>::type;
     };
 
     /// Recursive case - other type.
