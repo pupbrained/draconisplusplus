@@ -1,6 +1,7 @@
 #include <ctime>
 #include <fmt/chrono.h>
 #include <fmt/core.h>
+#include <future>
 
 #include "config/config.h"
 #include "os/os.h"
@@ -50,26 +51,36 @@ fn main() -> int {
   using WeatherOutput = Weather::WeatherOutput;
 
   const Config& config = Config::getInstance();
-  WeatherOutput json   = config.getWeather().getWeatherInfo();
 
-  const long   temp     = std::lround(json.main.temp);
-  const string townName = json.name;
+  auto weatherFuture =
+    std::async(std::launch::async, [&config]() { return config.getWeather().getWeatherInfo(); });
 
-  const char*  version           = GetOSVersion();
-  const string name              = config.getGeneral().getName();
-  const bool   nowPlayingEnabled = config.getNowPlaying().getEnabled();
+  auto osVersionFuture = std::async(std::launch::async, GetOSVersion);
+  auto nowPlayingEnabledFuture =
+    std::async(std::launch::async, [&config]() { return config.getNowPlaying().getEnabled(); });
+
+  auto dateFuture    = std::async(std::launch::async, GetDate);
+  auto memInfoFuture = std::async(std::launch::async, GetMemInfo);
+
+  WeatherOutput     json     = weatherFuture.get();
+  const long        temp     = std::lround(json.main.temp);
+  const std::string townName = json.name;
+
+  const char*       version           = osVersionFuture.get();
+  const std::string name              = config.getGeneral().getName();
+  const bool        nowPlayingEnabled = nowPlayingEnabledFuture.get();
 
   fmt::println("Hello {}!", name);
-  fmt::println("Today is: {}", GetDate());
+  fmt::println("Today is: {}", dateFuture.get());
   fmt::println("It is {}°F in {}", temp, townName);
-  fmt::println("Installed RAM: {:.2f}", BytesToGiB { GetMemInfo() });
+  fmt::println("Installed RAM: {:.2f} GiB", BytesToGiB(memInfoFuture.get()));
   fmt::println("{}", version);
 
-  if (nowPlayingEnabled)
+  if (nowPlayingEnabled) {
     fmt::println("{}", GetNowPlaying());
+  }
 
   delete[] version;
-  delete &config;
 
   return 0;
 }

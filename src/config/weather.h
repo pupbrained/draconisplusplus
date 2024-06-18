@@ -80,18 +80,17 @@ class Weather {
 
   using Location = std::variant<std::string, Coords>;
 
- private:
-  Location    m_Location;
-  std::string m_ApiKey;
-  std::string m_Units;
-
- public:
   Weather(Location location, std::string api_key, std::string units);
 
   [[nodiscard]] fn getWeatherInfo() const -> WeatherOutput;
   [[nodiscard]] fn getLocation() const -> const Location;
   [[nodiscard]] fn getApiKey() const -> const std::string;
   [[nodiscard]] fn getUnits() const -> const std::string;
+
+ private:
+  Location    m_Location;
+  std::string m_ApiKey;
+  std::string m_Units;
 };
 
 DEF_IMPL(Weather, Weather::Location location; std::string api_key; std::string units)

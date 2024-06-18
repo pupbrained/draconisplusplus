@@ -23,6 +23,7 @@ if host_machine.system() == 'darwin'
   add_project_arguments(
     objcpp.get_supported_arguments([
       '-Wno-c++20-compat',
+      '-Wno-c++20-extensions',
       '-Wno-c++98-compat',
       '-Wno-c++98-compat-pedantic',
       '-Wno-disabled-macro-expansion',
@@ -39,6 +40,7 @@ endif
 add_project_arguments(
   cpp.get_supported_arguments([
     '-Wno-c++20-compat',
+    '-Wno-c++20-extensions',
     '-Wno-c++98-compat',
     '-Wno-c++98-compat-pedantic',
     '-Wno-disabled-macro-expansion',

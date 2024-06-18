@@ -7,6 +7,8 @@
 
 #include "util/result.h"
 
+using WeatherOutput = Weather::WeatherOutput;
+
 DEFINE_GETTER(Weather, const Weather::Location, Location)
 DEFINE_GETTER(Weather, const std::string, ApiKey)
 DEFINE_GETTER(Weather, const std::string, Units)
@@ -23,8 +25,6 @@ fn WeatherImpl::from_class(const Weather& weather) noexcept -> WeatherImpl {
 }
 
 fn WeatherImpl::to_class() const -> Weather { return { location, api_key, units }; }
-
-using WeatherOutput = Weather::WeatherOutput;
 
 // Function to read cache from file
 fn ReadCacheFromFile() -> Result<WeatherOutput> {
