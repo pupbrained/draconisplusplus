@@ -4,7 +4,7 @@ project(
   default_options: [
     'objc_std=c++20',
     'objcpp_std=c++20',
-    'cpp_std=c++23',
+    'cpp_std=c++20',
     'default_library=static',
     'warning_level=everything',
     'buildtype=debugoptimized'
@@ -78,10 +78,11 @@ endforeach
 
 deps = []
 
-deps += cpp.find_library('fmt', required: false)
-deps += dependency('libcurl', required: false)
-deps += dependency('tomlplusplus', required: false)
-deps += cpp.find_library('yyjson', required: false)
+deps += dependency('fmt')
+deps += dependency('libcurl')
+deps += dependency('tomlplusplus')
+deps += cpp.find_library('yyjson')
+deps += cpp.find_library('reflectcpp')
 
 if host_machine.system() == 'darwin'
   deps += dependency('Foundation')
@@ -92,12 +93,6 @@ if host_machine.system() == 'linux'
   deps += cpp.find_library('sdbus-c++')
 endif
 
-foreach dep : deps
-  if not dep.found()
-    dep = cpp.find_library(dep.name(), required: true)
-  endif
-  deps += dep
-endforeach
 
 incdir = include_directories(
   'include',

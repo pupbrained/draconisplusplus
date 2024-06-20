@@ -6,8 +6,6 @@
 #include "config/config.h"
 #include "os/os.h"
 
-using std::string;
-
 struct BytesToGiB {
   u64 value;
 };
@@ -27,10 +25,10 @@ struct fmt::formatter<BytesToGiB> : formatter<double> {
   }
 };
 
-fn GetDate() -> string {
+fn GetDate() -> std::string {
   const std::tm localTime = fmt::localtime(time(nullptr));
 
-  string date = fmt::format("{:%e}", localTime);
+  std::string date = fmt::format("{:%e}", localTime);
 
   if (!date.empty() && std::isspace(date.front()))
     date.erase(date.begin());
@@ -47,40 +45,43 @@ fn GetDate() -> string {
   return fmt::format("{:%B} {}, {:%-I:%0M %p}", localTime, date, localTime);
 }
 
-fn main() -> int {
+fn main() -> i32 {
+  using std::future;
+  using std::string;
+
   using WeatherOutput = Weather::WeatherOutput;
 
   const Config& config = Config::getInstance();
 
-  auto weatherFuture =
+  future<WeatherOutput> weatherFuture =
     std::async(std::launch::async, [&config]() { return config.getWeather().getWeatherInfo(); });
 
-  auto osVersionFuture = std::async(std::launch::async, GetOSVersion);
-  auto nowPlayingEnabledFuture =
+  future<const char*> osVersionFuture = std::async(std::launch::async, GetOSVersion);
+  future<bool>        nowPlayingEnabledFuture =
     std::async(std::launch::async, [&config]() { return config.getNowPlaying().getEnabled(); });
 
-  auto dateFuture    = std::async(std::launch::async, GetDate);
-  auto memInfoFuture = std::async(std::launch::async, GetMemInfo);
+  future<string> dateFuture    = std::async(std::launch::async, GetDate);
+  future<u64>    memInfoFuture = std::async(std::launch::async, GetMemInfo);
 
-  WeatherOutput     json     = weatherFuture.get();
-  const long        temp     = std::lround(json.main.temp);
-  const std::string townName = json.name;
+  const WeatherOutput json     = weatherFuture.get();
+  const i64           temp     = std::lround(json.main.temp);
+  const string        townName = json.name;
 
-  const char*       version           = osVersionFuture.get();
-  const std::string name              = config.getGeneral().getName();
   const bool        nowPlayingEnabled = nowPlayingEnabledFuture.get();
+  const char*       version           = osVersionFuture.get();
+  const string      date              = dateFuture.get();
+  const std::string name              = config.getGeneral().getName();
+  const u64         mem               = memInfoFuture.get();
 
   fmt::println("Hello {}!", name);
-  fmt::println("Today is: {}", dateFuture.get());
+  fmt::println("Today is: {}", date);
   fmt::println("It is {}°F in {}", temp, townName);
-  fmt::println("Installed RAM: {:.2f} GiB", BytesToGiB(memInfoFuture.get()));
+  fmt::println("Installed RAM: {:.2f} GiB", BytesToGiB(mem));
   fmt::println("{}", version);
 
-  if (nowPlayingEnabled) {
+  if (nowPlayingEnabled)
     fmt::println("{}", GetNowPlaying());
-  }
 
   delete[] version;
-
-  return 0;
+  delete &config;
 }
