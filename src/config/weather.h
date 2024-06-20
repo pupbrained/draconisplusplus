@@ -6,8 +6,8 @@
 #include <string>
 #include <variant>
 
-#include "util/macros.h"
-#include "util/numtypes.h"
+#include "../util/macros.h"
+#include "../util/numtypes.h"
 
 class Weather {
  public:

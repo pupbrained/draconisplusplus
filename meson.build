@@ -93,12 +93,6 @@ if host_machine.system() == 'linux'
   deps += cpp.find_library('sdbus-c++')
 endif
 
-
-incdir = include_directories(
-  'include',
-  is_system: true # Ignores warnings from include dir
-)
-
 objc_args = []
 link_args = []
 
@@ -112,6 +106,5 @@ executable(
   sources,
   objc_args: objc_args,
   link_args: link_args,
-  dependencies: deps,
-  include_directories: incdir,
+  dependencies: deps
 )

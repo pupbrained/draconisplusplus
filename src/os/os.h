@@ -2,8 +2,8 @@
 
 #include <string>
 
-#include "util/macros.h"
-#include "util/numtypes.h"
+#include "../util/macros.h"
+#include "../util/numtypes.h"
 
 /**
  * @brief Get the amount of installed RAM in bytes.

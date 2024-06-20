@@ -5,7 +5,7 @@
 
 #include "weather.h"
 
-#include "util/result.h"
+#include "../util/result.h"
 
 using WeatherOutput = Weather::WeatherOutput;
 

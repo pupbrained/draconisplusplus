@@ -5,7 +5,7 @@
 #include <utility>
 #include <variant>
 
-#include "util/macros.h"
+#include "macros.h"
 
 /**
  * @class Error

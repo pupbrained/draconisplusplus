@@ -90,8 +90,6 @@ using MRMediaRemoteGetNowPlayingInfoFunction =
 }
 @end
 
-#include "util/macros.h"
-
 extern "C" {
   fn GetCurrentPlayingTitle() -> const char* {
     NSDictionary* metadata = [Bridge currentPlayingMetadata];

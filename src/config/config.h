@@ -3,7 +3,7 @@
 #include <rfl.hpp>
 #include <string>
 
-#include "util/macros.h"
+#include "../util/macros.h"
 #include "weather.h"
 
 // TODO: Make config values optional and supply defaults
