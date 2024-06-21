@@ -1,11 +1,11 @@
 #pragma once
 
 #include <stdexcept>
-#include <string>
 #include <utility>
 #include <variant>
 
 #include "macros.h"
+#include "types.h"
 
 /**
  * @class Error
@@ -19,16 +19,16 @@ class Error {
    * @brief Constructs an Error with a message.
    * @param message The error message.
    */
-  explicit Error(std::string message) : m_Message(std::move(message)) {}
+  explicit Error(string message) : m_Message(std::move(message)) {}
 
   /**
    * @brief Retrieves the error message.
    * @return A constant reference to the error message string.
    */
-  [[nodiscard]] fn message() const -> const std::string& { return m_Message; }
+  [[nodiscard]] fn message() const -> const string& { return m_Message; }
 
  private:
-  std::string m_Message; ///< The error message.
+  string m_Message; ///< The error message.
 };
 
 // Primary template for Result with a default type of void

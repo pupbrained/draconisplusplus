@@ -3,7 +3,6 @@ AlignArrayOfStructures: Right
 AlignConsecutiveAssignments: true
 AlignConsecutiveDeclarations: true
 AllowShortBlocksOnASingleLine: Always
-AllowShortCompoundRequirementOnASingleLine: true
 AllowShortEnumsOnASingleLine: true
 AllowShortFunctionsOnASingleLine: All
 AllowShortLoopsOnASingleLine: true
@@ -24,7 +23,7 @@ SpacesBeforeTrailingComments: 1
 
 IncludeBlocks: Regroup
 IncludeCategories:
-  - Regex:    '".*"'
+  - Regex: '".*"'
     Priority: 1
-  - Regex:    '<.*>'
+  - Regex: '<.*>'
     Priority: -1

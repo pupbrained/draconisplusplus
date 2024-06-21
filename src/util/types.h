@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string>
 
 /**
  * @typedef u8
@@ -117,3 +118,10 @@ using usize = std::size_t;
  * subtracting two pointers.
  */
 using isize = std::ptrdiff_t;
+
+/**
+ * @typedef string
+ * @brief Represents a string.
+ */
+using string = std::string;
+

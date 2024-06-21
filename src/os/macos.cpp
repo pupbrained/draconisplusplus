@@ -14,9 +14,9 @@ fn GetMemInfo() -> u64 {
   return mem;
 }
 
-fn GetNowPlaying() -> std::string {
+fn GetNowPlaying() -> string {
   if (const char* title = GetCurrentPlayingTitle(); const char* artist = GetCurrentPlayingArtist())
-    return "Now Playing: " + std::string(artist) + " - " + std::string(title);
+    return "Now Playing: " + string(artist) + " - " + string(title);
 
   return "No song playing";
 }

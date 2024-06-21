@@ -46,18 +46,18 @@ fn WriteCacheToFile(const WeatherOutput& data) -> Result<> {
   return Ok();
 }
 
-fn WriteCallback(void* contents, size_t size, size_t nmemb, std::string* str) -> size_t {
+fn WriteCallback(void* contents, size_t size, size_t nmemb, string* str) -> size_t {
   size_t totalSize = size * nmemb;
   str->append(static_cast<char*>(contents), totalSize);
   return totalSize;
 }
 
 // Function to make API request
-fn MakeApiRequest(const std::string& url) -> Result<WeatherOutput> {
+fn MakeApiRequest(const string& url) -> Result<WeatherOutput> {
   fmt::println("Making API request to URL: {}", url);
 
-  CURL*       curl = curl_easy_init();
-  std::string responseBuffer;
+  CURL*  curl = curl_easy_init();
+  string responseBuffer;
 
   if (curl) {
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
@@ -103,14 +103,14 @@ fn Weather::getWeatherInfo() const -> WeatherOutput {
 
   WeatherOutput result;
 
-  if (holds_alternative<std::string>(location)) {
-    const std::string city = get<std::string>(location);
+  if (holds_alternative<string>(location)) {
+    const string city = get<string>(location);
 
     const char* loc = curl_easy_escape(nullptr, city.c_str(), static_cast<int>(city.length()));
 
     fmt::println("City: {}", loc);
 
-    const std::string apiUrl = fmt::format(
+    const string apiUrl = fmt::format(
       "https://api.openweathermap.org/data/2.5/"
       "weather?q={}&appid={}&units={}",
       loc,
@@ -124,7 +124,7 @@ fn Weather::getWeatherInfo() const -> WeatherOutput {
 
     fmt::println("Coordinates: lat = {:.3f}, lon = {:.3f}", lat, lon);
 
-    const std::string apiUrl = fmt::format(
+    const string apiUrl = fmt::format(
       "https://api.openweathermap.org/data/2.5/"
       "weather?lat={:.3f}&lon={:.3f}&appid={}&units={}",
       lat,

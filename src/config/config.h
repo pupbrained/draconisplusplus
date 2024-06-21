@@ -1,18 +1,16 @@
 #pragma once
 
-#include <cstdlib>
 #include <rfl.hpp>
 #include <rfl/Field.hpp>
-#include <rfl/default.hpp>
-#include <string>
 
 #include "../util/macros.h"
+#include "../util/types.h"
 #include "weather.h"
 
-using Location = std::variant<std::string, Coords>;
+using Location = std::variant<string, Coords>;
 
 struct General {
-  rfl::Field<"name", std::string> name = "user";
+  rfl::Field<"name", string> name = "user";
 };
 
 struct NowPlaying {
@@ -20,9 +18,9 @@ struct NowPlaying {
 };
 
 struct Weather {
-  Location    location;
-  std::string api_key;
-  std::string units;
+  Location location;
+  string   api_key;
+  string   units;
 
   [[nodiscard]] fn getWeatherInfo() const -> WeatherOutput;
 };

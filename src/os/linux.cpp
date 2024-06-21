@@ -8,8 +8,6 @@
 
 #include "os.h"
 
-using std::string;
-
 fn ParseLineAsNumber(const string& input) -> u64 {
   // Find the first number
   string::size_type start = 0;
@@ -49,12 +47,12 @@ fn GetOSVersion() -> const char* {
     return nullptr;
   }
 
-  std::string       line;
-  const std::string prefix = "PRETTY_NAME=";
+  string       line;
+  const string prefix = "PRETTY_NAME=";
 
   while (std::getline(file, line)) {
     if (line.find(prefix) == 0) {
-      std::string prettyName = line.substr(prefix.size());
+      string prettyName = line.substr(prefix.size());
 
       // Remove surrounding quotes if present
       if (!prettyName.empty() && prettyName.front() == '"' && prettyName.back() == '"')
@@ -71,18 +69,18 @@ fn GetOSVersion() -> const char* {
   return nullptr;
 }
 
-fn GetMprisPlayers(sdbus::IConnection& connection) -> std::vector<std::string> {
+fn GetMprisPlayers(sdbus::IConnection& connection) -> std::vector<string> {
   const char *dbusInterface = "org.freedesktop.DBus", *dbusObjectPath = "/org/freedesktop/DBus",
              *dbusMethodListNames = "ListNames";
 
   const std::unique_ptr<sdbus::IProxy> dbusProxy =
     createProxy(connection, dbusInterface, dbusObjectPath);
 
-  std::vector<std::string> names;
+  std::vector<string> names;
 
   dbusProxy->callMethod(dbusMethodListNames).onInterface(dbusInterface).storeResultsTo(names);
 
-  std::vector<std::string> mprisPlayers;
+  std::vector<string> mprisPlayers;
 
   for (const std::basic_string<char>& name : names)
     if (const char* mprisInterfaceName = "org.mpris.MediaPlayer2";
@@ -92,26 +90,26 @@ fn GetMprisPlayers(sdbus::IConnection& connection) -> std::vector<std::string> {
   return mprisPlayers;
 }
 
-fn GetActivePlayer(const std::vector<std::string>& mprisPlayers) -> std::string {
+fn GetActivePlayer(const std::vector<string>& mprisPlayers) -> string {
   if (!mprisPlayers.empty())
     return mprisPlayers.front();
 
   return "";
 }
 
-fn GetNowPlaying() -> std::string {
+fn GetNowPlaying() -> string {
   try {
     const char *playerObjectPath    = "/org/mpris/MediaPlayer2",
                *playerInterfaceName = "org.mpris.MediaPlayer2.Player";
 
     std::unique_ptr<sdbus::IConnection> connection = sdbus::createSessionBusConnection();
 
-    std::vector<std::string> mprisPlayers = GetMprisPlayers(*connection);
+    std::vector<string> mprisPlayers = GetMprisPlayers(*connection);
 
     if (mprisPlayers.empty())
       return "";
 
-    std::string activePlayer = GetActivePlayer(mprisPlayers);
+    string activePlayer = GetActivePlayer(mprisPlayers);
 
     if (activePlayer.empty())
       return "";
@@ -119,13 +117,13 @@ fn GetNowPlaying() -> std::string {
     std::unique_ptr<sdbus::IProxy> playerProxy =
       sdbus::createProxy(*connection, activePlayer, playerObjectPath);
 
-    std::map<std::string, sdbus::Variant> metadata =
+    std::map<string, sdbus::Variant> metadata =
       playerProxy->getProperty("Metadata").onInterface(playerInterfaceName);
 
     if (const auto iter = metadata.find("xesam:title");
 
-        iter != metadata.end() && iter->second.containsValueOfType<std::string>())
-      return iter->second.get<std::string>();
+        iter != metadata.end() && iter->second.containsValueOfType<string>())
+      return iter->second.get<string>();
   } catch (const sdbus::Error& e) { std::cerr << "Error: " << e.what() << '\n'; }
 
   return "";

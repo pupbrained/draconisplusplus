@@ -6,9 +6,6 @@
 #include "config/config.h"
 #include "os/os.h"
 
-using std::future;
-using std::string;
-
 struct BytesToGiB {
   u64 value;
 };
@@ -28,10 +25,10 @@ struct fmt::formatter<BytesToGiB> : formatter<double> {
   }
 };
 
-fn GetDate() -> std::string {
+fn GetDate() -> string {
   const std::tm localTime = fmt::localtime(time(nullptr));
 
-  std::string date = fmt::format("{:%e}", localTime);
+  string date = fmt::format("{:%e}", localTime);
 
   if (!date.empty() && std::isspace(date.front()))
     date.erase(date.begin());
@@ -48,7 +45,9 @@ fn GetDate() -> std::string {
   return fmt::format("{:%B} {}, {:%-I:%0M %p}", localTime, date, localTime);
 }
 
-fn main() -> int {
+fn main() -> i32 {
+  using std::future;
+
   const Config& config = Config::getInstance();
 
   auto weatherFuture =
@@ -65,16 +64,16 @@ fn main() -> int {
   const i64           temp     = std::lround(json.main.temp);
   const string        townName = json.name;
 
-  const bool        nowPlayingEnabled = nowPlayingEnabledFuture.get();
-  const char*       version           = osVersionFuture.get();
-  const string      date              = dateFuture.get();
-  const std::string name              = config.general.get().name.get();
-  const u64         mem               = memInfoFuture.get();
+  const bool   nowPlayingEnabled = nowPlayingEnabledFuture.get();
+  const char*  version           = osVersionFuture.get();
+  const string date              = dateFuture.get();
+  const string name              = config.general.get().name.get();
+  const u64    mem               = memInfoFuture.get();
 
   fmt::println("Hello {}!", name);
   fmt::println("Today is: {}", date);
   fmt::println("It is {}°F in {}", temp, townName);
-  fmt::println("Installed RAM: {:.2f} GiB", BytesToGiB(mem));
+  fmt::println("Installed RAM: {:.2f}", BytesToGiB(mem));
   fmt::println("{}", version);
 
   if (nowPlayingEnabled)

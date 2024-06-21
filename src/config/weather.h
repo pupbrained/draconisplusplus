@@ -1,20 +1,19 @@
 #pragma once
 
-#include <fmt/core.h>
 #include <rfl.hpp>
 #include <rfl/toml.hpp>
 #include <string>
 
-#include "../util/numtypes.h"
+#include "../util/types.h"
 
 using degrees    = rfl::Validator<u16, rfl::Minimum<0>, rfl::Maximum<360>>;
 using percentage = rfl::Validator<i8, rfl::Minimum<0>, rfl::Maximum<100>>;
 
 struct Condition {
-  std::string description;
-  std::string icon;
-  std::string main;
-  usize       id;
+  string description;
+  string icon;
+  string main;
+  usize  id;
 };
 
 struct Main {
@@ -40,11 +39,11 @@ struct Precipitation {
 };
 
 struct Sys {
-  std::string country;
-  usize       id;
-  usize       sunrise;
-  usize       sunset;
-  usize       type;
+  string country;
+  usize  id;
+  usize  sunrise;
+  usize  sunset;
+  usize  type;
 };
 
 struct Clouds {
@@ -64,8 +63,8 @@ struct WeatherOutput {
   rfl::Rename<"coord", Coords> coords;
   std::optional<Precipitation> rain;
   std::optional<Precipitation> snow;
-  std::string                  base;
-  std::string                  name;
+  string                       base;
+  string                       name;
   std::vector<Condition>       weather;
   Sys                          sys;
   usize                        cod;
