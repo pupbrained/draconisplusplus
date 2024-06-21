@@ -4,9 +4,8 @@
 #include <rfl.hpp>
 #include <rfl/toml.hpp>
 #include <string>
-#include <util/macros.h>
 
-#include "util/numtypes.h"
+#include "../util/numtypes.h"
 
 using degrees    = rfl::Validator<u16, rfl::Minimum<0>, rfl::Maximum<360>>;
 using percentage = rfl::Validator<i8, rfl::Minimum<0>, rfl::Maximum<100>>;

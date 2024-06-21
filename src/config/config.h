@@ -5,8 +5,8 @@
 #include <rfl/Field.hpp>
 #include <rfl/default.hpp>
 #include <string>
-#include <util/macros.h>
 
+#include "../util/macros.h"
 #include "weather.h"
 
 using Location = std::variant<std::string, Coords>;
@@ -24,7 +24,7 @@ struct Weather {
   std::string api_key;
   std::string units;
 
-  fn getWeatherInfo() const -> WeatherOutput;
+  [[nodiscard]] fn getWeatherInfo() const -> WeatherOutput;
 };
 
 struct Config {

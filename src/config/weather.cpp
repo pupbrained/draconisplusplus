@@ -3,10 +3,8 @@
 #include <rfl/json.hpp>
 #include <rfl/json/load.hpp>
 
-#include "weather.h"
-
+#include "../util/result.h"
 #include "config.h"
-#include "util/result.h"
 
 // Function to read cache from file
 fn ReadCacheFromFile() -> Result<WeatherOutput> {

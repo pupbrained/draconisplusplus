@@ -23,6 +23,26 @@
           then pkgs.stdenvAdapters.useMoldLinker pkgs.llvmPackages_18.stdenv
           else pkgs.llvmPackages_18.stdenv;
 
+        reflect-cpp = stdenv.mkDerivation {
+          name = "reflect-cpp";
+          version = "0.11.1";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "getml";
+            repo = "reflect-cpp";
+            rev = "1ce78479ac9d04eb396ad972d656858eb06661d2";
+            hash = "sha256-8TW2OlCbQZ07HypoYQE/wo29mxJWJwLziK1BpkhdFBo=";
+          };
+
+          nativeBuildInputs = with pkgs; [cmake ninja pkg-config];
+
+          cmakeFlags = [
+            "-DCMAKE_TOOLCHAIN_FILE=OFF"
+            "-DCMAKE_BUILD_TYPE=Release"
+            "-DREFLECTCPP_TOML=ON"
+          ];
+        };
+
         deps = with (
           if !stdenv.isDarwin
           then pkgs.pkgsStatic
@@ -33,6 +53,7 @@
             glib
             tomlplusplus
             yyjson
+            reflect-cpp
           ]
           ++ (
             if !stdenv.isDarwin && system == "x86_64-linux"

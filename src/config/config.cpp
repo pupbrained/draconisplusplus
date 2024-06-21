@@ -1,5 +1,3 @@
-#include <util/macros.h>
-
 #include "config.h"
 
 fn Config::getInstance() -> const Config& {
