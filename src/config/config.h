@@ -1,76 +1,36 @@
 #pragma once
 
+#include <cstdlib>
 #include <rfl.hpp>
+#include <rfl/Field.hpp>
+#include <rfl/default.hpp>
 #include <string>
+#include <util/macros.h>
 
-#include "util/macros.h"
 #include "weather.h"
 
-// TODO: Make config values optional and supply defaults
+using Location = std::variant<std::string, Coords>;
 
-class General {
- private:
-  std::string m_Name;
-
- public:
-  explicit General(std::string name);
-
-  [[nodiscard]] fn getName() const -> const std::string;
+struct General {
+  rfl::Field<"name", std::string> name = "user";
 };
 
-class NowPlaying {
- private:
-  bool m_Enabled;
-
- public:
-  explicit NowPlaying(bool enabled);
-
-  [[nodiscard]] fn getEnabled() const -> bool;
+struct NowPlaying {
+  bool enabled = false;
 };
 
-class Config {
- private:
-  General    m_General;
-  NowPlaying m_NowPlaying;
-  Weather    m_Weather;
+struct Weather {
+  Location    location;
+  std::string api_key;
+  std::string units;
 
- public:
-  /**
-   * @brief Creates a new Config instance.
-   *
-   * @param general     The general section of the configuration.
-   * @param now_playing The now playing section of the configuration.
-   * @param weather     The weather section of the configuration.
-   */
-  Config(General general, NowPlaying now_playing, Weather weather);
+  fn getWeatherInfo() const -> WeatherOutput;
+};
 
-  /**
-   * @brief Gets the current (read-only) configuration.
-   *
-   * @return The current Config instance.
-   */
+struct Config {
+  rfl::Field<"general", General>        general     = General { .name = "user" };
+  rfl::Field<"now_playing", NowPlaying> now_playing = NowPlaying();
+  rfl::Field<"weather", Weather>        weather     = Weather();
+
   static fn getInstance() -> const Config&;
-
-  [[nodiscard]] fn getWeather() const -> const Weather;
-  [[nodiscard]] fn getGeneral() const -> const General;
-  [[nodiscard]] fn getNowPlaying() const -> const NowPlaying;
 };
-
-// reflect-cpp Stuff
-DEF_IMPL(General, std::string name)
-DEF_IMPL(NowPlaying, std::optional<bool> enabled)
-DEF_IMPL(Config, General general; NowPlaying now_playing; Weather weather)
-
-namespace rfl::parsing {
-  template <class ReaderType, class WriterType, class ProcessorsType>
-  struct Parser<ReaderType, WriterType, General, ProcessorsType>
-    : CustomParser<ReaderType, WriterType, ProcessorsType, General, GeneralImpl> {};
-
-  template <class ReaderType, class WriterType, class ProcessorsType>
-  struct Parser<ReaderType, WriterType, NowPlaying, ProcessorsType>
-    : CustomParser<ReaderType, WriterType, ProcessorsType, NowPlaying, NowPlayingImpl> {};
-
-  template <class ReaderType, class WriterType, class ProcessorsType>
-  struct Parser<ReaderType, WriterType, Config, ProcessorsType>
-    : CustomParser<ReaderType, WriterType, ProcessorsType, Config, ConfigImpl> {};
-}

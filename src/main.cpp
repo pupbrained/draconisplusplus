@@ -48,16 +48,14 @@ fn GetDate() -> string {
 }
 
 fn main() -> int {
-  using WeatherOutput = Weather::WeatherOutput;
-
   const Config& config = Config::getInstance();
 
   auto weatherFuture =
-    std::async(std::launch::async, [&config]() { return config.getWeather().getWeatherInfo(); });
+    std::async(std::launch::async, [&config]() { return config.weather.get().getWeatherInfo(); });
 
   auto osVersionFuture = std::async(std::launch::async, GetOSVersion);
   auto nowPlayingEnabledFuture =
-    std::async(std::launch::async, [&config]() { return config.getNowPlaying().getEnabled(); });
+    std::async(std::launch::async, [&config]() { return config.now_playing.get().enabled; });
 
   auto dateFuture    = std::async(std::launch::async, GetDate);
   auto memInfoFuture = std::async(std::launch::async, GetMemInfo);
@@ -66,8 +64,9 @@ fn main() -> int {
   const long        temp     = std::lround(json.main.temp);
   const std::string townName = json.name;
 
-  const char*       version           = osVersionFuture.get();
-  const std::string name              = config.getGeneral().getName();
+  const char* version = osVersionFuture.get();
+
+  const std::string name              = config.general.value().name.get();
   const bool        nowPlayingEnabled = nowPlayingEnabledFuture.get();
 
   fmt::println("Hello {}!", name);
