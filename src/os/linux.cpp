@@ -39,12 +39,12 @@ fn MeminfoParse(std::ifstream input) -> u64 {
 
 fn GetMemInfo() -> u64 { return MeminfoParse(std::ifstream("/proc/meminfo")) * 1024; }
 
-fn GetOSVersion() -> const char* {
+fn GetOSVersion() -> string {
   std::ifstream file("/etc/os-release");
 
   if (!file.is_open()) {
     std::cerr << "Failed to open /etc/os-release" << std::endl;
-    return nullptr;
+    return ""; // Return empty string indicating failure
   }
 
   string       line;
@@ -58,15 +58,11 @@ fn GetOSVersion() -> const char* {
       if (!prettyName.empty() && prettyName.front() == '"' && prettyName.back() == '"')
         prettyName = prettyName.substr(1, prettyName.size() - 2);
 
-      // Allocate memory for the C-string and copy the content
-      char* cstr = new char[prettyName.size() + 1];
-      std::strcpy(cstr, prettyName.c_str());
-
-      return cstr;
+      return prettyName;
     }
   }
 
-  return nullptr;
+  return ""; // Return empty string if PRETTY_NAME= line not found
 }
 
 fn GetMprisPlayers(sdbus::IConnection& connection) -> std::vector<string> {

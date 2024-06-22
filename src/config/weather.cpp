@@ -8,7 +8,13 @@
 
 // Function to read cache from file
 fn ReadCacheFromFile() -> Result<WeatherOutput> {
+#ifdef __WIN32__
+  const char*   tempPath = getenv("TEMP");
+  const string  path     = string(tempPath) + "\\weather_cache.json";
+  std::ifstream ifs(path);
+#else
   std::ifstream ifs("/tmp/weather_cache.json");
+#endif
 
   if (!ifs.is_open())
     return Error("Cache file not found.");
@@ -34,7 +40,13 @@ fn ReadCacheFromFile() -> Result<WeatherOutput> {
 fn WriteCacheToFile(const WeatherOutput& data) -> Result<> {
   fmt::println("Writing to cache file...");
 
+#ifdef __WIN32__
+  const char*   tempPath = getenv("TEMP");
+  const string  path     = string(tempPath) + "\\weather_cache.json";
+  std::ofstream ofs(path);
+#else
   std::ofstream ofs("/tmp/weather_cache.json");
+#endif
 
   if (!ofs.is_open())
     return Error("Failed to open cache file for writing.");

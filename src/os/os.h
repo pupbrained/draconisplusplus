@@ -16,4 +16,4 @@ fn GetNowPlaying() -> string;
 /**
  * @brief Get the OS version.
  */
-fn GetOSVersion() -> const char*;
+fn GetOSVersion() -> string;

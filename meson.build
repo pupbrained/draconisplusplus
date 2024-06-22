@@ -1,9 +1,7 @@
 project(
   'draconis++', 'cpp',
-  version: '0.1.0',
-  default_options: [
-    'objc_std=c++20',
-    'objcpp_std=c++20',
+  version : '0.1.0',
+  default_options : [
     'cpp_std=c++20',
     'default_library=static',
     'warning_level=everything',
@@ -11,17 +9,11 @@ project(
   ]
 )
 
-clangtidy = find_program('clang-tidy', required: false)
-
 cpp = meson.get_compiler('cpp')
 
-if host_machine.system() == 'darwin'
-  add_languages('objcpp')
-
-  objcpp = meson.get_compiler('objcpp')
-
-  add_project_arguments(
-    objcpp.get_supported_arguments([
+add_project_arguments(
+  cpp.get_supported_arguments(
+    [
       '-Wno-c++20-compat',
       '-Wno-c++20-extensions',
       '-Wno-c++98-compat',
@@ -32,79 +24,36 @@ if host_machine.system() == 'darwin'
       '-Wno-pre-c++20-compat-pedantic',
       '-Wno-switch-default',
       '-Wunused-function',
-    ]),
-    language: 'objcpp'
-  )
-endif
-
-add_project_arguments(
-  cpp.get_supported_arguments([
-    '-Wno-c++20-compat',
-    '-Wno-c++20-extensions',
-    '-Wno-c++98-compat',
-    '-Wno-c++98-compat-pedantic',
-    '-Wno-disabled-macro-expansion',
-    '-Wno-missing-prototypes',
-    '-Wno-padded',
-    '-Wno-pre-c++20-compat-pedantic',
-    '-Wno-switch-default',
-    '-Wunused-function',
-  ]),
-  language: 'cpp'
+    ]
+  ),
+  language : 'cpp'
 )
 
 source_file_names = [
   'src/main.cpp',
   'src/config/config.cpp',
-  'src/config/weather.cpp'
+  'src/config/weather.cpp',
+  'src/os/windows.cpp'
 ]
 
-if host_machine.system() == 'linux'
-  source_file_names += ['src/os/linux.cpp']
-endif
-
-if host_machine.system() == 'darwin'
-  source_file_names += [
-    'src/os/macos.cpp',
-    'src/os/macos/bridge.mm',
-  ]
-endif
-
 sources = []
-
 foreach file : source_file_names
   sources += files(file)
 endforeach
 
+windows_sdk_lib_dir = 'C:/Program Files (x86)/Windows Kits/10/Lib/10.0.22621.0/um/x64'
+link_args = ['-L' + windows_sdk_lib_dir, '-lwindowsapp', '-lcurl']
+
 deps = []
 
-deps += dependency('fmt')
-deps += dependency('libcurl')
-deps += dependency('tomlplusplus')
-deps += cpp.find_library('yyjson')
-deps += cpp.find_library('reflectcpp')
-
-if host_machine.system() == 'darwin'
-  deps += dependency('Foundation')
-  deps += dependency('MediaPlayer')
-endif
-
-if host_machine.system() == 'linux'
-  deps += cpp.find_library('sdbus-c++')
-endif
-
-objc_args = []
-link_args = []
-
-if host_machine.system() == 'darwin'
-  objc_args += ['-fobjc-arc']
-  link_args += ['-framework', 'Foundation', '-framework', 'MediaPlayer']
-endif
+deps += dependency('fmt', static : true)
+deps += dependency('libcurl', static : true)
+deps += dependency('tomlplusplus', static : true)
+deps += dependency('yyjson', static : true)
 
 executable(
   'draconis++',
   sources,
-  objc_args: objc_args,
-  link_args: link_args,
-  dependencies: deps
+  dependencies : deps,
+  link_args : link_args
 )
