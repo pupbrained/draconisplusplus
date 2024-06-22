@@ -15,7 +15,7 @@ constexpr u64 GIB = 1'073'741'824;
 template <>
 struct fmt::formatter<BytesToGiB> : formatter<double> {
   template <typename FmtCtx>
-  fn format(const BytesToGiB BTG, FmtCtx& ctx) -> typename FmtCtx::iterator {
+  fn format(const BytesToGiB BTG, FmtCtx& ctx)->typename FmtCtx::iterator {
     typename FmtCtx::iterator out =
       formatter<double>::format(static_cast<double>(BTG.value) / GIB, ctx);
     *out++ = 'G';
@@ -25,7 +25,7 @@ struct fmt::formatter<BytesToGiB> : formatter<double> {
   }
 };
 
-fn GetDate() -> string {
+fn GetDate()->string {
   const std::tm localTime = fmt::localtime(time(nullptr));
 
   string date = fmt::format("{:%e}", localTime);
@@ -45,7 +45,7 @@ fn GetDate() -> string {
   return fmt::format("{:%B} {}, {:%-I:%0M %p}", localTime, date, localTime);
 }
 
-fn main() -> i32 {
+fn main()->i32 {
   using std::future;
 
   const Config& config = Config::getInstance();
@@ -62,7 +62,7 @@ fn main() -> i32 {
 
   const auto
     [clouds,
-     timezone,
+     tz,
      visibility,
      main,
      coords,
@@ -75,7 +75,8 @@ fn main() -> i32 {
      cod,
      dt,
      id,
-     wind]       = weatherFuture.get();
+     wind] = weatherFuture.get();
+
   const i64 temp = std::lround(main.temp);
 
   const bool   nowPlayingEnabled = nowPlayingEnabledFuture.get();

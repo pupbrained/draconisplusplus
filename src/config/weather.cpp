@@ -3,11 +3,14 @@
 #include <rfl/json.hpp>
 #include <rfl/json/load.hpp>
 
-#include "../util/result.h"
 #include "config.h"
 
+using rfl::Error;
+using rfl::Nothing;
+using rfl::Result;
+
 // Function to read cache from file
-fn ReadCacheFromFile() -> Result<WeatherOutput> {
+fn ReadCacheFromFile()->Result<WeatherOutput> {
 #ifdef __WIN32__
   const char*   tempPath = getenv("TEMP");
   const string  path     = string(tempPath) + "\\weather_cache.json";
@@ -21,23 +24,19 @@ fn ReadCacheFromFile() -> Result<WeatherOutput> {
 
   fmt::println("Reading from cache file...");
 
-  WeatherOutput val;
+  std::stringstream buf;
 
-  try {
-    std::stringstream buf;
+  buf << ifs.rdbuf();
 
-    buf << ifs.rdbuf();
-
-    val = rfl::json::read<WeatherOutput>(buf.str()).value();
-  } catch (Error& e) { return e; }
+  Result<WeatherOutput> val = rfl::json::read<WeatherOutput>(buf.str());
 
   fmt::println("Successfully read from cache file.");
 
-  return Ok(val);
+  return val;
 }
 
 // Function to write cache to file
-fn WriteCacheToFile(const WeatherOutput& data) -> Result<> {
+fn WriteCacheToFile(const WeatherOutput& data)->Result<u8> {
   fmt::println("Writing to cache file...");
 
 #ifdef __WIN32__
@@ -55,17 +54,17 @@ fn WriteCacheToFile(const WeatherOutput& data) -> Result<> {
 
   fmt::println("Successfully wrote to cache file.");
 
-  return Ok();
+  return 0;
 }
 
-fn WriteCallback(void* contents, size_t size, size_t nmemb, string* str) -> size_t {
-  size_t totalSize = size * nmemb;
+fn WriteCallback(void* contents, const size_t size, const size_t nmemb, string* str)->size_t {
+  const size_t totalSize = size * nmemb;
   str->append(static_cast<char*>(contents), totalSize);
   return totalSize;
 }
 
 // Function to make API request
-fn MakeApiRequest(const string& url) -> Result<WeatherOutput> {
+fn MakeApiRequest(const string& url)->Result<WeatherOutput> {
   fmt::println("Making API request to URL: {}", url);
 
   CURL*  curl = curl_easy_init();
@@ -75,33 +74,31 @@ fn MakeApiRequest(const string& url) -> Result<WeatherOutput> {
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseBuffer);
-    CURLcode res = curl_easy_perform(curl);
+    const CURLcode res = curl_easy_perform(curl);
     curl_easy_cleanup(curl);
 
-    if (res != CURLE_OK) {
+    if (res != CURLE_OK)
       return Error(fmt::format("Failed to perform cURL request: {}", curl_easy_strerror(res)));
-    }
 
     fmt::println("Received response from API. Response size: {}", responseBuffer.size());
     fmt::println("Response: {}", responseBuffer);
 
     WeatherOutput output = rfl::json::read<WeatherOutput>(responseBuffer).value();
 
-    return Ok(output); // Return an empty result for now
+    return output; // Return an empty result for now
   }
 
   return Error("Failed to initialize cURL.");
 }
 
 // Core function to get weather information
-fn Weather::getWeatherInfo() const -> WeatherOutput {
+fn Weather::getWeatherInfo() const->WeatherOutput {
   using namespace std::chrono;
 
   // Check if cache is valid
-  if (Result<WeatherOutput> data = ReadCacheFromFile(); data.isOk()) {
-    WeatherOutput dataVal = data.value();
-
-    if (system_clock::now() - system_clock::time_point(seconds(dataVal.dt)) <
+  if (Result<WeatherOutput> data = ReadCacheFromFile()) {
+    if (WeatherOutput dataVal = *data;
+        system_clock::now() - system_clock::time_point(seconds(dataVal.dt)) <
         minutes(10)) { // Assuming cache duration is always 10 minutes
       fmt::println("Cache is valid. Returning cached data.");
 
