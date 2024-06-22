@@ -60,25 +60,6 @@ fn main()->i32 {
   future<string> dateFuture    = std::async(std::launch::async, GetDate);
   future<u64>    memInfoFuture = std::async(std::launch::async, GetMemInfo);
 
-  const auto
-    [clouds,
-     tz,
-     visibility,
-     main,
-     coords,
-     rain,
-     snow,
-     base,
-     townName,
-     weather,
-     sys,
-     cod,
-     dt,
-     id,
-     wind] = weatherFuture.get();
-
-  const i64 temp = std::lround(main.temp);
-
   const bool   nowPlayingEnabled = nowPlayingEnabledFuture.get();
   const string version           = osVersionFuture.get();
   const string date              = dateFuture.get();
@@ -87,12 +68,31 @@ fn main()->i32 {
 
   fmt::println("Hello {}!", name);
   fmt::println("Today is: {}", date);
-  fmt::println("It is {}°F in {}", temp, townName);
   fmt::println("Installed RAM: {:.2f}", BytesToGiB(mem));
   fmt::println("{}", version);
 
+  if (config.weather.get().enabled) {
+    const auto
+      [clouds,
+       tz,
+       visibility,
+       main,
+       coords,
+       rain,
+       snow,
+       base,
+       townName,
+       weather,
+       sys,
+       cod,
+       dt,
+       id,
+       wind]       = weatherFuture.get();
+    const i64 temp = std::lround(main.temp);
+
+    fmt::println("It is {}°F in {}", temp, townName);
+  }
+
   if (nowPlayingEnabled)
     fmt::println("{}", GetNowPlaying());
-
-  delete &config;
 }

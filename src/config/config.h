@@ -18,6 +18,8 @@ struct NowPlaying {
 };
 
 struct Weather {
+  bool enabled = false;
+
   Location location;
   string   api_key;
   string   units;
