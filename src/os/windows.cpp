@@ -6,13 +6,13 @@
 
 #include "os.h"
 
-fn GetMemInfo()->u64 {
+fn GetMemInfo() -> u64 {
   u64 mem = 0;
   GetPhysicallyInstalledSystemMemory(&mem);
   return mem * 1024;
 }
 
-fn GetNowPlaying()->string {
+fn GetNowPlaying() -> string {
   using namespace winrt::Windows::Media::Control;
   using namespace winrt::Windows::Foundation;
 
@@ -27,9 +27,7 @@ fn GetNowPlaying()->string {
 
     if (const Session currentSession = sessionManager.GetCurrentSession()) {
       // Try to get the media properties asynchronously
-      const IAsyncOperation<MediaProperties> mediaPropertiesOp =
-        currentSession.TryGetMediaPropertiesAsync();
-      const MediaProperties mediaProperties = mediaPropertiesOp.get();
+      const MediaProperties mediaProperties = currentSession.TryGetMediaPropertiesAsync().get();
 
       // Convert the hstring title to string
       return to_string(mediaProperties.Title());
@@ -40,13 +38,14 @@ fn GetNowPlaying()->string {
   } catch (...) { return "Failed to get media properties."; }
 }
 
-fn GetRegistryValue(const HKEY& hKey, const string& subKey, const string& valueName)->string {
+fn GetRegistryValue(const HKEY& hKey, const string& subKey, const string& valueName) -> string {
   HKEY key = nullptr;
   if (RegOpenKeyExA(hKey, subKey.c_str(), 0, KEY_READ, &key) != ERROR_SUCCESS)
     return "";
 
   DWORD dataSize = 0;
-  if (RegQueryValueExA(key, valueName.c_str(), nullptr, nullptr, nullptr, &dataSize) != ERROR_SUCCESS) {
+  if (RegQueryValueExA(key, valueName.c_str(), nullptr, nullptr, nullptr, &dataSize) !=
+      ERROR_SUCCESS) {
     RegCloseKey(key);
     return "";
   }
@@ -72,7 +71,7 @@ fn GetRegistryValue(const HKEY& hKey, const string& subKey, const string& valueN
   return value;
 }
 
-fn GetOSVersion()->string {
+fn GetOSVersion() -> string {
   string productName = GetRegistryValue(
     HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", "ProductName"
   );

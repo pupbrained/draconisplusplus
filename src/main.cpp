@@ -48,7 +48,7 @@ fn GetDate()->string {
 fn main()->i32 {
   using std::future;
 
-  const Config& config = Config::getInstance();
+  const Config config = Config::getInstance();
 
   auto weatherFuture =
     std::async(std::launch::async, [&config]() { return config.weather.get().getWeatherInfo(); });

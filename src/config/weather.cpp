@@ -6,7 +6,6 @@
 #include "config.h"
 
 using rfl::Error;
-using rfl::Nothing;
 using rfl::Result;
 
 // Function to read cache from file
