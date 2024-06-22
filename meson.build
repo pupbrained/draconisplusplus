@@ -14,6 +14,7 @@ cpp = meson.get_compiler('cpp')
 add_project_arguments(
   cpp.get_supported_arguments(
     [
+      '-DCURL_STATICLIB',
       '-Wno-c++20-compat',
       '-Wno-c++20-extensions',
       '-Wno-c++98-compat',
@@ -42,7 +43,7 @@ foreach file : source_file_names
 endforeach
 
 windows_sdk_lib_dir = 'C:/Program Files (x86)/Windows Kits/10/Lib/10.0.22621.0/um/x64'
-link_args = ['-L' + windows_sdk_lib_dir, '-lwindowsapp', '-lcurl']
+link_args = ['-L' + windows_sdk_lib_dir, '-lwindowsapp']
 
 deps = []
 
