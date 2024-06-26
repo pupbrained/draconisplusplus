@@ -4,7 +4,7 @@
 
 using rfl::Result;
 
-fn Config::getInstance()->Config {
+fn Config::getInstance() -> Config {
 #ifdef __WIN32__
   const string path = string(getenv("LOCALAPPDATA")) + "\\draconis++\\config.toml";
 #else
@@ -18,3 +18,4 @@ fn Config::getInstance()->Config {
   fmt::println("Failed to load config file: {}", result.error().value().what());
   return {};
 }
+
