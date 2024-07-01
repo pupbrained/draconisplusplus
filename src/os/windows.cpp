@@ -1,5 +1,6 @@
+#include <exception>
 #include <windows.h>
-#include <winrt/Windows.Foundation.h> // ReSharper disable once CppUnusedIncludeDirective
+#include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Media.Control.h>
 #include <winrt/base.h>
 #include <winrt/impl/Windows.Media.Control.2.h>
