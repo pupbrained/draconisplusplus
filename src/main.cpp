@@ -1,7 +1,6 @@
 #include <ctime>
 #include <fmt/chrono.h>
 #include <fmt/core.h>
-#include <future>
 
 #include "config/config.h"
 #include "os/os.h"
@@ -46,53 +45,41 @@ fn GetDate() -> string {
 }
 
 fn main() -> i32 {
-  using std::future;
+  const Config& config = Config::getInstance();
 
-  const Config config = Config::getInstance();
+  // Fetching weather information
+  auto weatherInfo = config.weather.get().getWeatherInfo();
 
-  auto weatherFuture =
-    std::async(std::launch::async, [&config]() { return config.weather.get().getWeatherInfo(); });
+  // Fetching OS version
+  std::string osVersion = GetOSVersion();
 
-  auto osVersionFuture = std::async(std::launch::async, GetOSVersion);
-  auto nowPlayingEnabledFuture =
-    std::async(std::launch::async, [&config]() { return config.now_playing.get().enabled; });
+  // Checking if now playing is enabled
+  bool nowPlayingEnabled = config.now_playing.get().enabled;
 
-  future<string> dateFuture    = std::async(std::launch::async, GetDate);
-  future<u64>    memInfoFuture = std::async(std::launch::async, GetMemInfo);
+  // Fetching current date
+  std::string date = GetDate();
 
-  const bool   nowPlayingEnabled = nowPlayingEnabledFuture.get();
-  const string version           = osVersionFuture.get();
-  const string date              = dateFuture.get();
-  const string name              = config.general.get().name.get();
-  const u64    mem               = memInfoFuture.get();
+  // Fetching memory info
+  u64 memInfo = GetMemInfo();
+
+  const std::string& name = config.general.get().name.get();
 
   fmt::println("Hello {}!", name);
   fmt::println("Today is: {}", date);
-  fmt::println("Installed RAM: {:.2f}", BytesToGiB(mem));
-  fmt::println("{}", version);
+  fmt::println("Installed RAM: {:.2f}", BytesToGiB(memInfo));
+  fmt::println("{}", osVersion);
 
   if (config.weather.get().enabled) {
-    const auto
-      [clouds,
-       tz,
-       visibility,
-       main,
-       coords,
-       rain,
-       snow,
-       base,
-       townName,
-       weather,
-       sys,
-       cod,
-       dt,
-       id,
-       wind]       = weatherFuture.get();
-    const i64 temp = std::lround(main.temp);
+    const auto& [clouds, tz, visibility, main, coords, rain, snow, base, townName, weather, sys, cod, dt, id, wind] =
+      weatherInfo;
+    i64 temp = std::lround(main.temp);
 
     fmt::println("It is {}°F in {}", temp, townName);
   }
 
-  if (nowPlayingEnabled)
+  if (nowPlayingEnabled) {
     fmt::println("{}", GetNowPlaying());
+  }
+
+  return 0;
 }

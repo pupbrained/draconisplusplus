@@ -4,12 +4,18 @@
 
 using rfl::Result;
 
-fn Config::getInstance() -> Config {
+inline fn GetConfigPath() -> string {
+  return getenv(
 #ifdef __WIN32__
-  const string path = string(getenv("LOCALAPPDATA")) + "\\draconis++\\config.toml";
+    "LOCALAPPDATA"
 #else
-  const string path = string(getenv("HOME")) + "/.config/draconis++/config.toml";
+    "HOME"
 #endif
+  );
+}
+
+fn Config::getInstance() -> Config {
+  const string         path   = GetConfigPath() + "\\draconis++\\config.toml";
   const Result<Config> result = rfl::toml::load<Config>(path);
 
   if (result)
@@ -18,4 +24,3 @@ fn Config::getInstance() -> Config {
   fmt::println("Failed to load config file: {}", result.error().value().what());
   return {};
 }
-

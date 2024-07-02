@@ -1,3 +1,5 @@
+#ifdef __WIN32__
+
 #include <exception>
 #include <windows.h>
 #include <winrt/Windows.Foundation.h>
@@ -105,3 +107,5 @@ fn GetOSVersion() -> string {
 
   return "";
 }
+
+#endif

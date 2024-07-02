@@ -9,7 +9,7 @@ using rfl::Error;
 using rfl::Result;
 
 // Function to read cache from file
-fn ReadCacheFromFile()->Result<WeatherOutput> {
+fn ReadCacheFromFile() -> Result<WeatherOutput> {
 #ifdef __WIN32__
   const char*   tempPath = getenv("TEMP");
   const string  path     = string(tempPath) + "\\weather_cache.json";
@@ -35,7 +35,7 @@ fn ReadCacheFromFile()->Result<WeatherOutput> {
 }
 
 // Function to write cache to file
-fn WriteCacheToFile(const WeatherOutput& data)->Result<u8> {
+fn WriteCacheToFile(const WeatherOutput& data) -> Result<u8> {
   fmt::println("Writing to cache file...");
 
 #ifdef __WIN32__
@@ -56,14 +56,14 @@ fn WriteCacheToFile(const WeatherOutput& data)->Result<u8> {
   return 0;
 }
 
-fn WriteCallback(void* contents, const size_t size, const size_t nmemb, string* str)->size_t {
+fn WriteCallback(void* contents, const size_t size, const size_t nmemb, string* str) -> size_t {
   const size_t totalSize = size * nmemb;
   str->append(static_cast<char*>(contents), totalSize);
   return totalSize;
 }
 
 // Function to make API request
-fn MakeApiRequest(const string& url)->Result<WeatherOutput> {
+fn MakeApiRequest(const string& url) -> Result<WeatherOutput> {
   fmt::println("Making API request to URL: {}", url);
 
   CURL*  curl = curl_easy_init();
@@ -91,7 +91,7 @@ fn MakeApiRequest(const string& url)->Result<WeatherOutput> {
 }
 
 // Core function to get weather information
-fn Weather::getWeatherInfo() const->WeatherOutput {
+fn Weather::getWeatherInfo() const -> WeatherOutput {
   using namespace std::chrono;
 
   // Check if cache is valid

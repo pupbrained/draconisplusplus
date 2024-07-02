@@ -21,6 +21,6 @@ fn GetNowPlaying() -> string {
   return "No song playing";
 }
 
-fn GetOSVersion() -> const char* { return GetMacOSVersion(); };
+fn GetOSVersion() -> const char* { return GetMacOSVersion(); }
 
 #endif

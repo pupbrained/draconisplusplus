@@ -24,7 +24,7 @@ struct Weather {
   string   api_key;
   string   units;
 
-  [[nodiscard]] fn getWeatherInfo() const->WeatherOutput;
+  [[nodiscard]] fn getWeatherInfo() const -> WeatherOutput;
 };
 
 struct Config {
@@ -32,5 +32,5 @@ struct Config {
   rfl::Field<"now_playing", NowPlaying> now_playing = NowPlaying();
   rfl::Field<"weather", Weather>        weather     = Weather();
 
-  static fn getInstance()->Config;
+  static fn getInstance() -> Config;
 };

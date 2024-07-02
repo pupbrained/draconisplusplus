@@ -5,7 +5,7 @@ project(
     'cpp_std=c++23',
     'default_library=static',
     'warning_level=everything',
-    'buildtype=debugoptimized'
+    'buildtype=release'
   ]
 )
 
