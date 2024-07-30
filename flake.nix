@@ -2,7 +2,7 @@
   description = "C/C++ environment";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs";
     treefmt-nix.url = "github:numtide/treefmt-nix";
     utils.url = "github:numtide/flake-utils";
   };
@@ -43,35 +43,29 @@
           ];
         };
 
-        deps = with (
-          if !stdenv.isDarwin
-          then pkgs.pkgsStatic
-          else pkgs # TODO: Remove when fixed on darwin
-        );
+        deps = with pkgs.pkgsStatic;
           [
+            curl
             fmt
-            glib
+            libiconv
             tomlplusplus
             yyjson
             reflect-cpp
           ]
-          ++ (
-            if !stdenv.isDarwin && system == "x86_64-linux"
-            then [pkgsStatic.curl]
-            else [pkgs.curl]
-          )
           ++ linuxPkgs
           ++ darwinPkgs;
 
-        linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs; [
+        linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs.pkgsStatic; [
+          glib
           systemdLibs
           sdbus-cpp
           valgrind
         ]);
 
-        darwinPkgs = nixpkgs.lib.optionals stdenv.isDarwin (with pkgs.darwin.apple_sdk.frameworks; [
+        darwinPkgs = nixpkgs.lib.optionals stdenv.isDarwin (with pkgs.pkgsStatic.darwin.apple_sdk.frameworks; [
           Foundation
           MediaPlayer
+          SystemConfiguration
         ]);
       in
         with pkgs; {

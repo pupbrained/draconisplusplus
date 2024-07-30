@@ -2,7 +2,7 @@ project(
   'draconis++', 'cpp',
   version: '0.1.0',
   default_options: [
-    'cpp_std=c++23',
+    'cpp_std=c++20',
     'default_library=static',
     'warning_level=everything',
     'buildtype=release'
@@ -79,15 +79,17 @@ foreach file : source_file_names
 endforeach
 
 deps = [
-  dependency('fmt', static: host_machine.system() != 'darwin'),
-  dependency('libcurl', static: host_machine.system() != 'darwin'),
-  dependency('tomlplusplus', static: host_machine.system() != 'darwin'),
-  dependency('yyjson', static: host_machine.system() != 'darwin')
+  dependency('fmt'),
+  dependency('libcurl'),
+  dependency('tomlplusplus'),
+  dependency('yyjson')
 ]
 
 if host_machine.system() == 'darwin'
   deps += dependency('Foundation')
   deps += dependency('MediaPlayer')
+  deps += dependency('SystemConfiguration')
+  deps += dependency('iconv')
 elif host_machine.system() == 'linux'
   deps += dependency('sdbus-c++')
 endif
@@ -97,7 +99,6 @@ link_args = []
 
 if host_machine.system() == 'darwin'
   objc_args += ['-fobjc-arc']
-  link_args += ['-framework', 'Foundation', '-framework', 'MediaPlayer']
 elif host_machine.system() == 'windows'
   windows_sdk_lib_dir = 'C:/Program Files (x86)/Windows Kits/10/Lib/10.0.22621.0/um/x64'
   link_args += ['-L' + windows_sdk_lib_dir, '-lwindowsapp', '-static']

@@ -48,7 +48,8 @@ fn main() -> i32 {
   const Config& config = Config::getInstance();
 
   // Fetching weather information
-  auto weatherInfo = config.weather.get().getWeatherInfo();
+  auto          weather     = config.weather.get();
+  WeatherOutput weatherInfo = weather.getWeatherInfo();
 
   // Fetching OS version
   std::string osVersion = GetOSVersion();
@@ -69,17 +70,11 @@ fn main() -> i32 {
   fmt::println("Installed RAM: {:.2f}", BytesToGiB(memInfo));
   fmt::println("{}", osVersion);
 
-  if (config.weather.get().enabled) {
-    const auto& [clouds, tz, visibility, main, coords, rain, snow, base, townName, weather, sys, cod, dt, id, wind] =
-      weatherInfo;
-    i64 temp = std::lround(main.temp);
+  if (weather.enabled)
+    fmt::println("It is {}°F in {}", std::lround(weatherInfo.main.temp), weatherInfo.name);
 
-    fmt::println("It is {}°F in {}", temp, townName);
-  }
-
-  if (nowPlayingEnabled) {
+  if (nowPlayingEnabled)
     fmt::println("{}", GetNowPlaying());
-  }
 
   return 0;
 }
