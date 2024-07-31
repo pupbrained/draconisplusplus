@@ -23,15 +23,15 @@
           then pkgs.stdenvAdapters.useMoldLinker pkgs.llvmPackages_18.stdenv
           else pkgs.llvmPackages_18.stdenv;
 
-        reflect-cpp = stdenv.mkDerivation {
+        reflect-cpp = stdenv.mkDerivation rec {
           name = "reflect-cpp";
-          version = "0.11.1";
+          version = "0.13.0";
 
           src = pkgs.fetchFromGitHub {
             owner = "getml";
             repo = "reflect-cpp";
-            rev = "1ce78479ac9d04eb396ad972d656858eb06661d2";
-            hash = "sha256-8TW2OlCbQZ07HypoYQE/wo29mxJWJwLziK1BpkhdFBo=";
+            rev = "v${version}";
+            hash = "sha256-dEqdPk5ixnNILxTcdSAOhzP8fzeefMu6pqrL/WgnPlE=";
           };
 
           nativeBuildInputs = with pkgs; [cmake ninja pkg-config];
@@ -43,10 +43,20 @@
           ];
         };
 
+        sdbus-cpp = pkgs.sdbus-cpp.overrideAttrs rec {
+          version = "2.0.0";
+          src = pkgs.fetchFromGitHub {
+            owner = "kistler-group";
+            repo = "sdbus-cpp";
+            rev = "v${version}";
+            hash = "sha256-W8V5FRhV3jtERMFrZ4gf30OpIQLYoj2yYGpnYOmH2+g=";
+          };
+        };
+
         deps = with pkgs.pkgsStatic;
           [
             curl
-            fmt
+            fmt_11
             libiconv
             tomlplusplus
             yyjson
@@ -55,8 +65,8 @@
           ++ linuxPkgs
           ++ darwinPkgs;
 
-        linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs.pkgsStatic; [
-          glib
+        linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs; [
+          pkgsStatic.glib
           systemdLibs
           sdbus-cpp
           valgrind

@@ -1,3 +1,4 @@
+#include <chrono>
 #include <curl/curl.h>
 #include <fmt/core.h>
 #include <rfl/json.hpp>
@@ -96,9 +97,9 @@ fn Weather::getWeatherInfo() const -> WeatherOutput {
 
   // Check if cache is valid
   if (Result<WeatherOutput> data = ReadCacheFromFile()) {
-    if (WeatherOutput dataVal = *data;
-        system_clock::now() - system_clock::time_point(seconds(dataVal.dt)) <
-        minutes(10)) { // Assuming cache duration is always 10 minutes
+    WeatherOutput dataVal = *data;
+
+    if (system_clock::now() - system_clock::time_point(seconds(dataVal.dt)) < minutes(10)) {
       fmt::println("Cache is valid. Returning cached data.");
 
       return dataVal;

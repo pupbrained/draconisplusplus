@@ -1,6 +1,7 @@
 #ifdef __linux__
 
 #include <cstring>
+#include <fmt/format.h>
 #include <fstream>
 #include <iostream>
 #include <sdbus-c++/sdbus-c++.h>
@@ -66,8 +67,9 @@ fn GetOSVersion() -> string {
 }
 
 fn GetMprisPlayers(sdbus::IConnection& connection) -> std::vector<string> {
-  const char *dbusInterface = "org.freedesktop.DBus", *dbusObjectPath = "/org/freedesktop/DBus",
-             *dbusMethodListNames = "ListNames";
+  const sdbus::ServiceName dbusInterface       = sdbus::ServiceName("org.freedesktop.DBus");
+  const sdbus::ObjectPath  dbusObjectPath      = sdbus::ObjectPath("/org/freedesktop/DBus");
+  const char*              dbusMethodListNames = "ListNames";
 
   const std::unique_ptr<sdbus::IProxy> dbusProxy =
     createProxy(connection, dbusInterface, dbusObjectPath);
@@ -80,7 +82,7 @@ fn GetMprisPlayers(sdbus::IConnection& connection) -> std::vector<string> {
 
   for (const std::basic_string<char>& name : names)
     if (const char* mprisInterfaceName = "org.mpris.MediaPlayer2";
-        name.contains(mprisInterfaceName))
+        name.find(mprisInterfaceName) != std::string::npos)
       mprisPlayers.push_back(name);
 
   return mprisPlayers;
@@ -110,17 +112,27 @@ fn GetNowPlaying() -> string {
     if (activePlayer.empty())
       return "";
 
-    std::unique_ptr<sdbus::IProxy> playerProxy =
-      sdbus::createProxy(*connection, activePlayer, playerObjectPath);
+    auto playerProxy = sdbus::createProxy(
+      *connection, sdbus::ServiceName(activePlayer), sdbus::ObjectPath(playerObjectPath)
+    );
 
-    std::map<string, sdbus::Variant> metadata =
+    sdbus::Variant metadataVariant =
       playerProxy->getProperty("Metadata").onInterface(playerInterfaceName);
 
-    if (const auto iter = metadata.find("xesam:title");
+    if (metadataVariant.containsValueOfType<std::map<std::string, sdbus::Variant>>()) {
+      const auto& metadata = metadataVariant.get<std::map<std::string, sdbus::Variant>>();
 
-        iter != metadata.end() && iter->second.containsValueOfType<string>())
-      return iter->second.get<string>();
-  } catch (const sdbus::Error& e) { std::cerr << "Error: " << e.what() << '\n'; }
+      auto iter = metadata.find("xesam:title");
+
+      if (iter != metadata.end() && iter->second.containsValueOfType<std::string>())
+        return iter->second.get<std::string>();
+    }
+  } catch (const sdbus::Error& e) {
+    if (e.getName() != "com.github.altdesktop.playerctld.NoActivePlayer")
+      return fmt::format("Error: {}", e.what());
+
+    return "No active player";
+  }
 
   return "";
 }
