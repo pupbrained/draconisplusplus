@@ -11,6 +11,7 @@ struct BytesToGiB {
   u64 value;
 };
 
+// 1024^3 (size of 1 GiB)
 constexpr u64 GIB = 1'073'741'824;
 
 template <>
@@ -54,7 +55,7 @@ fn main() -> i32 {
   const Config& config = Config::getInstance();
 
   // Fetching weather information
-  auto          weather     = config.weather.get();
+  Weather       weather     = config.weather.get();
   WeatherOutput weatherInfo = weather.getWeatherInfo();
 
   // Fetching OS version
