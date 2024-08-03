@@ -2,6 +2,7 @@
   description = "C/C++ environment";
 
   inputs = {
+    nixvim.url = "github:pupbrained/nvim-config";
     nixpkgs.url = "github:NixOS/nixpkgs";
     treefmt-nix.url = "github:numtide/treefmt-nix";
     utils.url = "github:numtide/flake-utils";
@@ -12,6 +13,7 @@
     nixpkgs,
     treefmt-nix,
     utils,
+    nixvim,
     ...
   }:
     utils.lib.eachDefaultSystem (
@@ -134,6 +136,7 @@
                 ninja
                 pkg-config
                 unzip
+                nixvim.packages.${system}.default
 
                 (writeScriptBin "build" "meson compile -C build")
                 (writeScriptBin "clean" "meson setup build --wipe")

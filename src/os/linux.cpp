@@ -32,10 +32,7 @@ fn MeminfoParse(std::ifstream input) -> u64 {
   // Skip every line before the one that starts with "MemTotal"
   while (std::getline(input, line) && !line.starts_with("MemTotal"));
 
-  // Parse the number from the line
-  const u64 num = ParseLineAsNumber(line);
-
-  return num;
+  return ParseLineAsNumber(line);
 }
 
 fn GetMemInfo() -> u64 { return MeminfoParse(std::ifstream("/proc/meminfo")) * 1024; }
