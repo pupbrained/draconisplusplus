@@ -28,6 +28,7 @@ if host_machine.system() == 'darwin'
       '-Wno-pre-c++20-compat-pedantic',
       '-Wno-switch-default',
       '-Wunused-function',
+      '-fvisibility=hidden'
     ]),
     language: 'objcpp'
   )
@@ -43,7 +44,8 @@ common_cpp_args = [
   '-Wno-padded',
   '-Wno-pre-c++20-compat-pedantic',
   '-Wno-switch-default',
-  '-Wunused-function'
+  '-Wunused-function',
+  '-fvisibility=hidden'
 ]
 
 if host_machine.system() == 'windows'
@@ -111,4 +113,3 @@ executable(
   link_args: link_args,
   dependencies: deps
 )
-

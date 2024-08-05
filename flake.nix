@@ -25,16 +25,22 @@
           then pkgs.stdenvAdapters.useMoldLinker pkgs.llvmPackages_18.stdenv
           else pkgs.llvmPackages_18.stdenv;
 
-        reflect-cpp = stdenv.mkDerivation rec {
-          name = "reflect-cpp";
-          version = "0.13.0";
+        sources = import ./_sources/generated.nix {
+          inherit (pkgs) fetchFromGitHub fetchgit fetchurl dockerTools;
+        };
 
-          src = pkgs.fetchFromGitHub {
-            owner = "getml";
-            repo = "reflect-cpp";
-            rev = "v${version}";
-            hash = "sha256-dEqdPk5ixnNILxTcdSAOhzP8fzeefMu6pqrL/WgnPlE=";
+        mkPkg = name:
+          pkgs.pkgsStatic.${name}.overrideAttrs {
+            inherit (sources.${name}) pname version src;
           };
+
+        fmt = mkPkg "fmt";
+        sdbus-cpp = mkPkg "sdbus-cpp";
+        tomlplusplus = mkPkg "tomlplusplus";
+        yyjson = mkPkg "yyjson";
+
+        reflect-cpp = stdenv.mkDerivation {
+          inherit (sources.reflect-cpp) pname version src;
 
           nativeBuildInputs = with pkgs; [cmake ninja pkg-config];
 
@@ -45,20 +51,10 @@
           ];
         };
 
-        sdbus-cpp = pkgs.sdbus-cpp.overrideAttrs rec {
-          version = "2.0.0";
-          src = pkgs.fetchFromGitHub {
-            owner = "kistler-group";
-            repo = "sdbus-cpp";
-            rev = "v${version}";
-            hash = "sha256-W8V5FRhV3jtERMFrZ4gf30OpIQLYoj2yYGpnYOmH2+g=";
-          };
-        };
-
         deps = with pkgs.pkgsStatic;
           [
             curl
-            fmt_11
+            fmt
             libiconv
             tomlplusplus
             yyjson
@@ -134,6 +130,7 @@
                 lldb
                 meson
                 ninja
+                nvfetcher
                 pkg-config
                 unzip
                 nixvim.packages.${system}.default
