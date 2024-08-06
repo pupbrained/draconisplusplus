@@ -1,5 +1,7 @@
 #ifdef __linux__
 
+#include <X11/Xlib.h>
+#include <X11/Xatom.h>
 #include <cstring>
 #include <fmt/format.h>
 #include <fstream>
@@ -8,6 +10,8 @@
 #include <vector>
 
 #include "os.h"
+
+enum SessionType { Wayland, X11, TTY, Unknown };
 
 fn ParseLineAsNumber(const string& input) -> u64 {
   // Find the first number
@@ -132,6 +136,139 @@ fn GetNowPlaying() -> string {
   }
 
   return "";
+}
+
+fn GetDesktopEnvironment() -> string {
+  const char* xdgCurrentDesktop = std::getenv("XDG_CURRENT_DESKTOP");
+
+  if (xdgCurrentDesktop)
+    return xdgCurrentDesktop;
+
+  return std::getenv("DESKTOP_SESSION");
+}
+
+fn GetSessionType() -> SessionType {
+  string xdgSessionType = std::getenv("XDG_SESSION_TYPE");
+
+  if (xdgSessionType == "wayland")
+    return Wayland;
+  if (xdgSessionType == "x11")
+    return X11;
+  if (xdgSessionType == "tty")
+    return TTY;
+  return Unknown;
+}
+
+fn Exec(const char* cmd) -> string {
+  std::array<char, 128>                    buffer;
+  std::string                              result;
+  std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+
+  if (!pipe) {
+    throw std::runtime_error("popen() failed!");
+  }
+
+  while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) { result += buffer.data(); }
+
+  return result;
+}
+
+fn GetWindowManager() -> string {
+  string xdgSessionType = std::getenv("XDG_SESSION_TYPE");
+
+  if (xdgSessionType == "wayland") {
+    // TODO implement wayland window manager
+  }
+
+  if (xdgSessionType == "x11") {
+    Display* display = XOpenDisplay(nullptr);
+
+    Atom wmCheckAtom = XInternAtom(display, "_NET_SUPPORTING_WM_CHECK", True);
+    if (wmCheckAtom == None) {
+      return "Unknown (no _NET_SUPPORTING_WM_CHECK)";
+    }
+
+    Window         root = DefaultRootWindow(display);
+    Atom           actualType = 0;
+    int            actualFormat = 0;
+    unsigned long  itemCount = 0, bytesAfter = 0;
+    unsigned char* data = nullptr;
+
+    int status = XGetWindowProperty(
+      display,
+      root,
+      wmCheckAtom,
+      0,
+      1,
+      False,
+      XA_WINDOW,
+      &actualType,
+      &actualFormat,
+      &itemCount,
+      &bytesAfter,
+      &data
+    );
+    if (status != Success || !data) {
+      return "Unknown (failed to get _NET_SUPPORTING_WM_CHECK)";
+    }
+
+    Window wmWindow = *(Window*)(data);
+    XFree(data);
+
+    status = XGetWindowProperty(
+      display,
+      wmWindow,
+      wmCheckAtom,
+      0,
+      1,
+      False,
+      XA_WINDOW,
+      &actualType,
+      &actualFormat,
+      &itemCount,
+      &bytesAfter,
+      &data
+    );
+    if (status != Success || !data) {
+      return "Unknown (failed to get supporting window)";
+    }
+
+    wmWindow = *(reinterpret_cast<Window*>(data));
+    XFree(data);
+
+    Atom wmNameAtom = XInternAtom(display, "_NET_WM_NAME", True);
+    if (wmNameAtom == None) {
+      return "Unknown (no _NET_WM_NAME)";
+    }
+
+    status = XGetWindowProperty(
+      display,
+      wmWindow,
+      wmNameAtom,
+      0,
+      (~0L),
+      False,
+      AnyPropertyType,
+      &actualType,
+      &actualFormat,
+      &itemCount,
+      &bytesAfter,
+      &data
+    );
+    if (status != Success || !data) {
+      return "Unknown (failed to get _NET_WM_NAME)";
+    }
+
+    std::string wmName(reinterpret_cast<char*>(data));
+    XFree(data);
+
+    return wmName;
+  }
+
+  if (xdgSessionType == "tty")
+    return "TTY";
+
+  return "Unknown";
 }
 
 #endif

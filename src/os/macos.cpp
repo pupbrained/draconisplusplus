@@ -23,4 +23,6 @@ fn GetNowPlaying() -> string {
 
 fn GetOSVersion() -> string { return GetMacOSVersion(); }
 
+fn GetDesktopEnvironment() -> string { return "Aqua"; }
+
 #endif

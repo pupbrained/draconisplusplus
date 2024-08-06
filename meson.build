@@ -9,8 +9,6 @@ project(
   ]
 )
 
-clangtidy = find_program('clang-tidy', required: false)
-
 cpp = meson.get_compiler('cpp')
 
 if host_machine.system() == 'darwin'
@@ -94,6 +92,7 @@ if host_machine.system() == 'darwin'
   deps += dependency('iconv')
 elif host_machine.system() == 'linux'
   deps += dependency('sdbus-c++')
+  deps += dependency('x11')
 endif
 
 objc_args = []

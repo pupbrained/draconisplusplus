@@ -35,9 +35,12 @@
           };
 
         fmt = mkPkg "fmt";
-        sdbus-cpp = mkPkg "sdbus-cpp";
         tomlplusplus = mkPkg "tomlplusplus";
         yyjson = mkPkg "yyjson";
+
+        sdbus-cpp = pkgs.sdbus-cpp.overrideAttrs {
+          inherit (sources.sdbus-cpp) pname version src;
+        };
 
         reflect-cpp = stdenv.mkDerivation {
           inherit (sources.reflect-cpp) pname version src;
@@ -68,6 +71,7 @@
           systemdLibs
           sdbus-cpp
           valgrind
+          xorg.libX11
         ]);
 
         darwinPkgs = nixpkgs.lib.optionals stdenv.isDarwin (with pkgs.pkgsStatic.darwin.apple_sdk.frameworks; [

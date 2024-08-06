@@ -17,3 +17,13 @@ fn GetNowPlaying() -> string;
  * @brief Get the OS version.
  */
 fn GetOSVersion() -> string;
+
+/**
+ * @brief Get the current desktop environment.
+ */
+fn GetDesktopEnvironment() -> string;
+
+/**
+ * @brief Get the current window manager.
+ */
+fn GetWindowManager() -> string;
