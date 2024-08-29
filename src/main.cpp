@@ -80,8 +80,12 @@ fn main() -> i32 {
   if (weather.enabled)
     fmt::println("It is {}°F in {}", std::lround(weatherInfo.main.temp), weatherInfo.name);
 
-  if (nowPlayingEnabled)
-    fmt::println("{}", GetNowPlaying());
+  if (nowPlayingEnabled) {
+    const string nowPlaying = GetNowPlaying();
+    if (!nowPlaying.empty())
+      fmt::println("{}", nowPlaying);
+    else fmt::println("No song playing");
+  }
 
   return 0;
 }

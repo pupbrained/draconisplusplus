@@ -1,0 +1,2 @@
+Diagnostics:
+    Suppress: -Wmissing-template-arg-list-after-template-kw

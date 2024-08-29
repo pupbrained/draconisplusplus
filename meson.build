@@ -63,6 +63,8 @@ source_file_names = [
 
 if host_machine.system() == 'linux'
   source_file_names += ['src/os/linux.cpp']
+elif host_machine.system() == 'freebsd'
+  source_file_names += ['src/os/freebsd.cpp']
 elif host_machine.system() == 'darwin'
   source_file_names += [
     'src/os/macos.cpp',
@@ -90,7 +92,7 @@ if host_machine.system() == 'darwin'
   deps += dependency('MediaPlayer')
   deps += dependency('SystemConfiguration')
   deps += dependency('iconv')
-elif host_machine.system() == 'linux'
+elif host_machine.system() == 'linux' or host_machine.system() == 'freebsd'
   deps += dependency('sdbus-c++')
   deps += dependency('x11')
 endif
