@@ -145,6 +145,8 @@
               ]
               ++ deps;
 
+            INCLUDE_DIR = "${llvmPackages_18.libcxx.dev}/include/c++/v1";
+
             name = "C++";
           };
         }

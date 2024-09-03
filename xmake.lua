@@ -3,7 +3,7 @@
 add_requires("fmt", "libcurl", "tomlplusplus", "yyjson")
 
 if os.host() == "macosx" then
-	add_requires("Foundation", "MediaPlayer", "SystemConfiguration", "iconv")
+	add_requires("iconv")
 elseif os.host() == "linux" or os.host() == "bsd" then
 	add_requires("sdbus-c++", "x11")
 end
@@ -23,6 +23,8 @@ add_cxxflags(
 )
 
 if os.host() == "macosx" then
+	add_includedirs("$(env INCLUDE_DIR)")
+
 	add_mxxflags(
 		"-Wno-c++20-compat",
 		"-Wno-c++20-extensions",
@@ -64,7 +66,8 @@ end
 add_packages("fmt", "libcurl", "tomlplusplus", "yyjson")
 
 if os.host() == "macosx" then
-	add_packages("Foundation", "MediaPlayer", "SystemConfiguration", "iconv")
+	add_frameworks("Foundation", "MediaPlayer", "SystemConfiguration")
+	add_packages("iconv")
 elseif os.host() == "linux" or os.host() == "bsd" then
 	add_packages("sdbus-c++", "x11")
 end
