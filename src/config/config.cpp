@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fmt/core.h>
+#include <stdexcept>
 #include <string>
 
 #include "config.h"
@@ -27,17 +28,15 @@ inline fn GetConfigPath() -> std::string {
 }
 
 fn Config::getInstance() -> Config {
-  try {
-    fs::path configPath = GetConfigPath();
-    configPath /= "draconis++/config.toml";
+  fs::path configPath = GetConfigPath();
+  configPath /= "draconis++/config.toml";
 
-    const Result<Config> result = rfl::toml::load<Config>(configPath.string());
+  const Result<Config> result = rfl::toml::load<Config>(configPath.string());
 
-    if (result)
-      return result.value();
+  if (!result) {
+    fmt::println(stderr, "Failed to load config file: {}", result.error()->what());
+    exit(1);
+  }
 
-    fmt::println("Failed to load config file: {}", result.error().value().what());
-  } catch (const std::exception& e) { fmt::println("Error getting config path: {}", e.what()); }
-
-  return {};
+  return result.value();
 }

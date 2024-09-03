@@ -1,6 +1,7 @@
 # noinspection SpellCheckingInspection
 Checks: >
     *,
+    -ctad-maybe-unsupported,
     -abseil-*,
     -altera-*,
     -bugprone-easily-swappable-parameters,

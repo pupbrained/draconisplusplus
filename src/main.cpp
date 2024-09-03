@@ -84,7 +84,8 @@ fn main() -> i32 {
     const string nowPlaying = GetNowPlaying();
     if (!nowPlaying.empty())
       fmt::println("{}", nowPlaying);
-    else fmt::println("No song playing");
+    else
+      fmt::println("No song playing");
   }
 
   return 0;
