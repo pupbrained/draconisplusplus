@@ -124,4 +124,3 @@ using isize = std::ptrdiff_t;
  * @brief Represents a string.
  */
 using string = std::string;
-
