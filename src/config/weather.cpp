@@ -57,8 +57,8 @@ fn WriteCacheToFile(const WeatherOutput& data) -> Result<u8> {
   return 0;
 }
 
-fn WriteCallback(void* contents, const size_t size, const size_t nmemb, string* str) -> size_t {
-  const size_t totalSize = size * nmemb;
+fn WriteCallback(void* contents, const usize size, const usize nmemb, string* str) -> usize {
+  const usize totalSize = size * nmemb;
   str->append(static_cast<char*>(contents), totalSize);
   return totalSize;
 }

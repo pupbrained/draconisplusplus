@@ -71,7 +71,6 @@
           systemdLibs
           sdbus-cpp
           valgrind
-          xorg.libX11
         ]);
 
         darwinPkgs = nixpkgs.lib.optionals stdenv.isDarwin (with pkgs.pkgsStatic.darwin.apple_sdk.frameworks; [
