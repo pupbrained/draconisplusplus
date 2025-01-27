@@ -67,6 +67,7 @@
             tomlplusplus
             yyjson
             reflect-cpp
+            ftxui
           ]
           ++ linuxPkgs
           ++ darwinPkgs;
@@ -92,6 +93,7 @@
               src = self;
 
               nativeBuildInputs = [
+                cmake
                 meson
                 ninja
                 pkg-config

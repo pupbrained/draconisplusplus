@@ -5,7 +5,7 @@ project(
     'cpp_std=c++20',
     'default_library=static',
     'warning_level=everything',
-    'buildtype=debug',
+    'buildtype=debugoptimized'
   ]
 )
 
@@ -85,6 +85,7 @@ deps = [
   dependency('libcurl'),
   dependency('tomlplusplus'),
   dependency('yyjson'),
+  dependency('ftxui'),
   dependency('reflectcpp')
 ]
 
