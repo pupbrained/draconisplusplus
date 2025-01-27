@@ -22,8 +22,8 @@
 
         stdenv =
           if pkgs.hostPlatform.isLinux
-          then pkgs.stdenvAdapters.useMoldLinker pkgs.llvmPackages_18.stdenv
-          else pkgs.llvmPackages_18.stdenv;
+          then pkgs.stdenvAdapters.useMoldLinker pkgs.llvmPackages_19.stdenv
+          else pkgs.llvmPackages_19.stdenv;
 
         sources = import ./_sources/generated.nix {
           inherit (pkgs) fetchFromGitHub fetchgit fetchurl dockerTools;
@@ -35,22 +35,27 @@
           };
 
         fmt = mkPkg "fmt";
-        tomlplusplus = mkPkg "tomlplusplus";
         yyjson = mkPkg "yyjson";
+
+        tomlplusplus = pkgs.pkgsStatic.tomlplusplus.overrideAttrs {
+          inherit (sources.tomlplusplus) pname version src;
+          doCheck = false;
+        };
 
         sdbus-cpp = pkgs.sdbus-cpp.overrideAttrs {
           inherit (sources.sdbus-cpp) pname version src;
         };
 
-        reflect-cpp = stdenv.mkDerivation {
+        reflect-cpp = stdenv.mkDerivation rec {
           inherit (sources.reflect-cpp) pname version src;
 
-          nativeBuildInputs = with pkgs; [cmake ninja pkg-config];
+          buildInputs = [tomlplusplus yyjson];
+          nativeBuildInputs = buildInputs ++ (with pkgs; [cmake ninja pkg-config]);
 
           cmakeFlags = [
             "-DCMAKE_TOOLCHAIN_FILE=OFF"
-            "-DCMAKE_BUILD_TYPE=Release"
             "-DREFLECTCPP_TOML=ON"
+            "-DREFLECTCPP_JSON=ON"
           ];
         };
 
@@ -119,7 +124,7 @@
 
               clang-format = {
                 enable = true;
-                package = pkgs.clang-tools_18;
+                package = pkgs.clang-tools_19;
               };
             };
           };
@@ -129,7 +134,8 @@
               [
                 alejandra
                 bear
-                clang-tools_18
+                clang-tools_19
+                cmake
                 lldb
                 meson
                 ninja
@@ -137,6 +143,7 @@
                 pkg-config
                 unzip
                 nixvim.packages.${system}.default
+                linuxKernel.packages.linux_zen.perf.out
 
                 (writeScriptBin "build" "meson compile -C build")
                 (writeScriptBin "clean" "meson setup build --wipe")

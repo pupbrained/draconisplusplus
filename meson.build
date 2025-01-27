@@ -5,7 +5,7 @@ project(
     'cpp_std=c++20',
     'default_library=static',
     'warning_level=everything',
-    'buildtype=release'
+    'buildtype=debug',
   ]
 )
 
@@ -84,7 +84,8 @@ deps = [
   dependency('fmt'),
   dependency('libcurl'),
   dependency('tomlplusplus'),
-  dependency('yyjson')
+  dependency('yyjson'),
+  dependency('reflectcpp')
 ]
 
 if host_machine.system() == 'darwin'
@@ -94,7 +95,6 @@ if host_machine.system() == 'darwin'
   deps += dependency('iconv')
 elif host_machine.system() == 'linux' or host_machine.system() == 'freebsd'
   deps += dependency('sdbus-c++')
-  deps += dependency('x11')
 endif
 
 objc_args = []

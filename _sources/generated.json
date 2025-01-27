@@ -1,24 +1,4 @@
 {
-    "curl": {
-        "cargoLocks": null,
-        "date": null,
-        "extract": null,
-        "name": "curl",
-        "passthru": null,
-        "pinned": false,
-        "src": {
-            "deepClone": false,
-            "fetchSubmodules": false,
-            "leaveDotGit": false,
-            "name": null,
-            "owner": "curl",
-            "repo": "curl",
-            "rev": "curl-8_9_1",
-            "sha256": "sha256-b+Giv6n3LCjOIvUeQawR9qrMBTuz8emRRdhbb2XO5ZU=",
-            "type": "github"
-        },
-        "version": "curl-8_9_1"
-    },
     "fmt": {
         "cargoLocks": null,
         "date": null,
@@ -33,11 +13,12 @@
             "name": null,
             "owner": "fmtlib",
             "repo": "fmt",
-            "rev": "11.0.2",
-            "sha256": "sha256-IKNt4xUoVi750zBti5iJJcCk3zivTt7nU12RIf8pM+0=",
+            "rev": "11.1.3",
+            "sha256": "sha256-6r9D/csVSgS+T/H0J8cSR+YszxnH/h2V2odi2s6VYN8=",
+            "sparseCheckout": [],
             "type": "github"
         },
-        "version": "11.0.2"
+        "version": "11.1.3"
     },
     "reflect-cpp": {
         "cargoLocks": null,
@@ -53,11 +34,12 @@
             "name": null,
             "owner": "getml",
             "repo": "reflect-cpp",
-            "rev": "v0.13.0",
-            "sha256": "sha256-dEqdPk5ixnNILxTcdSAOhzP8fzeefMu6pqrL/WgnPlE=",
+            "rev": "v0.17.0",
+            "sha256": "sha256-ugMop4Gsw46zFA7mESNzDTAZVzIg3szAX8ND1kUiF2A=",
+            "sparseCheckout": [],
             "type": "github"
         },
-        "version": "v0.13.0"
+        "version": "v0.17.0"
     },
     "sdbus-cpp": {
         "cargoLocks": null,
@@ -73,11 +55,12 @@
             "name": null,
             "owner": "kistler-group",
             "repo": "sdbus-cpp",
-            "rev": "v2.0.0",
-            "sha256": "sha256-W8V5FRhV3jtERMFrZ4gf30OpIQLYoj2yYGpnYOmH2+g=",
+            "rev": "v2.1.0",
+            "sha256": "sha256-JnjabBr7oELLsUV9a+dAAaRyUzaMIriu90vkaVJg2eY=",
+            "sparseCheckout": [],
             "type": "github"
         },
-        "version": "v2.0.0"
+        "version": "v2.1.0"
     },
     "tomlplusplus": {
         "cargoLocks": null,
@@ -95,6 +78,7 @@
             "repo": "tomlplusplus",
             "rev": "v3.4.0",
             "sha256": "sha256-h5tbO0Rv2tZezY58yUbyRVpsfRjY3i+5TPkkxr6La8M=",
+            "sparseCheckout": [],
             "type": "github"
         },
         "version": "v3.4.0"
@@ -115,6 +99,7 @@
             "repo": "yyjson",
             "rev": "0.10.0",
             "sha256": "sha256-mp9Oz08qTyhj3P6F1d81SX96vamUY/JWpD2DTYR+v04=",
+            "sparseCheckout": [],
             "type": "github"
         },
         "version": "0.10.0"
