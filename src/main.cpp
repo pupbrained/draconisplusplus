@@ -29,7 +29,6 @@ struct fmt::formatter<BytesToGiB> : fmt::formatter<double> {
 };
 
 namespace {
-
   fn GetDate() -> std::string {
     // Get current local time
     std::time_t now       = std::time(nullptr);
@@ -97,8 +96,8 @@ namespace {
         return hbox({ text(emoji),
                       text(label) | color(labelColor),
                       filler(),
-                      text(value),
-                      text(" ") | color(valueColor) });
+                      text(value) | color(valueColor),
+                      text(" ") });
       };
 
     // System info rows
@@ -142,6 +141,10 @@ namespace {
 }
 
 fn main() -> i32 {
+  INFO_LOG("productFamily: {}", GetProductFamily());
+  WARN_LOG("productFamily: {}", GetProductFamily());
+  ERROR_LOG("productFamily: {}", GetProductFamily());
+
   const Config& config = Config::getInstance();
 
   auto document = hbox({ SystemInfoBox(config), filler() });

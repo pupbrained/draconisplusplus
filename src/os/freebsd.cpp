@@ -3,8 +3,9 @@
 #include <fmt/format.h>
 #include <fstream>
 #include <iostream>
-#include <sys/sysctl.h>
 #include <sdbus-c++/sdbus-c++.h>
+#include <sys/sysctl.h>
+
 #include "os.h"
 
 fn GetMemInfo() -> u64 {

@@ -27,3 +27,13 @@ fn GetDesktopEnvironment() -> string;
  * @brief Get the current window manager.
  */
 fn GetWindowManager() -> string;
+
+/**
+ * @brief Get the current shell.
+ */
+fn GetShell() -> string;
+
+/**
+ * @brief Get the product family
+ */
+fn GetProductFamily() -> string;

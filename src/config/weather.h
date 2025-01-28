@@ -6,7 +6,7 @@
 #include "../util/types.h"
 
 using degrees    = rfl::Validator<u16, rfl::Minimum<0>, rfl::Maximum<360>>;
-using percentage = rfl::Validator<i8, rfl::Minimum<0>, rfl::Maximum<100>>;
+using percentage = rfl::Validator<u8, rfl::Minimum<0>, rfl::Maximum<100>>;
 
 struct Condition {
   string description;

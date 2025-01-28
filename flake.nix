@@ -139,6 +139,7 @@
                 clang-tools_19
                 cmake
                 lldb
+                hyperfine
                 meson
                 ninja
                 nvfetcher

@@ -9,7 +9,7 @@
 
 #include "os.h"
 
-enum SessionType { Wayland, X11, TTY, Unknown };
+enum SessionType : u8 { Wayland, X11, TTY, Unknown };
 
 fn ParseLineAsNumber(const std::string& input) -> u64 {
   usize start = input.find_first_of("0123456789");
@@ -130,6 +130,25 @@ fn GetNowPlaying() -> string {
   }
 
   return "";
+}
+
+fn GetShell() -> string {
+  const char* shell = std::getenv("SHELL");
+
+  return shell ? shell : "";
+}
+
+fn GetProductFamily() -> string {
+  std::ifstream file("/sys/class/dmi/id/product_family");
+
+  if (!file.is_open())
+    throw std::runtime_error("Failed to open /sys/class/dmi/id/product_family");
+
+  std::string productFamily;
+
+  std::getline(file, productFamily);
+
+  return productFamily;
 }
 
 #endif

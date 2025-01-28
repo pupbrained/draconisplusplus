@@ -2,7 +2,7 @@ project(
   'draconis++', 'cpp',
   version: '0.1.0',
   default_options: [
-    'cpp_std=c++20',
+    'cpp_std=c++26',
     'default_library=static',
     'warning_level=everything',
     'buildtype=debugoptimized'
