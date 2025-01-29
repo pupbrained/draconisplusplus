@@ -2,7 +2,6 @@ project(
   'draconis++', 'cpp',
   version: '0.1.0',
   default_options: [
-    'cpp_std=c++26',
     'default_library=static',
     'warning_level=everything',
     'buildtype=debugoptimized'
@@ -16,6 +15,7 @@ if host_machine.system() == 'darwin'
   objcpp = meson.get_compiler('objcpp')
   add_project_arguments(
     objcpp.get_supported_arguments([
+      '-std=c++2b',
       '-Wno-c++20-compat',
       '-Wno-c++20-extensions',
       '-Wno-c++98-compat',
@@ -33,6 +33,7 @@ if host_machine.system() == 'darwin'
 endif
 
 common_cpp_args = [
+  '-std=c++26',
   '-Wno-c++20-compat',
   '-Wno-c++20-extensions',
   '-Wno-c++98-compat',

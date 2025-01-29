@@ -77,6 +77,7 @@
           systemdLibs
           sdbus-cpp
           valgrind
+          linuxKernel.packages.linux_zen.perf.out
         ]);
 
         darwinPkgs = nixpkgs.lib.optionals stdenv.isDarwin (with pkgs.pkgsStatic.darwin.apple_sdk.frameworks; [
@@ -145,8 +146,6 @@
                 nvfetcher
                 pkg-config
                 unzip
-                nixvim.packages.${system}.default
-                linuxKernel.packages.linux_zen.perf.out
 
                 (writeScriptBin "build" "meson compile -C build")
                 (writeScriptBin "clean" "meson setup build --wipe")
