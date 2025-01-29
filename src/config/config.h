@@ -1,4 +1,4 @@
-#pragma once
+
 
 #include <rfl.hpp>
 #include <rfl/Field.hpp>
@@ -18,7 +18,8 @@ struct NowPlaying {
 };
 
 struct Weather {
-  bool enabled = false;
+  bool enabled        = false;
+  bool show_town_name = false;
 
   Location location;
   string   api_key;

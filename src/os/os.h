@@ -36,4 +36,9 @@ fn GetShell() -> string;
 /**
  * @brief Get the product family
  */
-fn GetProductFamily() -> string;
+fn GetHost() -> string;
+
+/**
+ * @brief Get the kernel version.
+ */
+fn GetKernelVersion() -> string;

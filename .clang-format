@@ -9,7 +9,7 @@ AllowShortLoopsOnASingleLine: true
 BasedOnStyle: Chromium
 BinPackArguments: false
 BinPackParameters: false
-ColumnLimit: 100
+ColumnLimit: 120
 ConstructorInitializerIndentWidth: 2
 ContinuationIndentWidth: 2
 Cpp11BracedListStyle: false

@@ -43,11 +43,11 @@ namespace {
       date.erase(date.begin());
 
     // Append appropriate suffix for the date
-    if (date == "1" || date == "21" || date == "31")
+    if (date.ends_with("1") && date != "11")
       date += "st";
-    else if (date == "2" || date == "22")
+    else if (date.ends_with("2") && date != "12")
       date += "nd";
-    else if (date == "3" || date == "23")
+    else if (date.ends_with("3") && date != "13")
       date += "rd";
     else
       date += "th";
@@ -59,84 +59,125 @@ namespace {
 
   fn CreateColorCircles() -> Element {
     Elements circles;
-    for (int i = 0; i < 16; ++i) {
-      circles.push_back(text("◯") | bold | color(Color::Palette256(i)));
-      circles.push_back(text(" "));
-    }
+
+    for (int i = 0; i < 16; ++i)
+      circles.push_back(hbox({
+        text("◯") | bold | color(Color::Palette256(i)),
+        text(" "),
+      }));
+
     return hbox(circles);
   }
 
   fn SystemInfoBox(const Config& config) -> Element {
     // Fetch data
     const std::string& name              = config.general.get().name.get();
-    std::string        date              = GetDate();
+    const std::string& date              = GetDate();
+    const std::string& host              = GetHost();
+    const std::string& kernelVersion     = GetKernelVersion();
+    const std::string& osVersion         = GetOSVersion();
     u64                memInfo           = GetMemInfo();
-    std::string        osVersion         = GetOSVersion();
     Weather            weather           = config.weather.get();
     bool               nowPlayingEnabled = config.now_playing.get().enabled;
-    std::string        nowPlaying        = nowPlayingEnabled ? GetNowPlaying() : "";
+    const std::string& nowPlaying        = nowPlayingEnabled ? GetNowPlaying() : "";
 
     // Icon constants (using Nerd Font v3)
     constexpr const char*  calendarIcon = "   ";
-    constexpr const char*  memoryIcon   = "   ";
+    constexpr const char*  hostIcon     = " 󰌢  ";
+    constexpr const char*  kernelIcon   = "   ";
     constexpr const char*  osIcon       = "   ";
+    constexpr const char*  memoryIcon   = "   ";
     constexpr const char*  weatherIcon  = " 󰖐  ";
     constexpr const char*  musicIcon    = "   ";
     const Color::Palette16 labelColor   = Color::Yellow;
     const Color::Palette16 valueColor   = Color::White;
     const Color::Palette16 borderColor  = Color::GrayLight;
-    const Color            iconColor    = Color::RGB(100, 200, 255); // Bright cyan
+    const Color::Palette16 iconColor    = Color::Cyan;
 
     Elements content;
+
     content.push_back(text("   Hello " + name + "! ") | bold | color(Color::Cyan));
+    content.push_back(separator() | color(borderColor));
+    content.push_back(hbox({
+      text("   ") | color(iconColor), // Palette icon
+      CreateColorCircles(),
+    }));
     content.push_back(separator() | color(borderColor));
 
     // Helper function for aligned rows
-    auto createRow =
-      [&](const std::string& emoji, const std::string& label, const std::string& value) {
-        return hbox({ text(emoji),
-                      text(label) | color(labelColor),
-                      filler(),
-                      text(value) | color(valueColor),
-                      text(" ") });
-      };
+    auto createRow = [&](const std::string& icon, const std::string& label, const std::string& value) {
+      return hbox({
+        text(icon) | color(iconColor),
+        text(label) | color(labelColor),
+        text(" "),
+        filler(),
+        text(value) | color(valueColor),
+        text(" "),
+      });
+    };
 
     // System info rows
-    content.push_back(createRow(calendarIcon, "Date ", date));
-    content.push_back(createRow(memoryIcon, "RAM ", fmt::format("{:.2f}", BytesToGiB { memInfo })));
-    content.push_back(createRow(osIcon, "OS ", osVersion));
+    content.push_back(createRow(calendarIcon, "Date", date));
 
     // Weather row
     if (weather.enabled) {
-      auto weatherInfo = weather.getWeatherInfo();
-      content.push_back(separator() | color(borderColor));
-      content.push_back(hbox(
-        { text(weatherIcon),
-          text("Weather ") | color(labelColor),
+      WeatherOutput weatherInfo = weather.getWeatherInfo();
+
+      if (weather.show_town_name)
+        content.push_back(hbox({
+          text(weatherIcon) | color(iconColor),
+          text("Weather") | color(labelColor),
           filler(),
-          hbox({ text(fmt::format("{}°F ", std::lround(weatherInfo.main.temp))) | color(Color::Red),
-                 text("in "),
-                 text(weatherInfo.name),
-                 text(" ") }) |
-            color(valueColor) }
-      ));
+
+          hbox({
+            text(fmt::format("{}°F ", std::lround(weatherInfo.main.temp))),
+            text("in "),
+            text(weatherInfo.name),
+            text(" "),
+          }) |
+            color(valueColor),
+        }));
+      else
+        content.push_back(hbox({
+          text(weatherIcon) | color(iconColor),
+          text("Weather") | color(labelColor),
+          filler(),
+
+          hbox({
+            text(fmt::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description)),
+            text(" "),
+          }) |
+            color(valueColor),
+        }));
     }
+
+    content.push_back(separator() | color(borderColor));
+
+    if (!host.empty())
+      content.push_back(createRow(hostIcon, "Host", host));
+
+    if (!kernelVersion.empty())
+      content.push_back(createRow(kernelIcon, "Kernel", kernelVersion));
+
+    if (!osVersion.empty())
+      content.push_back(createRow(osIcon, "OS", osVersion));
+
+    if (memInfo > 0)
+      content.push_back(createRow(memoryIcon, "RAM", fmt::format("{:.2f}", BytesToGiB { memInfo })));
 
     // Now Playing row
     if (nowPlayingEnabled && !nowPlaying.empty()) {
       content.push_back(separator() | color(borderColor));
-      content.push_back(hbox({ text(musicIcon),
-                               text("Now Playing ") | color(labelColor),
-                               filler(),
-                               text(nowPlaying),
-                               text(" ") | color(Color::Magenta) }));
+      content.push_back(hbox({
+        text(musicIcon) | color(iconColor),
+        text("Music") | color(labelColor),
+        text(" "),
+        filler(),
+        text(nowPlaying.length() > 30 ? nowPlaying.substr(0, 30) + "..." : nowPlaying) | color(Color::Magenta),
+        text(" "),
+      }));
     }
 
-    // Color circles section
-    content.push_back(filler());
-    content.push_back(separator() | color(borderColor));
-    content.push_back(hbox({ text("   ") | color(iconColor), // Palette icon
-                             CreateColorCircles() }));
     return vbox(content) | borderRounded | color(Color::White);
   }
 }

@@ -2,28 +2,27 @@
 #include <filesystem>
 #include <fmt/core.h>
 #include <stdexcept>
-#include <string>
 
 #include "config.h"
 
 using rfl::Result;
 namespace fs = std::filesystem;
 
-inline fn GetConfigPath() -> std::string {
+inline fn GetConfigPath() -> fs::path {
 #ifdef _WIN32
   const char* localAppData = std::getenv("LOCALAPPDATA");
 
   if (!localAppData)
     throw std::runtime_error("Environment variable LOCALAPPDATA is not set");
 
-  return localAppData;
+  return fs::path(localAppData);
 #else
   const char* home = std::getenv("HOME");
 
   if (!home)
     throw std::runtime_error("Environment variable HOME is not set");
 
-  return std::string(home) + "/.config";
+  return fs::path(home) / ".config";
 #endif
 }
 
@@ -34,7 +33,8 @@ fn Config::getInstance() -> Config {
   const Result<Config> result = rfl::toml::load<Config>(configPath.string());
 
   if (!result) {
-    fmt::println(stderr, "Failed to load config file: {}", result.error()->what());
+    ERROR_LOG("Failed to load config file: {}", result.error()->what());
+
     exit(1);
   }
 

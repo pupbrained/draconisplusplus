@@ -1,32 +1,39 @@
 #ifdef __linux__
 
 #include <cstring>
-#include <filesystem>
 #include <fmt/format.h>
 #include <fstream>
 #include <sdbus-c++/sdbus-c++.h>
+#include <sys/utsname.h>
 #include <vector>
 
 #include "os.h"
+#include "src/util/macros.h"
 
 enum SessionType : u8 { Wayland, X11, TTY, Unknown };
 
 fn ParseLineAsNumber(const std::string& input) -> u64 {
   usize start = input.find_first_of("0123456789");
 
-  if (start == std::string::npos)
-    throw std::runtime_error("No number found in input");
+  if (start == std::string::npos) {
+    ERROR_LOG("No number found in input");
+    return 0;
+  }
 
   usize end = input.find_first_not_of("0123456789", start);
 
   return std::stoull(input.substr(start, end - start));
 }
 
-fn MeminfoParse(const std::filesystem::path& filepath) -> u64 {
-  std::ifstream input(filepath);
+fn MeminfoParse() -> u64 {
+  constexpr const char* path = "/proc/meminfo";
 
-  if (!input.is_open())
-    throw std::runtime_error("Failed to open " + filepath.string());
+  std::ifstream input(path);
+
+  if (!input.is_open()) {
+    ERROR_LOG("Failed to open {}", path);
+    return 0;
+  }
 
   std::string line;
 
@@ -34,16 +41,21 @@ fn MeminfoParse(const std::filesystem::path& filepath) -> u64 {
     if (line.starts_with("MemTotal"))
       return ParseLineAsNumber(line);
 
-  throw std::runtime_error("MemTotal line not found in " + filepath.string());
+  ERROR_LOG("MemTotal line not found in {}", path);
+  return 0;
 }
 
-fn GetMemInfo() -> u64 { return MeminfoParse("/proc/meminfo") * 1024; }
+fn GetMemInfo() -> u64 { return MeminfoParse() * 1024; }
 
 fn GetOSVersion() -> std::string {
-  std::ifstream file("/etc/os-release");
+  constexpr const char* path = "/etc/os-release";
 
-  if (!file.is_open())
-    throw std::runtime_error("Failed to open /etc/os-release");
+  std::ifstream file(path);
+
+  if (!file.is_open()) {
+    ERROR_LOG("Failed to open {}", path);
+    return "";
+  }
 
   string       line;
   const string prefix = "PRETTY_NAME=";
@@ -58,7 +70,8 @@ fn GetOSVersion() -> std::string {
       return prettyName;
     }
 
-  throw std::runtime_error("PRETTY_NAME line not found in /etc/os-release");
+  ERROR_LOG("PRETTY_NAME line not found in {}", path);
+  return "";
 }
 
 fn GetMprisPlayers(sdbus::IConnection& connection) -> std::vector<string> {
@@ -66,8 +79,7 @@ fn GetMprisPlayers(sdbus::IConnection& connection) -> std::vector<string> {
   const sdbus::ObjectPath  dbusObjectPath      = sdbus::ObjectPath("/org/freedesktop/DBus");
   const char*              dbusMethodListNames = "ListNames";
 
-  const std::unique_ptr<sdbus::IProxy> dbusProxy =
-    createProxy(connection, dbusInterface, dbusObjectPath);
+  const std::unique_ptr<sdbus::IProxy> dbusProxy = createProxy(connection, dbusInterface, dbusObjectPath);
 
   std::vector<string> names;
 
@@ -76,8 +88,7 @@ fn GetMprisPlayers(sdbus::IConnection& connection) -> std::vector<string> {
   std::vector<string> mprisPlayers;
 
   for (const std::basic_string<char>& name : names)
-    if (const char* mprisInterfaceName = "org.mpris.MediaPlayer2";
-        name.find(mprisInterfaceName) != std::string::npos)
+    if (const char* mprisInterfaceName = "org.mpris.MediaPlayer2"; name.find(mprisInterfaceName) != std::string::npos)
       mprisPlayers.push_back(name);
 
   return mprisPlayers;
@@ -92,30 +103,32 @@ fn GetActivePlayer(const std::vector<string>& mprisPlayers) -> string {
 
 fn GetNowPlaying() -> string {
   try {
-    const char *playerObjectPath    = "/org/mpris/MediaPlayer2",
-               *playerInterfaceName = "org.mpris.MediaPlayer2.Player";
+    const char *playerObjectPath = "/org/mpris/MediaPlayer2", *playerInterfaceName = "org.mpris.MediaPlayer2.Player";
 
     std::unique_ptr<sdbus::IConnection> connection = sdbus::createSessionBusConnection();
 
     std::vector<string> mprisPlayers = GetMprisPlayers(*connection);
 
-    if (mprisPlayers.empty())
+    if (mprisPlayers.empty()) {
+      DEBUG_LOG("No MPRIS players found");
       return "";
+    }
 
     string activePlayer = GetActivePlayer(mprisPlayers);
 
-    if (activePlayer.empty())
+    if (activePlayer.empty()) {
+      DEBUG_LOG("No active player found");
       return "";
+    }
 
-    auto playerProxy = sdbus::createProxy(
-      *connection, sdbus::ServiceName(activePlayer), sdbus::ObjectPath(playerObjectPath)
-    );
+    std::unique_ptr<sdbus::IProxy> playerProxy =
+      sdbus::createProxy(*connection, sdbus::ServiceName(activePlayer), sdbus::ObjectPath(playerObjectPath));
 
-    sdbus::Variant metadataVariant =
-      playerProxy->getProperty("Metadata").onInterface(playerInterfaceName);
+    sdbus::Variant metadataVariant = playerProxy->getProperty("Metadata").onInterface(playerInterfaceName);
 
     if (metadataVariant.containsValueOfType<std::map<std::string, sdbus::Variant>>()) {
-      const auto& metadata = metadataVariant.get<std::map<std::string, sdbus::Variant>>();
+      const std::map<std::basic_string<char>, sdbus::Variant>& metadata =
+        metadataVariant.get<std::map<std::string, sdbus::Variant>>();
 
       auto iter = metadata.find("xesam:title");
 
@@ -123,8 +136,10 @@ fn GetNowPlaying() -> string {
         return iter->second.get<std::string>();
     }
   } catch (const sdbus::Error& e) {
-    if (e.getName() != "com.github.altdesktop.playerctld.NoActivePlayer")
-      return fmt::format("Error: {}", e.what());
+    if (e.getName() != "com.github.altdesktop.playerctld.NoActivePlayer") {
+      ERROR_LOG("Error: {}", e.what());
+      return "";
+    }
 
     return "No active player";
   }
@@ -138,17 +153,33 @@ fn GetShell() -> string {
   return shell ? shell : "";
 }
 
-fn GetProductFamily() -> string {
-  std::ifstream file("/sys/class/dmi/id/product_family");
+fn GetHost() -> string {
+  constexpr const char* path = "/sys/class/dmi/id/product_family";
 
-  if (!file.is_open())
-    throw std::runtime_error("Failed to open /sys/class/dmi/id/product_family");
+  std::ifstream file(path);
+  if (!file.is_open()) {
+    ERROR_LOG("Failed to open {}", path);
+    return "";
+  }
 
   std::string productFamily;
-
-  std::getline(file, productFamily);
+  if (!std::getline(file, productFamily)) {
+    ERROR_LOG("Failed to read from {}", path);
+    return "";
+  }
 
   return productFamily;
+}
+
+fn GetKernelVersion() -> string {
+  struct utsname uts;
+
+  if (uname(&uts) == -1) {
+    ERROR_LOG("uname() failed: {}", std::strerror(errno));
+    return "";
+  }
+
+  return static_cast<const char*>(uts.release);
 }
 
 #endif
