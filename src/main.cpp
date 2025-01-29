@@ -1,5 +1,6 @@
 #include <ctime>
 #include <fmt/chrono.h>
+#include <fmt/color.h>
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <ftxui/dom/elements.hpp>
@@ -59,7 +60,7 @@ namespace {
   fn CreateColorCircles() -> Element {
     Elements circles;
     for (int i = 0; i < 16; ++i) {
-      circles.push_back(text("◍") | color(Color::Palette256(i)));
+      circles.push_back(text("◯") | bold | color(Color::Palette256(i)));
       circles.push_back(text(" "));
     }
     return hbox(circles);
@@ -67,24 +68,24 @@ namespace {
 
   fn SystemInfoBox(const Config& config) -> Element {
     // Fetch data
+    const std::string& name              = config.general.get().name.get();
     std::string        date              = GetDate();
     u64                memInfo           = GetMemInfo();
     std::string        osVersion         = GetOSVersion();
     Weather            weather           = config.weather.get();
     bool               nowPlayingEnabled = config.now_playing.get().enabled;
     std::string        nowPlaying        = nowPlayingEnabled ? GetNowPlaying() : "";
-    const std::string& name              = config.general.get().name.get();
 
     // Icon constants (using Nerd Font v3)
-    constexpr const char* calendarIcon = "   ";
-    constexpr const char* memoryIcon   = "   ";
-    constexpr const char* osIcon       = "   ";
-    constexpr const char* weatherIcon  = " 󰖐  ";
-    constexpr const char* musicIcon    = "   ";
-    const auto            labelColor   = Color::Yellow;
-    const auto            valueColor   = Color::White;
-    const auto            borderColor  = Color::GrayLight;
-    const auto            iconColor    = Color::RGB(100, 200, 255); // Bright cyan
+    constexpr const char*  calendarIcon = "   ";
+    constexpr const char*  memoryIcon   = "   ";
+    constexpr const char*  osIcon       = "   ";
+    constexpr const char*  weatherIcon  = " 󰖐  ";
+    constexpr const char*  musicIcon    = "   ";
+    const Color::Palette16 labelColor   = Color::Yellow;
+    const Color::Palette16 valueColor   = Color::White;
+    const Color::Palette16 borderColor  = Color::GrayLight;
+    const Color            iconColor    = Color::RGB(100, 200, 255); // Bright cyan
 
     Elements content;
     content.push_back(text("   Hello " + name + "! ") | bold | color(Color::Cyan));
@@ -122,12 +123,12 @@ namespace {
     }
 
     // Now Playing row
-    if (nowPlayingEnabled) {
+    if (nowPlayingEnabled && !nowPlaying.empty()) {
       content.push_back(separator() | color(borderColor));
       content.push_back(hbox({ text(musicIcon),
                                text("Now Playing ") | color(labelColor),
                                filler(),
-                               text(!nowPlaying.empty() ? nowPlaying : "No song playing"),
+                               text(nowPlaying),
                                text(" ") | color(Color::Magenta) }));
     }
 
@@ -141,15 +142,11 @@ namespace {
 }
 
 fn main() -> i32 {
-  INFO_LOG("productFamily: {}", GetProductFamily());
-  WARN_LOG("productFamily: {}", GetProductFamily());
-  ERROR_LOG("productFamily: {}", GetProductFamily());
-
   const Config& config = Config::getInstance();
 
-  auto document = hbox({ SystemInfoBox(config), filler() });
+  Element document = hbox({ SystemInfoBox(config), filler() });
 
-  auto screen = Screen::Create(Dimension::Full(), Dimension::Fit(document));
+  Screen screen = Screen::Create(Dimension::Full(), Dimension::Fit(document));
   Render(screen, document);
   screen.Print();
 

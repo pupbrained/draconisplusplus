@@ -21,12 +21,12 @@ namespace log_colors {
 enum class LogLevel : u8 { DEBUG, INFO, WARN, ERROR };
 
 template <typename... Args>
-fn LogImpl(
+void LogImpl(
   LogLevel                    level,
   const std::source_location& loc,
   fmt::format_string<Args...> fmt,
   Args&&... args
-) -> void {
+) {
   const time_t now             = std::time(nullptr);
   const auto [color, levelStr] = [&] {
     switch (level) {
@@ -42,55 +42,31 @@ fn LogImpl(
   }();
 
   const std::string filename = std::filesystem::path(loc.file_name()).lexically_normal().string();
-  const u32         line     = loc.line();
   const struct tm   time     = *std::localtime(&now);
 
-  // Timestamp section
+  // Timestamp and level
   fmt::print(fg(log_colors::timestamp), "[{:%H:%M:%S}] ", time);
+  fmt::print(fmt::emphasis::bold | fg(color), "{} ", levelStr);
 
-  // Level section
-  fmt::print(fmt::emphasis::bold | fg(color), "{}", levelStr);
-
-  // Message section
-  fmt::print(" ");
+  // Message
   fmt::print(fmt, std::forward<Args>(args)...);
 
-  // File info section
+  // File info (debug builds only)
 #ifndef NDEBUG
   fmt::print(fg(log_colors::file_info), "\n{:>14} ", "╰──");
-  const std::string fileInfo = fmt::format("{}:{}", filename.c_str(), line);
-  fmt::print(fmt::emphasis::italic | fg(log_colors::file_info), "{}", fileInfo);
+  fmt::print(fmt::emphasis::italic | fg(log_colors::file_info), "{}:{}", filename, loc.line());
 #endif
 
   fmt::print("\n");
 }
 
-// Logging utility wrapper to replace macros
-// Logging utility wrapper to replace macros
-template <LogLevel level>
-struct LogWrapper {
-  std::source_location m_loc; // Changed to m_loc
-
-  constexpr LogWrapper(const std::source_location& loc = std::source_location::current())
-    : m_loc(loc) {} // Initialize member with parameter
-
-  template <typename... Args>
-  void operator()(fmt::format_string<Args...> fmt, Args&&... args) const {
-    LogImpl(level, m_loc, fmt, std::forward<Args>(args)...); // Use m_loc
-  }
-};
-
-// Debug logging is conditionally compiled
+// Minimal macros to capture source_location at call site
 #ifdef NDEBUG
-struct {
-  template <typename... Args>
-  void operator()(fmt::format_string<Args...>, Args&&...) const {}
-} DEBUG_LOG;
+#define DEBUG_LOG(...) (void)0
 #else
-constexpr LogWrapper<LogLevel::DEBUG> DEBUG_LOG;
+#define DEBUG_LOG(...) LogImpl(LogLevel::DEBUG, std::source_location::current(), __VA_ARGS__)
 #endif
 
-// Define loggers for other levels
-constexpr LogWrapper<LogLevel::INFO>  INFO_LOG;
-constexpr LogWrapper<LogLevel::WARN>  WARN_LOG;
-constexpr LogWrapper<LogLevel::ERROR> ERROR_LOG;
+#define INFO_LOG(...) LogImpl(LogLevel::INFO, std::source_location::current(), __VA_ARGS__)
+#define WARN_LOG(...) LogImpl(LogLevel::WARN, std::source_location::current(), __VA_ARGS__)
+#define ERROR_LOG(...) LogImpl(LogLevel::ERROR, std::source_location::current(), __VA_ARGS__)
