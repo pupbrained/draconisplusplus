@@ -1,11 +1,12 @@
 project(
-  'draconis++', 'cpp',
+  'draconis++',
+  'cpp',
   version: '0.1.0',
   default_options: [
     'default_library=static',
     'warning_level=everything',
-    'buildtype=debugoptimized'
-  ]
+    'buildtype=debugoptimized',
+  ],
 )
 
 cpp = meson.get_compiler('cpp')
@@ -14,21 +15,23 @@ if host_machine.system() == 'darwin'
   add_languages('objcpp')
   objcpp = meson.get_compiler('objcpp')
   add_project_arguments(
-    objcpp.get_supported_arguments([
-      '-std=c++2b',
-      '-Wno-c++20-compat',
-      '-Wno-c++20-extensions',
-      '-Wno-c++98-compat',
-      '-Wno-c++98-compat-pedantic',
-      '-Wno-disabled-macro-expansion',
-      '-Wno-missing-prototypes',
-      '-Wno-padded',
-      '-Wno-pre-c++20-compat-pedantic',
-      '-Wno-switch-default',
-      '-Wunused-function',
-      '-fvisibility=hidden'
-    ]),
-    language: 'objcpp'
+    objcpp.get_supported_arguments(
+      [
+        '-std=c++2b',
+        '-Wno-c++20-compat',
+        '-Wno-c++20-extensions',
+        '-Wno-c++98-compat',
+        '-Wno-c++98-compat-pedantic',
+        '-Wno-disabled-macro-expansion',
+        '-Wno-missing-prototypes',
+        '-Wno-padded',
+        '-Wno-pre-c++20-compat-pedantic',
+        '-Wno-switch-default',
+        '-Wunused-function',
+        '-fvisibility=hidden',
+      ],
+    ),
+    language: 'objcpp',
   )
 endif
 
@@ -44,23 +47,16 @@ common_cpp_args = [
   '-Wno-pre-c++20-compat-pedantic',
   '-Wno-switch-default',
   '-Wunused-function',
-  '-fvisibility=hidden'
+  '-fvisibility=hidden',
 ]
 
 if host_machine.system() == 'windows'
   common_cpp_args += ['-DCURL_STATICLIB']
 endif
 
-add_project_arguments(
-  cpp.get_supported_arguments(common_cpp_args),
-  language: 'cpp'
-)
+add_project_arguments(cpp.get_supported_arguments(common_cpp_args), language: 'cpp')
 
-source_file_names = [
-  'src/main.cpp',
-  'src/config/config.cpp',
-  'src/config/weather.cpp'
-]
+source_file_names = ['src/main.cpp', 'src/config/config.cpp', 'src/config/weather.cpp']
 
 if host_machine.system() == 'linux'
   source_file_names += ['src/os/linux.cpp']
@@ -86,8 +82,8 @@ deps = [
   dependency('libcurl'),
   dependency('tomlplusplus'),
   dependency('yyjson'),
-  dependency('ftxui'),
-  dependency('reflectcpp')
+  dependency('ftxui', modules: ['ftxui::screen', 'ftxui::dom', 'ftxui::component']),
+  dependency('reflectcpp'),
 ]
 
 if host_machine.system() == 'darwin'
@@ -114,6 +110,5 @@ executable(
   sources,
   objc_args: objc_args,
   link_args: link_args,
-  dependencies: deps
+  dependencies: deps,
 )
-

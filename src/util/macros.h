@@ -1,5 +1,8 @@
 #pragma once
 
+// probably stupid but it fixes the issue with windows.h defining ERROR
+#undef ERROR
+
 #include <filesystem>
 #include <fmt/chrono.h>
 #include <fmt/color.h>
@@ -14,19 +17,13 @@ namespace log_colors {
   using fmt::terminal_color;
   constexpr fmt::terminal_color debug = terminal_color::cyan, info = terminal_color::green,
                                 warn = terminal_color::yellow, error = terminal_color::red,
-                                timestamp = terminal_color::bright_white,
-                                file_info = terminal_color::bright_white;
+                                timestamp = terminal_color::bright_white, file_info = terminal_color::bright_white;
 }
 
 enum class LogLevel : u8 { DEBUG, INFO, WARN, ERROR };
 
 template <typename... Args>
-void LogImpl(
-  LogLevel                    level,
-  const std::source_location& loc,
-  fmt::format_string<Args...> fmt,
-  Args&&... args
-) {
+void LogImpl(LogLevel level, const std::source_location& loc, fmt::format_string<Args...> fmt, Args&&... args) {
   const time_t now             = std::time(nullptr);
   const auto [color, levelStr] = [&] {
     switch (level) {
