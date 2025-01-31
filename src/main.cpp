@@ -195,9 +195,6 @@ namespace {
 fn main() -> i32 {
   const Config& config = Config::getInstance();
 
-  DEBUG_LOG("Window Manager: {}", GetWindowManager());
-  DEBUG_LOG("Desktop Environment: {}", GetDesktopEnvironment());
-
   Element document = hbox({ SystemInfoBox(config), filler() });
 
   Screen screen = Screen::Create(Dimension::Full(), Dimension::Fit(document));

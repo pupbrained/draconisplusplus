@@ -20,34 +20,55 @@
 enum SessionType : u8 { Wayland, X11, TTY, Unknown };
 
 namespace {
-  fn ParseLineAsNumber(const std::string& input) -> u64 {
-    usize start = input.find_first_of("0123456789");
-
-    if (start == std::string::npos) {
-      ERROR_LOG("No number found in input");
-      return 0;
-    }
-
-    usize end = input.find_first_not_of("0123456789", start);
-
-    return std::stoull(input.substr(start, end - start));
-  }
-
   fn MeminfoParse() -> u64 {
     constexpr const char* path = "/proc/meminfo";
 
     std::ifstream input(path);
-
     if (!input.is_open()) {
       ERROR_LOG("Failed to open {}", path);
       return 0;
     }
 
     std::string line;
+    while (std::getline(input, line)) {
+      if (line.starts_with("MemTotal")) {
+        const size_t colonPos = line.find(':');
+        if (colonPos == std::string::npos) {
+          ERROR_LOG("Invalid MemTotal line: no colon found");
+          return 0;
+        }
 
-    while (std::getline(input, line))
-      if (line.starts_with("MemTotal"))
-        return ParseLineAsNumber(line);
+        std::string_view view(line);
+        view.remove_prefix(colonPos + 1);
+
+        // Trim leading whitespace
+        const size_t firstNonSpace = view.find_first_not_of(' ');
+        if (firstNonSpace == std::string_view::npos) {
+          ERROR_LOG("No number found after colon in MemTotal line");
+          return 0;
+        }
+        view.remove_prefix(firstNonSpace);
+
+        // Find the end of the numeric part
+        const size_t end = view.find_first_not_of("0123456789");
+        if (end != std::string_view::npos) {
+          view = view.substr(0, end);
+        }
+
+        // Get pointers via iterators
+        const char* startPtr = &*view.begin(); // Safe iterator-to-pointer conversion
+        const char* endPtr   = &*view.end();   // No manual arithmetic
+
+        u64        value  = 0;
+        const auto result = std::from_chars(startPtr, endPtr, value);
+        if (result.ec != std::errc() || result.ptr != endPtr) {
+          ERROR_LOG("Failed to parse number in MemTotal line");
+          return 0;
+        }
+
+        return value;
+      }
+    }
 
     ERROR_LOG("MemTotal line not found in {}", path);
     return 0;
@@ -242,6 +263,97 @@ namespace {
     // Final cleanup of wrapper names
     return TrimHyprlandWrapper(compositorName);
   }
+
+  // Helper functions
+  fn ToLowercase(std::string str) -> std::string {
+    std::ranges::transform(str, str.begin(), ::tolower);
+    return str;
+  }
+
+  fn ContainsAny(std::string_view haystack, const std::vector<std::string>& needles) -> bool {
+    return std::ranges::any_of(needles, [&](auto& n) { return haystack.find(n) != std::string_view::npos; });
+  }
+
+  fn DetectFromEnvVars() -> std::string {
+    // Check XDG_CURRENT_DESKTOP
+    if (const char* xdgDe = std::getenv("XDG_CURRENT_DESKTOP")) {
+      std::string_view sview(xdgDe);
+      if (!sview.empty()) {
+        std::string deStr(sview);
+        if (size_t colon = deStr.find(':'); colon != std::string::npos)
+          deStr.erase(colon);
+        if (!deStr.empty())
+          return deStr;
+      }
+    }
+
+    // Check DESKTOP_SESSION
+    if (const char* desktopSession = std::getenv("DESKTOP_SESSION")) {
+      std::string_view sview(desktopSession);
+      if (!sview.empty())
+        return std::string(sview);
+    }
+
+    return "";
+  }
+
+  fn DetectFromSessionFiles() -> std::string {
+    namespace fs                             = std::filesystem;
+    const std::vector<fs::path> sessionPaths = { "/usr/share/xsessions", "/usr/share/wayland-sessions" };
+
+    const std::vector<std::pair<std::string, std::vector<std::string>>> dePatterns = {
+      {      "KDE",           { "plasma", "plasmax11", "kde" } },
+      {    "GNOME", { "gnome", "gnome-xorg", "gnome-wayland" } },
+      {     "XFCE",                                 { "xfce" } },
+      {     "MATE",                                 { "mate" } },
+      { "Cinnamon",                             { "cinnamon" } },
+      {   "Budgie",                               { "budgie" } },
+      {     "LXQt",                                 { "lxqt" } },
+      {    "Unity",                                { "unity" } }
+    };
+
+    for (const auto& sessionPath : sessionPaths) {
+      if (!fs::exists(sessionPath))
+        continue;
+
+      for (const auto& entry : fs::directory_iterator(sessionPath)) {
+        if (!entry.is_regular_file())
+          continue;
+
+        const std::string filename      = entry.path().stem();
+        auto              lowerFilename = ToLowercase(filename);
+
+        for (const auto& [deName, patterns] : dePatterns) {
+          if (ContainsAny(lowerFilename, patterns))
+            return deName;
+        }
+      }
+    }
+    return "";
+  }
+
+  fn DetectFromProcesses() -> std::string {
+    const std::vector<std::pair<std::string, std::string>> processChecks = {
+      {     "plasmashell",      "KDE" },
+      {     "gnome-shell",    "GNOME" },
+      {   "xfce4-session",     "XFCE" },
+      {    "mate-session",     "MATE" },
+      { "cinnamon-sessio", "Cinnamon" },
+      {       "budgie-wm",   "Budgie" },
+      {    "lxqt-session",     "LXQt" }
+    };
+
+    std::ifstream cmdline("/proc/self/environ");
+    std::string   envVars((std::istreambuf_iterator<char>(cmdline)), std::istreambuf_iterator<char>());
+
+    for (const auto& [process, deName] : processChecks) {
+      if (envVars.find(process) != std::string::npos)
+        return deName;
+    }
+
+    return "Unknown";
+  }
+
 }
 
 fn GetOSVersion() -> std::string {
@@ -349,83 +461,16 @@ fn GetWindowManager() -> string {
 }
 
 fn GetDesktopEnvironment() -> string {
-  namespace fs = std::filesystem;
+  // Try environment variables first
+  if (auto desktopEnvironment = DetectFromEnvVars(); !desktopEnvironment.empty())
+    return desktopEnvironment;
 
-  // Check standard environment variables first
-  if (const char* xdgDe = std::getenv("XDG_CURRENT_DESKTOP")) {
-    if (xdgDe[0] != '\0') {
-      std::string de(xdgDe);
-      if (size_t colon = de.find(':'); colon != std::string::npos)
-        de.erase(colon);
-      if (!de.empty())
-        return de;
-    }
-  }
+  // Try session files next
+  if (auto desktopEnvironment = DetectFromSessionFiles(); !desktopEnvironment.empty())
+    return desktopEnvironment;
 
-  if (const char* desktopSession = std::getenv("DESKTOP_SESSION")) {
-    if (desktopSession[0] != '\0') {
-      return desktopSession;
-    }
-  }
-
-  // Check session files in standard locations
-  const std::vector<fs::path> sessionPaths = { "/usr/share/xsessions", "/usr/share/wayland-sessions" };
-
-  // Map of DE identifiers to their session file patterns
-  const std::vector<std::pair<std::string, std::vector<std::string>>> dePatterns = {
-    {      "KDE",           { "plasma", "plasmax11", "kde" } },
-    {    "GNOME", { "gnome", "gnome-xorg", "gnome-wayland" } },
-    {     "XFCE",                                 { "xfce" } },
-    {     "MATE",                                 { "mate" } },
-    { "Cinnamon",                             { "cinnamon" } },
-    {   "Budgie",                               { "budgie" } },
-    {     "LXQt",                                 { "lxqt" } },
-    {    "Unity",                                { "unity" } }
-  };
-
-  for (const auto& sessionPath : sessionPaths) {
-    if (!fs::exists(sessionPath))
-      continue;
-
-    for (const auto& entry : fs::directory_iterator(sessionPath)) {
-      if (!entry.is_regular_file())
-        continue;
-
-      const std::string filename = entry.path().stem();
-      std::string       lowercaseFilename;
-      std::ranges::transform(filename, std::back_inserter(lowercaseFilename), ::tolower);
-
-      for (const auto& [deName, patterns] : dePatterns) {
-        for (const auto& pattern : patterns) {
-          if (lowercaseFilename.find(pattern) != std::string::npos) {
-            return deName;
-          }
-        }
-      }
-    }
-  }
-
-  // Fallback: Check process-based detection
-  const std::vector<std::pair<std::string, std::string>> processChecks = {
-    {     "plasmashell",      "KDE" },
-    {     "gnome-shell",    "GNOME" },
-    {   "xfce4-session",     "XFCE" },
-    {    "mate-session",     "MATE" },
-    { "cinnamon-sessio", "Cinnamon" },
-    {       "budgie-wm",   "Budgie" },
-    {    "lxqt-session",     "LXQt" }
-  };
-
-  std::ifstream cmdline("/proc/self/environ");
-  std::string   envVars((std::istreambuf_iterator<char>(cmdline)), std::istreambuf_iterator<char>());
-
-  for (const auto& [process, deName] : processChecks) {
-    if (envVars.find(process) != std::string::npos) {
-      return deName;
-    }
-  }
-
-  return "Unknown";
+  // Fallback to process detection
+  return DetectFromProcesses();
 }
 
 fn GetShell() -> string {
