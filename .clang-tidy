@@ -4,6 +4,7 @@ Checks: >
     -ctad-maybe-unsupported,
     -abseil-*,
     -altera-*,
+    -boost-*,
     -bugprone-easily-swappable-parameters,
     -bugprone-implicit-widening-of-multiplication-result,
     -cert-env33-c,

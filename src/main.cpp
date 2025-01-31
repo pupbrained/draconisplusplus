@@ -71,15 +71,17 @@ namespace {
 
   fn SystemInfoBox(const Config& config) -> Element {
     // Fetch data
-    const std::string& name              = config.general.get().name.get();
-    const std::string& date              = GetDate();
-    const std::string& host              = GetHost();
-    const std::string& kernelVersion     = GetKernelVersion();
-    const std::string& osVersion         = GetOSVersion();
-    u64                memInfo           = GetMemInfo();
-    Weather            weather           = config.weather.get();
-    bool               nowPlayingEnabled = config.now_playing.get().enabled;
-    const std::string& nowPlaying        = nowPlayingEnabled ? GetNowPlaying() : "";
+    const std::string& name               = config.general.get().name.get();
+    const std::string& date               = GetDate();
+    const Weather      weather            = config.weather.get();
+    const std::string& host               = GetHost();
+    const std::string& kernelVersion      = GetKernelVersion();
+    const std::string& osVersion          = GetOSVersion();
+    const u64          memInfo            = GetMemInfo();
+    const std::string& desktopEnvironment = GetDesktopEnvironment();
+    const std::string& windowManager      = GetWindowManager();
+    const bool         nowPlayingEnabled  = config.now_playing.get().enabled;
+    const std::string& nowPlaying         = nowPlayingEnabled ? GetNowPlaying() : "";
 
     // Icon constants (using Nerd Font v3)
     constexpr const char*  calendarIcon = "   ";
@@ -87,7 +89,7 @@ namespace {
     constexpr const char*  kernelIcon   = "   ";
     constexpr const char*  osIcon       = "   ";
     constexpr const char*  memoryIcon   = "   ";
-    constexpr const char*  weatherIcon  = " 󰖐  ";
+    constexpr const char*  weatherIcon  = "   ";
     constexpr const char*  musicIcon    = "   ";
     const Color::Palette16 labelColor   = Color::Yellow;
     const Color::Palette16 valueColor   = Color::White;
@@ -165,6 +167,14 @@ namespace {
     if (memInfo > 0)
       content.push_back(createRow(memoryIcon, "RAM", fmt::format("{:.2f}", BytesToGiB { memInfo })));
 
+    content.push_back(separator() | color(borderColor));
+
+    if (!desktopEnvironment.empty() && desktopEnvironment != windowManager)
+      content.push_back(createRow(" 󰇄  ", "DE", desktopEnvironment));
+
+    if (!windowManager.empty())
+      content.push_back(createRow("   ", "WM", windowManager));
+
     // Now Playing row
     if (nowPlayingEnabled && !nowPlaying.empty()) {
       content.push_back(separator() | color(borderColor));
@@ -184,6 +194,9 @@ namespace {
 
 fn main() -> i32 {
   const Config& config = Config::getInstance();
+
+  DEBUG_LOG("Window Manager: {}", GetWindowManager());
+  DEBUG_LOG("Desktop Environment: {}", GetDesktopEnvironment());
 
   Element document = hbox({ SystemInfoBox(config), filler() });
 

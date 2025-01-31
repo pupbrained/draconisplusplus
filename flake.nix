@@ -2,7 +2,6 @@
   description = "C/C++ environment";
 
   inputs = {
-    nixvim.url = "github:pupbrained/nvim-config";
     nixpkgs.url = "github:NixOS/nixpkgs";
     treefmt-nix.url = "github:numtide/treefmt-nix";
     utils.url = "github:numtide/flake-utils";
@@ -13,7 +12,6 @@
     nixpkgs,
     treefmt-nix,
     utils,
-    nixvim,
     ...
   }:
     utils.lib.eachDefaultSystem (
@@ -78,6 +76,8 @@
           sdbus-cpp
           valgrind
           linuxKernel.packages.linux_zen.perf.out
+          xorg.libX11
+          wayland
         ]);
 
         darwinPkgs = nixpkgs.lib.optionals stdenv.isDarwin (with pkgs.pkgsStatic.darwin.apple_sdk.frameworks; [

@@ -93,6 +93,8 @@ if host_machine.system() == 'darwin'
   deps += dependency('iconv')
 elif host_machine.system() == 'linux' or host_machine.system() == 'freebsd'
   deps += dependency('sdbus-c++')
+  deps += dependency('x11')
+  deps += dependency('wayland-client')
 endif
 
 objc_args = []

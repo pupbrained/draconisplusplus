@@ -1,51 +1,248 @@
 #ifdef __linux__
 
+#include <X11/Xatom.h>
+#include <X11/Xlib.h>
+#include <algorithm>
 #include <cstring>
+#include <dirent.h>
 #include <fmt/format.h>
 #include <fstream>
+#include <ranges>
 #include <sdbus-c++/sdbus-c++.h>
+#include <sys/socket.h>
 #include <sys/utsname.h>
 #include <vector>
+#include <wayland-client.h>
 
 #include "os.h"
 #include "src/util/macros.h"
 
 enum SessionType : u8 { Wayland, X11, TTY, Unknown };
 
-fn ParseLineAsNumber(const std::string& input) -> u64 {
-  usize start = input.find_first_of("0123456789");
+namespace {
+  fn ParseLineAsNumber(const std::string& input) -> u64 {
+    usize start = input.find_first_of("0123456789");
 
-  if (start == std::string::npos) {
-    ERROR_LOG("No number found in input");
+    if (start == std::string::npos) {
+      ERROR_LOG("No number found in input");
+      return 0;
+    }
+
+    usize end = input.find_first_not_of("0123456789", start);
+
+    return std::stoull(input.substr(start, end - start));
+  }
+
+  fn MeminfoParse() -> u64 {
+    constexpr const char* path = "/proc/meminfo";
+
+    std::ifstream input(path);
+
+    if (!input.is_open()) {
+      ERROR_LOG("Failed to open {}", path);
+      return 0;
+    }
+
+    std::string line;
+
+    while (std::getline(input, line))
+      if (line.starts_with("MemTotal"))
+        return ParseLineAsNumber(line);
+
+    ERROR_LOG("MemTotal line not found in {}", path);
     return 0;
   }
 
-  usize end = input.find_first_not_of("0123456789", start);
+  fn GetMprisPlayers(sdbus::IConnection& connection) -> std::vector<string> {
+    const sdbus::ServiceName dbusInterface       = sdbus::ServiceName("org.freedesktop.DBus");
+    const sdbus::ObjectPath  dbusObjectPath      = sdbus::ObjectPath("/org/freedesktop/DBus");
+    const char*              dbusMethodListNames = "ListNames";
 
-  return std::stoull(input.substr(start, end - start));
-}
+    const std::unique_ptr<sdbus::IProxy> dbusProxy = createProxy(connection, dbusInterface, dbusObjectPath);
 
-fn MeminfoParse() -> u64 {
-  constexpr const char* path = "/proc/meminfo";
+    std::vector<string> names;
 
-  std::ifstream input(path);
+    dbusProxy->callMethod(dbusMethodListNames).onInterface(dbusInterface).storeResultsTo(names);
 
-  if (!input.is_open()) {
-    ERROR_LOG("Failed to open {}", path);
-    return 0;
+    std::vector<string> mprisPlayers;
+
+    for (const std::basic_string<char>& name : names)
+      if (const char* mprisInterfaceName = "org.mpris.MediaPlayer2"; name.find(mprisInterfaceName) != std::string::npos)
+        mprisPlayers.push_back(name);
+
+    return mprisPlayers;
   }
 
-  std::string line;
+  fn GetActivePlayer(const std::vector<string>& mprisPlayers) -> string {
+    if (!mprisPlayers.empty())
+      return mprisPlayers.front();
 
-  while (std::getline(input, line))
-    if (line.starts_with("MemTotal"))
-      return ParseLineAsNumber(line);
+    return "";
+  }
 
-  ERROR_LOG("MemTotal line not found in {}", path);
-  return 0;
+  fn GetX11WindowManager() -> string {
+    Display* display = XOpenDisplay(nullptr);
+    if (!display)
+      return "Unknown (X11)";
+
+    Atom supportingWmCheck = XInternAtom(display, "_NET_SUPPORTING_WM_CHECK", False);
+    Atom wmName            = XInternAtom(display, "_NET_WM_NAME", False);
+    Atom utf8String        = XInternAtom(display, "UTF8_STRING", False);
+
+    // ignore unsafe buffer access warning, can't really get around it
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
+    Window root = DefaultRootWindow(display);
+#pragma clang diagnostic pop
+
+    Window         wmWindow     = 0;
+    Atom           actualType   = 0;
+    int            actualFormat = 0;
+    unsigned long  nitems = 0, bytesAfter = 0;
+    unsigned char* data = nullptr;
+
+    if (XGetWindowProperty(
+          display,
+          root,
+          supportingWmCheck,
+          0,
+          1,
+          False,
+          XA_WINDOW,
+          &actualType,
+          &actualFormat,
+          &nitems,
+          &bytesAfter,
+          &data
+        ) == Success &&
+        data) {
+      wmWindow = *std::bit_cast<Window*>(data);
+      XFree(data);
+      data = nullptr;
+
+      if (XGetWindowProperty(
+            display,
+            wmWindow,
+            wmName,
+            0,
+            1024,
+            False,
+            utf8String,
+            &actualType,
+            &actualFormat,
+            &nitems,
+            &bytesAfter,
+            &data
+          ) == Success &&
+          data) {
+        std::string name(std::bit_cast<char*>(data));
+        XFree(data);
+        XCloseDisplay(display);
+        return name;
+      }
+    }
+
+    XCloseDisplay(display);
+
+    return "Unknown (X11)";
+  }
+
+  fn TrimHyprlandWrapper(const std::string& input) -> std::string {
+    if (input.find("hyprland") != std::string::npos)
+      return "Hyprland";
+    return input;
+  }
+
+  fn ReadProcessCmdline(int pid) -> std::string {
+    std::string   path = "/proc/" + std::to_string(pid) + "/cmdline";
+    std::ifstream cmdlineFile(path);
+    std::string   cmdline;
+    if (std::getline(cmdlineFile, cmdline)) {
+      // Replace null bytes with spaces
+      std::ranges::replace(cmdline, '\0', ' ');
+      return cmdline;
+    }
+    return "";
+  }
+
+  fn DetectHyprlandSpecific() -> std::string {
+    // Check environment variables first
+    const char* xdgCurrentDesktop = std::getenv("XDG_CURRENT_DESKTOP");
+    if (xdgCurrentDesktop && strcasestr(xdgCurrentDesktop, "hyprland")) {
+      return "Hyprland";
+    }
+
+    // Check for Hyprland's specific environment variable
+    if (std::getenv("HYPRLAND_INSTANCE_SIGNATURE")) {
+      return "Hyprland";
+    }
+
+    // Check for Hyprland socket
+    std::string socketPath = "/run/user/" + std::to_string(getuid()) + "/hypr";
+    if (std::filesystem::exists(socketPath)) {
+      return "Hyprland";
+    }
+
+    return "";
+  }
+
+  fn GetWaylandCompositor() -> std::string {
+    // First try Hyprland-specific detection
+    std::string hypr = DetectHyprlandSpecific();
+    if (!hypr.empty())
+      return hypr;
+
+    // Then try the standard Wayland detection
+    wl_display* display = wl_display_connect(nullptr);
+    if (!display)
+      return "";
+
+    int fileDescriptor = wl_display_get_fd(display);
+
+    struct ucred cred;
+    socklen_t    len = sizeof(cred);
+    if (getsockopt(fileDescriptor, SOL_SOCKET, SO_PEERCRED, &cred, &len) == -1) {
+      wl_display_disconnect(display);
+      return "";
+    }
+
+    // Read both comm and cmdline
+    std::string compositorName;
+
+    // 1. Check comm (might be wrapped)
+    std::string   commPath = "/proc/" + std::to_string(cred.pid) + "/comm";
+    std::ifstream commFile(commPath);
+    if (commFile >> compositorName) {
+      std::ranges::subrange removedRange = std::ranges::remove(compositorName, '\n');
+      compositorName.erase(removedRange.begin(), compositorName.end());
+    }
+
+    // 2. Check cmdline for actual binary reference
+    std::string cmdline = ReadProcessCmdline(cred.pid);
+    if (cmdline.find("hyprland") != std::string::npos) {
+      wl_display_disconnect(display);
+      return "Hyprland";
+    }
+
+    // 3. Check exe symlink
+    std::string                exePath = "/proc/" + std::to_string(cred.pid) + "/exe";
+    std::array<char, PATH_MAX> buf;
+    ssize_t                    lenBuf = readlink(exePath.c_str(), buf.data(), buf.size() - 1);
+    if (lenBuf != -1) {
+      buf.at(static_cast<usize>(lenBuf)) = '\0';
+      std::string exe(buf.data());
+      if (exe.find("hyprland") != std::string::npos) {
+        wl_display_disconnect(display);
+        return "Hyprland";
+      }
+    }
+
+    wl_display_disconnect(display);
+
+    // Final cleanup of wrapper names
+    return TrimHyprlandWrapper(compositorName);
+  }
 }
-
-fn GetMemInfo() -> u64 { return MeminfoParse() * 1024; }
 
 fn GetOSVersion() -> std::string {
   constexpr const char* path = "/etc/os-release";
@@ -74,32 +271,7 @@ fn GetOSVersion() -> std::string {
   return "";
 }
 
-fn GetMprisPlayers(sdbus::IConnection& connection) -> std::vector<string> {
-  const sdbus::ServiceName dbusInterface       = sdbus::ServiceName("org.freedesktop.DBus");
-  const sdbus::ObjectPath  dbusObjectPath      = sdbus::ObjectPath("/org/freedesktop/DBus");
-  const char*              dbusMethodListNames = "ListNames";
-
-  const std::unique_ptr<sdbus::IProxy> dbusProxy = createProxy(connection, dbusInterface, dbusObjectPath);
-
-  std::vector<string> names;
-
-  dbusProxy->callMethod(dbusMethodListNames).onInterface(dbusInterface).storeResultsTo(names);
-
-  std::vector<string> mprisPlayers;
-
-  for (const std::basic_string<char>& name : names)
-    if (const char* mprisInterfaceName = "org.mpris.MediaPlayer2"; name.find(mprisInterfaceName) != std::string::npos)
-      mprisPlayers.push_back(name);
-
-  return mprisPlayers;
-}
-
-fn GetActivePlayer(const std::vector<string>& mprisPlayers) -> string {
-  if (!mprisPlayers.empty())
-    return mprisPlayers.front();
-
-  return "";
-}
+fn GetMemInfo() -> u64 { return MeminfoParse() * 1024; }
 
 fn GetNowPlaying() -> string {
   try {
@@ -145,6 +317,115 @@ fn GetNowPlaying() -> string {
   }
 
   return "";
+}
+
+fn GetWindowManager() -> string {
+  // Check environment variables first
+  const char* xdgSessionType = std::getenv("XDG_SESSION_TYPE");
+  const char* waylandDisplay = std::getenv("WAYLAND_DISPLAY");
+
+  // Prefer Wayland detection if Wayland session
+  if ((waylandDisplay != nullptr) || (xdgSessionType && strstr(xdgSessionType, "wayland"))) {
+    std::string compositor = GetWaylandCompositor();
+    if (!compositor.empty())
+      return compositor;
+
+    // Fallback environment check
+    const char* xdgCurrentDesktop = std::getenv("XDG_CURRENT_DESKTOP");
+    if (xdgCurrentDesktop) {
+      std::string desktop(xdgCurrentDesktop);
+      std::ranges::transform(compositor, compositor.begin(), ::tolower);
+      if (desktop.find("hyprland") != std::string::npos)
+        return "hyprland";
+    }
+  }
+
+  // X11 detection
+  std::string x11wm = GetX11WindowManager();
+  if (!x11wm.empty())
+    return x11wm;
+
+  return "Unknown";
+}
+
+fn GetDesktopEnvironment() -> string {
+  namespace fs = std::filesystem;
+
+  // Check standard environment variables first
+  if (const char* xdgDe = std::getenv("XDG_CURRENT_DESKTOP")) {
+    if (xdgDe[0] != '\0') {
+      std::string de(xdgDe);
+      if (size_t colon = de.find(':'); colon != std::string::npos)
+        de.erase(colon);
+      if (!de.empty())
+        return de;
+    }
+  }
+
+  if (const char* desktopSession = std::getenv("DESKTOP_SESSION")) {
+    if (desktopSession[0] != '\0') {
+      return desktopSession;
+    }
+  }
+
+  // Check session files in standard locations
+  const std::vector<fs::path> sessionPaths = { "/usr/share/xsessions", "/usr/share/wayland-sessions" };
+
+  // Map of DE identifiers to their session file patterns
+  const std::vector<std::pair<std::string, std::vector<std::string>>> dePatterns = {
+    {      "KDE",           { "plasma", "plasmax11", "kde" } },
+    {    "GNOME", { "gnome", "gnome-xorg", "gnome-wayland" } },
+    {     "XFCE",                                 { "xfce" } },
+    {     "MATE",                                 { "mate" } },
+    { "Cinnamon",                             { "cinnamon" } },
+    {   "Budgie",                               { "budgie" } },
+    {     "LXQt",                                 { "lxqt" } },
+    {    "Unity",                                { "unity" } }
+  };
+
+  for (const auto& sessionPath : sessionPaths) {
+    if (!fs::exists(sessionPath))
+      continue;
+
+    for (const auto& entry : fs::directory_iterator(sessionPath)) {
+      if (!entry.is_regular_file())
+        continue;
+
+      const std::string filename = entry.path().stem();
+      std::string       lowercaseFilename;
+      std::ranges::transform(filename, std::back_inserter(lowercaseFilename), ::tolower);
+
+      for (const auto& [deName, patterns] : dePatterns) {
+        for (const auto& pattern : patterns) {
+          if (lowercaseFilename.find(pattern) != std::string::npos) {
+            return deName;
+          }
+        }
+      }
+    }
+  }
+
+  // Fallback: Check process-based detection
+  const std::vector<std::pair<std::string, std::string>> processChecks = {
+    {     "plasmashell",      "KDE" },
+    {     "gnome-shell",    "GNOME" },
+    {   "xfce4-session",     "XFCE" },
+    {    "mate-session",     "MATE" },
+    { "cinnamon-sessio", "Cinnamon" },
+    {       "budgie-wm",   "Budgie" },
+    {    "lxqt-session",     "LXQt" }
+  };
+
+  std::ifstream cmdline("/proc/self/environ");
+  std::string   envVars((std::istreambuf_iterator<char>(cmdline)), std::istreambuf_iterator<char>());
+
+  for (const auto& [process, deName] : processChecks) {
+    if (envVars.find(process) != std::string::npos) {
+      return deName;
+    }
+  }
+
+  return "Unknown";
 }
 
 fn GetShell() -> string {
