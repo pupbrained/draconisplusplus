@@ -1,12 +1,19 @@
 #ifdef __WIN32__
 
-#include <exception>
 #include <iostream>
 #include <windows.h>
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Media.Control.h>
 #include <winrt/base.h>
 #include <winrt/impl/Windows.Media.Control.2.h>
+
+// clang-format off
+#include <dwmapi.h>
+#include <tlhelp32.h>
+#include <algorithm>
+#include <vector>
+#include <cstring>
+// clang-format on
 
 #include "os.h"
 
@@ -37,6 +44,33 @@ namespace {
       value.pop_back();
 
     return value;
+  }
+
+  // Add these function implementations
+  fn GetRunningProcesses() -> std::vector<string> {
+    std::vector<string> processes;
+    HANDLE              hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (hSnapshot == INVALID_HANDLE_VALUE)
+      return processes;
+
+    PROCESSENTRY32 pe32;
+    pe32.dwSize = sizeof(PROCESSENTRY32);
+
+    if (!Process32First(hSnapshot, &pe32)) {
+      CloseHandle(hSnapshot);
+      return processes;
+    }
+
+    while (Process32Next(hSnapshot, &pe32)) { processes.emplace_back(pe32.szExeFile); }
+
+    CloseHandle(hSnapshot);
+    return processes;
+  }
+
+  fn IsProcessRunning(const std::vector<string>& processes, const string& name) -> bool {
+    return std::ranges::any_of(processes, [&name](const string& proc) {
+      return _stricmp(proc.c_str(), name.c_str()) == 0;
+    });
   }
 }
 
@@ -133,6 +167,74 @@ fn GetKernelVersion() -> string {
   }
 
   return versionStream.str();
+}
+
+fn GetWindowManager() -> string {
+  const std::vector<string> processes = GetRunningProcesses();
+  string                    windowManager;
+
+  // Check for third-party WMs
+  if (IsProcessRunning(processes, "glazewm.exe")) {
+    windowManager = "GlazeWM";
+  } else if (IsProcessRunning(processes, "fancywm.exe")) {
+    windowManager = "FancyWM";
+  } else if (IsProcessRunning(processes, "komorebi.exe") || IsProcessRunning(processes, "komorebic.exe")) {
+    windowManager = "Komorebi";
+  }
+
+  // Fallback to DWM detection
+  if (windowManager.empty()) {
+    BOOL compositionEnabled = FALSE;
+    if (SUCCEEDED(DwmIsCompositionEnabled(&compositionEnabled))) {
+      windowManager = compositionEnabled ? "Desktop Window Manager" : "Windows Manager (Basic)";
+    } else {
+      windowManager = "Windows Manager";
+    }
+  }
+
+  return windowManager;
+}
+
+fn GetDesktopEnvironment() -> string {
+  // Get version information from registry
+  const string buildStr =
+    GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", "CurrentBuildNumber");
+
+  if (buildStr.empty())
+    return "Unknown";
+
+  try {
+    const i32 build = stoi(buildStr);
+
+    // Windows 11+ (Fluent)
+    if (build >= 22000)
+      return "Fluent (Windows 11)";
+
+    // Windows 10 Fluent Era
+    if (build >= 15063)
+      return "Fluent (Windows 10)";
+
+    // Windows 8.1/10 Metro Era
+    if (build >= 9200) { // Windows 8+
+      // Distinguish between Windows 8 and 10
+      const string productName =
+        GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", "ProductName");
+
+      if (productName.find("Windows 10") != string::npos)
+        return "Metro (Windows 10)";
+
+      if (build >= 9600)
+        return "Metro (Windows 8.1)";
+      return "Metro (Windows 8)";
+    }
+
+    // Windows 7 Aero
+    if (build >= 7600)
+      return "Aero (Windows 7)";
+
+    // Older versions
+    return "Classic";
+  } catch (...) { return "Unknown"; }
 }
 
 #endif

@@ -104,7 +104,7 @@ if host_machine.system() == 'darwin'
   objc_args += ['-fobjc-arc']
 elif host_machine.system() == 'windows'
   windows_sdk_lib_dir = 'C:/Program Files (x86)/Windows Kits/10/Lib/10.0.22621.0/um/x64'
-  link_args += ['-L' + windows_sdk_lib_dir, '-lwindowsapp', '-static']
+  link_args += ['-L' + windows_sdk_lib_dir, '-lwindowsapp', '-ldwmapi', '-static']
 endif
 
 executable(

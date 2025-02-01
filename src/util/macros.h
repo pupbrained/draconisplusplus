@@ -57,7 +57,8 @@ void LogImpl(LogLevel level, const std::source_location& loc, fmt::format_string
   fmt::print("\n");
 }
 
-// Minimal macros to capture source_location at call site
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunused-macros"
 #ifdef NDEBUG
 #define DEBUG_LOG(...) (void)0
 #else
@@ -67,3 +68,4 @@ void LogImpl(LogLevel level, const std::source_location& loc, fmt::format_string
 #define INFO_LOG(...) LogImpl(LogLevel::INFO, std::source_location::current(), __VA_ARGS__)
 #define WARN_LOG(...) LogImpl(LogLevel::WARN, std::source_location::current(), __VA_ARGS__)
 #define ERROR_LOG(...) LogImpl(LogLevel::ERROR, std::source_location::current(), __VA_ARGS__)
+#pragma clang diagnostic pop
