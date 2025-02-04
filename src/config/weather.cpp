@@ -1,5 +1,6 @@
 #include <chrono>
 #include <curl/curl.h>
+#include <expected>
 #include <filesystem>
 #include <fmt/core.h>
 #include <rfl/json.hpp>
@@ -7,9 +8,12 @@
 
 #include "config.h"
 
-using rfl::Error;
-using rfl::Result;
 namespace fs = std::filesystem;
+using namespace std::string_literals;
+
+// Alias for cleaner error handling
+template <typename T>
+using Result = std::expected<T, std::string>;
 
 namespace {
   // Common function to get cache path
@@ -18,7 +22,7 @@ namespace {
     fs::path        cachePath = fs::temp_directory_path(errc);
 
     if (errc)
-      return Error("Failed to get temp directory: " + errc.message());
+      return std::unexpected("Failed to get temp directory: "s + errc.message());
 
     cachePath /= "weather_cache.json";
     return cachePath;
@@ -28,91 +32,94 @@ namespace {
   fn ReadCacheFromFile() -> Result<WeatherOutput> {
     Result<fs::path> cachePath = GetCachePath();
     if (!cachePath)
-      return Error(cachePath.error()->what());
+      return std::unexpected(cachePath.error());
 
     std::ifstream ifs(*cachePath, std::ios::binary);
     if (!ifs.is_open())
-      return Error("Cache file not found: " + cachePath.value().string());
+      return std::unexpected("Cache file not found: "s + cachePath->string());
 
     DEBUG_LOG("Reading from cache file...");
 
     std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
 
-    Result<WeatherOutput> result = rfl::json::read<WeatherOutput>(content);
+    rfl::Result<WeatherOutput> result = rfl::json::read<WeatherOutput>(content);
+    if (!result)
+      return std::unexpected(result.error()->what());
 
     DEBUG_LOG("Successfully read from cache file.");
-    return result;
+    return *result;
   }
 
   // Function to write cache to file
-  fn WriteCacheToFile(const WeatherOutput& data) -> Result<u8> {
+  fn WriteCacheToFile(const WeatherOutput& data) -> Result<void> {
     Result<fs::path> cachePath = GetCachePath();
     if (!cachePath)
-      return Error(cachePath.error()->what());
+      return std::unexpected(cachePath.error());
 
     DEBUG_LOG("Writing to cache file...");
 
-    // Write to temporary file first
     fs::path tempPath = *cachePath;
     tempPath += ".tmp";
 
     {
       std::ofstream ofs(tempPath, std::ios::binary | std::ios::trunc);
       if (!ofs.is_open())
-        return Error("Failed to open temp file: " + tempPath.string());
+        return std::unexpected("Failed to open temp file: "s + tempPath.string());
 
-      auto json = rfl::json::write(data);
+      std::string json = rfl::json::write(data);
       ofs << json;
 
       if (!ofs)
-        return Error("Failed to write to temp file");
-    } // File stream closes here
+        return std::unexpected("Failed to write to temp file");
+    }
 
-    // Atomic replace
     std::error_code errc;
     fs::rename(tempPath, *cachePath, errc);
 
     if (errc) {
       fs::remove(tempPath, errc);
-      return Error("Failed to replace cache file: " + errc.message());
+      return std::unexpected("Failed to replace cache file: "s + errc.message());
     }
 
     DEBUG_LOG("Successfully wrote to cache file.");
-    return 0;
+    return {};
   }
 
-  fn WriteCallback(void* contents, const usize size, const usize nmemb, string* str) -> usize {
-    const usize totalSize = size * nmemb;
+  fn WriteCallback(void* contents, size_t size, size_t nmemb, std::string* str) -> size_t {
+    const size_t totalSize = size * nmemb;
     str->append(static_cast<char*>(contents), totalSize);
     return totalSize;
   }
 
   // Function to make API request
-  fn MakeApiRequest(const string& url) -> Result<WeatherOutput> {
+  fn MakeApiRequest(const std::string& url) -> Result<WeatherOutput> {
     DEBUG_LOG("Making API request to URL: {}", url);
 
-    CURL*  curl = curl_easy_init();
-    string responseBuffer;
+    CURL*       curl = curl_easy_init();
+    std::string responseBuffer;
 
-    if (curl) {
-      curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-      curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-      curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseBuffer);
-      const CURLcode res = curl_easy_perform(curl);
-      curl_easy_cleanup(curl);
+    if (!curl)
+      return std::unexpected("Failed to initialize cURL");
 
-      if (res != CURLE_OK)
-        return Error(fmt::format("Failed to perform cURL request: {}", curl_easy_strerror(res)));
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseBuffer);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5);
 
-      DEBUG_LOG("Received response from API. Response size: {}", responseBuffer.size());
-      DEBUG_LOG("Response: {}", responseBuffer);
+    const CURLcode res = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
 
-      WeatherOutput output = rfl::json::read<WeatherOutput>(responseBuffer).value();
+    if (res != CURLE_OK)
+      return std::unexpected(fmt::format("cURL error: {}", curl_easy_strerror(res)));
 
-      return output; // Return an empty result for now
-    }
+    DEBUG_LOG("API response size: {}", responseBuffer.size());
 
-    return Error("Failed to initialize cURL.");
+    rfl::Result<WeatherOutput> output = rfl::json::read<WeatherOutput>(responseBuffer);
+    if (!output)
+      return std::unexpected(output.error()->what());
+
+    return *output;
   }
 }
 
@@ -120,60 +127,48 @@ namespace {
 fn Weather::getWeatherInfo() const -> WeatherOutput {
   using namespace std::chrono;
 
-  // Check if cache is valid
   if (Result<WeatherOutput> data = ReadCacheFromFile()) {
-    WeatherOutput dataVal = *data;
+    const WeatherOutput&   dataVal  = *data;
+    const duration<double> cacheAge = system_clock::now() - system_clock::time_point(seconds(dataVal.dt));
 
-    if (system_clock::now() - system_clock::time_point(seconds(dataVal.dt)) < minutes(10)) {
-      DEBUG_LOG("Cache is valid. Returning cached data.");
-
+    if (cacheAge < 10min) {
+      DEBUG_LOG("Using valid cache");
       return dataVal;
     }
-
-    DEBUG_LOG("Cache is expired.");
+    DEBUG_LOG("Cache expired");
   } else {
-    DEBUG_LOG("No valid cache found.");
+    DEBUG_LOG("Cache error: {}", data.error());
   }
 
-  WeatherOutput result;
+  fn handleApiResult = [](const Result<WeatherOutput>& result) -> WeatherOutput {
+    if (!result)
+      ERROR_LOG("API request failed: {}", result.error());
 
-  if (holds_alternative<string>(location)) {
-    const string city = get<string>(location);
+    // Fix for second warning: Check the write result
+    if (Result<void> writeResult = WriteCacheToFile(*result); !writeResult)
+      ERROR_LOG("Failed to write cache: {}", writeResult.error());
 
-    const char* loc = curl_easy_escape(nullptr, city.c_str(), static_cast<int>(city.length()));
+    return *result;
+  };
 
-    DEBUG_LOG("City: {}", loc);
+  if (std::holds_alternative<std::string>(location)) {
+    const auto& city    = std::get<std::string>(location);
+    char*       escaped = curl_easy_escape(nullptr, city.c_str(), static_cast<int>(city.length()));
 
-    const string apiUrl = fmt::format(
-      "https://api.openweathermap.org/data/2.5/"
-      "weather?q={}&appid={}&units={}",
-      loc,
-      api_key,
-      units
-    );
+    DEBUG_LOG("Requesting city: {}", escaped);
+    const std::string apiUrl =
+      fmt::format("https://api.openweathermap.org/data/2.5/weather?q={}&appid={}&units={}", escaped, api_key, units);
 
-    result = MakeApiRequest(apiUrl).value();
-  } else {
-    const auto [lat, lon] = get<Coords>(location);
-
-    DEBUG_LOG("Coordinates: lat = {:.3f}, lon = {:.3f}", lat, lon);
-
-    const string apiUrl = fmt::format(
-      "https://api.openweathermap.org/data/2.5/"
-      "weather?lat={:.3f}&lon={:.3f}&appid={}&units={}",
-      lat,
-      lon,
-      api_key,
-      units
-    );
-
-    result = MakeApiRequest(apiUrl).value();
+    curl_free(escaped);
+    return handleApiResult(MakeApiRequest(apiUrl));
   }
 
-  // Update the cache with the new data
-  WriteCacheToFile(result);
+  const auto& [lat, lon] = std::get<Coords>(location);
+  DEBUG_LOG("Requesting coordinates: lat={:.3f}, lon={:.3f}", lat, lon);
 
-  DEBUG_LOG("Returning new data.");
+  const std::string apiUrl = fmt::format(
+    "https://api.openweathermap.org/data/2.5/weather?lat={:.3f}&lon={:.3f}&appid={}&units={}", lat, lon, api_key, units
+  );
 
-  return result;
+  return handleApiResult(MakeApiRequest(apiUrl));
 }

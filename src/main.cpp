@@ -10,6 +10,8 @@
 #include "config/config.h"
 #include "os/os.h"
 
+constexpr const bool SHOW_ICONS = true;
+
 struct BytesToGiB {
   u64 value;
 };
@@ -83,18 +85,23 @@ namespace {
     const bool         nowPlayingEnabled  = config.now_playing.get().enabled;
     const std::string& nowPlaying         = nowPlayingEnabled ? GetNowPlaying() : "";
 
-    // Icon constants (using Nerd Font v3)
-    constexpr const char*  calendarIcon = "   ";
-    constexpr const char*  hostIcon     = " 󰌢  ";
-    constexpr const char*  kernelIcon   = "   ";
-    constexpr const char*  osIcon       = "   ";
-    constexpr const char*  memoryIcon   = "   ";
-    constexpr const char*  weatherIcon  = "   ";
-    constexpr const char*  musicIcon    = "   ";
-    const Color::Palette16 labelColor   = Color::Yellow;
-    const Color::Palette16 valueColor   = Color::White;
-    const Color::Palette16 borderColor  = Color::GrayLight;
-    const Color::Palette16 iconColor    = Color::Cyan;
+    const char *calendarIcon = "", *hostIcon = "", *kernelIcon = "", *osIcon = "", *memoryIcon = "", *weatherIcon = "",
+               *musicIcon = "";
+
+    if (SHOW_ICONS) {
+      calendarIcon = "   ";
+      hostIcon     = " 󰌢  ";
+      kernelIcon   = "   ";
+      osIcon       = "   ";
+      memoryIcon   = "   ";
+      weatherIcon  = "   ";
+      musicIcon    = "   ";
+    }
+
+    const Color::Palette16 labelColor  = Color::Yellow;
+    const Color::Palette16 valueColor  = Color::White;
+    const Color::Palette16 borderColor = Color::GrayLight;
+    const Color::Palette16 iconColor   = Color::Cyan;
 
     Elements content;
 
@@ -111,7 +118,6 @@ namespace {
       return hbox({
         text(icon) | color(iconColor),
         text(label) | color(labelColor),
-        text(" "),
         filler(),
         text(value) | color(valueColor),
         text(" "),

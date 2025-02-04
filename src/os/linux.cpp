@@ -1,5 +1,6 @@
 #ifdef __linux__
 
+#include <SQLiteCpp/SQLiteCpp.h>
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <algorithm>
@@ -9,6 +10,7 @@
 #include <fstream>
 #include <ranges>
 #include <sdbus-c++/sdbus-c++.h>
+#include <sqlite3.h>
 #include <sys/socket.h>
 #include <sys/utsname.h>
 #include <vector>
@@ -51,9 +53,8 @@ namespace {
 
         // Find the end of the numeric part
         const size_t end = view.find_first_not_of("0123456789");
-        if (end != std::string_view::npos) {
+        if (end != std::string_view::npos)
           view = view.substr(0, end);
-        }
 
         // Get pointers via iterators
         const char* startPtr = &*view.begin(); // Safe iterator-to-pointer conversion
@@ -346,14 +347,81 @@ namespace {
     std::ifstream cmdline("/proc/self/environ");
     std::string   envVars((std::istreambuf_iterator<char>(cmdline)), std::istreambuf_iterator<char>());
 
-    for (const auto& [process, deName] : processChecks) {
+    for (const auto& [process, deName] : processChecks)
       if (envVars.find(process) != std::string::npos)
         return deName;
-    }
 
     return "Unknown";
   }
 
+  fn CountNix() noexcept -> std::optional<size_t> {
+    constexpr std::string_view dbPath   = "/nix/var/nix/db/db.sqlite";
+    constexpr std::string_view querySql = "SELECT COUNT(*) FROM ValidPaths WHERE sigs IS NOT NULL;";
+
+    sqlite3*      sqlDB = nullptr;
+    sqlite3_stmt* stmt  = nullptr;
+    size_t        count = 0;
+
+    // 1. Direct URI construction without string concatenation
+    const std::string uri =
+      fmt::format("file:{}{}immutable=1", dbPath, (dbPath.find('?') != std::string_view::npos) ? "&" : "?");
+
+    // 2. Open database with optimized flags
+    if (sqlite3_open_v2(uri.c_str(), &sqlDB, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI | SQLITE_OPEN_NOMUTEX, nullptr) !=
+        SQLITE_OK) {
+      return std::nullopt;
+    }
+
+    // 3. Configure database for maximum read performance
+    sqlite3_exec(sqlDB, "PRAGMA journal_mode=OFF; PRAGMA mmap_size=268435456;", nullptr, nullptr, nullptr);
+
+    // 4. Single-step prepared statement execution
+    if (sqlite3_prepare_v3(sqlDB, querySql.data(), querySql.size(), SQLITE_PREPARE_PERSISTENT, &stmt, nullptr) ==
+        SQLITE_OK) {
+      if (sqlite3_step(stmt) == SQLITE_ROW) {
+        count = static_cast<size_t>(sqlite3_column_int64(stmt, 0));
+      }
+      sqlite3_finalize(stmt);
+    }
+
+    sqlite3_close(sqlDB);
+    return count ? std::optional { count } : std::nullopt;
+  }
+
+  fn CountNixWithCache() noexcept -> std::optional<size_t> {
+    constexpr std::string_view dbPath    = "/nix/var/nix/db/db.sqlite";
+    constexpr std::string_view cachePath = "/tmp/nix_pkg_count.cache";
+
+    // 1. Check cache validity atomically
+    try {
+      const auto dbMtime    = std::filesystem::last_write_time(dbPath);
+      const auto cacheMtime = std::filesystem::last_write_time(cachePath);
+
+      if (std::filesystem::exists(cachePath) && dbMtime <= cacheMtime) {
+        // Read cached value (atomic read)
+        std::ifstream cache(cachePath.data(), std::ios::binary);
+        size_t        count = 0;
+        cache.read(std::bit_cast<char*>(&count), sizeof(count));
+        return cache ? std::optional(count) : std::nullopt;
+      }
+    } catch (...) {} // Ignore errors, fall through to rebuild cache
+
+    // 2. Compute fresh value
+    const auto count = CountNix(); // Original optimized function
+
+    // 3. Update cache atomically (write+rename pattern)
+    if (count) {
+      constexpr std::string_view tmpPath = "/tmp/nix_pkg_count.tmp";
+      {
+        std::ofstream tmp(tmpPath.data(), std::ios::binary | std::ios::trunc);
+        tmp.write(std::bit_cast<const char*>(&*count), sizeof(*count));
+      } // RAII close
+
+      std::filesystem::rename(tmpPath, cachePath);
+    }
+
+    return count;
+  }
 }
 
 fn GetOSVersion() -> std::string {
@@ -414,10 +482,33 @@ fn GetNowPlaying() -> string {
       const std::map<std::basic_string<char>, sdbus::Variant>& metadata =
         metadataVariant.get<std::map<std::string, sdbus::Variant>>();
 
-      auto iter = metadata.find("xesam:title");
+      std::string title;
+      auto        titleIter = metadata.find("xesam:title");
+      if (titleIter != metadata.end() && titleIter->second.containsValueOfType<std::string>()) {
+        title = titleIter->second.get<std::string>();
+      }
 
-      if (iter != metadata.end() && iter->second.containsValueOfType<std::string>())
-        return iter->second.get<std::string>();
+      std::string artist;
+      auto        artistIter = metadata.find("xesam:artist");
+      if (artistIter != metadata.end() && artistIter->second.containsValueOfType<std::vector<std::string>>()) {
+        auto artists = artistIter->second.get<std::vector<std::string>>();
+        if (!artists.empty()) {
+          artist = artists[0];
+        }
+      }
+
+      std::string result;
+      if (!artist.empty() && !title.empty()) {
+        result = artist + " - " + title;
+      } else if (!title.empty()) {
+        result = title;
+      } else if (!artist.empty()) {
+        result = artist;
+      } else {
+        result = "";
+      }
+
+      return result;
     }
   } catch (const sdbus::Error& e) {
     if (e.getName() != "com.github.altdesktop.playerctld.NoActivePlayer") {
@@ -430,7 +521,6 @@ fn GetNowPlaying() -> string {
 
   return "";
 }
-
 fn GetWindowManager() -> string {
   // Check environment variables first
   const char* xdgSessionType = std::getenv("XDG_SESSION_TYPE");
@@ -504,6 +594,8 @@ fn GetKernelVersion() -> string {
     ERROR_LOG("uname() failed: {}", std::strerror(errno));
     return "";
   }
+
+  DEBUG_LOG("{}", CountNixWithCache().value_or(0));
 
   return static_cast<const char*>(uts.release);
 }

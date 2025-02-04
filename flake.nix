@@ -65,6 +65,7 @@
             tomlplusplus
             yyjson
             reflect-cpp
+            sqlitecpp
             ftxui
           ]
           ++ linuxPkgs
@@ -75,7 +76,6 @@
           systemdLibs
           sdbus-cpp
           valgrind
-          linuxKernel.packages.linux_zen.perf.out
           xorg.libX11
           wayland
         ]);
