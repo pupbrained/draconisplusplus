@@ -8,6 +8,7 @@
 #include <string>
 
 #include "config/config.h"
+#include "ftxui/screen/color.hpp"
 #include "os/os.h"
 
 constexpr const bool SHOW_ICONS = true;
@@ -73,17 +74,17 @@ namespace {
 
   fn SystemInfoBox(const Config& config) -> Element {
     // Fetch data
-    const std::string& name               = config.general.get().name.get();
-    const std::string& date               = GetDate();
-    const Weather      weather            = config.weather.get();
-    const std::string& host               = GetHost();
-    const std::string& kernelVersion      = GetKernelVersion();
-    const std::string& osVersion          = GetOSVersion();
-    const u64          memInfo            = GetMemInfo();
-    const std::string& desktopEnvironment = GetDesktopEnvironment();
-    const std::string& windowManager      = GetWindowManager();
-    const bool         nowPlayingEnabled  = config.now_playing.get().enabled;
-    const std::string& nowPlaying         = nowPlayingEnabled ? GetNowPlaying() : "";
+    const string& name               = config.general.get().name.get();
+    const string& date               = GetDate();
+    const Weather weather            = config.weather.get();
+    const string& host               = GetHost();
+    const string& kernelVersion      = GetKernelVersion();
+    const string& osVersion          = GetOSVersion();
+    const u64     memInfo            = GetMemInfo();
+    const string& desktopEnvironment = GetDesktopEnvironment();
+    const string& windowManager      = GetWindowManager();
+    const bool    nowPlayingEnabled  = config.now_playing.get().enabled;
+    const string& nowPlaying         = nowPlayingEnabled ? GetNowPlaying() : "";
 
     const char *calendarIcon = "", *hostIcon = "", *kernelIcon = "", *osIcon = "", *memoryIcon = "", *weatherIcon = "",
                *musicIcon = "";

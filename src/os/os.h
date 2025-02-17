@@ -42,3 +42,8 @@ fn GetHost() -> string;
  * @brief Get the kernel version.
  */
 fn GetKernelVersion() -> string;
+
+/**
+ * @brief Get the number of installed packages.
+ */
+fn GetPackageCount() -> u64;

@@ -38,8 +38,8 @@ void LogImpl(LogLevel level, const std::source_location& loc, fmt::format_string
     }
   }();
 
-  const std::string filename = std::filesystem::path(loc.file_name()).lexically_normal().string();
-  const struct tm   time     = *std::localtime(&now);
+  const string    filename = std::filesystem::path(loc.file_name()).lexically_normal().string();
+  const struct tm time     = *std::localtime(&now);
 
   // Timestamp and level
   fmt::print(fg(log_colors::timestamp), "[{:%H:%M:%S}] ", time);
@@ -60,7 +60,7 @@ void LogImpl(LogLevel level, const std::source_location& loc, fmt::format_string
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-macros"
 #ifdef NDEBUG
-#define DEBUG_LOG(...) (void)0
+#define DEBUG_LOG(...) static_cast<void>(0)
 #else
 #define DEBUG_LOG(...) LogImpl(LogLevel::DEBUG, std::source_location::current(), __VA_ARGS__)
 #endif

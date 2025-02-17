@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstring>
 #include <dirent.h>
+#include <filesystem>
 #include <fmt/format.h>
 #include <fstream>
 #include <ranges>
@@ -19,6 +20,8 @@
 #include "os.h"
 #include "src/util/macros.h"
 
+namespace fs = std::filesystem;
+
 enum SessionType : u8 { Wayland, X11, TTY, Unknown };
 
 namespace {
@@ -31,7 +34,7 @@ namespace {
       return 0;
     }
 
-    std::string line;
+    string line;
     while (std::getline(input, line)) {
       if (line.starts_with("MemTotal")) {
         const size_t colonPos = line.find(':');
@@ -104,17 +107,19 @@ namespace {
 
   fn GetX11WindowManager() -> string {
     Display* display = XOpenDisplay(nullptr);
+
+    // If XOpenDisplay fails, likely in a TTY
     if (!display)
-      return "Unknown (X11)";
+      return "";
 
     Atom supportingWmCheck = XInternAtom(display, "_NET_SUPPORTING_WM_CHECK", False);
     Atom wmName            = XInternAtom(display, "_NET_WM_NAME", False);
     Atom utf8String        = XInternAtom(display, "UTF8_STRING", False);
 
-    // ignore unsafe buffer access warning, can't really get around it
 #pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wold-style-cast"
 #pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
-    Window root = DefaultRootWindow(display);
+    Window root = DefaultRootWindow(display); // NOLINT
 #pragma clang diagnostic pop
 
     Window         wmWindow     = 0;
@@ -130,7 +135,8 @@ namespace {
           0,
           1,
           False,
-          XA_WINDOW,
+          // XA_WINDOW
+          static_cast<Atom>(33),
           &actualType,
           &actualFormat,
           &nitems,
@@ -157,7 +163,7 @@ namespace {
             &data
           ) == Success &&
           data) {
-        std::string name(std::bit_cast<char*>(data));
+        string name(std::bit_cast<char*>(data));
         XFree(data);
         XCloseDisplay(display);
         return name;
@@ -166,19 +172,19 @@ namespace {
 
     XCloseDisplay(display);
 
-    return "Unknown (X11)";
+    return "Unknown (X11)"; // Changed to empty string
   }
 
-  fn TrimHyprlandWrapper(const std::string& input) -> std::string {
+  fn TrimHyprlandWrapper(const std::string& input) -> string {
     if (input.find("hyprland") != std::string::npos)
       return "Hyprland";
     return input;
   }
 
-  fn ReadProcessCmdline(int pid) -> std::string {
-    std::string   path = "/proc/" + std::to_string(pid) + "/cmdline";
+  fn ReadProcessCmdline(int pid) -> string {
+    string        path = "/proc/" + std::to_string(pid) + "/cmdline";
     std::ifstream cmdlineFile(path);
-    std::string   cmdline;
+    string        cmdline;
     if (std::getline(cmdlineFile, cmdline)) {
       // Replace null bytes with spaces
       std::ranges::replace(cmdline, '\0', ' ');
@@ -187,30 +193,26 @@ namespace {
     return "";
   }
 
-  fn DetectHyprlandSpecific() -> std::string {
+  fn DetectHyprlandSpecific() -> string {
     // Check environment variables first
     const char* xdgCurrentDesktop = std::getenv("XDG_CURRENT_DESKTOP");
-    if (xdgCurrentDesktop && strcasestr(xdgCurrentDesktop, "hyprland")) {
+    if (xdgCurrentDesktop && strcasestr(xdgCurrentDesktop, "hyprland"))
       return "Hyprland";
-    }
 
     // Check for Hyprland's specific environment variable
-    if (std::getenv("HYPRLAND_INSTANCE_SIGNATURE")) {
+    if (std::getenv("HYPRLAND_INSTANCE_SIGNATURE"))
       return "Hyprland";
-    }
 
     // Check for Hyprland socket
-    std::string socketPath = "/run/user/" + std::to_string(getuid()) + "/hypr";
-    if (std::filesystem::exists(socketPath)) {
+    if (fs::exists("/run/user/" + std::to_string(getuid()) + "/hypr"))
       return "Hyprland";
-    }
 
     return "";
   }
 
-  fn GetWaylandCompositor() -> std::string {
+  fn GetWaylandCompositor() -> string {
     // First try Hyprland-specific detection
-    std::string hypr = DetectHyprlandSpecific();
+    string hypr = DetectHyprlandSpecific();
     if (!hypr.empty())
       return hypr;
 
@@ -229,10 +231,10 @@ namespace {
     }
 
     // Read both comm and cmdline
-    std::string compositorName;
+    string compositorName;
 
     // 1. Check comm (might be wrapped)
-    std::string   commPath = "/proc/" + std::to_string(cred.pid) + "/comm";
+    string        commPath = "/proc/" + std::to_string(cred.pid) + "/comm";
     std::ifstream commFile(commPath);
     if (commFile >> compositorName) {
       std::ranges::subrange removedRange = std::ranges::remove(compositorName, '\n');
@@ -240,19 +242,19 @@ namespace {
     }
 
     // 2. Check cmdline for actual binary reference
-    std::string cmdline = ReadProcessCmdline(cred.pid);
+    string cmdline = ReadProcessCmdline(cred.pid);
     if (cmdline.find("hyprland") != std::string::npos) {
       wl_display_disconnect(display);
       return "Hyprland";
     }
 
     // 3. Check exe symlink
-    std::string                exePath = "/proc/" + std::to_string(cred.pid) + "/exe";
+    string                     exePath = "/proc/" + std::to_string(cred.pid) + "/exe";
     std::array<char, PATH_MAX> buf;
     ssize_t                    lenBuf = readlink(exePath.c_str(), buf.data(), buf.size() - 1);
     if (lenBuf != -1) {
       buf.at(static_cast<usize>(lenBuf)) = '\0';
-      std::string exe(buf.data());
+      string exe(buf.data());
       if (exe.find("hyprland") != std::string::npos) {
         wl_display_disconnect(display);
         return "Hyprland";
@@ -266,7 +268,7 @@ namespace {
   }
 
   // Helper functions
-  fn ToLowercase(std::string str) -> std::string {
+  fn ToLowercase(string str) -> string {
     std::ranges::transform(str, str.begin(), ::tolower);
     return str;
   }
@@ -275,12 +277,12 @@ namespace {
     return std::ranges::any_of(needles, [&](auto& n) { return haystack.find(n) != std::string_view::npos; });
   }
 
-  fn DetectFromEnvVars() -> std::string {
+  fn DetectFromEnvVars() -> string {
     // Check XDG_CURRENT_DESKTOP
     if (const char* xdgDe = std::getenv("XDG_CURRENT_DESKTOP")) {
       std::string_view sview(xdgDe);
       if (!sview.empty()) {
-        std::string deStr(sview);
+        string deStr(sview);
         if (size_t colon = deStr.find(':'); colon != std::string::npos)
           deStr.erase(colon);
         if (!deStr.empty())
@@ -298,8 +300,7 @@ namespace {
     return "";
   }
 
-  fn DetectFromSessionFiles() -> std::string {
-    namespace fs                             = std::filesystem;
+  fn DetectFromSessionFiles() -> string {
     const std::vector<fs::path> sessionPaths = { "/usr/share/xsessions", "/usr/share/wayland-sessions" };
 
     const std::vector<std::pair<std::string, std::vector<std::string>>> dePatterns = {
@@ -321,8 +322,8 @@ namespace {
         if (!entry.is_regular_file())
           continue;
 
-        const std::string filename      = entry.path().stem();
-        auto              lowerFilename = ToLowercase(filename);
+        const string filename      = entry.path().stem();
+        auto         lowerFilename = ToLowercase(filename);
 
         for (const auto& [deName, patterns] : dePatterns) {
           if (ContainsAny(lowerFilename, patterns))
@@ -333,7 +334,7 @@ namespace {
     return "";
   }
 
-  fn DetectFromProcesses() -> std::string {
+  fn DetectFromProcesses() -> string {
     const std::vector<std::pair<std::string, std::string>> processChecks = {
       {     "plasmashell",      "KDE" },
       {     "gnome-shell",    "GNOME" },
@@ -345,7 +346,7 @@ namespace {
     };
 
     std::ifstream cmdline("/proc/self/environ");
-    std::string   envVars((std::istreambuf_iterator<char>(cmdline)), std::istreambuf_iterator<char>());
+    string        envVars((std::istreambuf_iterator<char>(cmdline)), std::istreambuf_iterator<char>());
 
     for (const auto& [process, deName] : processChecks)
       if (envVars.find(process) != std::string::npos)
@@ -354,23 +355,22 @@ namespace {
     return "Unknown";
   }
 
-  fn CountNix() noexcept -> std::optional<size_t> {
+  fn CountNix() noexcept -> std::optional<usize> {
     constexpr std::string_view dbPath   = "/nix/var/nix/db/db.sqlite";
     constexpr std::string_view querySql = "SELECT COUNT(*) FROM ValidPaths WHERE sigs IS NOT NULL;";
 
     sqlite3*      sqlDB = nullptr;
     sqlite3_stmt* stmt  = nullptr;
-    size_t        count = 0;
+    usize         count = 0;
 
     // 1. Direct URI construction without string concatenation
-    const std::string uri =
+    const string uri =
       fmt::format("file:{}{}immutable=1", dbPath, (dbPath.find('?') != std::string_view::npos) ? "&" : "?");
 
     // 2. Open database with optimized flags
     if (sqlite3_open_v2(uri.c_str(), &sqlDB, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI | SQLITE_OPEN_NOMUTEX, nullptr) !=
-        SQLITE_OK) {
+        SQLITE_OK)
       return std::nullopt;
-    }
 
     // 3. Configure database for maximum read performance
     sqlite3_exec(sqlDB, "PRAGMA journal_mode=OFF; PRAGMA mmap_size=268435456;", nullptr, nullptr, nullptr);
@@ -378,9 +378,9 @@ namespace {
     // 4. Single-step prepared statement execution
     if (sqlite3_prepare_v3(sqlDB, querySql.data(), querySql.size(), SQLITE_PREPARE_PERSISTENT, &stmt, nullptr) ==
         SQLITE_OK) {
-      if (sqlite3_step(stmt) == SQLITE_ROW) {
-        count = static_cast<size_t>(sqlite3_column_int64(stmt, 0));
-      }
+      if (sqlite3_step(stmt) == SQLITE_ROW)
+        count = static_cast<usize>(sqlite3_column_int64(stmt, 0));
+
       sqlite3_finalize(stmt);
     }
 
@@ -389,42 +389,41 @@ namespace {
   }
 
   fn CountNixWithCache() noexcept -> std::optional<size_t> {
-    constexpr std::string_view dbPath    = "/nix/var/nix/db/db.sqlite";
-    constexpr std::string_view cachePath = "/tmp/nix_pkg_count.cache";
+    constexpr const char* dbPath    = "/nix/var/nix/db/db.sqlite";
+    constexpr const char* cachePath = "/tmp/nix_pkg_count.cache";
 
-    // 1. Check cache validity atomically
     try {
-      const auto dbMtime    = std::filesystem::last_write_time(dbPath);
-      const auto cacheMtime = std::filesystem::last_write_time(cachePath);
+      using mtime = fs::file_time_type;
 
-      if (std::filesystem::exists(cachePath) && dbMtime <= cacheMtime) {
-        // Read cached value (atomic read)
-        std::ifstream cache(cachePath.data(), std::ios::binary);
+      const mtime dbMtime    = fs::last_write_time(dbPath);
+      const mtime cacheMtime = fs::last_write_time(cachePath);
+
+      if (fs::exists(cachePath) && dbMtime <= cacheMtime) {
+        std::ifstream cache(cachePath, std::ios::binary);
         size_t        count = 0;
         cache.read(std::bit_cast<char*>(&count), sizeof(count));
         return cache ? std::optional(count) : std::nullopt;
       }
-    } catch (...) {} // Ignore errors, fall through to rebuild cache
+    } catch (const std::exception& e) { DEBUG_LOG("Cache access failed: {}, rebuilding...", e.what()); }
 
-    // 2. Compute fresh value
-    const auto count = CountNix(); // Original optimized function
+    const std::optional<usize> count = CountNix();
 
-    // 3. Update cache atomically (write+rename pattern)
     if (count) {
-      constexpr std::string_view tmpPath = "/tmp/nix_pkg_count.tmp";
-      {
-        std::ofstream tmp(tmpPath.data(), std::ios::binary | std::ios::trunc);
-        tmp.write(std::bit_cast<const char*>(&*count), sizeof(*count));
-      } // RAII close
+      constexpr const char* tmpPath = "/tmp/nix_pkg_count.tmp";
 
-      std::filesystem::rename(tmpPath, cachePath);
+      {
+        std::ofstream tmp(tmpPath, std::ios::binary | std::ios::trunc);
+        tmp.write(std::bit_cast<const char*>(&*count), sizeof(*count));
+      }
+
+      fs::rename(tmpPath, cachePath);
     }
 
     return count;
   }
 }
 
-fn GetOSVersion() -> std::string {
+fn GetOSVersion() -> string {
   constexpr const char* path = "/etc/os-release";
 
   std::ifstream file(path);
@@ -482,14 +481,14 @@ fn GetNowPlaying() -> string {
       const std::map<std::basic_string<char>, sdbus::Variant>& metadata =
         metadataVariant.get<std::map<std::string, sdbus::Variant>>();
 
-      std::string title;
-      auto        titleIter = metadata.find("xesam:title");
+      string title;
+      auto   titleIter = metadata.find("xesam:title");
       if (titleIter != metadata.end() && titleIter->second.containsValueOfType<std::string>()) {
         title = titleIter->second.get<std::string>();
       }
 
-      std::string artist;
-      auto        artistIter = metadata.find("xesam:artist");
+      string artist;
+      auto   artistIter = metadata.find("xesam:artist");
       if (artistIter != metadata.end() && artistIter->second.containsValueOfType<std::vector<std::string>>()) {
         auto artists = artistIter->second.get<std::vector<std::string>>();
         if (!artists.empty()) {
@@ -497,7 +496,7 @@ fn GetNowPlaying() -> string {
         }
       }
 
-      std::string result;
+      string result;
       if (!artist.empty() && !title.empty()) {
         result = artist + " - " + title;
       } else if (!title.empty()) {
@@ -528,14 +527,14 @@ fn GetWindowManager() -> string {
 
   // Prefer Wayland detection if Wayland session
   if ((waylandDisplay != nullptr) || (xdgSessionType && strstr(xdgSessionType, "wayland"))) {
-    std::string compositor = GetWaylandCompositor();
+    string compositor = GetWaylandCompositor();
     if (!compositor.empty())
       return compositor;
 
     // Fallback environment check
     const char* xdgCurrentDesktop = std::getenv("XDG_CURRENT_DESKTOP");
     if (xdgCurrentDesktop) {
-      std::string desktop(xdgCurrentDesktop);
+      string desktop(xdgCurrentDesktop);
       std::ranges::transform(compositor, compositor.begin(), ::tolower);
       if (desktop.find("hyprland") != std::string::npos)
         return "hyprland";
@@ -543,7 +542,7 @@ fn GetWindowManager() -> string {
   }
 
   // X11 detection
-  std::string x11wm = GetX11WindowManager();
+  string x11wm = GetX11WindowManager();
   if (!x11wm.empty())
     return x11wm;
 
@@ -578,7 +577,7 @@ fn GetHost() -> string {
     return "";
   }
 
-  std::string productFamily;
+  string productFamily;
   if (!std::getline(file, productFamily)) {
     ERROR_LOG("Failed to read from {}", path);
     return "";

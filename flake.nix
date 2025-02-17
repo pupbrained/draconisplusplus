@@ -71,14 +71,17 @@
           ++ linuxPkgs
           ++ darwinPkgs;
 
-        linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs; [
-          pkgsStatic.glib
-          systemdLibs
-          sdbus-cpp
-          valgrind
-          xorg.libX11
-          wayland
-        ]);
+        linuxPkgs =
+          nixpkgs.lib.optionals stdenv.isLinux (with pkgs; [
+            pkgsStatic.glib
+            systemdLibs
+            sdbus-cpp
+            valgrind
+            xorg.libX11
+          ])
+          ++ (with pkgs.pkgsStatic; [
+            wayland
+          ]);
 
         darwinPkgs = nixpkgs.lib.optionals stdenv.isDarwin (with pkgs.pkgsStatic.darwin.apple_sdk.frameworks; [
           Foundation
