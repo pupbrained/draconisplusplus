@@ -1,17 +1,18 @@
 #ifdef __APPLE__
 
+#include <expected>
 #include <map>
 #include <sys/sysctl.h>
-#include <sys/utsname.h>
 
 #include "macos/bridge.h"
 #include "os.h"
 
-fn GetMemInfo() -> u64 {
+fn GetMemInfo() -> std::expected<u64, string> {
   u64   mem  = 0;
   usize size = sizeof(mem);
 
-  sysctlbyname("hw.memsize", &mem, &size, nullptr, 0);
+  if (sysctlbyname("hw.memsize", &mem, &size, nullptr, 0) == -1)
+    return std::unexpected(std::string("sysctlbyname failed: ") + strerror(errno));
 
   return mem;
 }
@@ -27,9 +28,11 @@ fn GetOSVersion() -> string { return GetMacOSVersion(); }
 
 fn GetDesktopEnvironment() -> string { return "Aqua"; }
 
+fn GetWindowManager() -> string { return "Yabai"; }
+
 fn GetKernelVersion() -> string {
   std::array<char, 256> kernelVersion;
-  size_t                kernelVersionLen = sizeof(kernelVersion);
+  usize                 kernelVersionLen = sizeof(kernelVersion);
 
   sysctlbyname("kern.osrelease", kernelVersion.data(), &kernelVersionLen, nullptr, 0);
 
@@ -42,7 +45,7 @@ fn GetHost() -> string {
 
   sysctlbyname("hw.model", hwModel.data(), &hwModelLen, nullptr, 0);
 
-  // shamelessly stolen from https://github.com/fastfetch-cli/fastfetch/blob/dev/src/detection/host/host_mac.c
+  // taken from https://github.com/fastfetch-cli/fastfetch/blob/dev/src/detection/host/host_mac.c
   // shortened a lot of the entries to remove unnecessary info
   std::map<std::string, std::string> modelNameByHwModel = {
     // MacBook Pro

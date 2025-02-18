@@ -48,6 +48,7 @@ common_cpp_args = [
   '-Wno-switch-default',
   '-Wunused-function',
   '-fvisibility=hidden',
+  '-fno-strict-enums',
 ]
 
 if host_machine.system() == 'windows'

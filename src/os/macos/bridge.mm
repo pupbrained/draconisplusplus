@@ -5,20 +5,19 @@
 
 #import "bridge.h"
 
+#include "../../util/macros.h"
+
 using MRMediaRemoteGetNowPlayingInfoFunction =
   void (*)(dispatch_queue_t queue, void (^handler)(NSDictionary* information));
 
 @implementation Bridge
 + (NSDictionary*)currentPlayingMetadata {
   CFURLRef ref = CFURLCreateWithFileSystemPath(
-    kCFAllocatorDefault,
-    CFSTR("/System/Library/PrivateFrameworks/MediaRemote.framework"),
-    kCFURLPOSIXPathStyle,
-    false
+    kCFAllocatorDefault, CFSTR("/System/Library/PrivateFrameworks/MediaRemote.framework"), kCFURLPOSIXPathStyle, false
   );
 
   if (!ref) {
-    NSLog(@"Failed to load MediaRemote framework");
+    ERROR_LOG("Failed to load MediaRemote framework");
     return nil;
   }
 
@@ -26,17 +25,16 @@ using MRMediaRemoteGetNowPlayingInfoFunction =
   CFRelease(ref);
 
   if (!bundle) {
-    NSLog(@"Failed to load MediaRemote framework");
+    ERROR_LOG("Failed to load MediaRemote framework");
     return nil;
   }
 
-  MRMediaRemoteGetNowPlayingInfoFunction mrMediaRemoteGetNowPlayingInfo =
-    reinterpret_cast<MRMediaRemoteGetNowPlayingInfoFunction>(
-      CFBundleGetFunctionPointerForName(bundle, CFSTR("MRMediaRemoteGetNowPlayingInfo"))
-    );
+  auto mrMediaRemoteGetNowPlayingInfo = std::bit_cast<MRMediaRemoteGetNowPlayingInfoFunction>(
+    CFBundleGetFunctionPointerForName(bundle, CFSTR("MRMediaRemoteGetNowPlayingInfo"))
+  );
 
   if (!mrMediaRemoteGetNowPlayingInfo) {
-    NSLog(@"Failed to get function pointer for MRMediaRemoteGetNowPlayingInfo");
+    ERROR_LOG("Failed to get function pointer for MRMediaRemoteGetNowPlayingInfo");
     CFRelease(bundle);
     return nil;
   }
@@ -55,6 +53,7 @@ using MRMediaRemoteGetNowPlayingInfoFunction =
   dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
 
   CFRelease(bundle);
+
   return nowPlayingInfo;
 }
 
@@ -63,15 +62,12 @@ using MRMediaRemoteGetNowPlayingInfoFunction =
 
   NSOperatingSystemVersion osVersion = [processInfo operatingSystemVersion];
 
-  NSString* version;
+  NSString* version = nullptr;
   if (osVersion.patchVersion == 0) {
-    version =
-      [NSString stringWithFormat:@"%ld.%ld", osVersion.majorVersion, osVersion.minorVersion];
+    version = [NSString stringWithFormat:@"%ld.%ld", osVersion.majorVersion, osVersion.minorVersion];
   } else {
-    version = [NSString stringWithFormat:@"%ld.%ld.%ld",
-                                         osVersion.majorVersion,
-                                         osVersion.minorVersion,
-                                         osVersion.patchVersion];
+    version = [NSString
+      stringWithFormat:@"%ld.%ld.%ld", osVersion.majorVersion, osVersion.minorVersion, osVersion.patchVersion];
   }
 
   // Dictionary to map macOS versions to their respective names

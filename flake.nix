@@ -18,10 +18,13 @@
       system: let
         pkgs = import nixpkgs {inherit system;};
 
-        stdenv =
-          if pkgs.hostPlatform.isLinux
-          then pkgs.stdenvAdapters.useMoldLinker pkgs.llvmPackages_19.stdenv
-          else pkgs.llvmPackages_19.stdenv;
+        stdenv = with pkgs;
+          (
+            if hostPlatform.isLinux
+            then stdenvAdapters.useMoldLinker
+            else lib.id
+          )
+          llvmPackages_19.stdenv;
 
         sources = import ./_sources/generated.nix {
           inherit (pkgs) fetchFromGitHub fetchgit fetchurl dockerTools;
@@ -71,17 +74,17 @@
           ++ linuxPkgs
           ++ darwinPkgs;
 
-        linuxPkgs =
-          nixpkgs.lib.optionals stdenv.isLinux (with pkgs; [
+        linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs;
+          [
             pkgsStatic.glib
             systemdLibs
             sdbus-cpp
             valgrind
             xorg.libX11
-          ])
-          ++ (with pkgs.pkgsStatic; [
+          ]
+          ++ (with pkgsStatic; [
             wayland
-          ]);
+          ]));
 
         darwinPkgs = nixpkgs.lib.optionals stdenv.isDarwin (with pkgs.pkgsStatic.darwin.apple_sdk.frameworks; [
           Foundation
@@ -156,7 +159,7 @@
               ]
               ++ deps;
 
-	    LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath deps}";
+            LD_LIBRARY_PATH = "${lib.makeLibraryPath deps}";
 
             name = "C++";
           };
