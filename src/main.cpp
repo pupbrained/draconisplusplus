@@ -80,7 +80,7 @@ namespace {
     const string& host               = GetHost();
     const string& kernelVersion      = GetKernelVersion();
     const string& osVersion          = GetOSVersion();
-    const u64     memInfo            = GetMemInfo();
+    const u64     memInfo            = GetMemInfo().value_or(0);
     const string& desktopEnvironment = GetDesktopEnvironment();
     const string& windowManager      = GetWindowManager();
     const bool    nowPlayingEnabled  = config.now_playing.get().enabled;

@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstring>
 #include <dirent.h>
+#include <expected>
 #include <filesystem>
 #include <fmt/format.h>
 #include <fstream>
@@ -25,59 +26,6 @@ namespace fs = std::filesystem;
 enum SessionType : u8 { Wayland, X11, TTY, Unknown };
 
 namespace {
-  fn MeminfoParse() -> u64 {
-    constexpr const char* path = "/proc/meminfo";
-
-    std::ifstream input(path);
-    if (!input.is_open()) {
-      ERROR_LOG("Failed to open {}", path);
-      return 0;
-    }
-
-    string line;
-    while (std::getline(input, line)) {
-      if (line.starts_with("MemTotal")) {
-        const size_t colonPos = line.find(':');
-        if (colonPos == std::string::npos) {
-          ERROR_LOG("Invalid MemTotal line: no colon found");
-          return 0;
-        }
-
-        std::string_view view(line);
-        view.remove_prefix(colonPos + 1);
-
-        // Trim leading whitespace
-        const size_t firstNonSpace = view.find_first_not_of(' ');
-        if (firstNonSpace == std::string_view::npos) {
-          ERROR_LOG("No number found after colon in MemTotal line");
-          return 0;
-        }
-        view.remove_prefix(firstNonSpace);
-
-        // Find the end of the numeric part
-        const size_t end = view.find_first_not_of("0123456789");
-        if (end != std::string_view::npos)
-          view = view.substr(0, end);
-
-        // Get pointers via iterators
-        const char* startPtr = &*view.begin(); // Safe iterator-to-pointer conversion
-        const char* endPtr   = &*view.end();   // No manual arithmetic
-
-        u64        value  = 0;
-        const auto result = std::from_chars(startPtr, endPtr, value);
-        if (result.ec != std::errc() || result.ptr != endPtr) {
-          ERROR_LOG("Failed to parse number in MemTotal line");
-          return 0;
-        }
-
-        return value;
-      }
-    }
-
-    ERROR_LOG("MemTotal line not found in {}", path);
-    return 0;
-  }
-
   fn GetMprisPlayers(sdbus::IConnection& connection) -> std::vector<string> {
     const sdbus::ServiceName dbusInterface       = sdbus::ServiceName("org.freedesktop.DBus");
     const sdbus::ObjectPath  dbusObjectPath      = sdbus::ObjectPath("/org/freedesktop/DBus");
@@ -450,7 +398,49 @@ fn GetOSVersion() -> string {
   return "";
 }
 
-fn GetMemInfo() -> u64 { return MeminfoParse() * 1024; }
+fn GetMemInfo() -> std::expected<u64, string> {
+  constexpr const char* path = "/proc/meminfo";
+
+  std::ifstream input(path);
+  if (!input.is_open())
+    return std::unexpected("Failed to open " + std::string(path));
+
+  std::string line;
+  while (std::getline(input, line)) {
+    if (line.starts_with("MemTotal")) {
+      const size_t colonPos = line.find(':');
+      if (colonPos == std::string::npos)
+        return std::unexpected("Invalid MemTotal line: no colon found");
+
+      std::string_view view(line);
+      view.remove_prefix(colonPos + 1);
+
+      // Trim leading whitespace
+      const size_t firstNonSpace = view.find_first_not_of(' ');
+      if (firstNonSpace == std::string_view::npos)
+        return std::unexpected("No number found after colon in MemTotal line");
+      view.remove_prefix(firstNonSpace);
+
+      // Find the end of the numeric part
+      const size_t end = view.find_first_not_of("0123456789");
+      if (end != std::string_view::npos)
+        view = view.substr(0, end);
+
+      // Get pointers via iterators
+      const char* startPtr = &*view.begin();
+      const char* endPtr   = &*view.end();
+
+      u64        value  = 0;
+      const auto result = std::from_chars(startPtr, endPtr, value);
+      if (result.ec != std::errc() || result.ptr != endPtr)
+        return std::unexpected("Failed to parse number in MemTotal line");
+
+      return value * 1024;
+    }
+  }
+
+  return std::unexpected("MemTotal line not found in " + std::string(path));
+}
 
 fn GetNowPlaying() -> string {
   try {

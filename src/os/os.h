@@ -1,12 +1,14 @@
 #pragma once
 
+#include <expected>
+
 #include "../util/macros.h"
 #include "../util/types.h"
 
 /**
  * @brief Get the amount of installed RAM in bytes.
  */
-fn GetMemInfo() -> u64;
+fn GetMemInfo() -> std::expected<u64, string>;
 
 /**
  * @brief Get the currently playing song metadata.
