@@ -2,8 +2,10 @@
 
 #include "src/util/macros.h"
 
+using std::optional;
+
 // Get package count from dpkg (Debian/Ubuntu)
-fn GetDpkgPackageCount() -> std::optional<usize>;
+fn GetDpkgPackageCount() -> optional<usize>;
 
 // Get package count from RPM (Red Hat/Fedora/CentOS)
 fn GetRpmPackageCount() -> std::optional<usize>;

@@ -7,6 +7,7 @@
 #include <ftxui/screen/screen.hpp>
 #include <future>
 #include <string>
+#include <variant>
 
 #include "config/config.h"
 #include "ftxui/screen/color.hpp"
@@ -25,13 +26,7 @@ template <>
 struct fmt::formatter<BytesToGiB> : fmt::formatter<double> {
   template <typename FmtCtx>
   constexpr fn format(const BytesToGiB& BTG, FmtCtx& ctx) const -> typename FmtCtx::iterator {
-    typename FmtCtx::iterator out = fmt::formatter<double>::format(static_cast<double>(BTG.value) / GIB, ctx);
-
-    *out++ = 'G';
-    *out++ = 'i';
-    *out++ = 'B';
-
-    return out;
+    return fmt::format_to(fmt::formatter<double>::format(static_cast<double>(BTG.value) / GIB, ctx), "GiB");
   }
 };
 
@@ -70,57 +65,56 @@ namespace {
   }
 
   struct SystemData {
-    std::string                     date;
-    std::string                     host;
-    std::string                     kernel_version;
-    std::string                     os_version;
-    std::expected<u64, std::string> mem_info;
-    std::string                     desktop_environment;
-    std::string                     window_manager;
-    std::optional<std::string>      now_playing;
-    std::optional<WeatherOutput>    weather_info;
+    std::string                                           date;
+    std::string                                           host;
+    std::string                                           kernel_version;
+    std::expected<string, string>                         os_version;
+    std::expected<u64, std::string>                       mem_info;
+    std::optional<string>                                 desktop_environment;
+    std::string                                           window_manager;
+    std::optional<std::expected<string, NowPlayingError>> now_playing;
+    std::optional<WeatherOutput>                          weather_info;
 
     static fn fetchSystemData(const Config& config) -> SystemData {
       SystemData data;
 
-      std::launch launchPolicy = std::launch::async | std::launch::deferred;
+      // Group tasks by dependency/type
+      auto [date, host, kernel] = std::tuple(
+        std::async(std::launch::async, GetDate),
+        std::async(std::launch::async, GetHost),
+        std::async(std::launch::async, GetKernelVersion)
+      );
 
-      if (std::thread::hardware_concurrency() >= 8)
-        launchPolicy = std::launch::async;
+      auto [os, mem, de, wm] = std::tuple(
+        std::async(std::launch::async, GetOSVersion),
+        std::async(std::launch::async, GetMemInfo),
+        std::async(std::launch::async, GetDesktopEnvironment),
+        std::async(std::launch::async, GetWindowManager)
+      );
 
-      // Launch async tasks
-      std::future<string>                     futureDate   = std::async(launchPolicy, GetDate);
-      std::future<string>                     futureHost   = std::async(launchPolicy, GetHost);
-      std::future<string>                     futureKernel = std::async(launchPolicy, GetKernelVersion);
-      std::future<string>                     futureOs     = std::async(launchPolicy, GetOSVersion);
-      std::future<std::expected<u64, string>> futureMem    = std::async(launchPolicy, GetMemInfo);
-      std::future<string>                     futureDe     = std::async(launchPolicy, GetDesktopEnvironment);
-      std::future<string>                     futureWm     = std::async(launchPolicy, GetWindowManager);
-
-      std::future<WeatherOutput> futureWeather;
-
-      if (config.weather.get().enabled)
-        futureWeather = std::async(std::launch::async, [&config]() { return config.weather.get().getWeatherInfo(); });
-
-      std::future<std::string> futureNowPlaying;
-
-      if (config.now_playing.get().enabled)
-        futureNowPlaying = std::async(std::launch::async, GetNowPlaying);
-
-      // Collect results
-      data.date                = futureDate.get();
-      data.host                = futureHost.get();
-      data.kernel_version      = futureKernel.get();
-      data.os_version          = futureOs.get();
-      data.mem_info            = futureMem.get();
-      data.desktop_environment = futureDe.get();
-      data.window_manager      = futureWm.get();
+      // Conditional async tasks
+      std::future<WeatherOutput>                          weather;
+      std::future<std::expected<string, NowPlayingError>> nowPlaying;
 
       if (config.weather.get().enabled)
-        data.weather_info = futureWeather.get();
+        weather = std::async(std::launch::async, [&] { return config.weather.get().getWeatherInfo(); });
 
       if (config.now_playing.get().enabled)
-        data.now_playing = futureNowPlaying.get();
+        nowPlaying = std::async(std::launch::async, GetNowPlaying);
+
+      // Ordered wait for fastest completion
+      data.date                = date.get();
+      data.host                = host.get();
+      data.kernel_version      = kernel.get();
+      data.os_version          = os.get();
+      data.mem_info            = mem.get();
+      data.desktop_environment = de.get();
+      data.window_manager      = wm.get();
+
+      if (weather.valid())
+        data.weather_info = weather.get();
+      if (nowPlaying.valid())
+        data.now_playing = nowPlaying.get();
 
       return data;
     }
@@ -228,37 +222,58 @@ namespace {
     if (!data.kernel_version.empty())
       content.push_back(createRow(kernelIcon, "Kernel", data.kernel_version));
 
-    if (!data.os_version.empty())
-      content.push_back(createRow(osIcon, "OS", data.os_version));
+    if (data.os_version.has_value())
+      content.push_back(createRow(osIcon, "OS", *data.os_version));
+    else
+      ERROR_LOG("Failed to get OS version: {}", data.os_version.error());
 
     if (data.mem_info.has_value())
-      content.push_back(createRow(memoryIcon, "RAM", fmt::format("{:.2f}", BytesToGiB { data.mem_info.value() })));
+      content.push_back(createRow(memoryIcon, "RAM", fmt::format("{:.2f}", BytesToGiB { *data.mem_info })));
     else
       ERROR_LOG("Failed to get memory info: {}", data.mem_info.error());
 
     content.push_back(separator() | color(borderColor));
 
-    if (!data.desktop_environment.empty() && data.desktop_environment != data.window_manager)
-      content.push_back(createRow(" 󰇄  ", "DE", data.desktop_environment));
+    if (data.desktop_environment.has_value() && *data.desktop_environment != data.window_manager)
+      content.push_back(createRow(" 󰇄  ", "DE", *data.desktop_environment));
 
     if (!data.window_manager.empty())
       content.push_back(createRow("   ", "WM", data.window_manager));
 
     // Now Playing row
     if (nowPlayingEnabled && data.now_playing.has_value()) {
-      content.push_back(separator() | color(borderColor));
-      content.push_back(hbox({
-        text(musicIcon) | color(iconColor),
-        text("Music") | color(labelColor),
-        text(" "),
-        filler(),
-        text(
-          data.now_playing.value().length() > 30 ? data.now_playing.value().substr(0, 30) + "..."
-                                                 : data.now_playing.value()
-        ) |
-          color(Color::Magenta),
-        text(" "),
-      }));
+      const std::expected<string, NowPlayingError>& nowPlayingResult = *data.now_playing;
+
+      if (nowPlayingResult.has_value()) {
+        const std::string& npText = *nowPlayingResult;
+
+        content.push_back(separator() | color(borderColor));
+        content.push_back(hbox({
+          text(musicIcon) | color(iconColor),
+          text("Playing") | color(labelColor),
+          text(" "),
+          filler(),
+          paragraph(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, 30),
+          text(" "),
+        }));
+      } else {
+        const NowPlayingError& error = nowPlayingResult.error();
+
+        if (std::holds_alternative<NowPlayingCode>(error))
+          switch (std::get<NowPlayingCode>(error)) {
+            case NowPlayingCode::NoPlayers:
+              DEBUG_LOG("No MPRIS players found");
+              break;
+            case NowPlayingCode::NoActivePlayer:
+              DEBUG_LOG("No active MPRIS player found");
+              break;
+          }
+
+#ifdef __linux__
+        if (std::holds_alternative<LinuxError>(error))
+          DEBUG_LOG("DBus error: {}", std::get<LinuxError>(error).getMessage());
+#endif
+      }
     }
 
     return vbox(content) | borderRounded | color(Color::White);

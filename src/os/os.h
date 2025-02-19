@@ -5,25 +5,27 @@
 #include "../util/macros.h"
 #include "../util/types.h"
 
+using std::optional, std::expected;
+
 /**
  * @brief Get the amount of installed RAM in bytes.
  */
-fn GetMemInfo() -> std::expected<u64, string>;
+fn GetMemInfo() -> expected<u64, string>;
 
 /**
  * @brief Get the currently playing song metadata.
  */
-fn GetNowPlaying() -> string;
+fn GetNowPlaying() -> expected<string, NowPlayingError>;
 
 /**
  * @brief Get the OS version.
  */
-fn GetOSVersion() -> string;
+fn GetOSVersion() -> expected<string, string>;
 
 /**
  * @brief Get the current desktop environment.
  */
-fn GetDesktopEnvironment() -> string;
+fn GetDesktopEnvironment() -> optional<string>;
 
 /**
  * @brief Get the current window manager.

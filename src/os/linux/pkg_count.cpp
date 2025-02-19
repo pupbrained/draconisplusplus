@@ -2,7 +2,7 @@
 
 namespace fs = std::filesystem;
 
-fn GetApkPackageCount() -> std::optional<usize> {
+fn GetApkPackageCount() -> optional<usize> {
   fs::path apkDbPath("/lib/apk/db/installed");
 
   return std::nullopt;

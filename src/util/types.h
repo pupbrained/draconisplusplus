@@ -4,6 +4,10 @@
 #include <cstdint>
 #include <string>
 
+#ifdef __linux__
+#include <sdbus-c++/sdbus-c++.h>
+#endif
+
 /**
  * @typedef u8
  * @brief Represents an 8-bit unsigned integer.
@@ -124,3 +128,45 @@ using isize = std::ptrdiff_t;
  * @brief Represents a string.
  */
 using string = std::string;
+
+/**
+ * @enum NowPlayingCode
+ * @brief Represents error codes for Now Playing functionality.
+ */
+enum class NowPlayingCode : u8 {
+  NoPlayers,
+  NoActivePlayer,
+};
+
+// Platform-specific error details
+#ifdef __linux__
+/**
+ * @typedef LinuxError
+ * @brief Represents a Linux-specific error.
+ */
+using LinuxError = sdbus::Error;
+#elif defined(__APPLE__)
+/**
+ * @typedef MacError
+ * @brief Represents a macOS-specific error.
+ */
+using MacError = std::string;
+#elif defined(__WIN32__)
+/**
+ * @typedef WindowsError
+ * @brief Represents a Windows-specific error.
+ */
+using WindowsError = winrt::hresult_error;
+#endif
+
+// Unified error type
+using NowPlayingError = std::variant<
+  NowPlayingCode,
+#ifdef __linux__
+  LinuxError
+#elif defined(__APPLE__)
+  MacError
+#elif defined(__WIN32__)
+  WindowsError
+#endif
+  >;
