@@ -74,13 +74,16 @@ namespace {
   }
 }
 
-fn GetMemInfo() -> u64 {
+fn GetMemInfo() -> expected<u64, string> {
   u64 mem = 0;
-  GetPhysicallyInstalledSystemMemory(&mem);
+
+  if (!GetPhysicallyInstalledSystemMemory(&mem))
+    return std::unexpected("Failed to get physical system memory.");
+
   return mem * 1024;
 }
 
-fn GetNowPlaying() -> string {
+fn GetNowPlaying() -> expected<string, NowPlayingError> {
   using namespace winrt::Windows::Media::Control;
   using namespace winrt::Windows::Foundation;
 
@@ -102,14 +105,11 @@ fn GetNowPlaying() -> string {
     }
 
     // If we reach this point, there is no current session
-    return "";
-  } catch (const winrt::hresult_error& e) {
-    ERROR_LOG("Error: {}", to_string(e.message()));
-    return "";
-  }
+    return std::unexpected(NowPlayingError { NowPlayingCode::NoActivePlayer });
+  } catch (const winrt::hresult_error& e) { return std::unexpected(NowPlayingError { e }); }
 }
 
-fn GetOSVersion() -> string {
+fn GetOSVersion() -> expected<string, string> {
   string productName =
     GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", "ProductName");
 
@@ -137,7 +137,7 @@ fn GetOSVersion() -> string {
     return result;
   }
 
-  return "";
+  return std::unexpected("Failed to get OS version.");
 }
 
 fn GetHost() -> string {
@@ -195,13 +195,13 @@ fn GetWindowManager() -> string {
   return windowManager;
 }
 
-fn GetDesktopEnvironment() -> string {
+fn GetDesktopEnvironment() -> optional<string> {
   // Get version information from registry
   const string buildStr =
     GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", "CurrentBuildNumber");
 
   if (buildStr.empty())
-    return "Unknown";
+    return std::nullopt;
 
   try {
     const i32 build = stoi(buildStr);
@@ -234,7 +234,7 @@ fn GetDesktopEnvironment() -> string {
 
     // Older versions
     return "Classic";
-  } catch (...) { return "Unknown"; }
+  } catch (...) { return std::nullopt; }
 }
 
 #endif

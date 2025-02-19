@@ -79,13 +79,23 @@ foreach file : source_file_names
 endforeach
 
 deps = [
-  dependency('fmt'),
-  dependency('libcurl'),
-  dependency('tomlplusplus'),
-  dependency('yyjson'),
-  dependency('ftxui', modules: ['ftxui::screen', 'ftxui::dom', 'ftxui::component']),
-  dependency('reflectcpp'),
+  dependency('fmt', include_type: 'system', static: true),
+  dependency('libcurl', include_type: 'system', static: true),
+  dependency('yyjson', include_type: 'system', static: true),
+  dependency(
+    'ftxui',
+    modules: ['ftxui::screen', 'ftxui::dom', 'ftxui::component'],
+    include_type: 'system',
+    static: true,
+  ),
+  dependency('reflectcpp', include_type: 'system', static: true),
 ]
+
+if host_machine.system() == 'windows'
+  deps += cpp.find_library('tomlplusplus', static: true, dirs: 'C:/msys64/usr/lib')
+else
+  deps += dependency('tomlplusplus', static: true)
+endif
 
 if host_machine.system() == 'darwin'
   deps += dependency('Foundation')

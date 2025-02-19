@@ -3,7 +3,14 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+
+#ifdef __WIN32__
+#include <winrt/base.h>
+#endif
+
+#ifdef __APPLE__
 #include <variant>
+#endif
 
 #ifdef __linux__
 #include <sdbus-c++/sdbus-c++.h>
