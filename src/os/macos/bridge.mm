@@ -1,6 +1,7 @@
 #ifdef __APPLE__
 
 #import <dispatch/dispatch.h>
+#include <expected>
 #import <objc/runtime.h>
 
 #import "bridge.h"
@@ -57,36 +58,34 @@ using MRMediaRemoteGetNowPlayingInfoFunction =
   return nowPlayingInfo;
 }
 
-+ (NSString*)macOSVersion {
-  NSProcessInfo* processInfo = [NSProcessInfo processInfo];
++ (std::expected<const char*, const char*>)macOSVersion {
+  NSProcessInfo*           processInfo = [NSProcessInfo processInfo];
+  NSOperatingSystemVersion osVersion   = [processInfo operatingSystemVersion];
 
-  NSOperatingSystemVersion osVersion = [processInfo operatingSystemVersion];
-
-  NSString* version = nullptr;
-  if (osVersion.patchVersion == 0) {
-    version = [NSString stringWithFormat:@"%ld.%ld", osVersion.majorVersion, osVersion.minorVersion];
-  } else {
-    version = [NSString
+  // Build version number string
+  NSString* versionNumber = nullptr;
+  if (osVersion.patchVersion == 0)
+    versionNumber = [NSString stringWithFormat:@"%ld.%ld", osVersion.majorVersion, osVersion.minorVersion];
+  else
+    versionNumber = [NSString
       stringWithFormat:@"%ld.%ld.%ld", osVersion.majorVersion, osVersion.minorVersion, osVersion.patchVersion];
-  }
 
-  // Dictionary to map macOS versions to their respective names
-  NSDictionary<NSNumber*, NSString*>* versionNames =
+  // Map major version to name
+  NSDictionary* versionNames =
     @{ @11 : @"Big Sur", @12 : @"Monterey", @13 : @"Ventura", @14 : @"Sonoma", @15 : @"Sequoia" };
+  NSNumber* majorVersion = @(osVersion.majorVersion);
+  NSString* versionName  = versionNames[majorVersion];
 
-  NSNumber* majorVersionNumber = @(osVersion.majorVersion);
-  NSString* versionName        = versionNames[majorVersionNumber];
+  if (!versionName)
+    return std::unexpected("Unsupported macOS version");
 
-  if (versionName == nil)
-    versionName = @"Unknown";
-
-  NSString* fullVersion = [NSString stringWithFormat:@"macOS %@ %@", version, versionName];
-
-  return fullVersion;
+  NSString* fullVersion = [NSString stringWithFormat:@"macOS %@ %@", versionNumber, versionName];
+  return strdup([fullVersion UTF8String]);
 }
 @end
 
-extern "C" {
+extern "C++" {
+  // NOLINTBEGIN(misc-use-internal-linkage)
   fn GetCurrentPlayingTitle() -> const char* {
     NSDictionary* metadata = [Bridge currentPlayingMetadata];
 
@@ -115,14 +114,8 @@ extern "C" {
     return nullptr;
   }
 
-  fn GetMacOSVersion() -> const char* {
-    NSString* version = [Bridge macOSVersion];
-
-    if (version)
-      return strdup([version UTF8String]);
-
-    return nullptr;
-  }
+  fn GetMacOSVersion() -> std::expected<const char*, const char*> { return [Bridge macOSVersion]; }
+  // NOLINTEND(misc-use-internal-linkage)
 }
 
 #endif

@@ -123,13 +123,11 @@ namespace {
   using namespace ftxui;
 
   fn CreateColorCircles() -> Element {
-    Elements circles;
+    Elements circles(16);
 
-    for (int i = 0; i < 16; ++i)
-      circles.push_back(hbox({
-        text("◯") | bold | color(Color::Palette256(i)),
-        text(" "),
-      }));
+    std::generate_n(circles.begin(), 16, [colorIndex = 0]() mutable {
+      return hbox({ text("◯") | bold | color(Color::Palette256(colorIndex++)), text(" ") });
+    });
 
     return hbox(circles);
   }

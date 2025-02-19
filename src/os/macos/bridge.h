@@ -7,18 +7,19 @@
 #ifdef __OBJC__
 
 #import <Foundation/Foundation.h>
+#include <expected>
 
 @interface Bridge : NSObject
 + (NSDictionary*)currentPlayingMetadata;
-+ (NSString*)macOSVersion;
++ (std::expected<const char*, const char*>)macOSVersion;
 @end
 
 #else
 
-extern "C" {
+extern "C++" {
   fn GetCurrentPlayingTitle() -> const char*;
   fn GetCurrentPlayingArtist() -> const char*;
-  fn GetMacOSVersion() -> const char*;
+  fn GetMacOSVersion() -> std::expected<const char*, const char*>;
 }
 
 #endif

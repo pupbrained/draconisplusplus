@@ -7,26 +7,26 @@
 #include "macos/bridge.h"
 #include "os.h"
 
-fn GetMemInfo() -> std::expected<u64, string> {
+fn GetMemInfo() -> expected<u64, string> {
   u64   mem  = 0;
   usize size = sizeof(mem);
 
   if (sysctlbyname("hw.memsize", &mem, &size, nullptr, 0) == -1)
-    return std::unexpected(std::string("sysctlbyname failed: ") + strerror(errno));
+    return std::unexpected(string("sysctlbyname failed: ") + strerror(errno));
 
   return mem;
 }
 
-fn GetNowPlaying() -> string {
+fn GetNowPlaying() -> expected<string, NowPlayingError> {
   if (const char* title = GetCurrentPlayingTitle(); const char* artist = GetCurrentPlayingArtist())
     return "Now Playing: " + string(artist) + " - " + string(title);
 
   return "No song playing";
 }
 
-fn GetOSVersion() -> string { return GetMacOSVersion(); }
+fn GetOSVersion() -> expected<string, string> { return GetMacOSVersion(); }
 
-fn GetDesktopEnvironment() -> string { return "Aqua"; }
+fn GetDesktopEnvironment() -> optional<string> { return std::nullopt; }
 
 fn GetWindowManager() -> string { return "Yabai"; }
 
