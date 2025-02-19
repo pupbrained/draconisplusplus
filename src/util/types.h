@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <variant>
 
 #ifdef __linux__
 #include <sdbus-c++/sdbus-c++.h>

@@ -17,12 +17,7 @@ fn GetMemInfo() -> expected<u64, string> {
   return mem;
 }
 
-fn GetNowPlaying() -> expected<string, NowPlayingError> {
-  if (const char* title = GetCurrentPlayingTitle(); const char* artist = GetCurrentPlayingArtist())
-    return "Now Playing: " + string(artist) + " - " + string(title);
-
-  return "No song playing";
-}
+fn GetNowPlaying() -> expected<string, NowPlayingError> { return GetCurrentPlayingInfo(); }
 
 fn GetOSVersion() -> expected<string, string> { return GetMacOSVersion(); }
 

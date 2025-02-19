@@ -3,31 +3,30 @@
 #import <dispatch/dispatch.h>
 #include <expected>
 #import <objc/runtime.h>
+#include <string>
 
 #import "bridge.h"
-
-#include "../../util/macros.h"
 
 using MRMediaRemoteGetNowPlayingInfoFunction =
   void (*)(dispatch_queue_t queue, void (^handler)(NSDictionary* information));
 
 @implementation Bridge
-+ (NSDictionary*)currentPlayingMetadata {
++ (void)fetchCurrentPlayingMetadata:(void (^)(std::expected<NSDictionary*, const char*>))completion {
   CFURLRef ref = CFURLCreateWithFileSystemPath(
     kCFAllocatorDefault, CFSTR("/System/Library/PrivateFrameworks/MediaRemote.framework"), kCFURLPOSIXPathStyle, false
   );
 
   if (!ref) {
-    ERROR_LOG("Failed to load MediaRemote framework");
-    return nil;
+    completion(std::unexpected("Failed to create CFURL for MediaRemote framework"));
+    return;
   }
 
   CFBundleRef bundle = CFBundleCreate(kCFAllocatorDefault, ref);
   CFRelease(ref);
 
   if (!bundle) {
-    ERROR_LOG("Failed to load MediaRemote framework");
-    return nil;
+    completion(std::unexpected("Failed to create bundle for MediaRemote framework"));
+    return;
   }
 
   auto mrMediaRemoteGetNowPlayingInfo = std::bit_cast<MRMediaRemoteGetNowPlayingInfoFunction>(
@@ -35,86 +34,87 @@ using MRMediaRemoteGetNowPlayingInfoFunction =
   );
 
   if (!mrMediaRemoteGetNowPlayingInfo) {
-    ERROR_LOG("Failed to get function pointer for MRMediaRemoteGetNowPlayingInfo");
     CFRelease(bundle);
-    return nil;
+    completion(std::unexpected("Failed to get MRMediaRemoteGetNowPlayingInfo function pointer"));
+    return;
   }
-
-  __block NSDictionary* nowPlayingInfo = nil;
-  dispatch_semaphore_t  semaphore      = dispatch_semaphore_create(0);
 
   mrMediaRemoteGetNowPlayingInfo(
     dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
     ^(NSDictionary* information) {
-      nowPlayingInfo = [information copy];
-      dispatch_semaphore_signal(semaphore);
+      NSDictionary* nowPlayingInfo = information; // Immutable, no copy needed
+      CFRelease(bundle);
+      completion(
+        nowPlayingInfo ? std::expected<NSDictionary*, const char*>(nowPlayingInfo)
+                       : std::unexpected("No now playing information")
+      );
     }
   );
-
-  dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
-
-  CFRelease(bundle);
-
-  return nowPlayingInfo;
 }
 
-+ (std::expected<const char*, const char*>)macOSVersion {
++ (std::expected<string, string>)macOSVersion {
   NSProcessInfo*           processInfo = [NSProcessInfo processInfo];
   NSOperatingSystemVersion osVersion   = [processInfo operatingSystemVersion];
 
-  // Build version number string
-  NSString* versionNumber = nullptr;
-  if (osVersion.patchVersion == 0)
+  NSString* versionNumber = nil;
+  if (osVersion.patchVersion == 0) {
     versionNumber = [NSString stringWithFormat:@"%ld.%ld", osVersion.majorVersion, osVersion.minorVersion];
-  else
+  } else {
     versionNumber = [NSString
       stringWithFormat:@"%ld.%ld.%ld", osVersion.majorVersion, osVersion.minorVersion, osVersion.patchVersion];
+  }
 
-  // Map major version to name
   NSDictionary* versionNames =
     @{ @11 : @"Big Sur", @12 : @"Monterey", @13 : @"Ventura", @14 : @"Sonoma", @15 : @"Sequoia" };
-  NSNumber* majorVersion = @(osVersion.majorVersion);
-  NSString* versionName  = versionNames[majorVersion];
 
-  if (!versionName)
-    return std::unexpected("Unsupported macOS version");
+  NSNumber* majorVersion = @(osVersion.majorVersion);
+  NSString* versionName  = versionNames[majorVersion] ? versionNames[majorVersion] : @"Unknown";
 
   NSString* fullVersion = [NSString stringWithFormat:@"macOS %@ %@", versionNumber, versionName];
-  return strdup([fullVersion UTF8String]);
+  return std::string([fullVersion UTF8String]);
 }
 @end
 
 extern "C++" {
   // NOLINTBEGIN(misc-use-internal-linkage)
-  fn GetCurrentPlayingTitle() -> const char* {
-    NSDictionary* metadata = [Bridge currentPlayingMetadata];
+  fn GetCurrentPlayingInfo() -> std::expected<std::string, NowPlayingError> {
+    __block std::expected<std::string, NowPlayingError> result;
+    dispatch_semaphore_t                                semaphore = dispatch_semaphore_create(0);
 
-    if (metadata == nil)
-      return nullptr;
+    [Bridge fetchCurrentPlayingMetadata:^(std::expected<NSDictionary*, const char*> metadataResult) {
+      if (!metadataResult) {
+        result = std::unexpected(NowPlayingError { metadataResult.error() });
+        dispatch_semaphore_signal(semaphore);
+        return;
+      }
 
-    NSString* title = [metadata objectForKey:@"kMRMediaRemoteNowPlayingInfoTitle"];
+      NSDictionary* metadata = *metadataResult;
+      if (!metadata) {
+        result = std::unexpected(NowPlayingError { NowPlayingCode::NoPlayers });
+        dispatch_semaphore_signal(semaphore);
+        return;
+      }
 
-    if (title)
-      return strdup([title UTF8String]);
+      NSString* title  = [metadata objectForKey:@"kMRMediaRemoteNowPlayingInfoTitle"];
+      NSString* artist = [metadata objectForKey:@"kMRMediaRemoteNowPlayingInfoArtist"];
 
-    return nullptr;
+      if (!title && !artist)
+        result = std::unexpected("No metadata");
+      else if (!title)
+        result = std::string([artist UTF8String]);
+      else if (!artist)
+        result = std::string([title UTF8String]);
+      else
+        result = std::string([[NSString stringWithFormat:@"%@ - %@", title, artist] UTF8String]);
+
+      dispatch_semaphore_signal(semaphore);
+    }];
+
+    dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+    return result;
   }
 
-  fn GetCurrentPlayingArtist() -> const char* {
-    NSDictionary* metadata = [Bridge currentPlayingMetadata];
-
-    if (metadata == nil)
-      return nullptr;
-
-    NSString* artist = [metadata objectForKey:@"kMRMediaRemoteNowPlayingInfoArtist"];
-
-    if (artist)
-      return strdup([artist UTF8String]);
-
-    return nullptr;
-  }
-
-  fn GetMacOSVersion() -> std::expected<const char*, const char*> { return [Bridge macOSVersion]; }
+  fn GetMacOSVersion() -> std::expected<string, string> { return [Bridge macOSVersion]; }
   // NOLINTEND(misc-use-internal-linkage)
 }
 
