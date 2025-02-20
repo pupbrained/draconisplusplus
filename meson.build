@@ -6,6 +6,7 @@ project(
     'default_library=static',
     'warning_level=everything',
     'buildtype=debugoptimized',
+    'cpp_args=-fvisibility=hidden',
   ],
 )
 
@@ -28,7 +29,6 @@ if host_machine.system() == 'darwin'
         '-Wno-pre-c++20-compat-pedantic',
         '-Wno-switch-default',
         '-Wunused-function',
-        '-fvisibility=hidden',
       ],
     ),
     language: 'objcpp',
@@ -47,7 +47,6 @@ common_cpp_args = [
   '-Wno-pre-c++20-compat-pedantic',
   '-Wno-switch-default',
   '-Wunused-function',
-  '-fvisibility=hidden',
   '-fno-strict-enums',
   '-nostdlib++',
 ]
@@ -86,6 +85,22 @@ deps = [
   dependency('tomlplusplus', include_type: 'system', static: true),
 ]
 
+if host_machine.system() == 'darwin'
+  deps += dependency(
+    'appleframeworks',
+    modules : ['foundation', 'mediaplayer', 'systemconfiguration'],
+    static: true,
+  )
+elif host_machine.system() == 'linux' or host_machine.system() == 'freebsd'
+  deps += dependency('SQLiteCpp')
+  deps += dependency('sdbus-c++')
+  deps += dependency('x11')
+  deps += dependency('xcb')
+  deps += dependency('xau')
+  deps += dependency('xdmcp')
+  deps += dependency('wayland-client')
+endif
+
 ftxui_dep = dependency(
   'ftxui',
   modules: ['ftxui::screen', 'ftxui::dom', 'ftxui::component'],
@@ -108,21 +123,6 @@ cmake = import('cmake')
 reflectcpp_proj = cmake.subproject('reflectcpp')
 reflectcpp_dep = reflectcpp_proj.dependency('reflectcpp')
 deps += reflectcpp_dep
-
-if host_machine.system() == 'darwin'
-  deps += dependency('Foundation')
-  deps += dependency('MediaPlayer')
-  deps += dependency('SystemConfiguration')
-  deps += dependency('iconv')
-elif host_machine.system() == 'linux' or host_machine.system() == 'freebsd'
-  deps += dependency('SQLiteCpp')
-  deps += dependency('sdbus-c++')
-  deps += dependency('x11')
-  deps += dependency('xcb')
-  deps += dependency('xau')
-  deps += dependency('xdmcp')
-  deps += dependency('wayland-client')
-endif
 
 objc_args = []
 link_args = []

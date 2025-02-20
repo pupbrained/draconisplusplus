@@ -18,13 +18,18 @@
       system: let
         pkgs = import nixpkgs {inherit system;};
 
+        llvmPackages = with pkgs;
+          if hostPlatform.isLinux
+          then llvmPackages_20
+          else llvmPackages_19;
+
         stdenv = with pkgs;
           (
             if hostPlatform.isLinux
             then stdenvAdapters.useMoldLinker
             else lib.id
           )
-          llvmPackages_20.stdenv;
+          llvmPackages.stdenv;
 
         sources = import ./_sources/generated.nix {
           inherit (pkgs) fetchFromGitHub fetchgit fetchurl dockerTools;
@@ -82,8 +87,7 @@
             sqlitecpp
             # ftxui
           ]
-          ++ linuxPkgs
-          ++ darwinPkgs;
+          ++ linuxPkgs;
 
         linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs;
           [
@@ -96,12 +100,6 @@
             xorg.libX11
             wayland
           ]));
-
-        darwinPkgs = nixpkgs.lib.optionals stdenv.isDarwin (with pkgs.pkgsStatic.darwin.apple_sdk.frameworks; [
-          Foundation
-          MediaPlayer
-          SystemConfiguration
-        ]);
       in
         with pkgs; {
           packages = rec {
@@ -144,7 +142,7 @@
 
               clang-format = {
                 enable = true;
-                package = pkgs.llvmPackages_20.clang-tools;
+                package = pkgs.llvmPackages.clang-tools;
               };
             };
           };
@@ -154,7 +152,7 @@
               [
                 alejandra
                 bear
-                llvmPackages_20.clang-tools
+                llvmPackages.clang-tools
                 cmake
                 lldb
                 hyperfine
