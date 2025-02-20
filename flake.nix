@@ -73,15 +73,14 @@
 
         deps = with pkgs.pkgsStatic;
           [
-            curl
-            fmt
-            libiconv
-            tomlplusplus
-            yyjson
-            reflect-cpp
+            # curl
+            # fmt
+            # libiconv
+            # tomlplusplus
+            # yyjson
+            # reflect-cpp
             sqlitecpp
-            ftxui
-            libunistring
+            # ftxui
           ]
           ++ linuxPkgs
           ++ darwinPkgs;

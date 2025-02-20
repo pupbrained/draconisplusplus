@@ -33,8 +33,8 @@ struct Wind {
 };
 
 struct Precipitation {
-  rfl::Rename<"1h", f64> one_hour;
-  rfl::Rename<"3h", f64> three_hours;
+  rfl::Rename<"1h", std::optional<f64>> one_hour;
+  rfl::Rename<"3h", std::optional<f64>> three_hours;
 };
 
 struct Sys {

@@ -81,22 +81,33 @@ endforeach
 
 deps = [
   dependency('fmt', include_type: 'system', static: true),
+  dependency('openssl', include_type: 'system', static: true),
   dependency('libcurl', include_type: 'system', static: true),
-  dependency('yyjson', include_type: 'system', static: true),
-  dependency(
-    'ftxui',
-    modules: ['ftxui::screen', 'ftxui::dom', 'ftxui::component'],
-    include_type: 'system',
-    static: true,
-  ),
-  dependency('reflectcpp', include_type: 'system', static: true),
+  dependency('tomlplusplus', include_type: 'system', static: true),
 ]
 
-if host_machine.system() == 'windows'
-  deps += cpp.find_library('tomlplusplus', static: true, dirs: 'C:/msys64/usr/lib')
-else
-  deps += dependency('tomlplusplus', static: true)
+ftxui_dep = dependency(
+  'ftxui',
+  modules: ['ftxui::screen', 'ftxui::dom', 'ftxui::component'],
+  include_type: 'system',
+  static: true,
+  required: false,
+)
+
+if not ftxui_dep.found()
+  ftxui_dom = dependency('ftxui-dom', fallback: ['ftxui', 'dom_dep'])
+  ftxui_screen = dependency('ftxui-screen', fallback: ['ftxui', 'screen_dep'])
+  ftxui_component = dependency('ftxui-component', fallback: ['ftxui', 'component_dep'])
+  ftxui_dep = declare_dependency(dependencies: [ftxui_dom, ftxui_screen, ftxui_component])
 endif
+
+deps += ftxui_dep
+
+cmake = import('cmake')
+
+reflectcpp_proj = cmake.subproject('reflectcpp')
+reflectcpp_dep = reflectcpp_proj.dependency('reflectcpp')
+deps += reflectcpp_dep
 
 if host_machine.system() == 'darwin'
   deps += dependency('Foundation')
