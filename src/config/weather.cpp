@@ -44,7 +44,7 @@ namespace {
 
     rfl::Result<WeatherOutput> result = rfl::json::read<WeatherOutput>(content);
     if (!result)
-      return std::unexpected(result.error().what());
+      return std::unexpected(result.error()->what());
 
     DEBUG_LOG("Successfully read from cache file.");
     return *result;
@@ -117,7 +117,7 @@ namespace {
 
     rfl::Result<WeatherOutput> output = rfl::json::read<WeatherOutput>(responseBuffer);
     if (!output)
-      return std::unexpected(output.error().what());
+      return std::unexpected(output.error()->what());
 
     return *output;
   }

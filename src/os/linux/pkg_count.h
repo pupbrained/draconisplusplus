@@ -22,6 +22,9 @@ fn GetZypperPackageCount() -> std::optional<usize>;
 // Get package count from apk (Alpine)
 fn GetApkPackageCount() -> std::optional<usize>;
 
+// Get package count from nix
+fn GetNixPackageCount() -> std::optional<usize>;
+
 // Get package count from flatpak
 fn GetFlatpakPackageCount() -> std::optional<usize>;
 

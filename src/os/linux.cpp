@@ -51,7 +51,7 @@ namespace {
     vector<string> mprisPlayers;
 
     for (const string& name : names)
-      if (const char* mprisInterfaceName = "org.mpris.MediaPlayer2"; name.find(mprisInterfaceName) != string::npos)
+      if (const char* mprisInterfaceName = "org.mpris.MediaPlayer2"; name.contains(mprisInterfaceName))
         mprisPlayers.push_back(name);
 
     return mprisPlayers;
@@ -103,7 +103,7 @@ namespace {
           &data
         ) == Success &&
         data) {
-      memcpy(&wmWindow, data, sizeof(Window));
+      wmWindow = *std::bit_cast<Window*>(data);
       XFree(data);
       data = nullptr;
 
@@ -135,7 +135,7 @@ namespace {
   }
 
   fn TrimHyprlandWrapper(const string& input) -> string {
-    if (input.find("hyprland") != string::npos)
+    if (input.contains("hyprland"))
       return "Hyprland";
     return input;
   }
@@ -204,7 +204,7 @@ namespace {
 
     // 2. Check cmdline for actual binary reference
     string cmdline = ReadProcessCmdline(cred.pid);
-    if (cmdline.find("hyprland") != string::npos) {
+    if (cmdline.contains("hyprland")) {
       wl_display_disconnect(display);
       return "Hyprland";
     }
@@ -216,7 +216,7 @@ namespace {
     if (lenBuf != -1) {
       buf.at(static_cast<usize>(lenBuf)) = '\0';
       string exe(buf.data());
-      if (exe.find("hyprland") != string::npos) {
+      if (exe.contains("hyprland")) {
         wl_display_disconnect(display);
         return "Hyprland";
       }
@@ -316,7 +316,7 @@ namespace {
     string   envVars((istreambuf_iterator<char>(cmdline)), istreambuf_iterator<char>());
 
     for (const auto& [process, deName] : processChecks)
-      if (envVars.find(process) != string::npos)
+      if (envVars.contains(process))
         return string(deName);
 
     return nullopt;
@@ -331,7 +331,7 @@ namespace {
     usize         count = 0;
 
     // 1. Direct URI construction without string concatenation
-    const string uri = fmt::format("file:{}{}immutable=1", dbPath, (dbPath.find('?') != string_view::npos) ? "&" : "?");
+    const string uri = fmt::format("file:{}{}immutable=1", dbPath, (dbPath.find('?') == string::npos) ? "&" : "?");
 
     // 2. Open database with optimized flags
     if (sqlite3_open_v2(uri.c_str(), &sqlDB, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI | SQLITE_OPEN_NOMUTEX, nullptr) !=
@@ -528,7 +528,7 @@ fn GetWindowManager() -> string {
   const char* waylandDisplay = getenv("WAYLAND_DISPLAY");
 
   // Prefer Wayland detection if Wayland session
-  if ((waylandDisplay != nullptr) || (xdgSessionType && strstr(xdgSessionType, "wayland"))) {
+  if ((waylandDisplay != nullptr) || (xdgSessionType && std::string_view(xdgSessionType).contains("wayland"))) {
     string compositor = GetWaylandCompositor();
     if (!compositor.empty())
       return compositor;
@@ -538,7 +538,7 @@ fn GetWindowManager() -> string {
     if (xdgCurrentDesktop) {
       string desktop(xdgCurrentDesktop);
       transform(compositor, compositor.begin(), ::tolower);
-      if (desktop.find("hyprland") != string::npos)
+      if (desktop.contains("hyprland"))
         return "hyprland";
     }
   }

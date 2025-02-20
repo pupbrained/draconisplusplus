@@ -85,7 +85,7 @@ namespace {
         std::async(std::launch::async, GetKernelVersion)
       );
 
-      auto [os, mem, de, wm] = std::tuple(
+      auto [osVer, mem, desktop, winManager] = std::tuple(
         std::async(std::launch::async, GetOSVersion),
         std::async(std::launch::async, GetMemInfo),
         std::async(std::launch::async, GetDesktopEnvironment),
@@ -106,10 +106,10 @@ namespace {
       data.date                = date.get();
       data.host                = host.get();
       data.kernel_version      = kernel.get();
-      data.os_version          = os.get();
+      data.os_version          = osVer.get();
       data.mem_info            = mem.get();
-      data.desktop_environment = de.get();
-      data.window_manager      = wm.get();
+      data.desktop_environment = desktop.get();
+      data.window_manager      = winManager.get();
 
       if (weather.valid())
         data.weather_info = weather.get();

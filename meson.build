@@ -49,6 +49,7 @@ common_cpp_args = [
   '-Wunused-function',
   '-fvisibility=hidden',
   '-fno-strict-enums',
+  '-nostdlib++',
 ]
 
 if host_machine.system() == 'windows'
@@ -60,7 +61,7 @@ add_project_arguments(cpp.get_supported_arguments(common_cpp_args), language: 'c
 source_file_names = ['src/main.cpp', 'src/config/config.cpp', 'src/config/weather.cpp']
 
 if host_machine.system() == 'linux'
-  source_file_names += ['src/os/linux.cpp']
+  source_file_names += ['src/os/linux.cpp', 'src/os/linux/issetugid_stub.cpp']
 elif host_machine.system() == 'freebsd'
   source_file_names += ['src/os/freebsd.cpp']
 elif host_machine.system() == 'darwin'
@@ -106,6 +107,9 @@ elif host_machine.system() == 'linux' or host_machine.system() == 'freebsd'
   deps += dependency('SQLiteCpp')
   deps += dependency('sdbus-c++')
   deps += dependency('x11')
+  deps += dependency('xcb')
+  deps += dependency('xau')
+  deps += dependency('xdmcp')
   deps += dependency('wayland-client')
 endif
 
@@ -114,6 +118,8 @@ link_args = []
 
 if host_machine.system() == 'darwin'
   objc_args += ['-fobjc-arc']
+elif host_machine.system() == 'linux'
+  link_args += ['-static-libgcc', '-static-libstdc++']
 elif host_machine.system() == 'windows'
   windows_sdk_lib_dir = 'C:/Program Files (x86)/Windows Kits/10/Lib/10.0.22621.0/um/x64'
   link_args += ['-L' + windows_sdk_lib_dir, '-lwindowsapp', '-ldwmapi', '-static']

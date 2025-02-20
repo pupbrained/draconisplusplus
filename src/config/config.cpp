@@ -35,7 +35,7 @@ fn Config::getInstance() -> Config {
   const Result<Config> result = rfl::toml::load<Config>(configPath.string());
 
   if (!result) {
-    ERROR_LOG("Failed to load config file: {}", result.error().what());
+    ERROR_LOG("Failed to load config file: {}", result.error()->what());
 
     exit(1);
   }

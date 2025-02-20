@@ -2,7 +2,7 @@
   description = "C/C++ environment";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     treefmt-nix.url = "github:numtide/treefmt-nix";
     utils.url = "github:numtide/flake-utils";
   };
@@ -24,7 +24,7 @@
             then stdenvAdapters.useMoldLinker
             else lib.id
           )
-          llvmPackages_19.stdenv;
+          llvmPackages_20.stdenv;
 
         sources = import ./_sources/generated.nix {
           inherit (pkgs) fetchFromGitHub fetchgit fetchurl dockerTools;
@@ -36,7 +36,6 @@
           };
 
         fmt = mkPkg "fmt";
-        yyjson = mkPkg "yyjson";
 
         tomlplusplus = pkgs.pkgsStatic.tomlplusplus.overrideAttrs {
           inherit (sources.tomlplusplus) pname version src;
@@ -45,6 +44,17 @@
 
         sdbus-cpp = pkgs.sdbus-cpp.overrideAttrs {
           inherit (sources.sdbus-cpp) pname version src;
+
+          cmakeFlags = [
+            (pkgs.lib.cmakeBool "BUILD_CODE_GEN" true)
+            (pkgs.lib.cmakeBool "BUILD_SHARED_LIBS" false)
+          ];
+        };
+
+        yyjson = pkgs.pkgsStatic.stdenv.mkDerivation {
+          inherit (sources.yyjson) pname version src;
+
+          nativeBuildInputs = with pkgs; [cmake ninja pkg-config];
         };
 
         reflect-cpp = stdenv.mkDerivation rec {
@@ -57,6 +67,7 @@
             "-DCMAKE_TOOLCHAIN_FILE=OFF"
             "-DREFLECTCPP_TOML=ON"
             "-DREFLECTCPP_JSON=ON"
+            "-DREFLECTCPP_USE_STD_EXPECTED=ON"
           ];
         };
 
@@ -70,19 +81,20 @@
             reflect-cpp
             sqlitecpp
             ftxui
+            libunistring
           ]
           ++ linuxPkgs
           ++ darwinPkgs;
 
         linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs;
           [
-            pkgsStatic.glib
             systemdLibs
-            sdbus-cpp
             valgrind
-            xorg.libX11
           ]
           ++ (with pkgsStatic; [
+            glib
+            sdbus-cpp
+            xorg.libX11
             wayland
           ]));
 
@@ -133,7 +145,7 @@
 
               clang-format = {
                 enable = true;
-                package = pkgs.clang-tools_19;
+                package = pkgs.llvmPackages_20.clang-tools;
               };
             };
           };
@@ -143,7 +155,7 @@
               [
                 alejandra
                 bear
-                clang-tools_19
+                llvmPackages_20.clang-tools
                 cmake
                 lldb
                 hyperfine
