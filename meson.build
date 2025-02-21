@@ -5,7 +5,7 @@ project(
   default_options: [
     'default_library=static',
     'warning_level=everything',
-    'buildtype=debugoptimized',
+    'buildtype=release',
     'cpp_args=-fvisibility=hidden',
   ],
 )
@@ -93,13 +93,15 @@ if host_machine.system() == 'darwin'
   )
 elif host_machine.system() == 'linux' or host_machine.system() == 'freebsd'
   deps += dependency('SQLiteCpp')
-  deps += dependency('sdbus-c++')
   deps += dependency('x11')
   deps += dependency('xcb')
   deps += dependency('xau')
   deps += dependency('xdmcp')
   deps += dependency('wayland-client')
+  deps += dependency('dbus-1')
 endif
+
+cmake = import('cmake')
 
 ftxui_dep = dependency(
   'ftxui',
@@ -117,8 +119,6 @@ if not ftxui_dep.found()
 endif
 
 deps += ftxui_dep
-
-cmake = import('cmake')
 
 reflectcpp_proj = cmake.subproject('reflectcpp')
 reflectcpp_dep = reflectcpp_proj.dependency('reflectcpp')

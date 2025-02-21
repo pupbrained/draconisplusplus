@@ -1,3 +1,10 @@
 [submodule "subprojects/reflectcpp"]
 	path = subprojects/reflectcpp
 	url = https://github.com/getml/reflect-cpp
+[submodule "subprojects/sdbus-c++"]
+	path = subprojects/sdbus-c++
+	url = https://github.com/Kistler-Group/sdbus-cpp
+[submodule "subprojects/systemd"]
+	path = subprojects/systemd
+	url = https://github.com/systemd/systemd
+	branch = v257-stable

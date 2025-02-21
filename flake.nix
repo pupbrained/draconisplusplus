@@ -84,19 +84,17 @@
             # tomlplusplus
             # yyjson
             # reflect-cpp
-            sqlitecpp
+            # sqlitecpp
             # ftxui
           ]
           ++ linuxPkgs;
 
         linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs;
           [
-            systemdLibs
             valgrind
           ]
           ++ (with pkgsStatic; [
-            glib
-            sdbus-cpp
+            dbus
             xorg.libX11
             wayland
           ]));

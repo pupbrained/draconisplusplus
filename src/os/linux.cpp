@@ -1,34 +1,32 @@
 #ifdef __linux__
 
-#include <SQLiteCpp/SQLiteCpp.h>
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <algorithm>
 #include <cstring>
+#include <dbus/dbus.h>
 #include <dirent.h>
 #include <expected>
 #include <filesystem>
 #include <fmt/format.h>
 #include <fstream>
+#include <iostream>
 #include <mutex>
 #include <optional>
 #include <ranges>
-#include <sdbus-c++/Error.h>
-#include <sdbus-c++/sdbus-c++.h>
-#include <sqlite3.h>
 #include <sys/socket.h>
 #include <sys/utsname.h>
+#include <unistd.h>
 #include <vector>
 #include <wayland-client.h>
 
 #include "os.h"
 #include "src/util/macros.h"
 
-using std::errc, std::exception, std::expected, std::from_chars, std::getline, std::istreambuf_iterator, std::less,
-  std::lock_guard, std::map, std::mutex, std::ofstream, std::pair, std::string_view, std::vector, std::nullopt,
-  std::array, std::unique_ptr, std::optional, std::bit_cast, std::to_string, std::ifstream, std::getenv, std::string,
-  std::unexpected, std::ranges::is_sorted, std::ranges::lower_bound, std::ranges::replace, std::ranges::subrange,
-  std::ranges::transform;
+using std::errc, std::expected, std::from_chars, std::getline, std::istreambuf_iterator, std::less, std::lock_guard,
+  std::mutex, std::ofstream, std::pair, std::string_view, std::vector, std::nullopt, std::array, std::optional,
+  std::bit_cast, std::to_string, std::ifstream, std::getenv, std::string, std::unexpected, std::ranges::is_sorted,
+  std::ranges::lower_bound, std::ranges::replace, std::ranges::subrange, std::ranges::transform;
 
 using namespace std::literals::string_view_literals;
 
@@ -37,33 +35,6 @@ namespace fs = std::filesystem;
 enum SessionType : u8 { Wayland, X11, TTY, Unknown };
 
 namespace {
-  fn GetMprisPlayers(sdbus::IConnection& connection) -> vector<string> {
-    const sdbus::ServiceName dbusInterface       = sdbus::ServiceName("org.freedesktop.DBus");
-    const sdbus::ObjectPath  dbusObjectPath      = sdbus::ObjectPath("/org/freedesktop/DBus");
-    const char*              dbusMethodListNames = "ListNames";
-
-    const unique_ptr<sdbus::IProxy> dbusProxy = createProxy(connection, dbusInterface, dbusObjectPath);
-
-    vector<string> names;
-
-    dbusProxy->callMethod(dbusMethodListNames).onInterface(dbusInterface).storeResultsTo(names);
-
-    vector<string> mprisPlayers;
-
-    for (const string& name : names)
-      if (const char* mprisInterfaceName = "org.mpris.MediaPlayer2"; name.contains(mprisInterfaceName))
-        mprisPlayers.push_back(name);
-
-    return mprisPlayers;
-  }
-
-  fn GetActivePlayer(const vector<string>& mprisPlayers) -> optional<string> {
-    if (!mprisPlayers.empty())
-      return mprisPlayers.front();
-
-    return nullopt;
-  }
-
   fn GetX11WindowManager() -> string {
     Display* display = XOpenDisplay(nullptr);
 
@@ -103,7 +74,7 @@ namespace {
           &data
         ) == Success &&
         data) {
-      wmWindow = *std::bit_cast<Window*>(data);
+      wmWindow = *bit_cast<Window*>(data);
       XFree(data);
       data = nullptr;
 
@@ -322,70 +293,79 @@ namespace {
     return nullopt;
   }
 
-  fn CountNix() noexcept -> optional<usize> {
-    constexpr string_view dbPath   = "/nix/var/nix/db/db.sqlite";
-    constexpr string_view querySql = "SELECT COUNT(*) FROM ValidPaths WHERE sigs IS NOT NULL;";
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wold-style-cast"
+  fn GetMprisPlayers(DBusConnection* connection) -> vector<string> {
+    vector<string> mprisPlayers;
+    DBusError      err;
+    dbus_error_init(&err);
 
-    sqlite3*      sqlDB = nullptr;
-    sqlite3_stmt* stmt  = nullptr;
-    usize         count = 0;
+    // Create a method call to org.freedesktop.DBus.ListNames
+    DBusMessage* msg = dbus_message_new_method_call(
+      "org.freedesktop.DBus",  // target service
+      "/org/freedesktop/DBus", // object path
+      "org.freedesktop.DBus",  // interface name
+      "ListNames"              // method name
+    );
 
-    // 1. Direct URI construction without string concatenation
-    const string uri = fmt::format("file:{}{}immutable=1", dbPath, (dbPath.find('?') == string::npos) ? "&" : "?");
-
-    // 2. Open database with optimized flags
-    if (sqlite3_open_v2(uri.c_str(), &sqlDB, SQLITE_OPEN_READONLY | SQLITE_OPEN_URI | SQLITE_OPEN_NOMUTEX, nullptr) !=
-        SQLITE_OK)
-      return nullopt;
-
-    // 3. Configure database for maximum read performance
-    sqlite3_exec(sqlDB, "PRAGMA journal_mode=OFF; PRAGMA mmap_size=268435456;", nullptr, nullptr, nullptr);
-
-    // 4. Single-step prepared statement execution
-    if (sqlite3_prepare_v3(sqlDB, querySql.data(), querySql.size(), SQLITE_PREPARE_PERSISTENT, &stmt, nullptr) ==
-        SQLITE_OK) {
-      if (sqlite3_step(stmt) == SQLITE_ROW)
-        count = static_cast<usize>(sqlite3_column_int64(stmt, 0));
-
-      sqlite3_finalize(stmt);
+    if (!msg) {
+      DEBUG_LOG("Failed to create message for ListNames.");
+      return mprisPlayers;
     }
 
-    sqlite3_close(sqlDB);
-    return count ? optional { count } : nullopt;
+    // Send the message and block until we get a reply.
+    DBusMessage* reply = dbus_connection_send_with_reply_and_block(connection, msg, -1, &err);
+    dbus_message_unref(msg);
+
+    if (dbus_error_is_set(&err)) {
+      DEBUG_LOG("DBus error in ListNames: {}", err.message);
+      dbus_error_free(&err);
+      return mprisPlayers;
+    }
+
+    if (!reply) {
+      DEBUG_LOG("No reply received for ListNames.");
+      return mprisPlayers;
+    }
+
+    // The expected reply signature is "as" (an array of strings)
+    DBusMessageIter iter;
+
+    if (!dbus_message_iter_init(reply, &iter)) {
+      DEBUG_LOG("Reply has no arguments.");
+      dbus_message_unref(reply);
+      return mprisPlayers;
+    }
+
+    if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY) {
+      DEBUG_LOG("Reply argument is not an array.");
+      dbus_message_unref(reply);
+      return mprisPlayers;
+    }
+
+    // Iterate over the array of strings
+    DBusMessageIter subIter;
+    dbus_message_iter_recurse(&iter, &subIter);
+
+    while (dbus_message_iter_get_arg_type(&subIter) != DBUS_TYPE_INVALID) {
+      if (dbus_message_iter_get_arg_type(&subIter) == DBUS_TYPE_STRING) {
+        const char* name = nullptr;
+        dbus_message_iter_get_basic(&subIter, static_cast<void*>(&name));
+        if (name && std::string_view(name).contains("org.mpris.MediaPlayer2"))
+          mprisPlayers.emplace_back(name);
+      }
+      dbus_message_iter_next(&subIter);
+    }
+
+    dbus_message_unref(reply);
+    return mprisPlayers;
   }
+#pragma clang diagnostic pop
 
-  fn CountNixWithCache() noexcept -> optional<size_t> {
-    constexpr const char* dbPath    = "/nix/var/nix/db/db.sqlite";
-    constexpr const char* cachePath = "/tmp/nix_pkg_count.cache";
-
-    try {
-      using mtime = fs::file_time_type;
-
-      const mtime dbMtime    = fs::last_write_time(dbPath);
-      const mtime cacheMtime = fs::last_write_time(cachePath);
-
-      if (fs::exists(cachePath) && dbMtime <= cacheMtime) {
-        ifstream cache(cachePath, std::ios::binary);
-        size_t   count = 0;
-        cache.read(bit_cast<char*>(&count), sizeof(count));
-        return cache ? optional(count) : nullopt;
-      }
-    } catch (const exception& e) { DEBUG_LOG("Cache access failed: {}, rebuilding...", e.what()); }
-
-    const optional<usize> count = CountNix();
-
-    if (count) {
-      constexpr const char* tmpPath = "/tmp/nix_pkg_count.tmp";
-
-      {
-        ofstream tmp(tmpPath, std::ios::binary | std::ios::trunc);
-        tmp.write(bit_cast<const char*>(&*count), sizeof(*count));
-      }
-
-      fs::rename(tmpPath, cachePath);
-    }
-
-    return count;
+  fn GetActivePlayer(const vector<string>& mprisPlayers) -> optional<string> {
+    if (!mprisPlayers.empty())
+      return mprisPlayers.front();
+    return nullopt;
   }
 }
 
@@ -462,65 +442,177 @@ fn GetMemInfo() -> expected<u64, string> {
   return unexpected("MemTotal line not found in " + string(path));
 }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wold-style-cast"
 fn GetNowPlaying() -> expected<string, NowPlayingError> {
-  try {
-    const char *playerObjectPath = "/org/mpris/MediaPlayer2", *playerInterfaceName = "org.mpris.MediaPlayer2.Player";
+  DBusError err;
+  dbus_error_init(&err);
 
-    unique_ptr<sdbus::IConnection> connection = sdbus::createSessionBusConnection();
+  // Connect to the session bus
+  DBusConnection* connection = dbus_bus_get(DBUS_BUS_SESSION, &err);
 
-    vector<string> mprisPlayers = GetMprisPlayers(*connection);
+  if (!connection)
+    if (dbus_error_is_set(&err)) {
+      ERROR_LOG("DBus connection error: {}", err.message);
 
-    if (mprisPlayers.empty())
-      return unexpected(NowPlayingError { NowPlayingCode::NoPlayers });
+      NowPlayingError error = LinuxError(err.message);
+      dbus_error_free(&err);
 
-    optional<string> activePlayer = GetActivePlayer(mprisPlayers);
-
-    if (!activePlayer.has_value())
-      return unexpected(NowPlayingError { NowPlayingCode::NoActivePlayer });
-
-    unique_ptr<sdbus::IProxy> playerProxy =
-      sdbus::createProxy(*connection, sdbus::ServiceName(*activePlayer), sdbus::ObjectPath(playerObjectPath));
-
-    sdbus::Variant metadataVariant = playerProxy->getProperty("Metadata").onInterface(playerInterfaceName);
-
-    if (metadataVariant.containsValueOfType<map<string, sdbus::Variant>>()) {
-      const map<string, sdbus::Variant>& metadata = metadataVariant.get<map<string, sdbus::Variant>>();
-
-      string title;
-      auto   titleIter = metadata.find("xesam:title");
-      if (titleIter != metadata.end() && titleIter->second.containsValueOfType<string>())
-        title = titleIter->second.get<string>();
-
-      string artist;
-      auto   artistIter = metadata.find("xesam:artist");
-      if (artistIter != metadata.end() && artistIter->second.containsValueOfType<vector<string>>()) {
-        auto artists = artistIter->second.get<vector<string>>();
-        if (!artists.empty())
-          artist = artists[0];
-      }
-
-      string result;
-
-      if (!artist.empty() && !title.empty())
-        result = artist + " - " + title;
-      else if (!title.empty())
-        result = title;
-      else if (!artist.empty())
-        result = artist;
-      else
-        result = "";
-
-      return result;
+      return unexpected(error);
     }
-  } catch (const sdbus::Error& e) {
-    if (e.getName() != "com.github.altdesktop.playerctld.NoActivePlayer")
-      return unexpected(NowPlayingError { LinuxError(e) });
 
+  vector<string> mprisPlayers = GetMprisPlayers(connection);
+
+  if (mprisPlayers.empty()) {
+    dbus_connection_unref(connection);
+    return unexpected(NowPlayingError { NowPlayingCode::NoPlayers });
+  }
+
+  optional<string> activePlayer = GetActivePlayer(mprisPlayers);
+
+  if (!activePlayer.has_value()) {
+    dbus_connection_unref(connection);
     return unexpected(NowPlayingError { NowPlayingCode::NoActivePlayer });
   }
 
-  return "";
+  // Prepare a call to the Properties.Get method to fetch "Metadata"
+  DBusMessage* msg = dbus_message_new_method_call(
+    activePlayer->c_str(),             // target service (active player)
+    "/org/mpris/MediaPlayer2",         // object path
+    "org.freedesktop.DBus.Properties", // interface
+    "Get"                              // method name
+  );
+
+  if (!msg) {
+    dbus_connection_unref(connection);
+    return unexpected(NowPlayingError { /* error creating message */ });
+  }
+
+  const char* interfaceName = "org.mpris.MediaPlayer2.Player";
+  const char* propertyName  = "Metadata";
+
+  if (!dbus_message_append_args(
+        msg, DBUS_TYPE_STRING, &interfaceName, DBUS_TYPE_STRING, &propertyName, DBUS_TYPE_INVALID
+      )) {
+    dbus_message_unref(msg);
+    dbus_connection_unref(connection);
+    return unexpected(NowPlayingError { /* error appending arguments */ });
+  }
+
+  // Call the method and block until reply is received.
+  DBusMessage* reply = dbus_connection_send_with_reply_and_block(connection, msg, -1, &err);
+  dbus_message_unref(msg);
+
+  if (dbus_error_is_set(&err)) {
+    ERROR_LOG("DBus error in Properties.Get: {}", err.message);
+
+    NowPlayingError error = LinuxError(err.message);
+    dbus_error_free(&err);
+    dbus_connection_unref(connection);
+
+    return unexpected(error);
+  }
+
+  if (!reply) {
+    dbus_connection_unref(connection);
+    return unexpected(NowPlayingError { /* no reply error */ });
+  }
+
+  // The reply should contain a variant holding a dictionary ("a{sv}")
+  DBusMessageIter iter;
+
+  if (!dbus_message_iter_init(reply, &iter)) {
+    dbus_message_unref(reply);
+    dbus_connection_unref(connection);
+    return unexpected(NowPlayingError { /* no arguments in reply */ });
+  }
+
+  if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT) {
+    dbus_message_unref(reply);
+    dbus_connection_unref(connection);
+    return unexpected(NowPlayingError { /* unexpected argument type */ });
+  }
+
+  // Recurse into the variant to get the dictionary
+  DBusMessageIter variantIter;
+  dbus_message_iter_recurse(&iter, &variantIter);
+
+  if (dbus_message_iter_get_arg_type(&variantIter) != DBUS_TYPE_ARRAY) {
+    dbus_message_unref(reply);
+    dbus_connection_unref(connection);
+    return unexpected(NowPlayingError { /* expected array type */ });
+  }
+
+  string          title;
+  string          artist;
+  DBusMessageIter arrayIter;
+  dbus_message_iter_recurse(&variantIter, &arrayIter);
+
+  // Iterate over each dictionary entry (each entry is of type dict entry)
+  while (dbus_message_iter_get_arg_type(&arrayIter) != DBUS_TYPE_INVALID) {
+    if (dbus_message_iter_get_arg_type(&arrayIter) == DBUS_TYPE_DICT_ENTRY) {
+      DBusMessageIter dictEntry;
+      dbus_message_iter_recurse(&arrayIter, &dictEntry);
+
+      // Get the key (a string)
+      const char* key = nullptr;
+
+      if (dbus_message_iter_get_arg_type(&dictEntry) == DBUS_TYPE_STRING)
+        dbus_message_iter_get_basic(&dictEntry, static_cast<void*>(&key));
+
+      // Move to the value (a variant)
+      dbus_message_iter_next(&dictEntry);
+
+      if (dbus_message_iter_get_arg_type(&dictEntry) == DBUS_TYPE_VARIANT) {
+        DBusMessageIter valueIter;
+        dbus_message_iter_recurse(&dictEntry, &valueIter);
+
+        if (key && std::string_view(key) == "xesam:title") {
+          if (dbus_message_iter_get_arg_type(&valueIter) == DBUS_TYPE_STRING) {
+            const char* val = nullptr;
+            dbus_message_iter_get_basic(&valueIter, static_cast<void*>(&val));
+
+            if (val)
+              title = val;
+          }
+        } else if (key && std::string_view(key) == "xesam:artist") {
+          // Expect an array of strings
+          if (dbus_message_iter_get_arg_type(&valueIter) == DBUS_TYPE_ARRAY) {
+            DBusMessageIter subIter;
+            dbus_message_iter_recurse(&valueIter, &subIter);
+
+            if (dbus_message_iter_get_arg_type(&subIter) == DBUS_TYPE_STRING) {
+              const char* val = nullptr;
+              dbus_message_iter_get_basic(&subIter, static_cast<void*>(&val));
+
+              if (val)
+                artist = val;
+            }
+          }
+        }
+      }
+    }
+
+    dbus_message_iter_next(&arrayIter);
+  }
+
+  dbus_message_unref(reply);
+  dbus_connection_unref(connection);
+
+  string result;
+
+  if (!artist.empty() && !title.empty())
+    result = artist + " - " + title;
+  else if (!title.empty())
+    result = title;
+  else if (!artist.empty())
+    result = artist;
+  else
+    result = "";
+
+  return result;
 }
+#pragma clang diagnostic pop
 
 fn GetWindowManager() -> string {
   // Check environment variables first
@@ -528,7 +620,7 @@ fn GetWindowManager() -> string {
   const char* waylandDisplay = getenv("WAYLAND_DISPLAY");
 
   // Prefer Wayland detection if Wayland session
-  if ((waylandDisplay != nullptr) || (xdgSessionType && std::string_view(xdgSessionType).contains("wayland"))) {
+  if ((waylandDisplay != nullptr) || (xdgSessionType && string_view(xdgSessionType).contains("wayland"))) {
     string compositor = GetWaylandCompositor();
     if (!compositor.empty())
       return compositor;
@@ -595,8 +687,6 @@ fn GetKernelVersion() -> string {
     ERROR_LOG("uname() failed: {}", strerror(errno));
     return "";
   }
-
-  DEBUG_LOG("{}", CountNixWithCache().value_or(0));
 
   return static_cast<const char*>(uts.release);
 }

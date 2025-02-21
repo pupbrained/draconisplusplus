@@ -12,10 +12,6 @@
 #include <variant>
 #endif
 
-#ifdef __linux__
-#include <sdbus-c++/sdbus-c++.h>
-#endif
-
 /**
  * @typedef u8
  * @brief Represents an 8-bit unsigned integer.
@@ -152,7 +148,7 @@ enum class NowPlayingCode : u8 {
  * @typedef LinuxError
  * @brief Represents a Linux-specific error.
  */
-using LinuxError = sdbus::Error;
+using LinuxError = std::string;
 #elif defined(__APPLE__)
 /**
  * @typedef MacError
