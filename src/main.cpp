@@ -260,16 +260,21 @@ namespace {
         if (std::holds_alternative<NowPlayingCode>(error))
           switch (std::get<NowPlayingCode>(error)) {
             case NowPlayingCode::NoPlayers:
-              DEBUG_LOG("No MPRIS players found");
+              DEBUG_LOG("No players found");
               break;
             case NowPlayingCode::NoActivePlayer:
-              DEBUG_LOG("No active MPRIS player found");
+              DEBUG_LOG("No active player found");
               break;
           }
 
 #ifdef __linux__
         if (std::holds_alternative<LinuxError>(error))
           DEBUG_LOG("DBus error: {}", std::get<LinuxError>(error).getMessage());
+#endif
+
+#ifdef __WIN32__
+        if (std::holds_alternative<WindowsError>(error))
+          DEBUG_LOG("WinRT error: {}", to_string(std::get<WindowsError>(error).message()));
 #endif
       }
     }

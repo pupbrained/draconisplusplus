@@ -24,3 +24,5 @@ draconis++
 Makefile
 result
 /include/
+subprojects/*
+!subprojects/*.wrap
