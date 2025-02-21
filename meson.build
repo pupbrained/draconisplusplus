@@ -88,17 +88,25 @@ deps = [
 if host_machine.system() == 'darwin'
   deps += dependency(
     'appleframeworks',
-    modules : ['foundation', 'mediaplayer', 'systemconfiguration'],
+    modules: ['foundation', 'mediaplayer', 'systemconfiguration'],
     static: true,
   )
+elif host_machine.system() == 'windows'
+  deps += [
+    cpp.find_library('dwmapi'),
+    cpp.find_library('windowsapp'),
+  ]
 elif host_machine.system() == 'linux' or host_machine.system() == 'freebsd'
-  deps += dependency('SQLiteCpp')
-  deps += dependency('x11')
-  deps += dependency('xcb')
-  deps += dependency('xau')
-  deps += dependency('xdmcp')
-  deps += dependency('wayland-client')
-  deps += dependency('dbus-1')
+  deps += [
+    dependency('SQLiteCpp'),
+    dependency('sdbus-c++'),
+    dependency('x11'),
+    dependency('xcb'),
+    dependency('xau'),
+    dependency('xdmcp'),
+    dependency('wayland-client'),
+    dependency('dbus-1'),
+  ]
 endif
 
 cmake = import('cmake')
@@ -131,9 +139,6 @@ if host_machine.system() == 'darwin'
   objc_args += ['-fobjc-arc']
 elif host_machine.system() == 'linux'
   link_args += ['-static-libgcc', '-static-libstdc++']
-elif host_machine.system() == 'windows'
-  windows_sdk_lib_dir = 'C:/Program Files (x86)/Windows Kits/10/Lib/10.0.22621.0/um/x64'
-  link_args += ['-L' + windows_sdk_lib_dir, '-lwindowsapp', '-ldwmapi', '-static']
 endif
 
 executable(
