@@ -1,7 +1,9 @@
 #ifdef __WIN32__
 
 #include <iostream>
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <wincrypt.h>
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Media.Control.h>
 #include <winrt/base.h>
@@ -39,6 +41,7 @@ namespace {
     }
 
     RegCloseKey(key);
+
     // Remove null terminator if present
     if (!value.empty() && value.back() == '\0')
       value.pop_back();
@@ -50,6 +53,7 @@ namespace {
   fn GetRunningProcesses() -> std::vector<string> {
     std::vector<string> processes;
     HANDLE              hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+
     if (hSnapshot == INVALID_HANDLE_VALUE)
       return processes;
 
@@ -61,7 +65,7 @@ namespace {
       return processes;
     }
 
-    while (Process32Next(hSnapshot, &pe32)) { processes.emplace_back(pe32.szExeFile); }
+    while (Process32Next(hSnapshot, &pe32)) processes.emplace_back(pe32.szExeFile);
 
     CloseHandle(hSnapshot);
     return processes;
@@ -158,8 +162,10 @@ fn GetKernelVersion() -> string {
   if (ntdllHandle) {
     auto rtlGetVersion = std::bit_cast<RtlGetVersionPtr>(GetProcAddress(ntdllHandle, "RtlGetVersion"));
     if (rtlGetVersion) {
-      RTL_OSVERSIONINFOW osInfo  = {};
+      RTL_OSVERSIONINFOW osInfo = {};
+
       osInfo.dwOSVersionInfoSize = sizeof(osInfo);
+
       if (rtlGetVersion(&osInfo) == 0)
         versionStream << osInfo.dwMajorVersion << "." << osInfo.dwMinorVersion << "." << osInfo.dwBuildNumber << "."
                       << osInfo.dwPlatformId;
@@ -225,6 +231,7 @@ fn GetDesktopEnvironment() -> optional<string> {
 
       if (build >= 9600)
         return "Metro (Windows 8.1)";
+
       return "Metro (Windows 8)";
     }
 
