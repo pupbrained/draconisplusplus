@@ -5,7 +5,7 @@ project(
   default_options: [
     'default_library=static',
     'warning_level=everything',
-    'buildtype=release',
+    'buildtype=debugoptimized',
     'cpp_args=-fvisibility=hidden',
   ],
 )
@@ -128,17 +128,23 @@ endif
 
 deps += ftxui_dep
 
-reflectcpp_proj = cmake.subproject('reflectcpp')
-reflectcpp_dep = reflectcpp_proj.dependency('reflectcpp')
+cmake_opts = cmake.subproject_options()
+
+cmake_opts.add_cmake_defines({
+  'CMAKE_CXX_FLAGS': '-Wno-everything',
+})
+
+cmake_opts.append_compile_args('cpp', '-Wno-everything')
+
+reflectcpp_proj = cmake.subproject('reflectcpp', options: cmake_opts)
+reflectcpp_dep = reflectcpp_proj.dependency('reflectcpp', include_type: 'system')
 deps += reflectcpp_dep
 
 objc_args = []
-link_args = []
+link_args = ['-static-libgcc', '-static-libstdc++', '-static']
 
 if host_machine.system() == 'darwin'
   objc_args += ['-fobjc-arc']
-elif host_machine.system() == 'linux'
-  link_args += ['-static-libgcc', '-static-libstdc++']
 endif
 
 executable(
