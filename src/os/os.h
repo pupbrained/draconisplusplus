@@ -51,3 +51,9 @@ fn GetKernelVersion() -> string;
  * @brief Get the number of installed packages.
  */
 fn GetPackageCount() -> u64;
+
+/**
+ * @brief Get the current disk usage.
+ * @return std::pair<u64, u64> Used space/total space
+ */
+fn GetDiskUsage() -> std::pair<u64, u64>;

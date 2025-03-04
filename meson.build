@@ -5,7 +5,7 @@ project(
   default_options: [
     'default_library=static',
     'warning_level=everything',
-    'buildtype=debugoptimized',
+    'buildtype=release',
     'cpp_args=-fvisibility=hidden',
   ],
 )
@@ -49,6 +49,7 @@ common_cpp_args = [
   '-Wunused-function',
   '-fno-strict-enums',
   '-nostdlib++',
+  '-march=native',
 ]
 
 if host_machine.system() == 'windows'
@@ -130,9 +131,11 @@ deps += ftxui_dep
 
 cmake_opts = cmake.subproject_options()
 
-cmake_opts.add_cmake_defines({
-  'CMAKE_CXX_FLAGS': '-Wno-everything',
-})
+cmake_opts.add_cmake_defines(
+  {
+    'CMAKE_CXX_FLAGS': '-Wno-everything',
+  },
+)
 
 cmake_opts.append_compile_args('cpp', '-Wno-everything')
 

@@ -26,7 +26,8 @@ template <>
 struct fmt::formatter<BytesToGiB> : fmt::formatter<double> {
   template <typename FmtCtx>
   constexpr fn format(const BytesToGiB& BTG, FmtCtx& ctx) const -> typename FmtCtx::iterator {
-    return fmt::format_to(fmt::formatter<double>::format(static_cast<double>(BTG.value) / GIB, ctx), "GiB");
+    // Format as double with GiB suffix, no space
+    return fmt::format_to(ctx.out(), "{:.2f}GiB", static_cast<double>(BTG.value) / GIB);
   }
 };
 
@@ -51,7 +52,7 @@ namespace {
     if (!date.empty() && std::isspace(date.front()))
       date.erase(date.begin());
 
-    // Append appropriate suffix for the date
+    // Append appropriate suffix for the datE
     if (date.ends_with("1") && date != "11")
       date += "st";
     else if (date.ends_with("2") && date != "12")
@@ -74,42 +75,47 @@ namespace {
     std::string                                           window_manager;
     std::optional<std::expected<string, NowPlayingError>> now_playing;
     std::optional<WeatherOutput>                          weather_info;
+    u64                                                   disk_used;
+    u64                                                   disk_total;
+    std::string                                           shell;
 
     static fn fetchSystemData(const Config& config) -> SystemData {
       SystemData data;
 
-      // Group tasks by dependency/type
-      auto [date, host, kernel] = std::tuple(
-        std::async(std::launch::async, GetDate),
-        std::async(std::launch::async, GetHost),
-        std::async(std::launch::async, GetKernelVersion)
-      );
+      // Single-threaded execution for core system info (faster on Windows)
+      data.date           = GetDate();
+      data.host           = GetHost();
+      data.kernel_version = GetKernelVersion();
+      data.os_version     = GetOSVersion();
+      data.mem_info       = GetMemInfo();
 
-      auto [osVer, mem, desktop, winManager] = std::tuple(
-        std::async(std::launch::async, GetOSVersion),
-        std::async(std::launch::async, GetMemInfo),
-        std::async(std::launch::async, GetDesktopEnvironment),
-        std::async(std::launch::async, GetWindowManager)
-      );
+      // Desktop environment info (not relevant for Windows)
+      data.desktop_environment = std::nullopt;
+      data.window_manager      = "Windows";
 
-      // Conditional async tasks
+      // Parallel execution for disk/shell only
+      auto diskShell = std::async(std::launch::async, [] {
+        auto [used, total] = GetDiskUsage();
+        return std::make_tuple(used, total, GetShell());
+      });
+
+      // Conditional tasks
       std::future<WeatherOutput>                          weather;
       std::future<std::expected<string, NowPlayingError>> nowPlaying;
 
-      if (config.weather.get().enabled)
-        weather = std::async(std::launch::async, [&] { return config.weather.get().getWeatherInfo(); });
+      if (config.weather.get().enabled) {
+        weather = std::async(std::launch::async, [&config] { return config.weather.get().getWeatherInfo(); });
+      }
 
-      if (config.now_playing.get().enabled)
+      if (config.now_playing.get().enabled) {
         nowPlaying = std::async(std::launch::async, GetNowPlaying);
+      }
 
-      // Ordered wait for fastest completion
-      data.date                = date.get();
-      data.host                = host.get();
-      data.kernel_version      = kernel.get();
-      data.os_version          = osVer.get();
-      data.mem_info            = mem.get();
-      data.desktop_environment = desktop.get();
-      data.window_manager      = winManager.get();
+      // Get remaining results
+      auto [used, total, shell] = diskShell.get();
+      data.disk_used            = used;
+      data.disk_total           = total;
+      data.shell                = shell;
 
       if (weather.valid())
         data.weather_info = weather.get();
@@ -160,25 +166,21 @@ namespace {
 
     content.push_back(text("   Hello " + name + "! ") | bold | color(Color::Cyan));
     content.push_back(separator() | color(borderColor));
-    content.push_back(hbox(
-      {
-        text("   ") | color(iconColor), // Palette icon
-        CreateColorCircles(),
-      }
-    ));
+    content.push_back(hbox({
+      text("   ") | color(iconColor), // Palette icon
+      CreateColorCircles(),
+    }));
     content.push_back(separator() | color(borderColor));
 
     // Helper function for aligned rows
     fn createRow = [&](const std::string& icon, const std::string& label, const std::string& value) {
-      return hbox(
-        {
-          text(icon) | color(iconColor),
-          text(label) | color(labelColor),
-          filler(),
-          text(value) | color(valueColor),
-          text(" "),
-        }
-      );
+      return hbox({
+        text(icon) | color(iconColor),
+        text(label) | color(labelColor),
+        filler(),
+        text(value) | color(valueColor),
+        text(" "),
+      });
     };
 
     // System info rows
@@ -189,39 +191,31 @@ namespace {
       const WeatherOutput& weatherInfo = data.weather_info.value();
 
       if (weather.show_town_name)
-        content.push_back(hbox(
-          {
-            text(weatherIcon) | color(iconColor),
-            text("Weather") | color(labelColor),
-            filler(),
+        content.push_back(hbox({
+          text(weatherIcon) | color(iconColor),
+          text("Weather") | color(labelColor),
+          filler(),
 
-            hbox(
-              {
-                text(fmt::format("{}°F ", std::lround(weatherInfo.main.temp))),
-                text("in "),
-                text(weatherInfo.name),
-                text(" "),
-              }
-            ) |
-              color(valueColor),
-          }
-        ));
+          hbox({
+            text(fmt::format("{}°F ", std::lround(weatherInfo.main.temp))),
+            text("in "),
+            text(weatherInfo.name),
+            text(" "),
+          }) |
+            color(valueColor),
+        }));
       else
-        content.push_back(hbox(
-          {
-            text(weatherIcon) | color(iconColor),
-            text("Weather") | color(labelColor),
-            filler(),
+        content.push_back(hbox({
+          text(weatherIcon) | color(iconColor),
+          text("Weather") | color(labelColor),
+          filler(),
 
-            hbox(
-              {
-                text(fmt::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description)),
-                text(" "),
-              }
-            ) |
-              color(valueColor),
-          }
-        ));
+          hbox({
+            text(fmt::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description)),
+            text(" "),
+          }) |
+            color(valueColor),
+        }));
     }
 
     content.push_back(separator() | color(borderColor));
@@ -237,10 +231,19 @@ namespace {
     else
       ERROR_LOG("Failed to get OS version: {}", data.os_version.error());
 
+    // Add disk row after memory info
     if (data.mem_info.has_value())
-      content.push_back(createRow(memoryIcon, "RAM", fmt::format("{:.2f}", BytesToGiB { *data.mem_info })));
+      content.push_back(createRow(memoryIcon, "RAM", fmt::format("{}", BytesToGiB { *data.mem_info })));
     else
       ERROR_LOG("Failed to get memory info: {}", data.mem_info.error());
+
+    // Add Disk usage row
+    content.push_back(
+      createRow(" 󰋊  ", "Disk", fmt::format("{}/{}", BytesToGiB { data.disk_used }, BytesToGiB { data.disk_total }))
+    );
+
+    // Add Shell row
+    content.push_back(createRow("   ", "Shell", data.shell));
 
     content.push_back(separator() | color(borderColor));
 
@@ -258,16 +261,14 @@ namespace {
         const std::string& npText = *nowPlayingResult;
 
         content.push_back(separator() | color(borderColor));
-        content.push_back(hbox(
-          {
-            text(musicIcon) | color(iconColor),
-            text("Playing") | color(labelColor),
-            text(" "),
-            filler(),
-            paragraph(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, 30),
-            text(" "),
-          }
-        ));
+        content.push_back(hbox({
+          text(musicIcon) | color(iconColor),
+          text("Playing") | color(labelColor),
+          text(" "),
+          filler(),
+          paragraph(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, 30),
+          text(" "),
+        }));
       } else {
         const NowPlayingError& error = nowPlayingResult.error();
 
@@ -299,10 +300,10 @@ namespace {
 
 fn main() -> i32 {
   const Config& config = Config::getInstance();
+  SystemData    data   = SystemData::fetchSystemData(config);
 
-  SystemData data = SystemData::fetchSystemData(config);
-
-  Element document = hbox({ SystemInfoBox(config, data), filler() });
+  // Add vertical box with forced newline
+  Element document = vbox({ hbox({ SystemInfoBox(config, data), filler() }), text("") });
 
   Screen screen = Screen::Create(Dimension::Full(), Dimension::Fit(document));
   Render(screen, document);

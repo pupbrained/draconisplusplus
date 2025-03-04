@@ -1,21 +1,20 @@
 #ifdef __WIN32__
 
-#include <iostream>
+// clang-format off
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <wincrypt.h>
-#include <winrt/Windows.Foundation.h>
-#include <winrt/Windows.Media.Control.h>
-#include <winrt/base.h>
-#include <winrt/impl/Windows.Media.Control.2.h>
-
-// clang-format off
 #include <dwmapi.h>
 #include <tlhelp32.h>
 #include <algorithm>
 #include <vector>
 #include <cstring>
 // clang-format on
+
+#include <winrt/Windows.Foundation.h>
+#include <winrt/Windows.Media.Control.h>
+#include <winrt/base.h>
+#include <winrt/impl/Windows.Media.Control.2.h>
 
 #include "os.h"
 
@@ -76,15 +75,64 @@ namespace {
       return _stricmp(proc.c_str(), name.c_str()) == 0;
     });
   }
+
+  fn GetParentProcessId(DWORD pid) -> DWORD {
+    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (hSnapshot == INVALID_HANDLE_VALUE)
+      return 0;
+
+    PROCESSENTRY32 pe32;
+    pe32.dwSize     = sizeof(PROCESSENTRY32);
+    DWORD parentPid = 0;
+
+    if (Process32First(hSnapshot, &pe32)) {
+      while (true) {
+        if (pe32.th32ProcessID == pid) {
+          parentPid = pe32.th32ParentProcessID;
+          break;
+        }
+        if (!Process32Next(hSnapshot, &pe32)) {
+          break;
+        }
+      }
+    }
+    CloseHandle(hSnapshot);
+    return parentPid;
+  }
+
+  fn GetProcessName(DWORD pid) -> string {
+    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (hSnapshot == INVALID_HANDLE_VALUE)
+      return "";
+
+    PROCESSENTRY32 pe32;
+    pe32.dwSize = sizeof(PROCESSENTRY32);
+    string processName;
+
+    if (Process32First(hSnapshot, &pe32)) {
+      while (true) {
+        if (pe32.th32ProcessID == pid) {
+          // Explicitly cast array to string to avoid implicit array decay
+          processName = std::string(static_cast<const char*>(pe32.szExeFile));
+          break;
+        }
+
+        if (!Process32Next(hSnapshot, &pe32))
+          break;
+      }
+    }
+    CloseHandle(hSnapshot);
+    return processName;
+  }
 }
 
 fn GetMemInfo() -> expected<u64, string> {
-  u64 mem = 0;
-
-  if (!GetPhysicallyInstalledSystemMemory(&mem))
-    return std::unexpected("Failed to get physical system memory.");
-
-  return mem * 1024;
+  MEMORYSTATUSEX memInfo;
+  memInfo.dwLength = sizeof(MEMORYSTATUSEX);
+  if (!GlobalMemoryStatusEx(&memInfo)) {
+    return std::unexpected("Failed to get memory status");
+  }
+  return memInfo.ullTotalPhys;
 }
 
 fn GetNowPlaying() -> expected<string, NowPlayingError> {
@@ -141,7 +189,7 @@ fn GetOSVersion() -> expected<string, string> {
     return result;
   }
 
-  return std::unexpected("Failed to get OS version.");
+  return "Windows";
 }
 
 fn GetHost() -> string {
@@ -180,22 +228,20 @@ fn GetWindowManager() -> string {
   string                    windowManager;
 
   // Check for third-party WMs
-  if (IsProcessRunning(processes, "glazewm.exe")) {
+  if (IsProcessRunning(processes, "glazewm.exe"))
     windowManager = "GlazeWM";
-  } else if (IsProcessRunning(processes, "fancywm.exe")) {
+  else if (IsProcessRunning(processes, "fancywm.exe"))
     windowManager = "FancyWM";
-  } else if (IsProcessRunning(processes, "komorebi.exe") || IsProcessRunning(processes, "komorebic.exe")) {
+  else if (IsProcessRunning(processes, "komorebi.exe") || IsProcessRunning(processes, "komorebic.exe"))
     windowManager = "Komorebi";
-  }
 
   // Fallback to DWM detection
   if (windowManager.empty()) {
     BOOL compositionEnabled = FALSE;
-    if (SUCCEEDED(DwmIsCompositionEnabled(&compositionEnabled))) {
+    if (SUCCEEDED(DwmIsCompositionEnabled(&compositionEnabled)))
       windowManager = compositionEnabled ? "Desktop Window Manager" : "Windows Manager (Basic)";
-    } else {
+    else
       windowManager = "Windows Manager";
-    }
   }
 
   return windowManager;
@@ -242,6 +288,89 @@ fn GetDesktopEnvironment() -> optional<string> {
     // Older versions
     return "Classic";
   } catch (...) { return std::nullopt; }
+}
+
+fn GetShell() -> string {
+  // Detect MSYS2/MinGW shells
+  if (getenv("MSYSTEM")) {
+    const char* shell = getenv("SHELL");
+    string      shellExe;
+
+    // First try SHELL, then LOGINSHELL
+    if (!shell || strlen(shell) == 0) {
+      shell = getenv("LOGINSHELL");
+    }
+
+    if (shell) {
+      string shellPath = shell;
+      size_t lastSlash = shellPath.find_last_of("\\/");
+      shellExe         = (lastSlash != string::npos) ? shellPath.substr(lastSlash + 1) : shellPath;
+      std::ranges::transform(shellExe, shellExe.begin(), ::tolower);
+    }
+
+    // Fallback to process ancestry if both env vars are missing
+    if (shellExe.empty()) {
+      DWORD pid = GetCurrentProcessId();
+
+      while (pid != 0) {
+        string processName = GetProcessName(pid);
+        std::ranges::transform(processName, processName.begin(), [](unsigned char character) {
+          return static_cast<char>(std::tolower(character));
+        });
+
+        if (processName == "bash.exe" || processName == "zsh.exe" || processName == "fish.exe" ||
+            processName == "mintty.exe") {
+          string name = processName.substr(0, processName.find(".exe"));
+          if (!name.empty())
+            name[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(name[0]))); // Capitalize first letter
+          return name;
+        }
+        pid = GetParentProcessId(pid);
+      }
+
+      return "MSYS2";
+    }
+
+    if (shellExe.find("bash") != string::npos)
+      return "Bash";
+    if (shellExe.find("zsh") != string::npos)
+      return "Zsh";
+    if (shellExe.find("fish") != string::npos)
+      return "Fish";
+    return shellExe.empty() ? "MSYS2" : "MSYS2/" + shellExe;
+  }
+
+  // Detect Windows shells
+  const std::unordered_map<string, string> knownShells = {
+    {             "cmd.exe",              "Command Prompt" },
+    {      "powershell.exe",                  "PowerShell" },
+    {            "pwsh.exe",             "PowerShell Core" },
+    { "windowsterminal.exe",            "Windows Terminal" },
+    {          "mintty.exe",                      "Mintty" },
+    {            "bash.exe", "Windows Subsystem for Linux" }
+  };
+
+  DWORD pid = GetCurrentProcessId();
+  while (pid != 0) {
+    string processName = GetProcessName(pid);
+    std::ranges::transform(processName, processName.begin(), ::tolower);
+
+    if (auto shellIterator = knownShells.find(processName); shellIterator != knownShells.end())
+      return shellIterator->second;
+
+    pid = GetParentProcessId(pid);
+  }
+
+  return "Windows Console";
+}
+
+fn GetDiskUsage() -> std::pair<u64, u64> {
+  ULARGE_INTEGER freeBytes, totalBytes;
+
+  if (GetDiskFreeSpaceExW(L"C:\\", nullptr, &totalBytes, &freeBytes))
+    return { totalBytes.QuadPart - freeBytes.QuadPart, totalBytes.QuadPart };
+
+  return { 0, 0 };
 }
 
 #endif
