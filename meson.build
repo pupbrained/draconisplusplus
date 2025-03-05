@@ -5,8 +5,9 @@ project(
   default_options: [
     'default_library=static',
     'warning_level=everything',
-    'buildtype=release',
+    'buildtype=debug',
     'cpp_args=-fvisibility=hidden',
+    'cpp_std=c++latest'
   ],
 )
 
@@ -35,28 +36,36 @@ if host_machine.system() == 'darwin'
   )
 endif
 
-common_cpp_args = [
-  '-std=c++26',
-  '-Wno-c++20-compat',
-  '-Wno-c++20-extensions',
-  '-Wno-c++98-compat',
-  '-Wno-c++98-compat-pedantic',
-  '-Wno-disabled-macro-expansion',
-  '-Wno-missing-prototypes',
-  '-Wno-padded',
-  '-Wno-pre-c++20-compat-pedantic',
-  '-Wno-switch-default',
-  '-Wunused-function',
-  '-fno-strict-enums',
-  '-nostdlib++',
-  '-march=native',
-]
+common_cpp_args = []
 
-if host_machine.system() == 'windows'
-  common_cpp_args += ['-DCURL_STATICLIB']
+if cpp.get_id() == 'msvc' or cpp.get_id() == 'clang-cl'
+  common_cpp_args += [
+    '/std:c++latest',
+    '/Zc:__cplusplus',
+    '-DNOMINMAX',
+  ]
+
+  add_project_arguments(common_cpp_args, language: 'cpp')
+else
+  common_cpp_args += [
+    '-std=c++26',
+    '-Wno-c++20-compat',
+    '-Wno-c++20-extensions',
+    '-Wno-c++98-compat',
+    '-Wno-c++98-compat-pedantic',
+    '-Wno-disabled-macro-expansion',
+    '-Wno-missing-prototypes',
+    '-Wno-padded',
+    '-Wno-pre-c++20-compat-pedantic',
+    '-Wunused-function',
+    '-fno-strict-enums',
+    '-nostdlib++',
+    '-march=native',
+  ]
+
+  add_project_arguments(cpp.get_supported_arguments(common_cpp_args), language: 'cpp')
 endif
 
-add_project_arguments(cpp.get_supported_arguments(common_cpp_args), language: 'cpp')
 
 source_file_names = ['src/main.cpp', 'src/config/config.cpp', 'src/config/weather.cpp']
 
@@ -81,7 +90,6 @@ endforeach
 
 deps = [
   dependency('fmt', include_type: 'system', static: true),
-  dependency('openssl', include_type: 'system', static: true),
   dependency('libcurl', include_type: 'system', static: true),
   dependency('tomlplusplus', include_type: 'system', static: true),
 ]
@@ -131,23 +139,35 @@ deps += ftxui_dep
 
 cmake_opts = cmake.subproject_options()
 
-cmake_opts.add_cmake_defines(
-  {
-    'CMAKE_CXX_FLAGS': '-Wno-everything',
-  },
-)
-
-cmake_opts.append_compile_args('cpp', '-Wno-everything')
+if cpp.get_id() == 'msvc'
+  cmake_opts.add_cmake_defines(
+    {
+      'CMAKE_CXX_FLAGS': '/w',
+      'REFLECTCPP_USE_STD_EXPECTED': 'ON',
+    },
+  )
+  cmake_opts.append_compile_args('cpp', '/w')
+else
+  cmake_opts.add_cmake_defines(
+    {
+      'CMAKE_CXX_FLAGS': '-Wno-everything -std=c++26',
+      'REFLECTCPP_USE_STD_EXPECTED': 'ON',
+    },
+  )
+  cmake_opts.append_compile_args('cpp', '-Wno-everything -std=c++26')
+endif
 
 reflectcpp_proj = cmake.subproject('reflectcpp', options: cmake_opts)
 reflectcpp_dep = reflectcpp_proj.dependency('reflectcpp', include_type: 'system')
 deps += reflectcpp_dep
 
 objc_args = []
-link_args = ['-static-libgcc', '-static-libstdc++', '-static']
+link_args = []
 
 if host_machine.system() == 'darwin'
   objc_args += ['-fobjc-arc']
+elif host_machine.system() == 'linux'
+  link_args += ['-static-libgcc', '-static-libstdc++', '-static']
 endif
 
 executable(

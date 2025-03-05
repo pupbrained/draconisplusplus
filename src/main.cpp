@@ -1,4 +1,5 @@
 #include <ctime>
+#include <expected>
 #include <fmt/chrono.h>
 #include <fmt/color.h>
 #include <fmt/core.h>
@@ -37,7 +38,7 @@ namespace {
     std::time_t now = std::time(nullptr);
     std::tm     localTime;
 
-#ifdef __WIN32__
+#ifdef _WIN32
     if (localtime_s(&localTime, &now) != 0)
       ERROR_LOG("localtime_s failed");
 #else
@@ -53,11 +54,11 @@ namespace {
       date.erase(date.begin());
 
     // Append appropriate suffix for the datE
-    if (date.ends_with("1") && date != "11")
+    if (date.back() == '1' && date != "11")
       date += "st";
-    else if (date.ends_with("2") && date != "12")
+    else if (date.back() == '2' && date != "12")
       date += "nd";
-    else if (date.ends_with("3") && date != "13")
+    else if (date.back() == '3' && date != "13")
       date += "rd";
     else
       date += "th";
@@ -89,9 +90,9 @@ namespace {
       data.os_version     = GetOSVersion();
       data.mem_info       = GetMemInfo();
 
-      // Desktop environment info (not relevant for Windows)
-      data.desktop_environment = std::nullopt;
-      data.window_manager      = "Windows";
+      // Desktop environment info
+      data.desktop_environment = GetDesktopEnvironment();
+      data.window_manager      = GetWindowManager();
 
       // Parallel execution for disk/shell only
       auto diskShell = std::async(std::launch::async, [] {
@@ -287,7 +288,7 @@ namespace {
           DEBUG_LOG("DBus error: {}", std::get<LinuxError>(error));
 #endif
 
-#ifdef __WIN32__
+#ifdef _WIN32
         if (std::holds_alternative<WindowsError>(error))
           DEBUG_LOG("WinRT error: {}", to_string(std::get<WindowsError>(error).message()));
 #endif

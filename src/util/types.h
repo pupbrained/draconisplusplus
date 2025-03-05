@@ -4,7 +4,9 @@
 #include <cstdint>
 #include <string>
 
-#ifdef __WIN32__
+#ifdef _WIN32
+#include <guiddef.h>
+#include <variant>
 #include <winrt/base.h>
 #endif
 
@@ -155,7 +157,7 @@ using LinuxError = std::string;
  * @brief Represents a macOS-specific error.
  */
 using MacError = std::string;
-#elif defined(__WIN32__)
+#elif defined(_WIN32)
 /**
  * @typedef WindowsError
  * @brief Represents a Windows-specific error.
@@ -170,7 +172,7 @@ using NowPlayingError = std::variant<
   LinuxError
 #elif defined(__APPLE__)
   MacError
-#elif defined(__WIN32__)
+#elif defined(_WIN32)
   WindowsError
 #endif
   >;

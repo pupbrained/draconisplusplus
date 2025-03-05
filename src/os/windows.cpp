@@ -1,4 +1,4 @@
-#ifdef __WIN32__
+#ifdef _WIN32
 
 // clang-format off
 #define WIN32_LEAN_AND_MEAN
@@ -11,6 +11,7 @@
 #include <cstring>
 // clang-format on
 
+#include <guiddef.h>
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Media.Control.h>
 #include <winrt/base.h>
@@ -113,7 +114,7 @@ namespace {
       while (true) {
         if (pe32.th32ProcessID == pid) {
           // Explicitly cast array to string to avoid implicit array decay
-          processName = std::string(static_cast<const char*>(pe32.szExeFile));
+          processName = string(reinterpret_cast<const char*>(pe32.szExeFile));
           break;
         }
 
@@ -239,7 +240,7 @@ fn GetWindowManager() -> string {
   if (windowManager.empty()) {
     BOOL compositionEnabled = FALSE;
     if (SUCCEEDED(DwmIsCompositionEnabled(&compositionEnabled)))
-      windowManager = compositionEnabled ? "Desktop Window Manager" : "Windows Manager (Basic)";
+      windowManager = compositionEnabled ? "DWM" : "Windows Manager (Basic)";
     else
       windowManager = "Windows Manager";
   }
@@ -252,8 +253,12 @@ fn GetDesktopEnvironment() -> optional<string> {
   const string buildStr =
     GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", "CurrentBuildNumber");
 
-  if (buildStr.empty())
+  DEBUG_LOG("buildStr: {}", buildStr);
+
+  if (buildStr.empty()) {
+    DEBUG_LOG("Failed to get CurrentBuildNumber from registry");
     return std::nullopt;
+  }
 
   try {
     const i32 build = stoi(buildStr);
@@ -287,7 +292,10 @@ fn GetDesktopEnvironment() -> optional<string> {
 
     // Older versions
     return "Classic";
-  } catch (...) { return std::nullopt; }
+  } catch (...) {
+    DEBUG_LOG("Failed to parse CurrentBuildNumber");
+    return std::nullopt;
+  }
 }
 
 fn GetShell() -> string {
