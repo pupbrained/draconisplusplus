@@ -3,25 +3,26 @@
 {
   fmt = {
     pname = "fmt";
-    version = "11.1.3";
+    version = "11.1.4";
     src = fetchFromGitHub {
       owner = "fmtlib";
       repo = "fmt";
-      rev = "11.1.3";
+      rev = "11.1.4";
       fetchSubmodules = false;
-      sha256 = "sha256-6r9D/csVSgS+T/H0J8cSR+YszxnH/h2V2odi2s6VYN8=";
+      sha256 = "sha256-sUbxlYi/Aupaox3JjWFqXIjcaQa0LFjclQAOleT+FRA=";
     };
   };
   reflect-cpp = {
     pname = "reflect-cpp";
-    version = "v0.17.0";
+    version = "ec8c19fa3e931d736b3f3ff2e400fce4a5f97829";
     src = fetchFromGitHub {
       owner = "getml";
       repo = "reflect-cpp";
-      rev = "v0.17.0";
+      rev = "ec8c19fa3e931d736b3f3ff2e400fce4a5f97829";
       fetchSubmodules = false;
-      sha256 = "sha256-ugMop4Gsw46zFA7mESNzDTAZVzIg3szAX8ND1kUiF2A=";
+      sha256 = "sha256-3bbaVbU9ICQ8no/3W4M8ePsnrZR3e3CWhT3RO3lL3r0=";
     };
+    date = "2025-03-02";
   };
   sdbus-cpp = {
     pname = "sdbus-cpp";

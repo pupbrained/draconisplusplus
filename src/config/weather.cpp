@@ -40,7 +40,7 @@ namespace {
 
     DEBUG_LOG("Reading from cache file...");
 
-    const std::string content((std::istreambuf_iterator(ifs)), std::istreambuf_iterator<char>());
+    const std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
 
     rfl::Result<WeatherOutput> result = rfl::json::read<WeatherOutput>(content);
     if (!result)

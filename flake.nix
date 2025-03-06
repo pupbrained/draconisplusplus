@@ -35,25 +35,13 @@
           inherit (pkgs) fetchFromGitHub fetchgit fetchurl dockerTools;
         };
 
-        mkPkg = name:
-          pkgs.pkgsStatic.${name}.overrideAttrs {
-            inherit (sources.${name}) pname version src;
-          };
-
-        fmt = mkPkg "fmt";
+        fmt = pkgs.pkgsStatic.fmt.overrideAttrs (old: {
+          inherit (sources.fmt) pname version src;
+        });
 
         tomlplusplus = pkgs.pkgsStatic.tomlplusplus.overrideAttrs {
           inherit (sources.tomlplusplus) pname version src;
           doCheck = false;
-        };
-
-        sdbus-cpp = pkgs.sdbus-cpp.overrideAttrs {
-          inherit (sources.sdbus-cpp) pname version src;
-
-          cmakeFlags = [
-            (pkgs.lib.cmakeBool "BUILD_CODE_GEN" true)
-            (pkgs.lib.cmakeBool "BUILD_SHARED_LIBS" false)
-          ];
         };
 
         yyjson = pkgs.pkgsStatic.stdenv.mkDerivation {
@@ -70,6 +58,8 @@
 
           cmakeFlags = [
             "-DCMAKE_TOOLCHAIN_FILE=OFF"
+            "-DCMAKE_CXX_VISIBILITY_PRESET=hidden"
+            "-DCMAKE_VISIBILITY_INLINES_HIDDEN=ON"
             "-DREFLECTCPP_TOML=ON"
             "-DREFLECTCPP_JSON=ON"
             "-DREFLECTCPP_USE_STD_EXPECTED=ON"
@@ -78,14 +68,14 @@
 
         deps = with pkgs.pkgsStatic;
           [
-            # curl
-            # fmt
-            # libiconv
-            # tomlplusplus
-            # yyjson
-            # reflect-cpp
-            # sqlitecpp
-            # ftxui
+            curl
+            fmt
+            libiconv
+            tomlplusplus
+            yyjson
+            reflect-cpp
+            sqlitecpp
+            ftxui
           ]
           ++ linuxPkgs;
 
@@ -167,6 +157,7 @@
               ++ deps;
 
             LD_LIBRARY_PATH = "${lib.makeLibraryPath deps}";
+            NIX_ENFORCE_NO_NATIVE = 0;
 
             name = "C++";
           };

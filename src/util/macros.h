@@ -1,6 +1,7 @@
 #pragma once
 
 // probably stupid but it fixes the issue with windows.h defining ERROR
+#include <utility>
 #undef ERROR
 
 #include <filesystem>
@@ -35,6 +36,11 @@ void LogImpl(const LogLevel level, const std::source_location& loc, fmt::format_
         return std::make_pair(log_colors::warn, "WARN ");
       case LogLevel::ERROR:
         return std::make_pair(log_colors::error, "ERROR");
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcovered-switch-default"
+      default:
+        std::unreachable();
+#pragma clang diagnostic pop
     }
   }();
 
@@ -45,7 +51,7 @@ void LogImpl(const LogLevel level, const std::source_location& loc, fmt::format_
   if (localtime_s(&time, &now) != 0)
     throw std::runtime_error("localtime_s failed");
 #else
-  if (localtime_r(&now, &localTime) == nullptr)
+  if (localtime_r(&now, &time) == nullptr)
     throw std::runtime_error("localtime_r failed");
 #endif
 

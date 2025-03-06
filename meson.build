@@ -1,3 +1,6 @@
+# ----------------------- #
+#  Project Configuration  #
+# ----------------------- #
 project(
   'draconis++',
   'cpp',
@@ -5,126 +8,119 @@ project(
   default_options: [
     'default_library=static',
     'warning_level=everything',
-    'buildtype=debug',
+    'buildtype=release',
   ],
 )
 
 cpp = meson.get_compiler('cpp')
+host_system = host_machine.system()
 
-if host_machine.system() == 'darwin'
-  add_languages('objcpp')
-  objcpp = meson.get_compiler('objcpp')
-  add_project_arguments(
-    objcpp.get_supported_arguments(
-      [
-        '-std=c++2b',
-        '-Wno-c++20-compat',
-        '-Wno-c++20-extensions',
-        '-Wno-c++98-compat',
-        '-Wno-c++98-compat-pedantic',
-        '-Wno-disabled-macro-expansion',
-        '-Wno-missing-prototypes',
-        '-Wno-padded',
-        '-Wno-pre-c++20-compat-pedantic',
-        '-Wno-switch-default',
-        '-Wunused-function',
-      ],
-    ),
-    language: 'objcpp',
-  )
-endif
-
-common_cpp_args = []
-
-if cpp.get_id() == 'msvc' or cpp.get_id() == 'clang-cl'
-  common_cpp_args += [
-    '/std:c++latest',
-    '/Zc:__cplusplus',
-    '-DNOMINMAX',
-  ]
-
-  if cpp.get_id() == 'clang-cl'
-    common_cpp_args += [
-      '-std=c++26',
-      '-Wno-c++20-compat',
-      '-Wno-c++20-extensions',
-      '-Wno-c++98-compat',
-      '-Wno-c++98-compat-pedantic',
-      '-Wno-disabled-macro-expansion',
-      '-Wno-missing-prototypes',
-      '-Wno-padded',
-      '-Wno-pre-c++20-compat-pedantic',
-      '-Wunused-function',
-      '-fno-strict-enums',
-    ]
-  endif
-
-  add_project_arguments(common_cpp_args, language: 'cpp')
-else
-  common_cpp_args += [
-    '-std=c++26',
-    '-Wno-c++20-compat',
-    '-Wno-c++20-extensions',
-    '-Wno-c++98-compat',
-    '-Wno-c++98-compat-pedantic',
-    '-Wno-disabled-macro-expansion',
-    '-Wno-missing-prototypes',
-    '-Wno-padded',
-    '-Wno-pre-c++20-compat-pedantic',
-    '-Wunused-function',
-    '-fno-strict-enums',
-    '-nostdlib++',
-    '-march=native',
-  ]
-
-  if host_machine.system() == 'windows'
-    common_cpp_args += '-DCURL_STATICLIB'
-  endif
-
-  add_project_arguments(cpp.get_supported_arguments(common_cpp_args), language: 'cpp')
-endif
-
-source_file_names = ['src/main.cpp', 'src/config/config.cpp', 'src/config/weather.cpp']
-
-if host_machine.system() == 'linux'
-  source_file_names += ['src/os/linux.cpp', 'src/os/linux/issetugid_stub.cpp']
-elif host_machine.system() == 'freebsd'
-  source_file_names += ['src/os/freebsd.cpp']
-elif host_machine.system() == 'darwin'
-  source_file_names += [
-    'src/os/macos.cpp',
-    'src/os/macos/bridge.mm',
-  ]
-elif host_machine.system() == 'windows'
-  source_file_names += ['src/os/windows.cpp']
-endif
-
-sources = []
-
-foreach file : source_file_names
-  sources += files(file)
-endforeach
-
-deps = [
-  dependency('fmt', include_type: 'system', static: true),
-  dependency('openssl', include_type: 'system', static: true, required: false),
-  dependency('libcurl', include_type: 'system', static: true),
-  dependency('tomlplusplus', include_type: 'system', static: true),
+# ------------------------ #
+#  Compiler Configuration  #
+# ------------------------ #
+common_warning_flags = [
+  '-Wno-c++20-compat',
+  '-Wno-c++20-extensions',
+  '-Wno-c++98-compat',
+  '-Wno-c++98-compat-pedantic',
+  '-Wno-disabled-macro-expansion',
+  '-Wno-missing-prototypes',
+  '-Wno-padded',
+  '-Wno-pre-c++20-compat-pedantic',
+  '-Wunused-function',
 ]
 
-if host_machine.system() == 'darwin'
-  deps += dependency(
-    'appleframeworks',
-    modules: ['foundation', 'mediaplayer', 'systemconfiguration'],
-    static: true,
-  )
-elif host_machine.system() == 'windows'
-  deps += [
+common_cpp_flags = {
+  'common': [
+    '-fno-strict-enums',
+    '-fvisibility=hidden',
+    '-fvisibility-inlines-hidden',
+    '-std=c++26',
+  ],
+  'msvc': [
+    '-DNOMINMAX',
+    '/Zc:__cplusplus',
+    '/std:c++latest',
+  ],
+  'unix_extra': [
+    '-march=native',
+    '-nostdlib++',
+  ],
+  'windows_extra': '-DCURL_STATICLIB'
+}
+
+# Configure Objective-C++ for macOS
+if host_system == 'darwin'
+  add_languages('objcpp', native: false)
+  objcpp = meson.get_compiler('objcpp')
+  objcpp_flags = common_warning_flags + [
+    '-Wno-switch-default',
+    '-std=c++2b',
+    '-fvisibility=hidden',
+    '-fvisibility-inlines-hidden',
+  ]
+  add_project_arguments(objcpp.get_supported_arguments(objcpp_flags), language: 'objcpp')
+endif
+
+# Apply C++ compiler arguments
+if cpp.get_id() in ['msvc', 'clang-cl']
+  common_cpp_args = common_cpp_flags['msvc']
+  if cpp.get_id() == 'clang-cl'
+    common_cpp_args += common_warning_flags + common_cpp_flags['common']
+  endif
+else
+  common_cpp_args = common_warning_flags + common_cpp_flags['common'] + common_cpp_flags['unix_extra']
+  if host_system == 'windows'
+    common_cpp_args += common_cpp_flags['windows_extra']
+  endif
+  common_cpp_args = cpp.get_supported_arguments(common_cpp_args)
+endif
+
+add_project_arguments(common_cpp_args, language: 'cpp')
+
+# ------- #
+#  Files  #
+# ------- #
+base_sources = files(
+  'src/main.cpp',
+  'src/config/config.cpp',
+  'src/config/weather.cpp'
+)
+
+platform_sources = {
+  'linux':   ['src/os/linux.cpp', 'src/os/linux/issetugid_stub.cpp'],
+  'freebsd': ['src/os/freebsd.cpp'],
+  'darwin':  ['src/os/macos.cpp', 'src/os/macos/bridge.mm'],
+  'windows': ['src/os/windows.cpp']
+}
+
+sources = base_sources + files(platform_sources.get(host_system, []))
+
+# --------------------- #
+#  Dependencies Config  #
+# --------------------- #
+common_deps = [
+  dependency('fmt', include_type: 'system', static: true),
+  dependency('libcurl', include_type: 'system', static: true),
+  dependency('tomlplusplus', include_type: 'system', static: true),
+  dependency('openssl', include_type: 'system', static: true, required: false),
+]
+
+# Platform-specific dependencies
+platform_deps = []
+
+if host_system == 'darwin'
+  platform_deps += [
+    dependency('appleframeworks', modules: ['foundation', 'mediaplayer', 'systemconfiguration'], static: true),
+    dependency('iconv')
+  ]
+elif host_system == 'windows'
+  platform_deps += [
     cpp.find_library('dwmapi'),
     cpp.find_library('windowsapp'),
   ]
-elif host_machine.system() == 'linux' or host_machine.system() == 'freebsd'
-  deps += [
+elif host_system == 'linux' or host_system == 'freebsd'
+  platform_deps += [
     dependency('SQLiteCpp'),
     dependency('sdbus-c++'),
     dependency('x11'),
@@ -136,60 +132,60 @@ elif host_machine.system() == 'linux' or host_machine.system() == 'freebsd'
   ]
 endif
 
+# FTXUI configuration
 cmake = import('cmake')
-
-ftxui_dep = dependency(
-  'ftxui',
-  modules: ['ftxui::screen', 'ftxui::dom', 'ftxui::component'],
-  include_type: 'system',
-  static: true,
-  required: false,
-)
+ftxui_components = ['ftxui::screen', 'ftxui::dom', 'ftxui::component']
+ftxui_dep = dependency('ftxui', modules: ftxui_components, include_type: 'system', static: true, required: false)
 
 if not ftxui_dep.found()
-  ftxui_dom = dependency('ftxui-dom', fallback: ['ftxui', 'dom_dep'])
-  ftxui_screen = dependency('ftxui-screen', fallback: ['ftxui', 'screen_dep'])
-  ftxui_component = dependency('ftxui-component', fallback: ['ftxui', 'component_dep'])
-  ftxui_dep = declare_dependency(dependencies: [ftxui_dom, ftxui_screen, ftxui_component])
+  ftxui_dep = declare_dependency(
+    dependencies: [
+      dependency('ftxui-dom', fallback: ['ftxui', 'dom_dep']),
+      dependency('ftxui-screen', fallback: ['ftxui', 'screen_dep']),
+      dependency('ftxui-component', fallback: ['ftxui', 'component_dep'])
+    ]
+  )
 endif
 
-deps += ftxui_dep
+# ReflectCpp configuration
+reflectcpp_dep = dependency('reflectcpp', include_type: 'system', required: false, static: true)
+if not reflectcpp_dep.found()
+  cmake_opts = cmake.subproject_options()
+  cxx_flags = cpp.get_id() == 'msvc' ? '/w' : '-Wno-everything -std=c++26 -fvisibility=hidden'  # Added visibility flag
 
-cmake_opts = cmake.subproject_options()
+  cmake_opts.add_cmake_defines({
+    'CMAKE_CXX_FLAGS': cxx_flags,
+    'CMAKE_VISIBILITY_INLINES_HIDDEN': 'ON'  # Add this line
+  })
+  cmake_opts.append_compile_args('cpp', cxx_flags)
 
-if cpp.get_id() == 'msvc'
-  cmake_opts.add_cmake_defines(
-    {
-      'CMAKE_CXX_FLAGS': '/w',
-    },
-  )
-  cmake_opts.append_compile_args('cpp', '/w')
-else
-  cmake_opts.add_cmake_defines(
-    {
-      'CMAKE_CXX_FLAGS': '-Wno-everything -std=c++26',
-    },
-  )
-  cmake_opts.append_compile_args('cpp', '-Wno-everything -std=c++26')
+  reflectcpp_proj = cmake.subproject('reflectcpp', options: cmake_opts)
+  reflectcpp_dep = reflectcpp_proj.dependency('reflectcpp', include_type: 'system')
 endif
 
-reflectcpp_proj = cmake.subproject('reflectcpp', options: cmake_opts)
-reflectcpp_dep = reflectcpp_proj.dependency('reflectcpp', include_type: 'system')
-deps += reflectcpp_dep
+# Combine all dependencies
+deps = common_deps + platform_deps + [ftxui_dep, reflectcpp_dep]
 
-objc_args = []
+# ------------------------- #
+#  Link/ObjC Configuration  #
+# ------------------------- #
 link_args = []
+objc_args = []
 
-if host_machine.system() == 'darwin'
+if host_system == 'darwin'
   objc_args += ['-fobjc-arc']
-elif host_machine.system() == 'linux'
+elif host_system == 'linux'
   link_args += ['-static-libgcc', '-static-libstdc++', '-static']
 endif
 
+# ------------------- #
+#  Executable Target  #
+# ------------------- #
 executable(
   'draconis++',
   sources,
   objc_args: objc_args,
   link_args: link_args,
   dependencies: deps,
+  install: true,
 )

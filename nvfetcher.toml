@@ -1,0 +1,19 @@
+[fmt]
+src.github = "fmtlib/fmt"
+fetch.github = "fmtlib/fmt"
+
+[reflect-cpp]
+src.git = "https://github.com/getml/reflect-cpp"
+fetch.github = "getml/reflect-cpp"
+
+[sdbus-cpp]
+src.github = "kistler-group/sdbus-cpp"
+fetch.github = "kistler-group/sdbus-cpp"
+
+[tomlplusplus]
+src.github = "marzer/tomlplusplus"
+fetch.github = "marzer/tomlplusplus"
+
+[yyjson]
+src.github = "ibireme/yyjson"
+fetch.github = "ibireme/yyjson"

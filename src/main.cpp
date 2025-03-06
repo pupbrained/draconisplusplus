@@ -8,6 +8,7 @@
 #include <ftxui/screen/screen.hpp>
 #include <future>
 #include <string>
+#include <utility>
 #include <variant>
 
 #include "config/config.h"
@@ -95,10 +96,10 @@ namespace {
       data.window_manager      = GetWindowManager();
 
       // Parallel execution for disk/shell only
-      auto diskShell = std::async(std::launch::async, [] {
-        auto [used, total] = GetDiskUsage();
-        return std::make_tuple(used, total, GetShell());
-      });
+      // auto diskShell = std::async(std::launch::async, [] {
+      //   auto [used, total] = GetDiskUsage();
+      //   return std::make_tuple(used, total, GetShell());
+      // });
 
       // Conditional tasks
       std::future<WeatherOutput>                          weather;
@@ -113,10 +114,10 @@ namespace {
       }
 
       // Get remaining results
-      auto [used, total, shell] = diskShell.get();
-      data.disk_used            = used;
-      data.disk_total           = total;
-      data.shell                = shell;
+      // auto [used, total, shell] = diskShell.get();
+      // data.disk_used            = used;
+      // data.disk_total           = total;
+      // data.shell                = shell;
 
       if (weather.valid())
         data.weather_info = weather.get();
@@ -167,25 +168,21 @@ namespace {
 
     content.push_back(text("   Hello " + name + "! ") | bold | color(Color::Cyan));
     content.push_back(separator() | color(borderColor));
-    content.push_back(hbox(
-      {
-        text("   ") | color(iconColor), // Palette icon
-        CreateColorCircles(),
-      }
-    ));
+    content.push_back(hbox({
+      text("   ") | color(iconColor), // Palette icon
+      CreateColorCircles(),
+    }));
     content.push_back(separator() | color(borderColor));
 
     // Helper function for aligned rows
     fn createRow = [&](const std::string& icon, const std::string& label, const std::string& value) {
-      return hbox(
-        {
-          text(icon) | color(iconColor),
-          text(label) | color(labelColor),
-          filler(),
-          text(value) | color(valueColor),
-          text(" "),
-        }
-      );
+      return hbox({
+        text(icon) | color(iconColor),
+        text(label) | color(labelColor),
+        filler(),
+        text(value) | color(valueColor),
+        text(" "),
+      });
     };
 
     // System info rows
@@ -196,39 +193,31 @@ namespace {
       const WeatherOutput& weatherInfo = data.weather_info.value();
 
       if (weather.show_town_name)
-        content.push_back(hbox(
-          {
-            text(weatherIcon) | color(iconColor),
-            text("Weather") | color(labelColor),
-            filler(),
+        content.push_back(hbox({
+          text(weatherIcon) | color(iconColor),
+          text("Weather") | color(labelColor),
+          filler(),
 
-            hbox(
-              {
-                text(fmt::format("{}°F ", std::lround(weatherInfo.main.temp))),
-                text("in "),
-                text(weatherInfo.name),
-                text(" "),
-              }
-            ) |
-              color(valueColor),
-          }
-        ));
+          hbox({
+            text(fmt::format("{}°F ", std::lround(weatherInfo.main.temp))),
+            text("in "),
+            text(weatherInfo.name),
+            text(" "),
+          }) |
+            color(valueColor),
+        }));
       else
-        content.push_back(hbox(
-          {
-            text(weatherIcon) | color(iconColor),
-            text("Weather") | color(labelColor),
-            filler(),
+        content.push_back(hbox({
+          text(weatherIcon) | color(iconColor),
+          text("Weather") | color(labelColor),
+          filler(),
 
-            hbox(
-              {
-                text(fmt::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description)),
-                text(" "),
-              }
-            ) |
-              color(valueColor),
-          }
-        ));
+          hbox({
+            text(fmt::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description)),
+            text(" "),
+          }) |
+            color(valueColor),
+        }));
     }
 
     content.push_back(separator() | color(borderColor));
@@ -244,19 +233,18 @@ namespace {
     else
       ERROR_LOG("Failed to get OS version: {}", data.os_version.error());
 
-    // Add disk row after memory info
     if (data.mem_info.has_value())
       content.push_back(createRow(memoryIcon, "RAM", fmt::format("{}", BytesToGiB { *data.mem_info })));
     else
       ERROR_LOG("Failed to get memory info: {}", data.mem_info.error());
 
     // Add Disk usage row
-    content.push_back(
-      createRow(" 󰋊  ", "Disk", fmt::format("{}/{}", BytesToGiB { data.disk_used }, BytesToGiB { data.disk_total }))
-    );
+    // content.push_back(
+    //   createRow(" 󰋊  ", "Disk", fmt::format("{}/{}", BytesToGiB { data.disk_used }, BytesToGiB { data.disk_total
+    //   }))
+    // );
 
-    // Add Shell row
-    content.push_back(createRow("   ", "Shell", data.shell));
+    // content.push_back(createRow("   ", "Shell", data.shell));
 
     content.push_back(separator() | color(borderColor));
 
@@ -274,16 +262,14 @@ namespace {
         const std::string& npText = *nowPlayingResult;
 
         content.push_back(separator() | color(borderColor));
-        content.push_back(hbox(
-          {
-            text(musicIcon) | color(iconColor),
-            text("Playing") | color(labelColor),
-            text(" "),
-            filler(),
-            paragraph(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, 30),
-            text(" "),
-          }
-        ));
+        content.push_back(hbox({
+          text(musicIcon) | color(iconColor),
+          text("Playing") | color(labelColor),
+          text(" "),
+          filler(),
+          paragraph(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, 30),
+          text(" "),
+        }));
       } else {
         const NowPlayingError& error = nowPlayingResult.error();
 
@@ -295,6 +281,11 @@ namespace {
             case NowPlayingCode::NoActivePlayer:
               DEBUG_LOG("No active player found");
               break;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcovered-switch-default"
+            default:
+              std::unreachable();
+#pragma clang diagnostic pop
           }
 
 #ifdef __linux__
