@@ -21,6 +21,7 @@
 
 using RtlGetVersionPtr = NTSTATUS(WINAPI*)(PRTL_OSVERSIONINFOW);
 
+// NOLINTBEGIN(*-pro-type-cstyle-cast,*-no-int-to-ptr)
 namespace {
   fn GetRegistryValue(const HKEY& hKey, const string& subKey, const string& valueName) -> string {
     HKEY key = nullptr;
@@ -52,9 +53,10 @@ namespace {
   // Add these function implementations
   fn GetRunningProcesses() -> std::vector<string> {
     std::vector<string> processes;
-    HANDLE              hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    // ReSharper disable once CppLocalVariableMayBeConst
+    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 
-    if (hSnapshot == INVALID_HANDLE_VALUE)
+    if (hSnapshot == INVALID_HANDLE_VALUE) // NOLINT(*-no-int-to-ptr)
       return processes;
 
     PROCESSENTRY32 pe32;
@@ -78,6 +80,7 @@ namespace {
   }
 
   fn GetParentProcessId(DWORD pid) -> DWORD {
+    // ReSharper disable once CppLocalVariableMayBeConst
     HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (hSnapshot == INVALID_HANDLE_VALUE)
       return 0;
@@ -101,7 +104,8 @@ namespace {
     return parentPid;
   }
 
-  fn GetProcessName(DWORD pid) -> string {
+  fn GetProcessName(const DWORD pid) -> string {
+    // ReSharper disable once CppLocalVariableMayBeConst
     HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (hSnapshot == INVALID_HANDLE_VALUE)
       return "";
@@ -113,8 +117,8 @@ namespace {
     if (Process32First(hSnapshot, &pe32)) {
       while (true) {
         if (pe32.th32ProcessID == pid) {
-          // Explicitly cast array to string to avoid implicit array decay
-          processName = string(reinterpret_cast<const char*>(pe32.szExeFile));
+          // ReSharper disable once CppRedundantCastExpression
+          processName = string(static_cast<const char*>(pe32.szExeFile));
           break;
         }
 
@@ -130,9 +134,10 @@ namespace {
 fn GetMemInfo() -> expected<u64, string> {
   MEMORYSTATUSEX memInfo;
   memInfo.dwLength = sizeof(MEMORYSTATUSEX);
-  if (!GlobalMemoryStatusEx(&memInfo)) {
+
+  if (!GlobalMemoryStatusEx(&memInfo))
     return std::unexpected("Failed to get memory status");
-  }
+
   return memInfo.ullTotalPhys;
 }
 
@@ -206,11 +211,10 @@ fn GetHost() -> string {
 
 fn GetKernelVersion() -> string {
   std::stringstream versionStream;
-  HMODULE           ntdllHandle = GetModuleHandleW(L"ntdll.dll");
 
-  if (ntdllHandle) {
-    auto rtlGetVersion = std::bit_cast<RtlGetVersionPtr>(GetProcAddress(ntdllHandle, "RtlGetVersion"));
-    if (rtlGetVersion) {
+  // ReSharper disable once CppLocalVariableMayBeConst
+  if (HMODULE ntdllHandle = GetModuleHandleW(L"ntdll.dll")) {
+    if (const auto rtlGetVersion = std::bit_cast<RtlGetVersionPtr>(GetProcAddress(ntdllHandle, "RtlGetVersion"))) {
       RTL_OSVERSIONINFOW osInfo = {};
 
       osInfo.dwOSVersionInfoSize = sizeof(osInfo);
@@ -300,19 +304,28 @@ fn GetDesktopEnvironment() -> optional<string> {
 
 fn GetShell() -> string {
   // Detect MSYS2/MinGW shells
-  if (getenv("MSYSTEM")) {
-    const char* shell = getenv("SHELL");
-    string      shellExe;
+  char* msystemEnv = nullptr;
+  if (_dupenv_s(&msystemEnv, nullptr, "MSYSTEM") == 0 && msystemEnv != nullptr) {
+    const std::unique_ptr<char, decltype(&free)> msystemEnvGuard(msystemEnv, free);
+    char*                                        shell    = nullptr;
+    size_t                                       shellLen = 0;
+    _dupenv_s(&shell, &shellLen, "SHELL");
+    const std::unique_ptr<char, decltype(&free)> shellGuard(shell, free);
+    string                                       shellExe;
 
     // First try SHELL, then LOGINSHELL
     if (!shell || strlen(shell) == 0) {
-      shell = getenv("LOGINSHELL");
+      char*  loginShell    = nullptr;
+      size_t loginShellLen = 0;
+      _dupenv_s(&loginShell, &loginShellLen, "LOGINSHELL");
+      const std::unique_ptr<char, decltype(&free)> loginShellGuard(loginShell, free);
+      shell = loginShell;
     }
 
     if (shell) {
-      string shellPath = shell;
-      size_t lastSlash = shellPath.find_last_of("\\/");
-      shellExe         = (lastSlash != string::npos) ? shellPath.substr(lastSlash + 1) : shellPath;
+      const string shellPath = shell;
+      const size_t lastSlash = shellPath.find_last_of("\\/");
+      shellExe               = (lastSlash != string::npos) ? shellPath.substr(lastSlash + 1) : shellPath;
       std::ranges::transform(shellExe, shellExe.begin(), ::tolower);
     }
 
@@ -322,7 +335,7 @@ fn GetShell() -> string {
 
       while (pid != 0) {
         string processName = GetProcessName(pid);
-        std::ranges::transform(processName, processName.begin(), [](unsigned char character) {
+        std::ranges::transform(processName, processName.begin(), [](const u8 character) {
           return static_cast<char>(std::tolower(character));
         });
 
@@ -380,5 +393,6 @@ fn GetDiskUsage() -> std::pair<u64, u64> {
 
   return { 0, 0 };
 }
+// NOLINTEND(*-pro-type-cstyle-cast,*-no-int-to-ptr)
 
 #endif

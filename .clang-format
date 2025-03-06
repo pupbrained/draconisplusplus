@@ -20,6 +20,7 @@ IndentWidth: 2
 NamespaceIndentation: All
 SpaceBeforeCpp11BracedList: true
 SpacesBeforeTrailingComments: 1
+QualifierAlignment: Left
 
 IncludeBlocks: Regroup
 IncludeCategories:

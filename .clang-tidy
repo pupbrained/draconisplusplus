@@ -22,6 +22,7 @@ Checks: >
     -llvm-namespace-comment,
     -llvmlibc-*,
     -misc-non-private-member-variables-in-classes,
+    -modernize-use-nullptr,
     -readability-braces-around-statements,
     -readability-function-cognitive-complexity,
     -readability-implicit-bool-conversion,

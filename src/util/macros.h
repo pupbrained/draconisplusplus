@@ -15,15 +15,15 @@
 
 namespace log_colors {
   using fmt::terminal_color;
-  constexpr fmt::terminal_color debug = terminal_color::cyan, info = terminal_color::green,
-                                warn = terminal_color::yellow, error = terminal_color::red,
-                                timestamp = terminal_color::bright_white, file_info = terminal_color::bright_white;
+  constexpr auto debug = terminal_color::cyan, info = terminal_color::green, warn = terminal_color::yellow,
+                 error = terminal_color::red, timestamp = terminal_color::bright_white,
+                 file_info = terminal_color::bright_white;
 }
 
 enum class LogLevel : u8 { DEBUG, INFO, WARN, ERROR };
 
 template <typename... Args>
-void LogImpl(LogLevel level, const std::source_location& loc, fmt::format_string<Args...> fmt, Args&&... args) {
+void LogImpl(const LogLevel level, const std::source_location& loc, fmt::format_string<Args...> fmt, Args&&... args) {
   const time_t now             = std::time(nullptr);
   const auto [color, levelStr] = [&] {
     switch (level) {
@@ -38,8 +38,16 @@ void LogImpl(LogLevel level, const std::source_location& loc, fmt::format_string
     }
   }();
 
-  const string    filename = std::filesystem::path(loc.file_name()).lexically_normal().string();
-  const struct tm time     = *std::localtime(&now);
+  const string filename = std::filesystem::path(loc.file_name()).lexically_normal().string();
+  std::tm      time;
+
+#ifdef _WIN32
+  if (localtime_s(&time, &now) != 0)
+    throw std::runtime_error("localtime_s failed");
+#else
+  if (localtime_r(&now, &localTime) == nullptr)
+    throw std::runtime_error("localtime_r failed");
+#endif
 
   // Timestamp and level
   fmt::print(fg(log_colors::timestamp), "[{:%H:%M:%S}] ", time);

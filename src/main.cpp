@@ -14,7 +14,7 @@
 #include "ftxui/screen/color.hpp"
 #include "os/os.h"
 
-constexpr const bool SHOW_ICONS = true;
+constexpr bool SHOW_ICONS = true;
 
 struct BytesToGiB {
   u64 value;
@@ -35,8 +35,8 @@ struct fmt::formatter<BytesToGiB> : fmt::formatter<double> {
 namespace {
   fn GetDate() -> std::string {
     // Get current local time
-    std::time_t now = std::time(nullptr);
-    std::tm     localTime;
+    const std::time_t now = std::time(nullptr);
+    std::tm           localTime;
 
 #ifdef _WIN32
     if (localtime_s(&localTime, &now) != 0)
@@ -133,7 +133,7 @@ namespace {
     Elements circles(16);
 
     std::generate_n(circles.begin(), 16, [colorIndex = 0]() mutable {
-      return hbox({ text("◯") | bold | color(Color::Palette256(colorIndex++)), text(" ") });
+      return hbox({ text("◯") | bold | color(static_cast<Color::Palette256>(colorIndex++)), text(" ") });
     });
 
     return hbox(circles);
@@ -158,30 +158,34 @@ namespace {
       musicIcon    = "   ";
     }
 
-    const Color::Palette16 labelColor  = Color::Yellow;
-    const Color::Palette16 valueColor  = Color::White;
-    const Color::Palette16 borderColor = Color::GrayLight;
-    const Color::Palette16 iconColor   = Color::Cyan;
+    constexpr Color::Palette16 labelColor  = Color::Yellow;
+    constexpr Color::Palette16 valueColor  = Color::White;
+    constexpr Color::Palette16 borderColor = Color::GrayLight;
+    constexpr Color::Palette16 iconColor   = Color::Cyan;
 
     Elements content;
 
     content.push_back(text("   Hello " + name + "! ") | bold | color(Color::Cyan));
     content.push_back(separator() | color(borderColor));
-    content.push_back(hbox({
-      text("   ") | color(iconColor), // Palette icon
-      CreateColorCircles(),
-    }));
+    content.push_back(hbox(
+      {
+        text("   ") | color(iconColor), // Palette icon
+        CreateColorCircles(),
+      }
+    ));
     content.push_back(separator() | color(borderColor));
 
     // Helper function for aligned rows
     fn createRow = [&](const std::string& icon, const std::string& label, const std::string& value) {
-      return hbox({
-        text(icon) | color(iconColor),
-        text(label) | color(labelColor),
-        filler(),
-        text(value) | color(valueColor),
-        text(" "),
-      });
+      return hbox(
+        {
+          text(icon) | color(iconColor),
+          text(label) | color(labelColor),
+          filler(),
+          text(value) | color(valueColor),
+          text(" "),
+        }
+      );
     };
 
     // System info rows
@@ -192,31 +196,39 @@ namespace {
       const WeatherOutput& weatherInfo = data.weather_info.value();
 
       if (weather.show_town_name)
-        content.push_back(hbox({
-          text(weatherIcon) | color(iconColor),
-          text("Weather") | color(labelColor),
-          filler(),
+        content.push_back(hbox(
+          {
+            text(weatherIcon) | color(iconColor),
+            text("Weather") | color(labelColor),
+            filler(),
 
-          hbox({
-            text(fmt::format("{}°F ", std::lround(weatherInfo.main.temp))),
-            text("in "),
-            text(weatherInfo.name),
-            text(" "),
-          }) |
-            color(valueColor),
-        }));
+            hbox(
+              {
+                text(fmt::format("{}°F ", std::lround(weatherInfo.main.temp))),
+                text("in "),
+                text(weatherInfo.name),
+                text(" "),
+              }
+            ) |
+              color(valueColor),
+          }
+        ));
       else
-        content.push_back(hbox({
-          text(weatherIcon) | color(iconColor),
-          text("Weather") | color(labelColor),
-          filler(),
+        content.push_back(hbox(
+          {
+            text(weatherIcon) | color(iconColor),
+            text("Weather") | color(labelColor),
+            filler(),
 
-          hbox({
-            text(fmt::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description)),
-            text(" "),
-          }) |
-            color(valueColor),
-        }));
+            hbox(
+              {
+                text(fmt::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description)),
+                text(" "),
+              }
+            ) |
+              color(valueColor),
+          }
+        ));
     }
 
     content.push_back(separator() | color(borderColor));
@@ -262,14 +274,16 @@ namespace {
         const std::string& npText = *nowPlayingResult;
 
         content.push_back(separator() | color(borderColor));
-        content.push_back(hbox({
-          text(musicIcon) | color(iconColor),
-          text("Playing") | color(labelColor),
-          text(" "),
-          filler(),
-          paragraph(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, 30),
-          text(" "),
-        }));
+        content.push_back(hbox(
+          {
+            text(musicIcon) | color(iconColor),
+            text("Playing") | color(labelColor),
+            text(" "),
+            filler(),
+            paragraph(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, 30),
+            text(" "),
+          }
+        ));
       } else {
         const NowPlayingError& error = nowPlayingResult.error();
 
@@ -300,8 +314,8 @@ namespace {
 }
 
 fn main() -> i32 {
-  const Config& config = Config::getInstance();
-  SystemData    data   = SystemData::fetchSystemData(config);
+  const Config&    config = Config::getInstance();
+  const SystemData data   = SystemData::fetchSystemData(config);
 
   // Add vertical box with forced newline
   Element document = vbox({ hbox({ SystemInfoBox(config, data), filler() }), text("") });

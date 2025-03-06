@@ -9,14 +9,18 @@ using rfl::Result;
 namespace fs = std::filesystem;
 
 namespace {
-  inline fn GetConfigPath() -> fs::path {
+  fn GetConfigPath() -> fs::path {
 #ifdef _WIN32
-    const char* localAppData = std::getenv("LOCALAPPDATA");
+    char*  rawPtr     = nullptr;
+    size_t bufferSize = 0;
 
-    if (!localAppData)
-      throw std::runtime_error("Environment variable LOCALAPPDATA is not set");
+    if (_dupenv_s(&rawPtr, &bufferSize, "LOCALAPPDATA") != 0 || !rawPtr)
+      throw std::runtime_error("Environment variable LOCALAPPDATA is not set or could not be accessed");
 
-    return fs::path(localAppData);
+    // Use unique_ptr with custom deleter to handle memory automatically
+    const std::unique_ptr<char, decltype(&free)> localAppData(rawPtr, free);
+    fs::path                                     path(localAppData.get());
+    return path;
 #else
     const char* home = std::getenv("HOME");
 

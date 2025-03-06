@@ -6,8 +6,6 @@ project(
     'default_library=static',
     'warning_level=everything',
     'buildtype=debug',
-    'cpp_args=-fvisibility=hidden',
-    'cpp_std=c++latest'
   ],
 )
 
@@ -45,6 +43,22 @@ if cpp.get_id() == 'msvc' or cpp.get_id() == 'clang-cl'
     '-DNOMINMAX',
   ]
 
+  if cpp.get_id() == 'clang-cl'
+    common_cpp_args += [
+      '-std=c++26',
+      '-Wno-c++20-compat',
+      '-Wno-c++20-extensions',
+      '-Wno-c++98-compat',
+      '-Wno-c++98-compat-pedantic',
+      '-Wno-disabled-macro-expansion',
+      '-Wno-missing-prototypes',
+      '-Wno-padded',
+      '-Wno-pre-c++20-compat-pedantic',
+      '-Wunused-function',
+      '-fno-strict-enums',
+    ]
+  endif
+
   add_project_arguments(common_cpp_args, language: 'cpp')
 else
   common_cpp_args += [
@@ -63,9 +77,12 @@ else
     '-march=native',
   ]
 
+  if host_machine.system() == 'windows'
+    common_cpp_args += '-DCURL_STATICLIB'
+  endif
+
   add_project_arguments(cpp.get_supported_arguments(common_cpp_args), language: 'cpp')
 endif
-
 
 source_file_names = ['src/main.cpp', 'src/config/config.cpp', 'src/config/weather.cpp']
 
@@ -90,6 +107,7 @@ endforeach
 
 deps = [
   dependency('fmt', include_type: 'system', static: true),
+  dependency('openssl', include_type: 'system', static: true, required: false),
   dependency('libcurl', include_type: 'system', static: true),
   dependency('tomlplusplus', include_type: 'system', static: true),
 ]
@@ -143,7 +161,6 @@ if cpp.get_id() == 'msvc'
   cmake_opts.add_cmake_defines(
     {
       'CMAKE_CXX_FLAGS': '/w',
-      'REFLECTCPP_USE_STD_EXPECTED': 'ON',
     },
   )
   cmake_opts.append_compile_args('cpp', '/w')
@@ -151,7 +168,6 @@ else
   cmake_opts.add_cmake_defines(
     {
       'CMAKE_CXX_FLAGS': '-Wno-everything -std=c++26',
-      'REFLECTCPP_USE_STD_EXPECTED': 'ON',
     },
   )
   cmake_opts.append_compile_args('cpp', '-Wno-everything -std=c++26')

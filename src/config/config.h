@@ -1,3 +1,5 @@
+#pragma once
+
 #include <rfl.hpp>
 #include <rfl/Field.hpp>
 

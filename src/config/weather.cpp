@@ -40,7 +40,7 @@ namespace {
 
     DEBUG_LOG("Reading from cache file...");
 
-    std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+    const std::string content((std::istreambuf_iterator(ifs)), std::istreambuf_iterator<char>());
 
     rfl::Result<WeatherOutput> result = rfl::json::read<WeatherOutput>(content);
     if (!result)
@@ -66,7 +66,7 @@ namespace {
       if (!ofs.is_open())
         return std::unexpected("Failed to open temp file: "s + tempPath.string());
 
-      std::string json = rfl::json::write(data);
+      const std::string json = rfl::json::write(data);
       ofs << json;
 
       if (!ofs)
@@ -85,7 +85,7 @@ namespace {
     return {};
   }
 
-  fn WriteCallback(void* contents, size_t size, size_t nmemb, std::string* str) -> size_t {
+  fn WriteCallback(void* contents, const size_t size, const size_t nmemb, std::string* str) -> size_t {
     const size_t totalSize = size * nmemb;
     str->append(static_cast<char*>(contents), totalSize);
     return totalSize;
@@ -130,10 +130,10 @@ fn Weather::getWeatherInfo() const -> WeatherOutput {
   using namespace std::chrono;
 
   if (Result<WeatherOutput> data = ReadCacheFromFile()) {
-    const WeatherOutput&   dataVal  = *data;
-    const duration<double> cacheAge = system_clock::now() - system_clock::time_point(seconds(dataVal.dt));
+    const WeatherOutput& dataVal = *data;
 
-    if (cacheAge < 10min) {
+    if (const duration<double> cacheAge = system_clock::now() - system_clock::time_point(seconds(dataVal.dt));
+        cacheAge < 10min) {
       DEBUG_LOG("Using valid cache");
       return dataVal;
     }
