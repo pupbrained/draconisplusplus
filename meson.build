@@ -38,15 +38,14 @@ common_cpp_flags = {
     '-std=c++26',
   ],
   'msvc': [
-    '-DNOMINMAX',
-    '/Zc:__cplusplus',
+    '-DNOMINMAX', '/Zc:__cplusplus',
     '/std:c++latest',
   ],
   'unix_extra': [
     '-march=native',
     '-nostdlib++',
   ],
-  'windows_extra': '-DCURL_STATICLIB'
+  'windows_extra': '-DCURL_STATICLIB',
 }
 
 # Configure Objective-C++ for macOS
@@ -81,17 +80,13 @@ add_project_arguments(common_cpp_args, language: 'cpp')
 # ------- #
 #  Files  #
 # ------- #
-base_sources = files(
-  'src/main.cpp',
-  'src/config/config.cpp',
-  'src/config/weather.cpp'
-)
+base_sources = files('src/config/config.cpp', 'src/config/weather.cpp', 'src/main.cpp')
 
 platform_sources = {
-  'linux':   ['src/os/linux.cpp', 'src/os/linux/issetugid_stub.cpp'],
+  'linux': ['src/os/linux.cpp', 'src/os/linux/issetugid_stub.cpp'],
   'freebsd': ['src/os/freebsd.cpp'],
-  'darwin':  ['src/os/macos.cpp', 'src/os/macos/bridge.mm'],
-  'windows': ['src/os/windows.cpp']
+  'darwin': ['src/os/macos.cpp', 'src/os/macos/bridge.mm'],
+  'windows': ['src/os/windows.cpp'],
 }
 
 sources = base_sources + files(platform_sources.get(host_system, []))
@@ -103,6 +98,7 @@ common_deps = [
   dependency('fmt', include_type: 'system', static: true),
   dependency('libcurl', include_type: 'system', static: true),
   dependency('tomlplusplus', include_type: 'system', static: true),
+  dependency('nlohmann_json', include_type: 'system', static: true),
   dependency('openssl', include_type: 'system', static: true, required: false),
 ]
 
@@ -111,8 +107,12 @@ platform_deps = []
 
 if host_system == 'darwin'
   platform_deps += [
-    dependency('appleframeworks', modules: ['foundation', 'mediaplayer', 'systemconfiguration'], static: true),
-    dependency('iconv')
+    dependency(
+      'appleframeworks',
+      modules: ['foundation', 'mediaplayer', 'systemconfiguration'],
+      static: true,
+    ),
+    dependency('iconv'),
   ]
 elif host_system == 'windows'
   platform_deps += [
@@ -135,15 +135,21 @@ endif
 # FTXUI configuration
 cmake = import('cmake')
 ftxui_components = ['ftxui::screen', 'ftxui::dom', 'ftxui::component']
-ftxui_dep = dependency('ftxui', modules: ftxui_components, include_type: 'system', static: true, required: false)
+ftxui_dep = dependency(
+  'ftxui',
+  modules: ftxui_components,
+  include_type: 'system',
+  static: true,
+  required: false,
+)
 
 if not ftxui_dep.found()
   ftxui_dep = declare_dependency(
     dependencies: [
       dependency('ftxui-dom', fallback: ['ftxui', 'dom_dep']),
       dependency('ftxui-screen', fallback: ['ftxui', 'screen_dep']),
-      dependency('ftxui-component', fallback: ['ftxui', 'component_dep'])
-    ]
+      dependency('ftxui-component', fallback: ['ftxui', 'component_dep']),
+    ],
   )
 endif
 
@@ -151,12 +157,14 @@ endif
 reflectcpp_dep = dependency('reflectcpp', include_type: 'system', required: false, static: true)
 if not reflectcpp_dep.found()
   cmake_opts = cmake.subproject_options()
-  cxx_flags = cpp.get_id() == 'msvc' ? '/w' : '-Wno-everything -std=c++26 -fvisibility=hidden'  # Added visibility flag
+  cxx_flags = cpp.get_id() == 'msvc' ? '/w' : '-Wno-everything -std=c++26 -fvisibility=hidden'
 
-  cmake_opts.add_cmake_defines({
-    'CMAKE_CXX_FLAGS': cxx_flags,
-    'CMAKE_VISIBILITY_INLINES_HIDDEN': 'ON'  # Add this line
-  })
+  cmake_opts.add_cmake_defines(
+    {
+      'CMAKE_CXX_FLAGS': cxx_flags,
+      'CMAKE_VISIBILITY_INLINES_HIDDEN': 'ON',
+    },
+  )
   cmake_opts.append_compile_args('cpp', cxx_flags)
 
   reflectcpp_proj = cmake.subproject('reflectcpp', options: cmake_opts)
@@ -174,7 +182,7 @@ objc_args = []
 
 if host_system == 'darwin'
   objc_args += ['-fobjc-arc']
-elif host_system == 'linux'
+elif cpp.get_id() == 'clang'
   link_args += ['-static-libgcc', '-static-libstdc++', '-static']
 endif
 

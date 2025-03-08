@@ -34,14 +34,21 @@ namespace {
 
 fn Config::getInstance() -> Config {
   fs::path configPath = GetConfigPath();
+
+  // purely visual but whatever
+#ifdef _WIN32
+  configPath /= "draconis++\\config.toml";
+#else
   configPath /= "draconis++/config.toml";
+#endif
 
   const Result<Config> result = rfl::toml::load<Config>(configPath.string());
 
   if (!result) {
-    ERROR_LOG("Failed to load config file: {}", result.error().what());
+    DEBUG_LOG("Failed to load config file: {}", result.error().what());
 
-    exit(1);
+    // Use default values
+    return {};
   }
 
   return result.value();

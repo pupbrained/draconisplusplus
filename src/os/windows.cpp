@@ -19,22 +19,70 @@
 
 #include "os.h"
 
+using std::string_view;
 using RtlGetVersionPtr = NTSTATUS(WINAPI*)(PRTL_OSVERSIONINFOW);
 
 // NOLINTBEGIN(*-pro-type-cstyle-cast,*-no-int-to-ptr)
 namespace {
+  class ProcessSnapshot {
+   public:
+    ProcessSnapshot() : h_snapshot(CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)) {}
+
+    ProcessSnapshot(ProcessSnapshot&&)                     = delete;
+    ProcessSnapshot(const ProcessSnapshot&)                = delete;
+    fn operator=(ProcessSnapshot&&)->ProcessSnapshot&      = delete;
+    fn operator=(const ProcessSnapshot&)->ProcessSnapshot& = delete;
+
+    ~ProcessSnapshot() {
+      if (h_snapshot != INVALID_HANDLE_VALUE)
+        CloseHandle(h_snapshot);
+    }
+
+    [[nodiscard]] fn isValid() const -> bool { return h_snapshot != INVALID_HANDLE_VALUE; }
+
+    [[nodiscard]] fn getProcesses() const -> std::vector<std::pair<DWORD, string>> {
+      std::vector<std::pair<DWORD, string>> processes;
+
+      if (!isValid())
+        return processes;
+
+      PROCESSENTRY32 pe32;
+      pe32.dwSize = sizeof(PROCESSENTRY32);
+
+      if (!Process32First(h_snapshot, &pe32))
+        return processes;
+
+      // Get first process
+      if (Process32First(h_snapshot, &pe32)) {
+        // Add first process to vector
+        processes.emplace_back(pe32.th32ProcessID, string(static_cast<const char*>(pe32.szExeFile)));
+
+        // Add remaining processes
+        while (Process32Next(h_snapshot, &pe32))
+          processes.emplace_back(pe32.th32ProcessID, string(static_cast<const char*>(pe32.szExeFile)));
+      }
+
+      return processes;
+    }
+
+    HANDLE h_snapshot;
+  };
+
   fn GetRegistryValue(const HKEY& hKey, const string& subKey, const string& valueName) -> string {
     HKEY key = nullptr;
     if (RegOpenKeyExA(hKey, subKey.c_str(), 0, KEY_READ, &key) != ERROR_SUCCESS)
       return "";
 
     DWORD dataSize = 0;
-    if (RegQueryValueExA(key, valueName.c_str(), nullptr, nullptr, nullptr, &dataSize) != ERROR_SUCCESS) {
+    DWORD type     = 0;
+    if (RegQueryValueExA(key, valueName.c_str(), nullptr, &type, nullptr, &dataSize) != ERROR_SUCCESS) {
       RegCloseKey(key);
       return "";
     }
 
-    string value(dataSize, '\0');
+    // For string values, allocate one less byte to avoid the null terminator
+    string value((type == REG_SZ || type == REG_EXPAND_SZ) ? dataSize - 1 : dataSize, '\0');
+
     if (RegQueryValueExA(key, valueName.c_str(), nullptr, nullptr, std::bit_cast<LPBYTE>(value.data()), &dataSize) !=
         ERROR_SUCCESS) {
       RegCloseKey(key);
@@ -42,92 +90,60 @@ namespace {
     }
 
     RegCloseKey(key);
-
-    // Remove null terminator if present
-    if (!value.empty() && value.back() == '\0')
-      value.pop_back();
-
     return value;
   }
 
-  // Add these function implementations
-  fn GetRunningProcesses() -> std::vector<string> {
-    std::vector<string> processes;
-    // ReSharper disable once CppLocalVariableMayBeConst
-    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-
-    if (hSnapshot == INVALID_HANDLE_VALUE) // NOLINT(*-no-int-to-ptr)
-      return processes;
-
-    PROCESSENTRY32 pe32;
-    pe32.dwSize = sizeof(PROCESSENTRY32);
-
-    if (!Process32First(hSnapshot, &pe32)) {
-      CloseHandle(hSnapshot);
-      return processes;
-    }
-
-    while (Process32Next(hSnapshot, &pe32)) processes.emplace_back(pe32.szExeFile);
-
-    CloseHandle(hSnapshot);
-    return processes;
+  fn GetProcessInfo() -> std::vector<std::pair<DWORD, string>> {
+    ProcessSnapshot snapshot;
+    return snapshot.isValid() ? snapshot.getProcesses() : std::vector<std::pair<DWORD, string>> {};
   }
 
   fn IsProcessRunning(const std::vector<string>& processes, const string& name) -> bool {
-    return std::ranges::any_of(processes, [&name](const string& proc) {
+    return std::ranges::any_of(processes, [&name](const string& proc) -> bool {
       return _stricmp(proc.c_str(), name.c_str()) == 0;
     });
   }
 
   fn GetParentProcessId(DWORD pid) -> DWORD {
-    // ReSharper disable once CppLocalVariableMayBeConst
-    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (hSnapshot == INVALID_HANDLE_VALUE)
+    ProcessSnapshot snapshot;
+    if (!snapshot.isValid())
       return 0;
 
     PROCESSENTRY32 pe32;
-    pe32.dwSize     = sizeof(PROCESSENTRY32);
-    DWORD parentPid = 0;
+    pe32.dwSize = sizeof(PROCESSENTRY32);
 
-    if (Process32First(hSnapshot, &pe32)) {
-      while (true) {
-        if (pe32.th32ProcessID == pid) {
-          parentPid = pe32.th32ParentProcessID;
-          break;
-        }
-        if (!Process32Next(hSnapshot, &pe32)) {
-          break;
-        }
-      }
-    }
-    CloseHandle(hSnapshot);
-    return parentPid;
+    if (!Process32First(snapshot.h_snapshot, &pe32))
+      return 0;
+
+    if (pe32.th32ProcessID == pid)
+      return pe32.th32ParentProcessID;
+
+    while (Process32Next(snapshot.h_snapshot, &pe32))
+      if (pe32.th32ProcessID == pid)
+        return pe32.th32ParentProcessID;
+
+    return 0;
   }
 
   fn GetProcessName(const DWORD pid) -> string {
-    // ReSharper disable once CppLocalVariableMayBeConst
-    HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    if (hSnapshot == INVALID_HANDLE_VALUE)
+    ProcessSnapshot snapshot;
+    if (!snapshot.isValid())
       return "";
 
     PROCESSENTRY32 pe32;
     pe32.dwSize = sizeof(PROCESSENTRY32);
-    string processName;
 
-    if (Process32First(hSnapshot, &pe32)) {
-      while (true) {
-        if (pe32.th32ProcessID == pid) {
-          // ReSharper disable once CppRedundantCastExpression
-          processName = string(static_cast<const char*>(pe32.szExeFile));
-          break;
-        }
+    if (!Process32First(snapshot.h_snapshot, &pe32))
+      return "";
 
-        if (!Process32Next(hSnapshot, &pe32))
-          break;
-      }
-    }
-    CloseHandle(hSnapshot);
-    return processName;
+    if (pe32.th32ProcessID == pid)
+      return { static_cast<const char*>(pe32.szExeFile) };
+
+    while (Process32Next(snapshot.h_snapshot, &pe32))
+      if (pe32.th32ProcessID == pid)
+        return { static_cast<const char*>(pe32.szExeFile) };
+
+    return "";
   }
 }
 
@@ -168,29 +184,75 @@ fn GetNowPlaying() -> expected<string, NowPlayingError> {
 }
 
 fn GetOSVersion() -> expected<string, string> {
-  string productName =
-    GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", "ProductName");
+  // First try using the native Windows API
+  OSVERSIONINFOEXW osvi   = { sizeof(OSVERSIONINFOEXW), 0, 0, 0, 0, { 0 }, 0, 0, 0, 0, 0 };
+  NTSTATUS         status = 0;
 
-  const string displayVersion =
-    GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", "DisplayVersion");
+  // Get RtlGetVersion function from ntdll.dll (not affected by application manifest)
+  if (HMODULE ntdllHandle = GetModuleHandleW(L"ntdll.dll"))
+    if (const auto rtlGetVersion = std::bit_cast<RtlGetVersionPtr>(GetProcAddress(ntdllHandle, "RtlGetVersion")))
+      status = rtlGetVersion(std::bit_cast<PRTL_OSVERSIONINFOW>(&osvi));
 
-  const string releaseId =
-    GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", "ReleaseId");
+  string productName;
+  string edition;
 
-  // Check for Windows 11
-  if (const i32 buildNumber = stoi(
-        GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", "CurrentBuildNumber")
-      );
-      buildNumber >= 22000 && productName.find("Windows 10") != string::npos)
-    productName.replace(productName.find("Windows 10"), 10, "Windows 11");
+  if (status == 0) { // STATUS_SUCCESS
+    // We need to get the edition information which isn't available from version API
+    // Use GetProductInfo which is available since Vista
+    DWORD productType = 0;
+    if (GetProductInfo(
+          osvi.dwMajorVersion, osvi.dwMinorVersion, osvi.wServicePackMajor, osvi.wServicePackMinor, &productType
+        )) {
+      if (osvi.dwMajorVersion == 10) {
+        if (osvi.dwBuildNumber >= 22000) {
+          productName = "Windows 11";
+        } else {
+          productName = "Windows 10";
+        }
+
+        switch (productType) {
+          case PRODUCT_PROFESSIONAL:
+            edition = " Pro";
+            break;
+          case PRODUCT_ENTERPRISE:
+            edition = " Enterprise";
+            break;
+          case PRODUCT_EDUCATION:
+            edition = " Education";
+            break;
+          case PRODUCT_HOME_BASIC:
+          case PRODUCT_HOME_PREMIUM:
+            edition = " Home";
+            break;
+          case PRODUCT_CLOUDEDITION:
+            edition = " Cloud";
+            break;
+          default:
+            break;
+        }
+      }
+    }
+  } else {
+    // Fallback to registry method if the API approach fails
+    productName =
+      GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", "ProductName");
+
+    // Check for Windows 11
+    if (const i32 buildNumber = stoi(
+          GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", "CurrentBuildNumber")
+        );
+        buildNumber >= 22000 && productName.find("Windows 10") != string::npos)
+      productName.replace(productName.find("Windows 10"), 10, "Windows 11");
+  }
 
   if (!productName.empty()) {
-    string result = productName;
+    string result = productName + edition;
+
+    const string displayVersion =
+      GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", "DisplayVersion");
 
     if (!displayVersion.empty())
       result += " " + displayVersion;
-    else if (!releaseId.empty())
-      result += " " + releaseId;
 
     return result;
   }
@@ -201,63 +263,60 @@ fn GetOSVersion() -> expected<string, string> {
 fn GetHost() -> string {
   string hostName = GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SYSTEM\HardwareConfig\Current)", "SystemFamily");
 
-  if (hostName.empty())
-    hostName = GetRegistryValue(
-      HKEY_LOCAL_MACHINE, R"(SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName)", "ComputerName"
-    );
-
   return hostName;
 }
 
 fn GetKernelVersion() -> string {
-  std::stringstream versionStream;
-
   // ReSharper disable once CppLocalVariableMayBeConst
   if (HMODULE ntdllHandle = GetModuleHandleW(L"ntdll.dll")) {
     if (const auto rtlGetVersion = std::bit_cast<RtlGetVersionPtr>(GetProcAddress(ntdllHandle, "RtlGetVersion"))) {
-      RTL_OSVERSIONINFOW osInfo = {};
-
+      RTL_OSVERSIONINFOW osInfo  = {};
       osInfo.dwOSVersionInfoSize = sizeof(osInfo);
 
-      if (rtlGetVersion(&osInfo) == 0)
-        versionStream << osInfo.dwMajorVersion << "." << osInfo.dwMinorVersion << "." << osInfo.dwBuildNumber << "."
-                      << osInfo.dwPlatformId;
+      if (rtlGetVersion(&osInfo) == 0) {
+        return std::format(
+          "{}.{}.{}.{}", osInfo.dwMajorVersion, osInfo.dwMinorVersion, osInfo.dwBuildNumber, osInfo.dwPlatformId
+        );
+      }
     }
   }
 
-  return versionStream.str();
+  return "";
 }
 
 fn GetWindowManager() -> string {
-  const std::vector<string> processes = GetRunningProcesses();
-  string                    windowManager;
+  // Get process information once and reuse it
+  const auto          processInfo = GetProcessInfo();
+  std::vector<string> processNames;
 
-  // Check for third-party WMs
-  if (IsProcessRunning(processes, "glazewm.exe"))
-    windowManager = "GlazeWM";
-  else if (IsProcessRunning(processes, "fancywm.exe"))
-    windowManager = "FancyWM";
-  else if (IsProcessRunning(processes, "komorebi.exe") || IsProcessRunning(processes, "komorebic.exe"))
-    windowManager = "Komorebi";
+  processNames.reserve(processInfo.size());
+  for (const auto& [pid, name] : processInfo) processNames.push_back(name);
 
-  // Fallback to DWM detection
-  if (windowManager.empty()) {
-    BOOL compositionEnabled = FALSE;
-    if (SUCCEEDED(DwmIsCompositionEnabled(&compositionEnabled)))
-      windowManager = compositionEnabled ? "DWM" : "Windows Manager (Basic)";
-    else
-      windowManager = "Windows Manager";
+  // Check for third-party WMs using a map for cleaner code
+  const std::unordered_map<string, string> wmProcesses = {
+    {   "glazewm.exe",  "GlazeWM" },
+    {   "fancywm.exe",  "FancyWM" },
+    {  "komorebi.exe", "Komorebi" },
+    { "komorebic.exe", "Komorebi" }
+  };
+
+  for (const auto& [processName, wmName] : wmProcesses) {
+    if (IsProcessRunning(processNames, processName))
+      return wmName;
   }
 
-  return windowManager;
+  // Fallback to DWM detection
+  BOOL compositionEnabled = FALSE;
+  if (SUCCEEDED(DwmIsCompositionEnabled(&compositionEnabled)))
+    return compositionEnabled ? "DWM" : "Windows Manager (Basic)";
+
+  return "Windows Manager";
 }
 
 fn GetDesktopEnvironment() -> optional<string> {
   // Get version information from registry
   const string buildStr =
     GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", "CurrentBuildNumber");
-
-  DEBUG_LOG("buildStr: {}", buildStr);
 
   if (buildStr.empty()) {
     DEBUG_LOG("Failed to get CurrentBuildNumber from registry");
@@ -303,17 +362,29 @@ fn GetDesktopEnvironment() -> optional<string> {
 }
 
 fn GetShell() -> string {
+  // Define known shells map once for reuse
+  const std::unordered_map<string, string> knownShells = {
+    {             "cmd.exe",              "Command Prompt" },
+    {      "powershell.exe",                  "PowerShell" },
+    {            "pwsh.exe",             "PowerShell Core" },
+    { "windowsterminal.exe",            "Windows Terminal" },
+    {          "mintty.exe",                      "Mintty" },
+    {            "bash.exe", "Windows Subsystem for Linux" }
+  };
+
   // Detect MSYS2/MinGW shells
   char* msystemEnv = nullptr;
   if (_dupenv_s(&msystemEnv, nullptr, "MSYSTEM") == 0 && msystemEnv != nullptr) {
     const std::unique_ptr<char, decltype(&free)> msystemEnvGuard(msystemEnv, free);
-    char*                                        shell    = nullptr;
-    size_t                                       shellLen = 0;
+
+    // Get shell from environment variables
+    char*  shell    = nullptr;
+    size_t shellLen = 0;
     _dupenv_s(&shell, &shellLen, "SHELL");
     const std::unique_ptr<char, decltype(&free)> shellGuard(shell, free);
     string                                       shellExe;
 
-    // First try SHELL, then LOGINSHELL
+    // If SHELL is empty, try LOGINSHELL
     if (!shell || strlen(shell) == 0) {
       char*  loginShell    = nullptr;
       size_t loginShellLen = 0;
@@ -327,50 +398,49 @@ fn GetShell() -> string {
       const size_t lastSlash = shellPath.find_last_of("\\/");
       shellExe               = (lastSlash != string::npos) ? shellPath.substr(lastSlash + 1) : shellPath;
       std::ranges::transform(shellExe, shellExe.begin(), ::tolower);
-    }
 
-    // Fallback to process ancestry if both env vars are missing
-    if (shellExe.empty()) {
-      DWORD pid = GetCurrentProcessId();
+      // Use a map for shell name lookup instead of multiple if statements
+      const std::unordered_map<string_view, string> shellNames = {
+        { "bash", "Bash" },
+        {  "zsh",  "Zsh" },
+        { "fish", "Fish" }
+      };
 
-      while (pid != 0) {
-        string processName = GetProcessName(pid);
-        std::ranges::transform(processName, processName.begin(), [](const u8 character) {
-          return static_cast<char>(std::tolower(character));
-        });
-
-        if (processName == "bash.exe" || processName == "zsh.exe" || processName == "fish.exe" ||
-            processName == "mintty.exe") {
-          string name = processName.substr(0, processName.find(".exe"));
-          if (!name.empty())
-            name[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(name[0]))); // Capitalize first letter
+      for (const auto& [pattern, name] : shellNames) {
+        if (shellExe.find(pattern) != string::npos)
           return name;
-        }
-        pid = GetParentProcessId(pid);
       }
 
-      return "MSYS2";
+      return shellExe.empty() ? "MSYS2" : "MSYS2/" + shellExe;
     }
 
-    if (shellExe.find("bash") != string::npos)
-      return "Bash";
-    if (shellExe.find("zsh") != string::npos)
-      return "Zsh";
-    if (shellExe.find("fish") != string::npos)
-      return "Fish";
-    return shellExe.empty() ? "MSYS2" : "MSYS2/" + shellExe;
+    // Fallback to process ancestry with cached process info
+    const auto processInfo = GetProcessInfo();
+    DWORD      pid         = GetCurrentProcessId();
+
+    while (pid != 0) {
+      string processName = GetProcessName(pid);
+      std::ranges::transform(processName, processName.begin(), ::tolower);
+
+      const std::unordered_map<string, string> msysShells = {
+        {   "bash.exe",   "Bash" },
+        {    "zsh.exe",    "Zsh" },
+        {   "fish.exe",   "Fish" },
+        { "mintty.exe", "Mintty" }
+      };
+
+      for (const auto& [msysShellExe, shellName] : msysShells) {
+        if (processName == msysShellExe)
+          return shellName;
+      }
+
+      pid = GetParentProcessId(pid);
+    }
+
+    return "MSYS2";
   }
 
   // Detect Windows shells
-  const std::unordered_map<string, string> knownShells = {
-    {             "cmd.exe",              "Command Prompt" },
-    {      "powershell.exe",                  "PowerShell" },
-    {            "pwsh.exe",             "PowerShell Core" },
-    { "windowsterminal.exe",            "Windows Terminal" },
-    {          "mintty.exe",                      "Mintty" },
-    {            "bash.exe", "Windows Subsystem for Linux" }
-  };
-
   DWORD pid = GetCurrentProcessId();
   while (pid != 0) {
     string processName = GetProcessName(pid);
@@ -394,5 +464,4 @@ fn GetDiskUsage() -> std::pair<u64, u64> {
   return { 0, 0 };
 }
 // NOLINTEND(*-pro-type-cstyle-cast,*-no-int-to-ptr)
-
 #endif

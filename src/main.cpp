@@ -96,28 +96,26 @@ namespace {
       data.window_manager      = GetWindowManager();
 
       // Parallel execution for disk/shell only
-      // auto diskShell = std::async(std::launch::async, [] {
-      //   auto [used, total] = GetDiskUsage();
-      //   return std::make_tuple(used, total, GetShell());
-      // });
+      auto diskShell = std::async(std::launch::async, [] {
+        auto [used, total] = GetDiskUsage();
+        return std::make_tuple(used, total, GetShell());
+      });
 
       // Conditional tasks
       std::future<WeatherOutput>                          weather;
       std::future<std::expected<string, NowPlayingError>> nowPlaying;
 
-      if (config.weather.get().enabled) {
+      if (config.weather.get().enabled)
         weather = std::async(std::launch::async, [&config] { return config.weather.get().getWeatherInfo(); });
-      }
 
-      if (config.now_playing.get().enabled) {
+      if (config.now_playing.get().enabled)
         nowPlaying = std::async(std::launch::async, GetNowPlaying);
-      }
 
       // Get remaining results
-      // auto [used, total, shell] = diskShell.get();
-      // data.disk_used            = used;
-      // data.disk_total           = total;
-      // data.shell                = shell;
+      auto [used, total, shell] = diskShell.get();
+      data.disk_used            = used;
+      data.disk_total           = total;
+      data.shell                = shell;
 
       if (weather.valid())
         data.weather_info = weather.get();
@@ -142,7 +140,7 @@ namespace {
 
   fn SystemInfoBox(const Config& config, const SystemData& data) -> Element {
     // Fetch data
-    const string& name              = config.general.get().name.get();
+    const string& name              = config.general.get().name;
     const Weather weather           = config.weather.get();
     const bool    nowPlayingEnabled = config.now_playing.get().enabled;
 
@@ -239,12 +237,11 @@ namespace {
       ERROR_LOG("Failed to get memory info: {}", data.mem_info.error());
 
     // Add Disk usage row
-    // content.push_back(
-    //   createRow(" 󰋊  ", "Disk", fmt::format("{}/{}", BytesToGiB { data.disk_used }, BytesToGiB { data.disk_total
-    //   }))
-    // );
+    content.push_back(
+      createRow(" 󰋊  ", "Disk", fmt::format("{}/{}", BytesToGiB { data.disk_used }, BytesToGiB { data.disk_total }))
+    );
 
-    // content.push_back(createRow("   ", "Shell", data.shell));
+    content.push_back(createRow("   ", "Shell", data.shell));
 
     content.push_back(separator() | color(borderColor));
 
@@ -308,7 +305,6 @@ fn main() -> i32 {
   const Config&    config = Config::getInstance();
   const SystemData data   = SystemData::fetchSystemData(config);
 
-  // Add vertical box with forced newline
   Element document = vbox({ hbox({ SystemInfoBox(config, data), filler() }), text("") });
 
   Screen screen = Screen::Create(Dimension::Full(), Dimension::Fit(document));
