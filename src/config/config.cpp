@@ -5,7 +5,8 @@
 
 #include "config.h"
 
-using rfl::Result;
+#include "src/util/macros.h"
+
 namespace fs = std::filesystem;
 
 namespace {
@@ -13,43 +14,31 @@ namespace {
 #ifdef _WIN32
     char*  rawPtr     = nullptr;
     size_t bufferSize = 0;
-
     if (_dupenv_s(&rawPtr, &bufferSize, "LOCALAPPDATA") != 0 || !rawPtr)
-      throw std::runtime_error("Environment variable LOCALAPPDATA is not set or could not be accessed");
-
-    // Use unique_ptr with custom deleter to handle memory automatically
-    const std::unique_ptr<char, decltype(&free)> localAppData(rawPtr, free);
-    fs::path                                     path(localAppData.get());
-    return path;
+      throw std::runtime_error("LOCALAPPDATA env var not found");
+    std::unique_ptr<char, decltype(&free)> localAppData(rawPtr, free);
+    return fs::path(localAppData.get()) / "draconis++" / "config.toml";
 #else
     const char* home = std::getenv("HOME");
-
     if (!home)
-      throw std::runtime_error("Environment variable HOME is not set");
-
-    return fs::path(home) / ".config";
+      throw std::runtime_error("HOME env var not found");
+    return fs::path(home) / ".config" / "draconis++" / "config.toml";
 #endif
   }
 }
 
 fn Config::getInstance() -> Config {
-  fs::path configPath = GetConfigPath();
+  try {
+    const fs::path configPath = GetConfigPath();
+    if (!fs::exists(configPath)) {
+      DEBUG_LOG("Config file not found, using defaults");
+      return Config {};
+    }
 
-  // purely visual but whatever
-#ifdef _WIN32
-  configPath /= "draconis++\\config.toml";
-#else
-  configPath /= "draconis++/config.toml";
-#endif
-
-  const Result<Config> result = rfl::toml::load<Config>(configPath.string());
-
-  if (!result) {
-    DEBUG_LOG("Failed to load config file: {}", result.error().what());
-
-    // Use default values
-    return {};
+    auto config = toml::parse_file(configPath.string());
+    return Config::fromToml(config);
+  } catch (const std::exception& e) {
+    DEBUG_LOG("Config loading failed: {}, using defaults", e.what());
+    return Config {};
   }
-
-  return result.value();
 }

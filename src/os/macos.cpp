@@ -2,10 +2,12 @@
 
 #include <expected>
 #include <map>
+#include <sys/statvfs.h>
 #include <sys/sysctl.h>
 
 #include "macos/bridge.h"
 #include "os.h"
+#include "src/util/types.h"
 
 fn GetMemInfo() -> expected<u64, string> {
   u64   mem  = 0;
@@ -193,5 +195,17 @@ fn GetHost() -> string {
 
   return modelNameByHwModel[hwModel.data()];
 }
+
+// returns free/total
+fn GetDiskUsage() -> std::pair<u64, u64> {
+  struct statvfs vfs;
+
+  if (statvfs("/", &vfs) != 0)
+    return { 0, 0 };
+
+  return { (vfs.f_blocks - vfs.f_bfree) * vfs.f_frsize, vfs.f_blocks * vfs.f_frsize };
+}
+
+fn GetShell() -> string { return ""; }
 
 #endif

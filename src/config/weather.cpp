@@ -3,13 +3,17 @@
 #include <expected>
 #include <filesystem>
 #include <fmt/core.h>
-#include <rfl/json.hpp>
-#include <rfl/json/load.hpp>
+#include <fstream>
+#include <nlohmann/json.hpp>
+
+#include "weather.h"
 
 #include "config.h"
+#include "src/util/macros.h"
 
 namespace fs = std::filesystem;
 using namespace std::string_literals;
+using namespace nlohmann;
 
 // Alias for cleaner error handling
 template <typename T>
@@ -40,14 +44,14 @@ namespace {
 
     DEBUG_LOG("Reading from cache file...");
 
-    const std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+    try {
+      const std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+      json              json   = json::parse(content);
+      WeatherOutput     result = json.get<WeatherOutput>();
 
-    rfl::Result<WeatherOutput> result = rfl::json::read<WeatherOutput>(content);
-    if (!result)
-      return std::unexpected(result.error().what());
-
-    DEBUG_LOG("Successfully read from cache file.");
-    return *result;
+      DEBUG_LOG("Successfully read from cache file.");
+      return result;
+    } catch (const std::exception& e) { return std::unexpected("JSON parse error: "s + e.what()); }
   }
 
   // Function to write cache to file
@@ -61,28 +65,30 @@ namespace {
     fs::path tempPath = *cachePath;
     tempPath += ".tmp";
 
-    {
-      std::ofstream ofs(tempPath, std::ios::binary | std::ios::trunc);
-      if (!ofs.is_open())
-        return std::unexpected("Failed to open temp file: "s + tempPath.string());
+    try {
+      {
+        std::ofstream ofs(tempPath, std::ios::binary | std::ios::trunc);
+        if (!ofs.is_open())
+          return std::unexpected("Failed to open temp file: "s + tempPath.string());
 
-      const std::string json = rfl::json::write(data);
-      ofs << json;
+        json json = data;
+        ofs << json.dump();
 
-      if (!ofs)
-        return std::unexpected("Failed to write to temp file");
-    }
+        if (!ofs)
+          return std::unexpected("Failed to write to temp file");
+      }
 
-    std::error_code errc;
-    fs::rename(tempPath, *cachePath, errc);
+      std::error_code errc;
+      fs::rename(tempPath, *cachePath, errc);
 
-    if (errc) {
-      fs::remove(tempPath, errc);
-      return std::unexpected("Failed to replace cache file: "s + errc.message());
-    }
+      if (errc) {
+        fs::remove(tempPath, errc);
+        return std::unexpected("Failed to replace cache file: "s + errc.message());
+      }
 
-    DEBUG_LOG("Successfully wrote to cache file.");
-    return {};
+      DEBUG_LOG("Successfully wrote to cache file.");
+      return {};
+    } catch (const std::exception& e) { return std::unexpected("JSON serialization error: "s + e.what()); }
   }
 
   fn WriteCallback(void* contents, const size_t size, const size_t nmemb, std::string* str) -> size_t {
@@ -114,14 +120,13 @@ namespace {
       return std::unexpected(fmt::format("cURL error: {}", curl_easy_strerror(res)));
 
     DEBUG_LOG("API response size: {}", responseBuffer.size());
-
     DEBUG_LOG("API response: {}", responseBuffer);
 
-    rfl::Result<WeatherOutput> output = rfl::json::read<WeatherOutput>(responseBuffer);
-    if (!output)
-      return std::unexpected(output.error().what());
-
-    return *output;
+    try {
+      json          json   = json::parse(responseBuffer);
+      WeatherOutput output = json.get<WeatherOutput>();
+      return output;
+    } catch (const std::exception& e) { return std::unexpected("API response parse error: "s + e.what()); }
   }
 }
 
@@ -146,7 +151,6 @@ fn Weather::getWeatherInfo() const -> WeatherOutput {
     if (!result)
       ERROR_LOG("API request failed: {}", result.error());
 
-    // Fix for second warning: Check the write result
     if (Result<void> writeResult = WriteCacheToFile(*result); !writeResult)
       ERROR_LOG("Failed to write cache: {}", writeResult.error());
 

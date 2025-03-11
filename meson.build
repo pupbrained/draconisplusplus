@@ -133,7 +133,6 @@ elif host_system == 'linux' or host_system == 'freebsd'
 endif
 
 # FTXUI configuration
-cmake = import('cmake')
 ftxui_components = ['ftxui::screen', 'ftxui::dom', 'ftxui::component']
 ftxui_dep = dependency(
   'ftxui',
@@ -153,26 +152,8 @@ if not ftxui_dep.found()
   )
 endif
 
-# ReflectCpp configuration
-reflectcpp_dep = dependency('reflectcpp', include_type: 'system', required: false, static: true)
-if not reflectcpp_dep.found()
-  cmake_opts = cmake.subproject_options()
-  cxx_flags = cpp.get_id() == 'msvc' ? '/w' : '-Wno-everything -std=c++26 -fvisibility=hidden'
-
-  cmake_opts.add_cmake_defines(
-    {
-      'CMAKE_CXX_FLAGS': cxx_flags,
-      'CMAKE_VISIBILITY_INLINES_HIDDEN': 'ON',
-    },
-  )
-  cmake_opts.append_compile_args('cpp', cxx_flags)
-
-  reflectcpp_proj = cmake.subproject('reflectcpp', options: cmake_opts)
-  reflectcpp_dep = reflectcpp_proj.dependency('reflectcpp', include_type: 'system')
-endif
-
 # Combine all dependencies
-deps = common_deps + platform_deps + [ftxui_dep, reflectcpp_dep]
+deps = common_deps + platform_deps + ftxui_dep
 
 # ------------------------- #
 #  Link/ObjC Configuration  #

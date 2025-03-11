@@ -105,10 +105,10 @@ namespace {
       std::future<WeatherOutput>                          weather;
       std::future<std::expected<string, NowPlayingError>> nowPlaying;
 
-      if (config.weather.get().enabled)
-        weather = std::async(std::launch::async, [&config] { return config.weather.get().getWeatherInfo(); });
+      if (config.weather.enabled)
+        weather = std::async(std::launch::async, [&config] { return config.weather.getWeatherInfo(); });
 
-      if (config.now_playing.get().enabled)
+      if (config.now_playing.enabled)
         nowPlaying = std::async(std::launch::async, GetNowPlaying);
 
       // Get remaining results
@@ -140,9 +140,9 @@ namespace {
 
   fn SystemInfoBox(const Config& config, const SystemData& data) -> Element {
     // Fetch data
-    const string& name              = config.general.get().name;
-    const Weather weather           = config.weather.get();
-    const bool    nowPlayingEnabled = config.now_playing.get().enabled;
+    const string& name              = config.general.name;
+    const Weather weather           = config.weather;
+    const bool    nowPlayingEnabled = config.now_playing.enabled;
 
     const char *calendarIcon = "", *hostIcon = "", *kernelIcon = "", *osIcon = "", *memoryIcon = "", *weatherIcon = "",
                *musicIcon = "";

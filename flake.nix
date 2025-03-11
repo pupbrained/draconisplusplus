@@ -44,36 +44,13 @@
           doCheck = false;
         };
 
-        yyjson = pkgs.pkgsStatic.stdenv.mkDerivation {
-          inherit (sources.yyjson) pname version src;
-
-          nativeBuildInputs = with pkgs; [cmake ninja pkg-config];
-        };
-
-        reflect-cpp = stdenv.mkDerivation rec {
-          inherit (sources.reflect-cpp) pname version src;
-
-          buildInputs = [tomlplusplus yyjson];
-          nativeBuildInputs = buildInputs ++ (with pkgs; [cmake ninja pkg-config]);
-
-          cmakeFlags = [
-            "-DCMAKE_TOOLCHAIN_FILE=OFF"
-            "-DCMAKE_CXX_VISIBILITY_PRESET=hidden"
-            "-DCMAKE_VISIBILITY_INLINES_HIDDEN=ON"
-            "-DREFLECTCPP_TOML=ON"
-            "-DREFLECTCPP_JSON=ON"
-            "-DREFLECTCPP_USE_STD_EXPECTED=ON"
-          ];
-        };
-
         deps = with pkgs.pkgsStatic;
           [
             curl
             fmt
             libiconv
             tomlplusplus
-            yyjson
-            reflect-cpp
+            nlohmann_json
             sqlitecpp
             ftxui
           ]
