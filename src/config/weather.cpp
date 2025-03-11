@@ -12,56 +12,59 @@
 #include "src/util/macros.h"
 
 namespace fs = std::filesystem;
-using namespace std::string_literals;
 using namespace nlohmann;
+using namespace std::string_literals;
 
-// Alias for cleaner error handling
 template <typename T>
 using Result = std::expected<T, std::string>;
 
 namespace {
-  // Common function to get cache path
+  constexpr glz::opts glaze_opts = { .error_on_unknown_keys = false };
+
   fn GetCachePath() -> Result<fs::path> {
     std::error_code errc;
     fs::path        cachePath = fs::temp_directory_path(errc);
 
     if (errc)
-      return std::unexpected("Failed to get temp directory: "s + errc.message());
+      return std::unexpected("Failed to get temp directory: " + errc.message());
 
     cachePath /= "weather_cache.json";
     return cachePath;
   }
 
-  // Function to read cache from file
   fn ReadCacheFromFile() -> Result<WeatherOutput> {
     Result<fs::path> cachePath = GetCachePath();
+
     if (!cachePath)
       return std::unexpected(cachePath.error());
 
     std::ifstream ifs(*cachePath, std::ios::binary);
+
     if (!ifs.is_open())
-      return std::unexpected("Cache file not found: "s + cachePath->string());
+      return std::unexpected("Cache file not found: " + cachePath->string());
 
     DEBUG_LOG("Reading from cache file...");
 
     try {
       const std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
-      json              json   = json::parse(content);
-      WeatherOutput     result = json.get<WeatherOutput>();
+      WeatherOutput     result;
+      glz::error_ctx    errc = glz::read<glaze_opts>(result, content);
+
+      if (errc.ec != glz::error_code::none)
+        return std::unexpected("JSON parse error: " + glz::format_error(errc, content));
 
       DEBUG_LOG("Successfully read from cache file.");
       return result;
-    } catch (const std::exception& e) { return std::unexpected("JSON parse error: "s + e.what()); }
+    } catch (const std::exception& e) { return std::unexpected("Error reading cache: "s + e.what()); }
   }
 
-  // Function to write cache to file
   fn WriteCacheToFile(const WeatherOutput& data) -> Result<void> {
     Result<fs::path> cachePath = GetCachePath();
+
     if (!cachePath)
       return std::unexpected(cachePath.error());
 
     DEBUG_LOG("Writing to cache file...");
-
     fs::path tempPath = *cachePath;
     tempPath += ".tmp";
 
@@ -69,26 +72,29 @@ namespace {
       {
         std::ofstream ofs(tempPath, std::ios::binary | std::ios::trunc);
         if (!ofs.is_open())
-          return std::unexpected("Failed to open temp file: "s + tempPath.string());
+          return std::unexpected("Failed to open temp file: " + tempPath.string());
 
-        json json = data;
-        ofs << json.dump();
+        std::string    jsonStr;
+        glz::error_ctx errc = glz::write_json(data, jsonStr);
 
+        if (errc.ec != glz::error_code::none)
+          return std::unexpected("JSON serialization error: " + glz::format_error(errc, jsonStr));
+
+        ofs << jsonStr;
         if (!ofs)
           return std::unexpected("Failed to write to temp file");
       }
 
       std::error_code errc;
       fs::rename(tempPath, *cachePath, errc);
-
       if (errc) {
         fs::remove(tempPath, errc);
-        return std::unexpected("Failed to replace cache file: "s + errc.message());
+        return std::unexpected("Failed to replace cache file: " + errc.message());
       }
 
       DEBUG_LOG("Successfully wrote to cache file.");
       return {};
-    } catch (const std::exception& e) { return std::unexpected("JSON serialization error: "s + e.what()); }
+    } catch (const std::exception& e) { return std::unexpected("File operation error: "s + e.what()); }
   }
 
   fn WriteCallback(void* contents, const size_t size, const size_t nmemb, std::string* str) -> size_t {
@@ -97,10 +103,8 @@ namespace {
     return totalSize;
   }
 
-  // Function to make API request
-  fn MakeApiRequest(const std::string& url) -> Result<WeatherOutput> {
+  fn MakeApiRequest(const std::string& url) -> const Result<WeatherOutput> {
     DEBUG_LOG("Making API request to URL: {}", url);
-
     CURL*       curl = curl_easy_init();
     std::string responseBuffer;
 
@@ -119,37 +123,38 @@ namespace {
     if (res != CURLE_OK)
       return std::unexpected(fmt::format("cURL error: {}", curl_easy_strerror(res)));
 
-    DEBUG_LOG("API response size: {}", responseBuffer.size());
-    DEBUG_LOG("API response: {}", responseBuffer);
+    WeatherOutput  output;
+    glz::error_ctx errc = glz::read<glaze_opts>(output, responseBuffer);
 
-    try {
-      json          json   = json::parse(responseBuffer);
-      WeatherOutput output = json.get<WeatherOutput>();
-      return output;
-    } catch (const std::exception& e) { return std::unexpected("API response parse error: "s + e.what()); }
+    if (errc.ec != glz::error_code::none)
+      return std::unexpected("API response parse error: " + glz::format_error(errc, responseBuffer));
+
+    return std::move(output);
   }
 }
 
-// Core function to get weather information
 fn Weather::getWeatherInfo() const -> WeatherOutput {
   using namespace std::chrono;
 
   if (Result<WeatherOutput> data = ReadCacheFromFile()) {
-    const WeatherOutput& dataVal = *data;
+    const WeatherOutput&   dataVal  = *data;
+    const duration<double> cacheAge = system_clock::now() - system_clock::time_point(seconds(dataVal.dt));
 
-    if (const duration<double> cacheAge = system_clock::now() - system_clock::time_point(seconds(dataVal.dt));
-        cacheAge < 10min) {
+    if (cacheAge < 10min) {
       DEBUG_LOG("Using valid cache");
       return dataVal;
     }
+
     DEBUG_LOG("Cache expired");
   } else {
     DEBUG_LOG("Cache error: {}", data.error());
   }
 
   fn handleApiResult = [](const Result<WeatherOutput>& result) -> WeatherOutput {
-    if (!result)
+    if (!result) {
       ERROR_LOG("API request failed: {}", result.error());
+      return WeatherOutput {};
+    }
 
     if (Result<void> writeResult = WriteCacheToFile(*result); !writeResult)
       ERROR_LOG("Failed to write cache: {}", writeResult.error());
@@ -160,8 +165,8 @@ fn Weather::getWeatherInfo() const -> WeatherOutput {
   if (std::holds_alternative<std::string>(location)) {
     const auto& city    = std::get<std::string>(location);
     char*       escaped = curl_easy_escape(nullptr, city.c_str(), static_cast<int>(city.length()));
-
     DEBUG_LOG("Requesting city: {}", escaped);
+
     const std::string apiUrl =
       fmt::format("https://api.openweathermap.org/data/2.5/weather?q={}&appid={}&units={}", escaped, api_key, units);
 

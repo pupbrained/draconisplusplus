@@ -20,48 +20,6 @@
         },
         "version": "11.1.4"
     },
-    "reflect-cpp": {
-        "cargoLocks": null,
-        "date": "2025-03-02",
-        "extract": null,
-        "name": "reflect-cpp",
-        "passthru": null,
-        "pinned": false,
-        "src": {
-            "deepClone": false,
-            "fetchSubmodules": false,
-            "leaveDotGit": false,
-            "name": null,
-            "owner": "getml",
-            "repo": "reflect-cpp",
-            "rev": "ec8c19fa3e931d736b3f3ff2e400fce4a5f97829",
-            "sha256": "sha256-3bbaVbU9ICQ8no/3W4M8ePsnrZR3e3CWhT3RO3lL3r0=",
-            "sparseCheckout": [],
-            "type": "github"
-        },
-        "version": "ec8c19fa3e931d736b3f3ff2e400fce4a5f97829"
-    },
-    "sdbus-cpp": {
-        "cargoLocks": null,
-        "date": null,
-        "extract": null,
-        "name": "sdbus-cpp",
-        "passthru": null,
-        "pinned": false,
-        "src": {
-            "deepClone": false,
-            "fetchSubmodules": false,
-            "leaveDotGit": false,
-            "name": null,
-            "owner": "kistler-group",
-            "repo": "sdbus-cpp",
-            "rev": "v2.1.0",
-            "sha256": "sha256-JnjabBr7oELLsUV9a+dAAaRyUzaMIriu90vkaVJg2eY=",
-            "sparseCheckout": [],
-            "type": "github"
-        },
-        "version": "v2.1.0"
-    },
     "tomlplusplus": {
         "cargoLocks": null,
         "date": null,
@@ -82,26 +40,5 @@
             "type": "github"
         },
         "version": "v3.4.0"
-    },
-    "yyjson": {
-        "cargoLocks": null,
-        "date": null,
-        "extract": null,
-        "name": "yyjson",
-        "passthru": null,
-        "pinned": false,
-        "src": {
-            "deepClone": false,
-            "fetchSubmodules": false,
-            "leaveDotGit": false,
-            "name": null,
-            "owner": "ibireme",
-            "repo": "yyjson",
-            "rev": "0.10.0",
-            "sha256": "sha256-mp9Oz08qTyhj3P6F1d81SX96vamUY/JWpD2DTYR+v04=",
-            "sparseCheckout": [],
-            "type": "github"
-        },
-        "version": "0.10.0"
     }
 }

@@ -166,21 +166,25 @@ namespace {
 
     content.push_back(text("   Hello " + name + "! ") | bold | color(Color::Cyan));
     content.push_back(separator() | color(borderColor));
-    content.push_back(hbox({
-      text("   ") | color(iconColor), // Palette icon
-      CreateColorCircles(),
-    }));
+    content.push_back(hbox(
+      {
+        text("   ") | color(iconColor), // Palette icon
+        CreateColorCircles(),
+      }
+    ));
     content.push_back(separator() | color(borderColor));
 
     // Helper function for aligned rows
     fn createRow = [&](const std::string& icon, const std::string& label, const std::string& value) {
-      return hbox({
-        text(icon) | color(iconColor),
-        text(label) | color(labelColor),
-        filler(),
-        text(value) | color(valueColor),
-        text(" "),
-      });
+      return hbox(
+        {
+          text(icon) | color(iconColor),
+          text(label) | color(labelColor),
+          filler(),
+          text(value) | color(valueColor),
+          text(" "),
+        }
+      );
     };
 
     // System info rows
@@ -191,31 +195,39 @@ namespace {
       const WeatherOutput& weatherInfo = data.weather_info.value();
 
       if (weather.show_town_name)
-        content.push_back(hbox({
-          text(weatherIcon) | color(iconColor),
-          text("Weather") | color(labelColor),
-          filler(),
+        content.push_back(hbox(
+          {
+            text(weatherIcon) | color(iconColor),
+            text("Weather") | color(labelColor),
+            filler(),
 
-          hbox({
-            text(fmt::format("{}°F ", std::lround(weatherInfo.main.temp))),
-            text("in "),
-            text(weatherInfo.name),
-            text(" "),
-          }) |
-            color(valueColor),
-        }));
+            hbox(
+              {
+                text(fmt::format("{}°F ", std::lround(weatherInfo.main.temp))),
+                text("in "),
+                text(weatherInfo.name),
+                text(" "),
+              }
+            ) |
+              color(valueColor),
+          }
+        ));
       else
-        content.push_back(hbox({
-          text(weatherIcon) | color(iconColor),
-          text("Weather") | color(labelColor),
-          filler(),
+        content.push_back(hbox(
+          {
+            text(weatherIcon) | color(iconColor),
+            text("Weather") | color(labelColor),
+            filler(),
 
-          hbox({
-            text(fmt::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description)),
-            text(" "),
-          }) |
-            color(valueColor),
-        }));
+            hbox(
+              {
+                text(fmt::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description)),
+                text(" "),
+              }
+            ) |
+              color(valueColor),
+          }
+        ));
     }
 
     content.push_back(separator() | color(borderColor));
@@ -259,14 +271,16 @@ namespace {
         const std::string& npText = *nowPlayingResult;
 
         content.push_back(separator() | color(borderColor));
-        content.push_back(hbox({
-          text(musicIcon) | color(iconColor),
-          text("Playing") | color(labelColor),
-          text(" "),
-          filler(),
-          paragraph(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, 30),
-          text(" "),
-        }));
+        content.push_back(hbox(
+          {
+            text(musicIcon) | color(iconColor),
+            text("Playing") | color(labelColor),
+            text(" "),
+            filler(),
+            paragraph(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, 30),
+            text(" "),
+          }
+        ));
       } else {
         const NowPlayingError& error = nowPlayingResult.error();
 

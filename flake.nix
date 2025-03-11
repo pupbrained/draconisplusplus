@@ -48,17 +48,17 @@
           [
             curl
             fmt
-            libiconv
-            tomlplusplus
-            nlohmann_json
-            sqlitecpp
             ftxui
+            libiconv
+            sqlitecpp
+            tomlplusplus
           ]
           ++ linuxPkgs;
 
         linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs;
           [
             valgrind
+            (glaze.override {enableAvx2 = true;})
           ]
           ++ (with pkgsStatic; [
             dbus

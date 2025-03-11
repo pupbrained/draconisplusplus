@@ -12,29 +12,6 @@
       sha256 = "sha256-sUbxlYi/Aupaox3JjWFqXIjcaQa0LFjclQAOleT+FRA=";
     };
   };
-  reflect-cpp = {
-    pname = "reflect-cpp";
-    version = "ec8c19fa3e931d736b3f3ff2e400fce4a5f97829";
-    src = fetchFromGitHub {
-      owner = "getml";
-      repo = "reflect-cpp";
-      rev = "ec8c19fa3e931d736b3f3ff2e400fce4a5f97829";
-      fetchSubmodules = false;
-      sha256 = "sha256-3bbaVbU9ICQ8no/3W4M8ePsnrZR3e3CWhT3RO3lL3r0=";
-    };
-    date = "2025-03-02";
-  };
-  sdbus-cpp = {
-    pname = "sdbus-cpp";
-    version = "v2.1.0";
-    src = fetchFromGitHub {
-      owner = "kistler-group";
-      repo = "sdbus-cpp";
-      rev = "v2.1.0";
-      fetchSubmodules = false;
-      sha256 = "sha256-JnjabBr7oELLsUV9a+dAAaRyUzaMIriu90vkaVJg2eY=";
-    };
-  };
   tomlplusplus = {
     pname = "tomlplusplus";
     version = "v3.4.0";
@@ -44,17 +21,6 @@
       rev = "v3.4.0";
       fetchSubmodules = false;
       sha256 = "sha256-h5tbO0Rv2tZezY58yUbyRVpsfRjY3i+5TPkkxr6La8M=";
-    };
-  };
-  yyjson = {
-    pname = "yyjson";
-    version = "0.10.0";
-    src = fetchFromGitHub {
-      owner = "ibireme";
-      repo = "yyjson";
-      rev = "0.10.0";
-      fetchSubmodules = false;
-      sha256 = "sha256-mp9Oz08qTyhj3P6F1d81SX96vamUY/JWpD2DTYR+v04=";
     };
   };
 }

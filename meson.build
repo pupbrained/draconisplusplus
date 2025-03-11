@@ -8,7 +8,7 @@ project(
   default_options: [
     'default_library=static',
     'warning_level=everything',
-    'buildtype=release',
+    'buildtype=debugoptimized',
   ],
 )
 
@@ -98,7 +98,7 @@ common_deps = [
   dependency('fmt', include_type: 'system', static: true),
   dependency('libcurl', include_type: 'system', static: true),
   dependency('tomlplusplus', include_type: 'system', static: true),
-  dependency('nlohmann_json', include_type: 'system', static: true),
+  dependency('glaze'),
   dependency('openssl', include_type: 'system', static: true, required: false),
 ]
 
@@ -122,13 +122,12 @@ elif host_system == 'windows'
 elif host_system == 'linux' or host_system == 'freebsd'
   platform_deps += [
     dependency('SQLiteCpp'),
-    dependency('sdbus-c++'),
     dependency('x11'),
     dependency('xcb'),
     dependency('xau'),
     dependency('xdmcp'),
     dependency('wayland-client'),
-    dependency('dbus-1'),
+    dependency('dbus-1', include_type: 'system'),
   ]
 endif
 
@@ -164,7 +163,7 @@ objc_args = []
 if host_system == 'darwin'
   objc_args += ['-fobjc-arc']
 elif cpp.get_id() == 'clang'
-  link_args += ['-static-libgcc', '-static-libstdc++', '-static']
+  link_args += ['-static-libgcc', '-static-libstdc++']
 endif
 
 # ------------------- #

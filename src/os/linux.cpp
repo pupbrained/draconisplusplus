@@ -15,6 +15,7 @@
 #include <optional>
 #include <ranges>
 #include <sys/socket.h>
+#include <sys/statvfs.h>
 #include <sys/utsname.h>
 #include <unistd.h>
 #include <vector>
@@ -23,18 +24,36 @@
 #include "os.h"
 #include "src/util/macros.h"
 
-using std::errc, std::expected, std::from_chars, std::getline, std::istreambuf_iterator, std::less, std::lock_guard,
-  std::mutex, std::ofstream, std::pair, std::string_view, std::vector, std::nullopt, std::array, std::optional,
-  std::bit_cast, std::to_string, std::ifstream, std::getenv, std::string, std::unexpected, std::ranges::is_sorted,
-  std::ranges::lower_bound, std::ranges::replace, std::ranges::subrange, std::ranges::transform;
-
-using namespace std::literals::string_view_literals;
+// Minimal global using declarations needed for function signatures
+using std::expected;
+using std::optional;
 
 namespace fs = std::filesystem;
-
-enum SessionType : u8 { Wayland, X11, TTY, Unknown };
+using namespace std::literals::string_view_literals;
 
 namespace {
+  // Local using declarations for the anonymous namespace
+  using std::array;
+  using std::bit_cast;
+  using std::getenv;
+  using std::ifstream;
+  using std::istreambuf_iterator;
+  using std::less;
+  using std::lock_guard;
+  using std::mutex;
+  using std::nullopt;
+  using std::ofstream;
+  using std::pair;
+  using std::string_view;
+  using std::to_string;
+  using std::unexpected;
+  using std::vector;
+  using std::ranges::is_sorted;
+  using std::ranges::lower_bound;
+  using std::ranges::replace;
+  using std::ranges::subrange;
+  using std::ranges::transform;
+
   fn GetX11WindowManager() -> string {
     Display* display = XOpenDisplay(nullptr);
 
@@ -394,6 +413,8 @@ fn GetOSVersion() -> expected<string, string> {
 }
 
 fn GetMemInfo() -> expected<u64, string> {
+  using std::from_chars, std::errc;
+
   constexpr const char* path = "/proc/meminfo";
 
   ifstream input(path);
@@ -657,9 +678,20 @@ fn GetDesktopEnvironment() -> optional<string> {
 }
 
 fn GetShell() -> string {
-  const char* shell = getenv("SHELL");
+  const string_view shell = getenv("SHELL");
 
-  return shell ? shell : "";
+  if (shell.ends_with("bash"))
+    return "Bash";
+  if (shell.ends_with("zsh"))
+    return "Zsh";
+  if (shell.ends_with("fish"))
+    return "Fish";
+  if (shell.ends_with("nu"))
+    return "Nushell";
+  if (shell.ends_with("sh"))
+    return "SH";
+
+  return !shell.empty() ? string(shell) : "";
 }
 
 fn GetHost() -> string {
@@ -689,6 +721,15 @@ fn GetKernelVersion() -> string {
   }
 
   return static_cast<const char*>(uts.release);
+}
+
+fn GetDiskUsage() -> pair<u64, u64> {
+  struct statvfs stat;
+  if (statvfs("/", &stat) == -1) {
+    ERROR_LOG("statvfs() failed: {}", strerror(errno));
+    return { 0, 0 };
+  }
+  return { (stat.f_blocks * stat.f_frsize) - (stat.f_bfree * stat.f_frsize), stat.f_blocks * stat.f_frsize };
 }
 
 #endif

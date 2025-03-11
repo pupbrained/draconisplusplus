@@ -8,9 +8,7 @@
 #include <guiddef.h>
 #include <variant>
 #include <winrt/base.h>
-#endif
-
-#ifdef __APPLE__
+#else
 #include <variant>
 #endif
 
@@ -151,13 +149,13 @@ enum class NowPlayingCode : u8 {
  * @brief Represents a Linux-specific error.
  */
 using LinuxError = std::string;
-#elif defined(__APPLE__)
+#elifdef __APPLE__
 /**
  * @typedef MacError
  * @brief Represents a macOS-specific error.
  */
 using MacError = std::string;
-#elif defined(_WIN32)
+#elifdef _WIN32
 /**
  * @typedef WindowsError
  * @brief Represents a Windows-specific error.
@@ -170,9 +168,9 @@ using NowPlayingError = std::variant<
   NowPlayingCode,
 #ifdef __linux__
   LinuxError
-#elif defined(__APPLE__)
+#elifdef __APPLE__
   MacError
-#elif defined(_WIN32)
+#elifdef _WIN32
   WindowsError
 #endif
   >;
