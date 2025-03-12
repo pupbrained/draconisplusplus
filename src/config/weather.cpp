@@ -4,7 +4,6 @@
 #include <filesystem>
 #include <fmt/core.h>
 #include <fstream>
-#include <nlohmann/json.hpp>
 
 #include "weather.h"
 
@@ -12,11 +11,10 @@
 #include "src/util/macros.h"
 
 namespace fs = std::filesystem;
-using namespace nlohmann;
 using namespace std::string_literals;
 
 template <typename T>
-using Result = std::expected<T, std::string>;
+using Result = std::expected<T, string>;
 
 namespace {
   constexpr glz::opts glaze_opts = { .error_on_unknown_keys = false };
@@ -46,9 +44,9 @@ namespace {
     DEBUG_LOG("Reading from cache file...");
 
     try {
-      const std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
-      WeatherOutput     result;
-      glz::error_ctx    errc = glz::read<glaze_opts>(result, content);
+      const string   content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+      WeatherOutput  result;
+      glz::error_ctx errc = glz::read<glaze_opts>(result, content);
 
       if (errc.ec != glz::error_code::none)
         return std::unexpected("JSON parse error: " + glz::format_error(errc, content));
@@ -74,7 +72,7 @@ namespace {
         if (!ofs.is_open())
           return std::unexpected("Failed to open temp file: " + tempPath.string());
 
-        std::string    jsonStr;
+        string         jsonStr;
         glz::error_ctx errc = glz::write_json(data, jsonStr);
 
         if (errc.ec != glz::error_code::none)
@@ -97,16 +95,16 @@ namespace {
     } catch (const std::exception& e) { return std::unexpected("File operation error: "s + e.what()); }
   }
 
-  fn WriteCallback(void* contents, const size_t size, const size_t nmemb, std::string* str) -> size_t {
+  fn WriteCallback(void* contents, const size_t size, const size_t nmemb, string* str) -> size_t {
     const size_t totalSize = size * nmemb;
     str->append(static_cast<char*>(contents), totalSize);
     return totalSize;
   }
 
-  fn MakeApiRequest(const std::string& url) -> const Result<WeatherOutput> {
+  fn MakeApiRequest(const string& url) -> const Result<WeatherOutput> {
     DEBUG_LOG("Making API request to URL: {}", url);
-    CURL*       curl = curl_easy_init();
-    std::string responseBuffer;
+    CURL*  curl = curl_easy_init();
+    string responseBuffer;
 
     if (!curl)
       return std::unexpected("Failed to initialize cURL");
@@ -162,12 +160,12 @@ fn Weather::getWeatherInfo() const -> WeatherOutput {
     return *result;
   };
 
-  if (std::holds_alternative<std::string>(location)) {
-    const auto& city    = std::get<std::string>(location);
+  if (std::holds_alternative<string>(location)) {
+    const auto& city    = std::get<string>(location);
     char*       escaped = curl_easy_escape(nullptr, city.c_str(), static_cast<int>(city.length()));
     DEBUG_LOG("Requesting city: {}", escaped);
 
-    const std::string apiUrl =
+    const string apiUrl =
       fmt::format("https://api.openweathermap.org/data/2.5/weather?q={}&appid={}&units={}", escaped, api_key, units);
 
     curl_free(escaped);
@@ -177,7 +175,7 @@ fn Weather::getWeatherInfo() const -> WeatherOutput {
   const auto& [lat, lon] = std::get<Coords>(location);
   DEBUG_LOG("Requesting coordinates: lat={:.3f}, lon={:.3f}", lat, lon);
 
-  const std::string apiUrl = fmt::format(
+  const string apiUrl = fmt::format(
     "https://api.openweathermap.org/data/2.5/weather?lat={:.3f}&lon={:.3f}&appid={}&units={}", lat, lon, api_key, units
   );
 

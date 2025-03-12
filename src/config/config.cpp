@@ -31,7 +31,7 @@ fn Config::getInstance() -> Config {
   try {
     const fs::path configPath = GetConfigPath();
     if (!fs::exists(configPath)) {
-      DEBUG_LOG("Config file not found, using defaults");
+      WARN_LOG("Config file not found, using defaults");
       return Config {};
     }
 

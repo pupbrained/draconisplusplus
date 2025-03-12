@@ -12,7 +12,7 @@
 #include "src/util/macros.h"
 #include "weather.h"
 
-using Location = std::variant<std::string, Coords>;
+using Location = std::variant<string, Coords>;
 
 struct General {
   string name = []() -> string {
@@ -26,29 +26,17 @@ struct General {
 
     if (const char* envUser = getenv("USER"))
       return envUser;
-#endif
+
     return "User";
+#endif
   }();
 
   static fn fromToml(const toml::table& tbl) -> General {
     General gen;
-    if (auto name = tbl["name"].value<std::string>()) {
+
+    if (std::optional<string> name = tbl["name"].value<string>())
       gen.name = *name;
-    } else {
-#ifdef _WIN32
-      std::array<char, 256> username;
-      DWORD                 size = sizeof(username);
-      g.name                     = GetUserNameA(username.data(), &size) ? username.data() : "User";
-#else
-      if (struct passwd* pwd = getpwuid(getuid()); pwd) {
-        gen.name = pwd->pw_name;
-      } else if (const char* envUser = getenv("USER")) {
-        gen.name = envUser;
-      } else {
-        gen.name = "User";
-      }
-#endif
-    }
+
     return gen;
   }
 };
@@ -64,22 +52,22 @@ struct NowPlaying {
 };
 
 struct Weather {
-  bool        enabled        = false;
-  bool        show_town_name = false;
-  Location    location;
-  std::string api_key;
-  std::string units;
+  bool     enabled        = false;
+  bool     show_town_name = false;
+  Location location;
+  string   api_key;
+  string   units;
 
   static fn fromToml(const toml::table& tbl) -> Weather {
     Weather weather;
     weather.enabled        = tbl["enabled"].value<bool>().value_or(false);
     weather.show_town_name = tbl["show_town_name"].value<bool>().value_or(false);
-    weather.api_key        = tbl["api_key"].value<std::string>().value_or("");
-    weather.units          = tbl["units"].value<std::string>().value_or("metric");
+    weather.api_key        = tbl["api_key"].value<string>().value_or("");
+    weather.units          = tbl["units"].value<string>().value_or("metric");
 
     if (auto location = tbl["location"]) {
       if (location.is_string()) {
-        weather.location = location.value<std::string>().value();
+        weather.location = location.value<string>().value();
       } else if (location.is_table()) {
         const auto* coord = location.as_table();
         Coords      coords;
