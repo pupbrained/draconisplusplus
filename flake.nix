@@ -44,21 +44,23 @@
           doCheck = false;
         };
 
-        deps = with pkgs.pkgsStatic;
+        deps = with pkgs;
           [
+            (glaze.override {enableAvx2 = hostPlatform.isx86;})
+          ]
+          ++ (with pkgsStatic; [
             curl
             fmt
             ftxui
             libiconv
             sqlitecpp
             tomlplusplus
-          ]
+          ])
           ++ linuxPkgs;
 
         linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs;
           [
             valgrind
-            (glaze.override {enableAvx2 = true;})
           ]
           ++ (with pkgsStatic; [
             dbus
