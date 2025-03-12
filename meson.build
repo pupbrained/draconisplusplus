@@ -98,7 +98,7 @@ common_deps = [
   dependency('fmt', include_type: 'system', static: true),
   dependency('libcurl', include_type: 'system', static: true),
   dependency('tomlplusplus', include_type: 'system', static: true),
-  dependency('glaze'),
+  dependency('glaze', include_type: 'system'),
   dependency('openssl', include_type: 'system', static: true, required: false),
 ]
 
