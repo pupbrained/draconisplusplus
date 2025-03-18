@@ -9,6 +9,7 @@ project(
     'default_library=static',
     'warning_level=everything',
     'buildtype=debugoptimized',
+    'b_vscrt=mt',
   ],
 )
 
@@ -38,7 +39,10 @@ common_cpp_flags = {
     '-std=c++26',
   ],
   'msvc': [
-    '-DNOMINMAX', '/Zc:__cplusplus',
+    '-DNOMINMAX',
+    '/MT',
+    '/Zc:__cplusplus',
+    '/Zc:preprocessor',
     '/std:c++latest',
   ],
   'unix_extra': [
@@ -98,7 +102,6 @@ common_deps = [
   dependency('fmt', include_type: 'system', static: true),
   dependency('libcurl', include_type: 'system', static: true),
   dependency('tomlplusplus', include_type: 'system', static: true),
-  dependency('glaze', include_type: 'system'),
   dependency('openssl', include_type: 'system', static: true, required: false),
 ]
 
@@ -151,8 +154,18 @@ if not ftxui_dep.found()
   )
 endif
 
+glaze_dep = dependency('glaze', include_type: 'system', required: false)
+
+if not glaze_dep.found()
+  cmake = import('cmake')
+
+  glaze_proj = cmake.subproject('glaze')
+
+  glaze_dep = glaze_proj.dependency('glaze_glaze', include_type: 'system')
+endif
+
 # Combine all dependencies
-deps = common_deps + platform_deps + ftxui_dep
+deps = common_deps + platform_deps + ftxui_dep + glaze_dep
 
 # ------------------------- #
 #  Link/ObjC Configuration  #
