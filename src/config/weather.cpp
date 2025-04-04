@@ -13,13 +13,10 @@
 namespace fs = std::filesystem;
 using namespace std::string_literals;
 
-template <typename T>
-using Result = std::expected<T, string>;
-
 namespace {
   constexpr glz::opts glaze_opts = { .error_on_unknown_keys = false };
 
-  fn GetCachePath() -> Result<fs::path> {
+  fn GetCachePath() -> std::expected<fs::path, string> {
     std::error_code errc;
     fs::path        cachePath = fs::temp_directory_path(errc);
 
@@ -30,8 +27,8 @@ namespace {
     return cachePath;
   }
 
-  fn ReadCacheFromFile() -> Result<WeatherOutput> {
-    Result<fs::path> cachePath = GetCachePath();
+  fn ReadCacheFromFile() -> std::expected<WeatherOutput, string> {
+    std::expected<fs::path, string> cachePath = GetCachePath();
 
     if (!cachePath)
       return std::unexpected(cachePath.error());
@@ -44,11 +41,10 @@ namespace {
     DEBUG_LOG("Reading from cache file...");
 
     try {
-      const string   content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
-      WeatherOutput  result;
-      glz::error_ctx errc = glz::read<glaze_opts>(result, content);
+      const string  content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+      WeatherOutput result;
 
-      if (errc.ec != glz::error_code::none)
+      if (const glz::error_ctx errc = glz::read<glaze_opts>(result, content); errc.ec != glz::error_code::none)
         return std::unexpected("JSON parse error: " + glz::format_error(errc, content));
 
       DEBUG_LOG("Successfully read from cache file.");
@@ -56,8 +52,8 @@ namespace {
     } catch (const std::exception& e) { return std::unexpected("Error reading cache: "s + e.what()); }
   }
 
-  fn WriteCacheToFile(const WeatherOutput& data) -> Result<void> {
-    Result<fs::path> cachePath = GetCachePath();
+  fn WriteCacheToFile(const WeatherOutput& data) -> std::expected<void, string> {
+    std::expected<fs::path, string> cachePath = GetCachePath();
 
     if (!cachePath)
       return std::unexpected(cachePath.error());
@@ -72,10 +68,9 @@ namespace {
         if (!ofs.is_open())
           return std::unexpected("Failed to open temp file: " + tempPath.string());
 
-        string         jsonStr;
-        glz::error_ctx errc = glz::write_json(data, jsonStr);
+        string jsonStr;
 
-        if (errc.ec != glz::error_code::none)
+        if (const glz::error_ctx errc = glz::write_json(data, jsonStr); errc.ec != glz::error_code::none)
           return std::unexpected("JSON serialization error: " + glz::format_error(errc, jsonStr));
 
         ofs << jsonStr;
@@ -101,7 +96,7 @@ namespace {
     return totalSize;
   }
 
-  fn MakeApiRequest(const string& url) -> const Result<WeatherOutput> {
+  fn MakeApiRequest(const string& url) -> std::expected<WeatherOutput, string> {
     DEBUG_LOG("Making API request to URL: {}", url);
     CURL*  curl = curl_easy_init();
     string responseBuffer;
@@ -121,10 +116,9 @@ namespace {
     if (res != CURLE_OK)
       return std::unexpected(fmt::format("cURL error: {}", curl_easy_strerror(res)));
 
-    WeatherOutput  output;
-    glz::error_ctx errc = glz::read<glaze_opts>(output, responseBuffer);
+    WeatherOutput output;
 
-    if (errc.ec != glz::error_code::none)
+    if (const glz::error_ctx errc = glz::read<glaze_opts>(output, responseBuffer); errc.ec != glz::error_code::none)
       return std::unexpected("API response parse error: " + glz::format_error(errc, responseBuffer));
 
     return std::move(output);
@@ -134,11 +128,11 @@ namespace {
 fn Weather::getWeatherInfo() const -> WeatherOutput {
   using namespace std::chrono;
 
-  if (Result<WeatherOutput> data = ReadCacheFromFile()) {
-    const WeatherOutput&   dataVal  = *data;
-    const duration<double> cacheAge = system_clock::now() - system_clock::time_point(seconds(dataVal.dt));
+  if (std::expected<WeatherOutput, string> data = ReadCacheFromFile()) {
+    const WeatherOutput& dataVal = *data;
 
-    if (cacheAge < 10min) {
+    if (const duration<double> cacheAge = system_clock::now() - system_clock::time_point(seconds(dataVal.dt));
+        cacheAge < 10min) {
       DEBUG_LOG("Using valid cache");
       return dataVal;
     }
@@ -148,13 +142,13 @@ fn Weather::getWeatherInfo() const -> WeatherOutput {
     DEBUG_LOG("Cache error: {}", data.error());
   }
 
-  fn handleApiResult = [](const Result<WeatherOutput>& result) -> WeatherOutput {
+  fn handleApiResult = [](const std::expected<WeatherOutput, string>& result) -> WeatherOutput {
     if (!result) {
       ERROR_LOG("API request failed: {}", result.error());
       return WeatherOutput {};
     }
 
-    if (Result<void> writeResult = WriteCacheToFile(*result); !writeResult)
+    if (std::expected<void, string> writeResult = WriteCacheToFile(*result); !writeResult)
       ERROR_LOG("Failed to write cache: {}", writeResult.error());
 
     return *result;

@@ -5,6 +5,8 @@
 #include <string>
 
 #ifdef _WIN32
+#include <expected>
+// ReSharper disable once CppUnusedIncludeDirective
 #include <guiddef.h>
 #include <variant>
 #include <winrt/base.h>
@@ -149,13 +151,13 @@ enum class NowPlayingCode : u8 {
  * @brief Represents a Linux-specific error.
  */
 using LinuxError = std::string;
-#elifdef __APPLE__
+#elif defined(__APPLE__)
 /**
  * @typedef MacError
  * @brief Represents a macOS-specific error.
  */
 using MacError = std::string;
-#elifdef _WIN32
+#elif defined(_WIN32)
 /**
  * @typedef WindowsError
  * @brief Represents a Windows-specific error.
@@ -168,9 +170,34 @@ using NowPlayingError = std::variant<
   NowPlayingCode,
 #ifdef __linux__
   LinuxError
-#elifdef __APPLE__
+#elif defined(__APPLE__)
   MacError
-#elifdef _WIN32
+#elif defined(_WIN32)
   WindowsError
 #endif
   >;
+
+enum class EnvError : u8 { NotFound, AccessError };
+
+inline auto GetEnv(const std::string& name) -> std::expected<std::string, EnvError> {
+#ifdef _WIN32
+  char*  rawPtr     = nullptr;
+  size_t bufferSize = 0;
+
+  if (_dupenv_s(&rawPtr, &bufferSize, name.c_str()) != 0)
+    return std::unexpected(EnvError::AccessError);
+
+  if (!rawPtr)
+    return std::unexpected(EnvError::NotFound);
+
+  const std::string result(rawPtr);
+  free(rawPtr);
+  return result;
+#else
+  const char* value = std::getenv(name.c_str());
+  if (!value)
+    return std::unexpected(EnvError::NotFound);
+
+  return std::string(value);
+#endif
+}

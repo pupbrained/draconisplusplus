@@ -5,7 +5,6 @@
 #include "../util/types.h"
 
 // NOLINTBEGIN(readability-identifier-naming)
-
 struct Condition {
   string description;
 
@@ -40,5 +39,4 @@ struct WeatherOutput {
     static constexpr auto value = glz::object("main", &T::main, "name", &T::name, "weather", &T::weather, "dt", &T::dt);
   };
 };
-
 // NOLINTEND(readability-identifier-naming)

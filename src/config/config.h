@@ -34,7 +34,7 @@ struct General {
   static fn fromToml(const toml::table& tbl) -> General {
     General gen;
 
-    if (std::optional<string> name = tbl["name"].value<string>())
+    if (const std::optional<string> name = tbl["name"].value<string>())
       gen.name = *name;
 
     return gen;
@@ -65,7 +65,7 @@ struct Weather {
     weather.api_key        = tbl["api_key"].value<string>().value_or("");
     weather.units          = tbl["units"].value<string>().value_or("metric");
 
-    if (auto location = tbl["location"]) {
+    if (const toml::node_view<const toml::node> location = tbl["location"]) {
       if (location.is_string()) {
         weather.location = location.value<string>().value();
       } else if (location.is_table()) {

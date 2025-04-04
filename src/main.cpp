@@ -2,7 +2,6 @@
 #include <expected>
 #include <fmt/chrono.h>
 #include <fmt/color.h>
-#include <fmt/core.h>
 #include <fmt/format.h>
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/screen.hpp>
@@ -29,7 +28,7 @@ struct fmt::formatter<BytesToGiB> : fmt::formatter<double> {
   template <typename FmtCtx>
   constexpr fn format(const BytesToGiB& BTG, FmtCtx& ctx) const -> typename FmtCtx::iterator {
     // Format as double with GiB suffix, no space
-    return fmt::format_to(ctx.out(), "{:.2f}GiB", static_cast<double>(BTG.value) / GIB);
+    return fmt::format_to(ctx.out(), "{:.2f}GiB", static_cast<f64>(BTG.value) / GIB);
   }
 };
 
@@ -265,9 +264,8 @@ namespace {
 
     // Now Playing row
     if (nowPlayingEnabled && data.now_playing.has_value()) {
-      const std::expected<string, NowPlayingError>& nowPlayingResult = *data.now_playing;
-
-      if (nowPlayingResult.has_value()) {
+      if (const std::expected<string, NowPlayingError>& nowPlayingResult = *data.now_playing;
+          nowPlayingResult.has_value()) {
         const std::string& npText = *nowPlayingResult;
 
         content.push_back(separator() | color(borderColor));

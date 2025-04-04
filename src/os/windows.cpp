@@ -1,3 +1,4 @@
+#include <ranges>
 #ifdef _WIN32
 
 // clang-format off
@@ -14,6 +15,8 @@
 #include <guiddef.h>
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Media.Control.h>
+#include <winrt/Windows.Storage.h>
+#include <winrt/Windows.System.Diagnostics.h>
 #include <winrt/base.h>
 #include <winrt/impl/Windows.Media.Control.2.h>
 
@@ -22,7 +25,7 @@
 using std::string_view;
 using RtlGetVersionPtr = NTSTATUS(WINAPI*)(PRTL_OSVERSIONINFOW);
 
-// NOLINTBEGIN(*-pro-type-cstyle-cast,*-no-int-to-ptr)
+// NOLINTBEGIN(*-pro-type-cstyle-cast,*-no-int-to-ptr,*-pro-type-reinterpret-cast)
 namespace {
   class ProcessSnapshot {
    public:
@@ -55,11 +58,11 @@ namespace {
       // Get first process
       if (Process32First(h_snapshot, &pe32)) {
         // Add first process to vector
-        processes.emplace_back(pe32.th32ProcessID, string(static_cast<const char*>(pe32.szExeFile)));
+        processes.emplace_back(pe32.th32ProcessID, string(reinterpret_cast<const char*>(pe32.szExeFile)));
 
         // Add remaining processes
         while (Process32Next(h_snapshot, &pe32))
-          processes.emplace_back(pe32.th32ProcessID, string(static_cast<const char*>(pe32.szExeFile)));
+          processes.emplace_back(pe32.th32ProcessID, string(reinterpret_cast<const char*>(pe32.szExeFile)));
       }
 
       return processes;
@@ -94,7 +97,7 @@ namespace {
   }
 
   fn GetProcessInfo() -> std::vector<std::pair<DWORD, string>> {
-    ProcessSnapshot snapshot;
+    const ProcessSnapshot snapshot;
     return snapshot.isValid() ? snapshot.getProcesses() : std::vector<std::pair<DWORD, string>> {};
   }
 
@@ -104,8 +107,8 @@ namespace {
     });
   }
 
-  fn GetParentProcessId(DWORD pid) -> DWORD {
-    ProcessSnapshot snapshot;
+  fn GetParentProcessId(const DWORD pid) -> DWORD {
+    const ProcessSnapshot snapshot;
     if (!snapshot.isValid())
       return 0;
 
@@ -126,7 +129,7 @@ namespace {
   }
 
   fn GetProcessName(const DWORD pid) -> string {
-    ProcessSnapshot snapshot;
+    const ProcessSnapshot snapshot;
     if (!snapshot.isValid())
       return "";
 
@@ -137,24 +140,24 @@ namespace {
       return "";
 
     if (pe32.th32ProcessID == pid)
-      return { static_cast<const char*>(pe32.szExeFile) };
+      return reinterpret_cast<const char*>(pe32.szExeFile);
 
     while (Process32Next(snapshot.h_snapshot, &pe32))
       if (pe32.th32ProcessID == pid)
-        return { static_cast<const char*>(pe32.szExeFile) };
+        return reinterpret_cast<const char*>(pe32.szExeFile);
 
     return "";
   }
 }
 
 fn GetMemInfo() -> expected<u64, string> {
-  MEMORYSTATUSEX memInfo;
-  memInfo.dwLength = sizeof(MEMORYSTATUSEX);
-
-  if (!GlobalMemoryStatusEx(&memInfo))
-    return std::unexpected("Failed to get memory status");
-
-  return memInfo.ullTotalPhys;
+  try {
+    using namespace winrt::Windows::System::Diagnostics;
+    const SystemDiagnosticInfo diag = SystemDiagnosticInfo::GetForCurrentSystem();
+    return diag.MemoryUsage().GetReport().TotalPhysicalSizeInBytes();
+  } catch (const winrt::hresult_error& e) {
+    return std::unexpected("Failed to get memory info: " + to_string(e.message()));
+  }
 }
 
 fn GetNowPlaying() -> expected<string, NowPlayingError> {
@@ -185,11 +188,11 @@ fn GetNowPlaying() -> expected<string, NowPlayingError> {
 
 fn GetOSVersion() -> expected<string, string> {
   // First try using the native Windows API
-  OSVERSIONINFOEXW osvi   = { sizeof(OSVERSIONINFOEXW), 0, 0, 0, 0, { 0 }, 0, 0, 0, 0, 0 };
-  NTSTATUS         status = 0;
+  constexpr OSVERSIONINFOEXW osvi   = { sizeof(OSVERSIONINFOEXW), 0, 0, 0, 0, { 0 }, 0, 0, 0, 0, 0 };
+  NTSTATUS                   status = 0;
 
   // Get RtlGetVersion function from ntdll.dll (not affected by application manifest)
-  if (HMODULE ntdllHandle = GetModuleHandleW(L"ntdll.dll"))
+  if (const HMODULE ntdllHandle = GetModuleHandleW(L"ntdll.dll"))
     if (const auto rtlGetVersion = std::bit_cast<RtlGetVersionPtr>(GetProcAddress(ntdllHandle, "RtlGetVersion")))
       status = rtlGetVersion(std::bit_cast<PRTL_OSVERSIONINFOW>(&osvi));
 
@@ -290,7 +293,7 @@ fn GetWindowManager() -> string {
   std::vector<string> processNames;
 
   processNames.reserve(processInfo.size());
-  for (const auto& [pid, name] : processInfo) processNames.push_back(name);
+  for (const auto& name : processInfo | std::views::values) processNames.push_back(name);
 
   // Check for third-party WMs using a map for cleaner code
   const std::unordered_map<string, string> wmProcesses = {
@@ -382,7 +385,6 @@ fn GetShell() -> string {
     size_t shellLen = 0;
     _dupenv_s(&shell, &shellLen, "SHELL");
     const std::unique_ptr<char, decltype(&free)> shellGuard(shell, free);
-    string                                       shellExe;
 
     // If SHELL is empty, try LOGINSHELL
     if (!shell || strlen(shell) == 0) {
@@ -394,6 +396,7 @@ fn GetShell() -> string {
     }
 
     if (shell) {
+      string       shellExe;
       const string shellPath = shell;
       const size_t lastSlash = shellPath.find_last_of("\\/");
       shellExe               = (lastSlash != string::npos) ? shellPath.substr(lastSlash + 1) : shellPath;
@@ -463,5 +466,6 @@ fn GetDiskUsage() -> std::pair<u64, u64> {
 
   return { 0, 0 };
 }
-// NOLINTEND(*-pro-type-cstyle-cast,*-no-int-to-ptr)
+// NOLINTEND(*-pro-type-cstyle-cast,*-no-int-to-ptr,*-pro-type-reinterpret-cast)
+
 #endif

@@ -1,7 +1,6 @@
 #pragma once
 
 // probably stupid but it fixes the issue with windows.h defining ERROR
-#include <utility>
 #undef ERROR
 
 #include <filesystem>
