@@ -33,16 +33,16 @@ namespace {
     possiblePaths.push_back(fs::path(".") / "config.toml");
 #else
     // Unix/Linux paths in order of preference
-    if (auto result = getEnv("XDG_CONFIG_HOME"); result)
-      possiblePaths.push_back(fs::path(*result) / "draconis++" / "config.toml");
+    if (auto result = GetEnv("XDG_CONFIG_HOME"); result)
+      possiblePaths.emplace_back(fs::path(*result) / "draconis++" / "config.toml");
 
-    if (auto result = getEnv("HOME"); result) {
-      possiblePaths.push_back(fs::path(*result) / ".config" / "draconis++" / "config.toml");
-      possiblePaths.push_back(fs::path(*result) / ".draconis++" / "config.toml");
+    if (auto result = GetEnv("HOME"); result) {
+      possiblePaths.emplace_back(fs::path(*result) / ".config" / "draconis++" / "config.toml");
+      possiblePaths.emplace_back(fs::path(*result) / ".draconis++" / "config.toml");
     }
 
     // System-wide config
-    possiblePaths.push_back(fs::path("/etc/draconis++/config.toml"));
+    possiblePaths.emplace_back("/etc/draconis++/config.toml");
 #endif
 
     // Check if any of these configs already exist

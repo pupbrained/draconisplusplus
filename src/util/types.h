@@ -2,10 +2,10 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <expected>
 #include <string>
 
 #ifdef _WIN32
-#include <expected>
 // ReSharper disable once CppUnusedIncludeDirective
 #include <guiddef.h>
 #include <variant>
