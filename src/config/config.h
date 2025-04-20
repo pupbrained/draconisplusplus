@@ -60,9 +60,23 @@ struct Weather {
 
   static fn fromToml(const toml::table& tbl) -> Weather {
     Weather weather;
-    weather.enabled        = tbl["enabled"].value<bool>().value_or(false);
-    weather.show_town_name = tbl["show_town_name"].value<bool>().value_or(false);
-    weather.api_key        = tbl["api_key"].value<string>().value_or("");
+    weather.enabled = tbl["enabled"].value_or<bool>(false);
+
+    if (auto apiKey = tbl["api_key"].value<string>()) {
+      const string& keyVal = apiKey.value();
+
+      if (keyVal.empty())
+        weather.enabled = false;
+
+      weather.api_key = keyVal;
+    } else {
+      weather.enabled = false;
+    }
+
+    if (!weather.enabled)
+      return weather;
+
+    weather.show_town_name = tbl["show_town_name"].value_or<bool>(false);
     weather.units          = tbl["units"].value<string>().value_or("metric");
 
     if (const toml::node_view<const toml::node> location = tbl["location"]) {
@@ -74,6 +88,8 @@ struct Weather {
         coords.lat       = coord->get("lat")->value<double>().value();
         coords.lon       = coord->get("lon")->value<double>().value();
         weather.location = coords;
+      } else {
+        throw std::runtime_error("Invalid location type");
       }
     }
 
