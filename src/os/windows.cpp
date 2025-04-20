@@ -1,4 +1,3 @@
-#include <ranges>
 #ifdef _WIN32
 
 // clang-format off
@@ -7,12 +6,13 @@
 #include <wincrypt.h>
 #include <dwmapi.h>
 #include <tlhelp32.h>
-#include <algorithm>
-#include <vector>
-#include <cstring>
 // clang-format on
 
+#include <algorithm>
+#include <cstring>
 #include <guiddef.h>
+#include <ranges>
+#include <vector>
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Media.Control.h>
 #include <winrt/Windows.Storage.h>
@@ -112,8 +112,7 @@ namespace {
     if (!snapshot.isValid())
       return 0;
 
-    PROCESSENTRY32 pe32;
-    pe32.dwSize = sizeof(PROCESSENTRY32);
+    PROCESSENTRY32 pe32 { .dwSize = sizeof(PROCESSENTRY32) };
 
     if (!Process32First(snapshot.h_snapshot, &pe32))
       return 0;

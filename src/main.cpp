@@ -1,9 +1,7 @@
 #include <ctime>
 #include <expected>
-#include <fmt/chrono.h>
-#include <fmt/color.h>
-#include <fmt/format.h>
 #include <ftxui/dom/elements.hpp>
+#include <ftxui/screen/color.hpp>
 #include <ftxui/screen/screen.hpp>
 #include <future>
 #include <string>
@@ -11,10 +9,9 @@
 #include <variant>
 
 #include "config/config.h"
-#include "ftxui/screen/color.hpp"
 #include "os/os.h"
 
-constexpr bool SHOW_ICONS = true;
+constexpr inline bool SHOW_ICONS = true;
 
 struct BytesToGiB {
   u64 value;
@@ -24,46 +21,110 @@ struct BytesToGiB {
 constexpr u64 GIB = 1'073'741'824;
 
 template <>
-struct fmt::formatter<BytesToGiB> : fmt::formatter<double> {
-  template <typename FmtCtx>
-  constexpr fn format(const BytesToGiB& BTG, FmtCtx& ctx) const -> typename FmtCtx::iterator {
-    // Format as double with GiB suffix, no space
-    return fmt::format_to(ctx.out(), "{:.2f}GiB", static_cast<f64>(BTG.value) / GIB);
+struct std::formatter<BytesToGiB> : std::formatter<double> {
+  auto format(const BytesToGiB& BTG, auto& ctx) const {
+    return std::format_to(ctx.out(), "{:.2f}GiB", static_cast<f64>(BTG.value) / GIB);
   }
 };
 
+namespace ui {
+  using ftxui::Color;
+
+  constexpr int MAX_PARAGRAPH_LENGTH = 30;
+  constexpr int PADDING              = 3;
+
+  // Color themes
+  struct Theme {
+    Color::Palette16 icon;
+    Color::Palette16 label;
+    Color::Palette16 value;
+    Color::Palette16 border;
+    Color::Palette16 accent;
+  };
+
+  constexpr Theme DEFAULT_THEME = {
+    .icon   = Color::Cyan,
+    .label  = Color::Yellow,
+    .value  = Color::White,
+    .border = Color::GrayLight,
+    .accent = Color::Magenta,
+  };
+
+  struct Icons {
+    std::string_view user;
+    std::string_view palette;
+    std::string_view calendar;
+    std::string_view host;
+    std::string_view kernel;
+    std::string_view os;
+    std::string_view memory;
+    std::string_view weather;
+    std::string_view music;
+    std::string_view disk;
+    std::string_view shell;
+    std::string_view desktop;
+    std::string_view window_manager;
+  };
+
+  constexpr Icons EMPTY_ICONS = {
+    .user           = "",
+    .palette        = "",
+    .calendar       = "",
+    .host           = "",
+    .kernel         = "",
+    .os             = "",
+    .memory         = "",
+    .weather        = "",
+    .music          = "",
+    .disk           = "",
+    .shell          = "",
+    .desktop        = "",
+    .window_manager = "",
+  };
+
+  // Using your original icons
+  constexpr Icons NERD_ICONS = {
+    .user           = "   ",
+    .palette        = "   ",
+    .calendar       = "   ",
+    .host           = " 󰌢  ",
+    .kernel         = "   ",
+    .os             = "   ",
+    .memory         = "   ",
+    .weather        = "   ",
+    .music          = "   ",
+    .disk           = " 󰋊  ",
+    .shell          = "   ",
+    .desktop        = " 󰇄  ",
+    .window_manager = "   ",
+  };
+}
+
 namespace {
-  fn GetDate() -> std::string {
-    // Get current local time
-    const std::time_t now = std::time(nullptr);
-    std::tm           localTime;
+  template <typename T, typename E, typename ValueFunc, typename ErrorFunc>
+  auto expected_visit(const std::expected<T, E>& exp, ValueFunc value_func, ErrorFunc error_func) {
+    if (exp.has_value())
+      return value_func(*exp);
 
-#ifdef _WIN32
-    if (localtime_s(&localTime, &now) != 0)
-      ERROR_LOG("localtime_s failed");
-#else
-    if (localtime_r(&now, &localTime) == nullptr)
-      ERROR_LOG("localtime_r failed");
-#endif
+    return error_func(exp.error());
+  }
 
-    // Format the date using fmt::format
-    std::string date = fmt::format("{:%e}", localTime);
+  fn GetDate() -> string {
+    using namespace std::chrono;
 
-    // Remove leading whitespace
-    if (!date.empty() && std::isspace(date.front()))
-      date.erase(date.begin());
+    const year_month_day ymd = year_month_day { floor<days>(system_clock::now()) };
 
-    // Append appropriate suffix for the datE
-    if (date.back() == '1' && date != "11")
-      date += "st";
-    else if (date.back() == '2' && date != "12")
-      date += "nd";
-    else if (date.back() == '3' && date != "13")
-      date += "rd";
-    else
-      date += "th";
+    string month = std::format("{:%B}", ymd);
 
-    return fmt::format("{:%B} {}", localTime, date);
+    i32 day = static_cast<unsigned>(ymd.day());
+
+    const char* suffix = (day >= 11 && day <= 13) ? "th"
+                         : (day % 10 == 1)        ? "st"
+                         : (day % 10 == 2)        ? "nd"
+                         : (day % 10 == 3)        ? "rd"
+                                                  : "th";
+
+    return std::format("{} {}{}", month, day, suffix);
   }
 
   struct SystemData {
@@ -84,15 +145,15 @@ namespace {
       SystemData data;
 
       // Single-threaded execution for core system info (faster on Windows)
-      data.date           = GetDate();
-      data.host           = GetHost();
-      data.kernel_version = GetKernelVersion();
-      data.os_version     = GetOSVersion();
-      data.mem_info       = GetMemInfo();
+      data.date           = std::move(GetDate());
+      data.host           = std::move(GetHost());
+      data.kernel_version = std::move(GetKernelVersion());
+      data.os_version     = std::move(GetOSVersion());
+      data.mem_info       = std::move(GetMemInfo());
 
       // Desktop environment info
-      data.desktop_environment = GetDesktopEnvironment();
-      data.window_manager      = GetWindowManager();
+      data.desktop_environment = std::move(GetDesktopEnvironment());
+      data.window_manager      = std::move(GetWindowManager());
 
       // Parallel execution for disk/shell only
       auto diskShell = std::async(std::launch::async, [] {
@@ -128,13 +189,12 @@ namespace {
   using namespace ftxui;
 
   fn CreateColorCircles() -> Element {
-    Elements circles(16);
-
-    std::generate_n(circles.begin(), 16, [colorIndex = 0]() mutable {
-      return hbox({ text("◯") | bold | color(static_cast<Color::Palette256>(colorIndex++)), text(" ") });
-    });
-
-    return hbox(circles);
+    return hbox(
+      std::views::iota(0, 16) | std::views::transform([](int colorIndex) {
+        return hbox({ text("◯") | bold | color(static_cast<Color::Palette256>(colorIndex)), text(" ") });
+      }) |
+      std::ranges::to<Elements>()
+    );
   }
 
   fn SystemInfoBox(const Config& config, const SystemData& data) -> Element {
@@ -143,44 +203,32 @@ namespace {
     const Weather weather           = config.weather;
     const bool    nowPlayingEnabled = config.now_playing.enabled;
 
-    const char *calendarIcon = "", *hostIcon = "", *kernelIcon = "", *osIcon = "", *memoryIcon = "", *weatherIcon = "",
-               *musicIcon = "";
-
-    if (SHOW_ICONS) {
-      calendarIcon = "   ";
-      hostIcon     = " 󰌢  ";
-      kernelIcon   = "   ";
-      osIcon       = "   ";
-      memoryIcon   = "   ";
-      weatherIcon  = "   ";
-      musicIcon    = "   ";
-    }
-
-    constexpr Color::Palette16 labelColor  = Color::Yellow;
-    constexpr Color::Palette16 valueColor  = Color::White;
-    constexpr Color::Palette16 borderColor = Color::GrayLight;
-    constexpr Color::Palette16 iconColor   = Color::Cyan;
+    const auto& [userIcon, paletteIcon, calendarIcon, hostIcon, kernelIcon, osIcon, memoryIcon, weatherIcon, musicIcon, diskIcon, shellIcon, deIcon, wmIcon] =
+      SHOW_ICONS ? ui::NERD_ICONS : ui::EMPTY_ICONS;
 
     Elements content;
 
-    content.push_back(text("   Hello " + name + "! ") | bold | color(Color::Cyan));
-    content.push_back(separator() | color(borderColor));
+    content.push_back(text(string(userIcon) + "Hello " + name + "! ") | bold | color(Color::Cyan));
+    content.push_back(separator() | color(ui::DEFAULT_THEME.border));
     content.push_back(hbox(
       {
-        text("   ") | color(iconColor), // Palette icon
+        text(string(paletteIcon)) | color(ui::DEFAULT_THEME.icon),
         CreateColorCircles(),
       }
     ));
-    content.push_back(separator() | color(borderColor));
+    content.push_back(separator() | color(ui::DEFAULT_THEME.border));
 
     // Helper function for aligned rows
-    fn createRow = [&](const std::string& icon, const std::string& label, const std::string& value) {
+    auto createRow = [&]<typename Icon, typename Label, typename Value>(Icon&& icon, Label&& label, Value&& value)
+      requires std::constructible_from<string, Icon> && std::constructible_from<string, Label> &&
+               std::constructible_from<string, Value>
+    {
       return hbox(
         {
-          text(icon) | color(iconColor),
-          text(label) | color(labelColor),
+          text(string(std::forward<Icon>(icon))) | color(ui::DEFAULT_THEME.icon),
+          text(string(std::forward<Label>(label))) | color(ui::DEFAULT_THEME.label),
           filler(),
-          text(value) | color(valueColor),
+          text(string(std::forward<Value>(value))) | color(ui::DEFAULT_THEME.value),
           text(" "),
         }
       );
@@ -196,40 +244,40 @@ namespace {
       if (weather.show_town_name)
         content.push_back(hbox(
           {
-            text(weatherIcon) | color(iconColor),
-            text("Weather") | color(labelColor),
+            text(string(weatherIcon)) | color(ui::DEFAULT_THEME.icon),
+            text("Weather") | color(ui::DEFAULT_THEME.label),
             filler(),
 
             hbox(
               {
-                text(fmt::format("{}°F ", std::lround(weatherInfo.main.temp))),
+                text(std::format("{}°F ", std::lround(weatherInfo.main.temp))),
                 text("in "),
                 text(weatherInfo.name),
                 text(" "),
               }
             ) |
-              color(valueColor),
+              color(ui::DEFAULT_THEME.value),
           }
         ));
       else
         content.push_back(hbox(
           {
-            text(weatherIcon) | color(iconColor),
-            text("Weather") | color(labelColor),
+            text(string(weatherIcon)) | color(ui::DEFAULT_THEME.icon),
+            text("Weather") | color(ui::DEFAULT_THEME.label),
             filler(),
 
             hbox(
               {
-                text(fmt::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description)),
+                text(std::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description)),
                 text(" "),
               }
             ) |
-              color(valueColor),
+              color(ui::DEFAULT_THEME.value),
           }
         ));
     }
 
-    content.push_back(separator() | color(borderColor));
+    content.push_back(separator() | color(ui::DEFAULT_THEME.border));
 
     if (!data.host.empty())
       content.push_back(createRow(hostIcon, "Host", data.host));
@@ -237,30 +285,32 @@ namespace {
     if (!data.kernel_version.empty())
       content.push_back(createRow(kernelIcon, "Kernel", data.kernel_version));
 
-    if (data.os_version.has_value())
-      content.push_back(createRow(osIcon, "OS", *data.os_version));
-    else
-      ERROR_LOG("Failed to get OS version: {}", data.os_version.error());
+    expected_visit(
+      data.os_version,
+      [&](const string& version) { content.push_back(createRow(string(osIcon), "OS", version)); },
+      [](const string& error) { ERROR_LOG("Failed to get OS version: {}", error); }
+    );
 
-    if (data.mem_info.has_value())
-      content.push_back(createRow(memoryIcon, "RAM", fmt::format("{}", BytesToGiB { *data.mem_info })));
-    else
-      ERROR_LOG("Failed to get memory info: {}", data.mem_info.error());
+    expected_visit(
+      data.mem_info,
+      [&](const u64& mem) { content.push_back(createRow(memoryIcon, "RAM", std::format("{}", BytesToGiB { mem }))); },
+      [](const string& error) { ERROR_LOG("Failed to get memory info: {}", error); }
+    );
 
     // Add Disk usage row
     content.push_back(
-      createRow(" 󰋊  ", "Disk", fmt::format("{}/{}", BytesToGiB { data.disk_used }, BytesToGiB { data.disk_total }))
+      createRow(diskIcon, "Disk", std::format("{}/{}", BytesToGiB { data.disk_used }, BytesToGiB { data.disk_total }))
     );
 
-    content.push_back(createRow("   ", "Shell", data.shell));
+    content.push_back(createRow(shellIcon, "Shell", data.shell));
 
-    content.push_back(separator() | color(borderColor));
+    content.push_back(separator() | color(ui::DEFAULT_THEME.border));
 
     if (data.desktop_environment.has_value() && *data.desktop_environment != data.window_manager)
-      content.push_back(createRow(" 󰇄  ", "DE", *data.desktop_environment));
+      content.push_back(createRow(deIcon, "DE", *data.desktop_environment));
 
     if (!data.window_manager.empty())
-      content.push_back(createRow("   ", "WM", data.window_manager));
+      content.push_back(createRow(wmIcon, "WM", data.window_manager));
 
     // Now Playing row
     if (nowPlayingEnabled && data.now_playing.has_value()) {
@@ -268,11 +318,11 @@ namespace {
           nowPlayingResult.has_value()) {
         const std::string& npText = *nowPlayingResult;
 
-        content.push_back(separator() | color(borderColor));
+        content.push_back(separator() | color(ui::DEFAULT_THEME.border));
         content.push_back(hbox(
           {
-            text(musicIcon) | color(iconColor),
-            text("Playing") | color(labelColor),
+            text(string(musicIcon)) | color(ui::DEFAULT_THEME.icon),
+            text("Playing") | color(ui::DEFAULT_THEME.label),
             text(" "),
             filler(),
             paragraph(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, 30),
