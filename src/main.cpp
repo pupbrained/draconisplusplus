@@ -1,4 +1,4 @@
-#include <ctime>
+#include <chrono>
 #include <expected>
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/color.hpp>
@@ -31,7 +31,6 @@ namespace ui {
   using ftxui::Color;
 
   constexpr int MAX_PARAGRAPH_LENGTH = 30;
-  constexpr int PADDING              = 3;
 
   // Color themes
   struct Theme {
@@ -116,13 +115,15 @@ namespace {
 
     string month = std::format("{:%B}", ymd);
 
-    i32 day = static_cast<unsigned>(ymd.day());
+    u32 day = static_cast<u32>(ymd.day());
 
-    const char* suffix = (day >= 11 && day <= 13) ? "th"
-                         : (day % 10 == 1)        ? "st"
-                         : (day % 10 == 2)        ? "nd"
-                         : (day % 10 == 3)        ? "rd"
-                                                  : "th";
+    const char* suffix = static_cast<const char*>(
+      (day >= 11 && day <= 13) ? "th"
+      : (day % 10 == 1)        ? "st"
+      : (day % 10 == 2)        ? "nd"
+      : (day % 10 == 3)        ? "rd"
+                               : "th"
+    );
 
     return std::format("{} {}{}", month, day, suffix);
   }
@@ -145,15 +146,15 @@ namespace {
       SystemData data;
 
       // Single-threaded execution for core system info (faster on Windows)
-      data.date           = std::move(GetDate());
-      data.host           = std::move(GetHost());
-      data.kernel_version = std::move(GetKernelVersion());
-      data.os_version     = std::move(GetOSVersion());
-      data.mem_info       = std::move(GetMemInfo());
+      data.date           = GetDate();
+      data.host           = GetHost();
+      data.kernel_version = GetKernelVersion();
+      data.os_version     = GetOSVersion();
+      data.mem_info       = GetMemInfo();
 
       // Desktop environment info
-      data.desktop_environment = std::move(GetDesktopEnvironment());
-      data.window_manager      = std::move(GetWindowManager());
+      data.desktop_environment = GetDesktopEnvironment();
+      data.window_manager      = GetWindowManager();
 
       // Parallel execution for disk/shell only
       auto diskShell = std::async(std::launch::async, [] {
@@ -210,28 +211,21 @@ namespace {
 
     content.push_back(text(string(userIcon) + "Hello " + name + "! ") | bold | color(Color::Cyan));
     content.push_back(separator() | color(ui::DEFAULT_THEME.border));
-    content.push_back(hbox(
-      {
-        text(string(paletteIcon)) | color(ui::DEFAULT_THEME.icon),
-        CreateColorCircles(),
-      }
-    ));
+    content.push_back(hbox({
+      text(string(paletteIcon)) | color(ui::DEFAULT_THEME.icon),
+      CreateColorCircles(),
+    }));
     content.push_back(separator() | color(ui::DEFAULT_THEME.border));
 
     // Helper function for aligned rows
-    auto createRow = [&]<typename Icon, typename Label, typename Value>(Icon&& icon, Label&& label, Value&& value)
-      requires std::constructible_from<string, Icon> && std::constructible_from<string, Label> &&
-               std::constructible_from<string, Value>
-    {
-      return hbox(
-        {
-          text(string(std::forward<Icon>(icon))) | color(ui::DEFAULT_THEME.icon),
-          text(string(std::forward<Label>(label))) | color(ui::DEFAULT_THEME.label),
-          filler(),
-          text(string(std::forward<Value>(value))) | color(ui::DEFAULT_THEME.value),
-          text(" "),
-        }
-      );
+    fn createRow = [&](const auto& icon, const auto& label, const auto& value) {
+      return hbox({
+        text(string(icon)) | color(ui::DEFAULT_THEME.icon),
+        text(string(static_cast<const char*>(label))) | color(ui::DEFAULT_THEME.label),
+        filler(),
+        text(string(value)) | color(ui::DEFAULT_THEME.value),
+        text(" "),
+      });
     };
 
     // System info rows
@@ -242,39 +236,31 @@ namespace {
       const WeatherOutput& weatherInfo = data.weather_info.value();
 
       if (weather.show_town_name)
-        content.push_back(hbox(
-          {
-            text(string(weatherIcon)) | color(ui::DEFAULT_THEME.icon),
-            text("Weather") | color(ui::DEFAULT_THEME.label),
-            filler(),
+        content.push_back(hbox({
+          text(string(weatherIcon)) | color(ui::DEFAULT_THEME.icon),
+          text("Weather") | color(ui::DEFAULT_THEME.label),
+          filler(),
 
-            hbox(
-              {
-                text(std::format("{}°F ", std::lround(weatherInfo.main.temp))),
-                text("in "),
-                text(weatherInfo.name),
-                text(" "),
-              }
-            ) |
-              color(ui::DEFAULT_THEME.value),
-          }
-        ));
+          hbox({
+            text(std::format("{}°F ", std::lround(weatherInfo.main.temp))),
+            text("in "),
+            text(weatherInfo.name),
+            text(" "),
+          }) |
+            color(ui::DEFAULT_THEME.value),
+        }));
       else
-        content.push_back(hbox(
-          {
-            text(string(weatherIcon)) | color(ui::DEFAULT_THEME.icon),
-            text("Weather") | color(ui::DEFAULT_THEME.label),
-            filler(),
+        content.push_back(hbox({
+          text(string(weatherIcon)) | color(ui::DEFAULT_THEME.icon),
+          text("Weather") | color(ui::DEFAULT_THEME.label),
+          filler(),
 
-            hbox(
-              {
-                text(std::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description)),
-                text(" "),
-              }
-            ) |
-              color(ui::DEFAULT_THEME.value),
-          }
-        ));
+          hbox({
+            text(std::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description)),
+            text(" "),
+          }) |
+            color(ui::DEFAULT_THEME.value),
+        }));
     }
 
     content.push_back(separator() | color(ui::DEFAULT_THEME.border));
@@ -319,16 +305,14 @@ namespace {
         const std::string& npText = *nowPlayingResult;
 
         content.push_back(separator() | color(ui::DEFAULT_THEME.border));
-        content.push_back(hbox(
-          {
-            text(string(musicIcon)) | color(ui::DEFAULT_THEME.icon),
-            text("Playing") | color(ui::DEFAULT_THEME.label),
-            text(" "),
-            filler(),
-            paragraph(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, 30),
-            text(" "),
-          }
-        ));
+        content.push_back(hbox({
+          text(string(musicIcon)) | color(ui::DEFAULT_THEME.icon),
+          text("Playing") | color(ui::DEFAULT_THEME.label),
+          text(" "),
+          filler(),
+          paragraph(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, ui::MAX_PARAGRAPH_LENGTH),
+          text(" "),
+        }));
       } else {
         const NowPlayingError& error = nowPlayingResult.error();
 

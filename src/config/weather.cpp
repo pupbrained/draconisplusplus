@@ -2,7 +2,6 @@
 #include <curl/curl.h>
 #include <expected>
 #include <filesystem>
-#include <fmt/core.h>
 #include <fstream>
 
 #include "weather.h"
@@ -114,7 +113,7 @@ namespace {
     curl_easy_cleanup(curl);
 
     if (res != CURLE_OK)
-      return std::unexpected(fmt::format("cURL error: {}", curl_easy_strerror(res)));
+      return std::unexpected(std::format("cURL error: {}", curl_easy_strerror(res)));
 
     WeatherOutput output;
 
@@ -160,7 +159,7 @@ fn Weather::getWeatherInfo() const -> WeatherOutput {
     DEBUG_LOG("Requesting city: {}", escaped);
 
     const string apiUrl =
-      fmt::format("https://api.openweathermap.org/data/2.5/weather?q={}&appid={}&units={}", escaped, api_key, units);
+      std::format("https://api.openweathermap.org/data/2.5/weather?q={}&appid={}&units={}", escaped, api_key, units);
 
     curl_free(escaped);
     return handleApiResult(MakeApiRequest(apiUrl));
@@ -169,7 +168,7 @@ fn Weather::getWeatherInfo() const -> WeatherOutput {
   const auto& [lat, lon] = std::get<Coords>(location);
   DEBUG_LOG("Requesting coordinates: lat={:.3f}, lon={:.3f}", lat, lon);
 
-  const string apiUrl = fmt::format(
+  const string apiUrl = std::format(
     "https://api.openweathermap.org/data/2.5/weather?lat={:.3f}&lon={:.3f}&appid={}&units={}", lat, lon, api_key, units
   );
 

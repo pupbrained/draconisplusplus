@@ -99,7 +99,6 @@ sources = base_sources + files(platform_sources.get(host_system, []))
 #  Dependencies Config  #
 # --------------------- #
 common_deps = [
-  dependency('fmt', include_type: 'system', static: true),
   dependency('libcurl', include_type: 'system', static: true),
   dependency('tomlplusplus', include_type: 'system', static: true),
   dependency('openssl', include_type: 'system', static: true, required: false),

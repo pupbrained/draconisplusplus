@@ -1,6 +1,5 @@
 #include <cstdlib>
 #include <filesystem>
-#include <fmt/core.h>
 #include <iostream>
 #include <stdexcept>
 

@@ -31,26 +31,12 @@
           )
           llvmPackages.stdenv;
 
-        sources = import ./_sources/generated.nix {
-          inherit (pkgs) fetchFromGitHub fetchgit fetchurl dockerTools;
-        };
-
-        fmt = pkgs.pkgsStatic.fmt.overrideAttrs (old: {
-          inherit (sources.fmt) pname version src;
-        });
-
-        tomlplusplus = pkgs.pkgsStatic.tomlplusplus.overrideAttrs {
-          inherit (sources.tomlplusplus) pname version src;
-          doCheck = false;
-        };
-
         deps = with pkgs;
           [
             (glaze.override {enableAvx2 = hostPlatform.isx86;})
           ]
           ++ (with pkgsStatic; [
             curl
-            fmt
             ftxui
             libiconv
             sqlitecpp

@@ -1,7 +1,0 @@
-[fmt]
-src.github = "fmtlib/fmt"
-fetch.github = "fmtlib/fmt"
-
-[tomlplusplus]
-src.github = "marzer/tomlplusplus"
-fetch.github = "marzer/tomlplusplus"
