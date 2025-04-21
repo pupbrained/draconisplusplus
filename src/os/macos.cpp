@@ -1,7 +1,8 @@
 #ifdef __APPLE__
 
 #include <expected>
-#include <map>
+#include <flat_map>
+#include <span>
 #include <sys/statvfs.h>
 #include <sys/sysctl.h>
 
@@ -9,42 +10,41 @@
 #include "os.h"
 #include "src/util/types.h"
 
-fn GetMemInfo() -> expected<u64, string> {
+fn GetMemInfo() -> expected<u64, String> {
   u64   mem  = 0;
   usize size = sizeof(mem);
 
   if (sysctlbyname("hw.memsize", &mem, &size, nullptr, 0) == -1)
-    return std::unexpected(string("sysctlbyname failed: ") + strerror(errno));
+    return std::unexpected(std::format("sysctlbyname failed: {}", strerror(errno)));
 
   return mem;
 }
 
-fn GetNowPlaying() -> expected<string, NowPlayingError> { return GetCurrentPlayingInfo(); }
+fn GetNowPlaying() -> expected<String, NowPlayingError> { return GetCurrentPlayingInfo(); }
 
-fn GetOSVersion() -> expected<string, string> { return GetMacOSVersion(); }
+fn GetOSVersion() -> expected<String, String> { return GetMacOSVersion(); }
 
-fn GetDesktopEnvironment() -> optional<string> { return std::nullopt; }
+fn GetDesktopEnvironment() -> optional<String> { return std::nullopt; }
 
-fn GetWindowManager() -> string { return "Yabai"; }
+fn GetWindowManager() -> String { return "Yabai"; }
 
-fn GetKernelVersion() -> string {
-  std::array<char, 256> kernelVersion;
+fn GetKernelVersion() -> String {
+  std::array<char, 256> kernelVersion {};
   usize                 kernelVersionLen = sizeof(kernelVersion);
 
-  sysctlbyname("kern.osrelease", kernelVersion.data(), &kernelVersionLen, nullptr, 0);
-
+  sysctlbyname("kern.osrelease", std::span(kernelVersion).data(), &kernelVersionLen, nullptr, 0);
   return kernelVersion.data();
 }
 
-fn GetHost() -> string {
-  std::array<char, 256> hwModel;
+fn GetHost() -> String {
+  std::array<char, 256> hwModel {};
   size_t                hwModelLen = sizeof(hwModel);
 
   sysctlbyname("hw.model", hwModel.data(), &hwModelLen, nullptr, 0);
 
   // taken from https://github.com/fastfetch-cli/fastfetch/blob/dev/src/detection/host/host_mac.c
   // shortened a lot of the entries to remove unnecessary info
-  std::map<std::string, std::string> modelNameByHwModel = {
+  std::flat_map<std::string_view, std::string_view> modelNameByHwModel = {
     // MacBook Pro
     { "MacBookPro18,3",      "MacBook Pro (14-inch, 2021)" },
     { "MacBookPro18,4",      "MacBook Pro (14-inch, 2021)" },
@@ -193,7 +193,7 @@ fn GetHost() -> string {
     {        "iMac9,1",          "iMac (24/20-inch, 2009)" },
   };
 
-  return modelNameByHwModel[hwModel.data()];
+  return String(modelNameByHwModel[hwModel.data()]);
 }
 
 // returns free/total
@@ -206,6 +206,6 @@ fn GetDiskUsage() -> std::pair<u64, u64> {
   return { (vfs.f_blocks - vfs.f_bfree) * vfs.f_frsize, vfs.f_blocks * vfs.f_frsize };
 }
 
-fn GetShell() -> string { return ""; }
+fn GetShell() -> String { return ""; }
 
 #endif

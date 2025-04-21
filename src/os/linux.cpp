@@ -8,7 +8,6 @@
 #include <dirent.h>
 #include <expected>
 #include <filesystem>
-#include <fmt/format.h>
 #include <fstream>
 #include <iostream>
 #include <mutex>
@@ -24,7 +23,6 @@
 #include "os.h"
 #include "src/util/macros.h"
 
-// Minimal global using declarations needed for function signatures
 using std::expected;
 using std::optional;
 
@@ -32,7 +30,6 @@ namespace fs = std::filesystem;
 using namespace std::literals::string_view_literals;
 
 namespace {
-  // Local using declarations for the anonymous namespace
   using std::array;
   using std::bit_cast;
   using std::getenv;
@@ -121,7 +118,7 @@ namespace {
 
     XCloseDisplay(display);
 
-    return "Unknown (X11)"; // Changed to empty string
+    return "Unknown (X11)";
   }
 
   fn TrimHyprlandWrapper(const string& input) -> string {

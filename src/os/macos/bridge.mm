@@ -2,8 +2,11 @@
 
 #import <dispatch/dispatch.h>
 #include <expected>
+#include <functional>
+#include <memory>
 #import <objc/runtime.h>
 #include <string>
+#include <utility>
 
 #import "bridge.h"
 
@@ -12,47 +15,51 @@ using MRMediaRemoteGetNowPlayingInfoFunction =
 
 @implementation Bridge
 + (void)fetchCurrentPlayingMetadata:(void (^)(std::expected<NSDictionary*, const char*>))completion {
-  CFURLRef ref = CFURLCreateWithFileSystemPath(
+  CFURLRef urlRef = CFURLCreateWithFileSystemPath(
     kCFAllocatorDefault, CFSTR("/System/Library/PrivateFrameworks/MediaRemote.framework"), kCFURLPOSIXPathStyle, false
   );
 
-  if (!ref) {
+  if (!urlRef) {
     completion(std::unexpected("Failed to create CFURL for MediaRemote framework"));
     return;
   }
 
-  CFBundleRef bundle = CFBundleCreate(kCFAllocatorDefault, ref);
-  CFRelease(ref);
+  CFBundleRef bundleRef = CFBundleCreate(kCFAllocatorDefault, urlRef);
 
-  if (!bundle) {
+  CFRelease(urlRef);
+
+  if (!bundleRef) {
     completion(std::unexpected("Failed to create bundle for MediaRemote framework"));
     return;
   }
 
   auto mrMediaRemoteGetNowPlayingInfo = std::bit_cast<MRMediaRemoteGetNowPlayingInfoFunction>(
-    CFBundleGetFunctionPointerForName(bundle, CFSTR("MRMediaRemoteGetNowPlayingInfo"))
+    CFBundleGetFunctionPointerForName(bundleRef, CFSTR("MRMediaRemoteGetNowPlayingInfo"))
   );
 
   if (!mrMediaRemoteGetNowPlayingInfo) {
-    CFRelease(bundle);
+    CFRelease(bundleRef);
     completion(std::unexpected("Failed to get MRMediaRemoteGetNowPlayingInfo function pointer"));
     return;
   }
 
+  std::shared_ptr<std::remove_pointer_t<CFBundleRef>> sharedBundle(bundleRef, [](CFBundleRef bundle) {
+    if (bundle)
+      CFRelease(bundle);
+  });
+
   mrMediaRemoteGetNowPlayingInfo(
     dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
     ^(NSDictionary* information) {
-      NSDictionary* nowPlayingInfo = information; // Immutable, no copy needed
-      CFRelease(bundle);
       completion(
-        nowPlayingInfo ? std::expected<NSDictionary*, const char*>(nowPlayingInfo)
-                       : std::unexpected("No now playing information")
+        information ? std::expected<NSDictionary*, const char*>(information)
+                    : std::unexpected("No now playing information")
       );
     }
   );
 }
 
-+ (std::expected<string, string>)macOSVersion {
++ (std::expected<String, String>)macOSVersion {
   NSProcessInfo*           processInfo = [NSProcessInfo processInfo];
   NSOperatingSystemVersion osVersion   = [processInfo operatingSystemVersion];
 
@@ -71,15 +78,15 @@ using MRMediaRemoteGetNowPlayingInfoFunction =
   NSString* versionName  = versionNames[majorVersion] ? versionNames[majorVersion] : @"Unknown";
 
   NSString* fullVersion = [NSString stringWithFormat:@"macOS %@ %@", versionNumber, versionName];
-  return std::string([fullVersion UTF8String]);
+  return String([fullVersion UTF8String]);
 }
 @end
 
 extern "C++" {
   // NOLINTBEGIN(misc-use-internal-linkage)
-  fn GetCurrentPlayingInfo() -> std::expected<std::string, NowPlayingError> {
-    __block std::expected<std::string, NowPlayingError> result;
-    dispatch_semaphore_t                                semaphore = dispatch_semaphore_create(0);
+  fn GetCurrentPlayingInfo() -> std::expected<String, NowPlayingError> {
+    __block std::expected<String, NowPlayingError> result;
+    dispatch_semaphore_t                           semaphore = dispatch_semaphore_create(0);
 
     [Bridge fetchCurrentPlayingMetadata:^(std::expected<NSDictionary*, const char*> metadataResult) {
       if (!metadataResult) {
@@ -95,17 +102,17 @@ extern "C++" {
         return;
       }
 
-      NSString* title  = [metadata objectForKey:@"kMRMediaRemoteNowPlayingInfoTitle"];
-      NSString* artist = [metadata objectForKey:@"kMRMediaRemoteNowPlayingInfoArtist"];
+      NSString* title  = metadata[@"kMRMediaRemoteNowPlayingInfoTitle"];
+      NSString* artist = metadata[@"kMRMediaRemoteNowPlayingInfoArtist"];
 
       if (!title && !artist)
-        result = std::unexpected("No metadata");
+        result = std::unexpected(NowPlayingError { "No metadata" });
       else if (!title)
-        result = std::string([artist UTF8String]);
+        result = String([artist UTF8String]);
       else if (!artist)
-        result = std::string([title UTF8String]);
+        result = String([title UTF8String]);
       else
-        result = std::string([[NSString stringWithFormat:@"%@ - %@", title, artist] UTF8String]);
+        result = String([[NSString stringWithFormat:@"%@ - %@", title, artist] UTF8String]);
 
       dispatch_semaphore_signal(semaphore);
     }];
@@ -114,7 +121,7 @@ extern "C++" {
     return result;
   }
 
-  fn GetMacOSVersion() -> std::expected<string, string> { return [Bridge macOSVersion]; }
+  fn GetMacOSVersion() -> std::expected<String, String> { return [Bridge macOSVersion]; }
   // NOLINTEND(misc-use-internal-linkage)
 }
 

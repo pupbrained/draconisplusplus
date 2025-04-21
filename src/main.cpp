@@ -101,19 +101,19 @@ namespace ui {
 
 namespace {
   template <typename T, typename E, typename ValueFunc, typename ErrorFunc>
-  auto expected_visit(const std::expected<T, E>& exp, ValueFunc value_func, ErrorFunc error_func) {
+  fn expected_visit(const std::expected<T, E>& exp, ValueFunc value_func, ErrorFunc error_func) {
     if (exp.has_value())
       return value_func(*exp);
 
     return error_func(exp.error());
   }
 
-  fn GetDate() -> string {
+  fn GetDate() -> String {
     using namespace std::chrono;
 
     const year_month_day ymd = year_month_day { floor<days>(system_clock::now()) };
 
-    string month = std::format("{:%B}", ymd);
+    String month = std::format("{:%B}", ymd);
 
     u32 day = static_cast<u32>(ymd.day());
 
@@ -129,18 +129,18 @@ namespace {
   }
 
   struct SystemData {
-    std::string                                           date;
-    std::string                                           host;
-    std::string                                           kernel_version;
-    std::expected<string, string>                         os_version;
-    std::expected<u64, std::string>                       mem_info;
-    std::optional<string>                                 desktop_environment;
-    std::string                                           window_manager;
-    std::optional<std::expected<string, NowPlayingError>> now_playing;
+    String                                                date;
+    String                                                host;
+    String                                                kernel_version;
+    std::expected<String, String>                         os_version;
+    std::expected<u64, String>                            mem_info;
+    std::optional<String>                                 desktop_environment;
+    String                                                window_manager;
+    std::optional<std::expected<String, NowPlayingError>> now_playing;
     std::optional<WeatherOutput>                          weather_info;
     u64                                                   disk_used;
     u64                                                   disk_total;
-    std::string                                           shell;
+    String                                                shell;
 
     static fn fetchSystemData(const Config& config) -> SystemData {
       SystemData data;
@@ -164,7 +164,7 @@ namespace {
 
       // Conditional tasks
       std::future<WeatherOutput>                          weather;
-      std::future<std::expected<string, NowPlayingError>> nowPlaying;
+      std::future<std::expected<String, NowPlayingError>> nowPlaying;
 
       if (config.weather.enabled)
         weather = std::async(std::launch::async, [&config] { return config.weather.getWeatherInfo(); });
@@ -200,7 +200,7 @@ namespace {
 
   fn SystemInfoBox(const Config& config, const SystemData& data) -> Element {
     // Fetch data
-    const string& name              = config.general.name;
+    const String& name              = config.general.name;
     const Weather weather           = config.weather;
     const bool    nowPlayingEnabled = config.now_playing.enabled;
 
@@ -209,23 +209,27 @@ namespace {
 
     Elements content;
 
-    content.push_back(text(string(userIcon) + "Hello " + name + "! ") | bold | color(Color::Cyan));
+    content.push_back(text(String(userIcon) + "Hello " + name + "! ") | bold | color(Color::Cyan));
     content.push_back(separator() | color(ui::DEFAULT_THEME.border));
-    content.push_back(hbox({
-      text(string(paletteIcon)) | color(ui::DEFAULT_THEME.icon),
-      CreateColorCircles(),
-    }));
+    content.push_back(hbox(
+      {
+        text(String(paletteIcon)) | color(ui::DEFAULT_THEME.icon),
+        CreateColorCircles(),
+      }
+    ));
     content.push_back(separator() | color(ui::DEFAULT_THEME.border));
 
     // Helper function for aligned rows
     fn createRow = [&](const auto& icon, const auto& label, const auto& value) {
-      return hbox({
-        text(string(icon)) | color(ui::DEFAULT_THEME.icon),
-        text(string(static_cast<const char*>(label))) | color(ui::DEFAULT_THEME.label),
-        filler(),
-        text(string(value)) | color(ui::DEFAULT_THEME.value),
-        text(" "),
-      });
+      return hbox(
+        {
+          text(String(icon)) | color(ui::DEFAULT_THEME.icon),
+          text(String(static_cast<const char*>(label))) | color(ui::DEFAULT_THEME.label),
+          filler(),
+          text(String(value)) | color(ui::DEFAULT_THEME.value),
+          text(" "),
+        }
+      );
     };
 
     // System info rows
@@ -236,31 +240,39 @@ namespace {
       const WeatherOutput& weatherInfo = data.weather_info.value();
 
       if (weather.show_town_name)
-        content.push_back(hbox({
-          text(string(weatherIcon)) | color(ui::DEFAULT_THEME.icon),
-          text("Weather") | color(ui::DEFAULT_THEME.label),
-          filler(),
+        content.push_back(hbox(
+          {
+            text(String(weatherIcon)) | color(ui::DEFAULT_THEME.icon),
+            text("Weather") | color(ui::DEFAULT_THEME.label),
+            filler(),
 
-          hbox({
-            text(std::format("{}°F ", std::lround(weatherInfo.main.temp))),
-            text("in "),
-            text(weatherInfo.name),
-            text(" "),
-          }) |
-            color(ui::DEFAULT_THEME.value),
-        }));
+            hbox(
+              {
+                text(std::format("{}°F ", std::lround(weatherInfo.main.temp))),
+                text("in "),
+                text(weatherInfo.name),
+                text(" "),
+              }
+            ) |
+              color(ui::DEFAULT_THEME.value),
+          }
+        ));
       else
-        content.push_back(hbox({
-          text(string(weatherIcon)) | color(ui::DEFAULT_THEME.icon),
-          text("Weather") | color(ui::DEFAULT_THEME.label),
-          filler(),
+        content.push_back(hbox(
+          {
+            text(String(weatherIcon)) | color(ui::DEFAULT_THEME.icon),
+            text("Weather") | color(ui::DEFAULT_THEME.label),
+            filler(),
 
-          hbox({
-            text(std::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description)),
-            text(" "),
-          }) |
-            color(ui::DEFAULT_THEME.value),
-        }));
+            hbox(
+              {
+                text(std::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description)),
+                text(" "),
+              }
+            ) |
+              color(ui::DEFAULT_THEME.value),
+          }
+        ));
     }
 
     content.push_back(separator() | color(ui::DEFAULT_THEME.border));
@@ -273,14 +285,14 @@ namespace {
 
     expected_visit(
       data.os_version,
-      [&](const string& version) { content.push_back(createRow(string(osIcon), "OS", version)); },
-      [](const string& error) { ERROR_LOG("Failed to get OS version: {}", error); }
+      [&](const String& version) { content.push_back(createRow(String(osIcon), "OS", version)); },
+      [](const String& error) { ERROR_LOG("Failed to get OS version: {}", error); }
     );
 
     expected_visit(
       data.mem_info,
       [&](const u64& mem) { content.push_back(createRow(memoryIcon, "RAM", std::format("{}", BytesToGiB { mem }))); },
-      [](const string& error) { ERROR_LOG("Failed to get memory info: {}", error); }
+      [](const String& error) { ERROR_LOG("Failed to get memory info: {}", error); }
     );
 
     // Add Disk usage row
@@ -300,19 +312,21 @@ namespace {
 
     // Now Playing row
     if (nowPlayingEnabled && data.now_playing.has_value()) {
-      if (const std::expected<string, NowPlayingError>& nowPlayingResult = *data.now_playing;
+      if (const std::expected<String, NowPlayingError>& nowPlayingResult = *data.now_playing;
           nowPlayingResult.has_value()) {
-        const std::string& npText = *nowPlayingResult;
+        const String& npText = *nowPlayingResult;
 
         content.push_back(separator() | color(ui::DEFAULT_THEME.border));
-        content.push_back(hbox({
-          text(string(musicIcon)) | color(ui::DEFAULT_THEME.icon),
-          text("Playing") | color(ui::DEFAULT_THEME.label),
-          text(" "),
-          filler(),
-          paragraph(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, ui::MAX_PARAGRAPH_LENGTH),
-          text(" "),
-        }));
+        content.push_back(hbox(
+          {
+            text(String(musicIcon)) | color(ui::DEFAULT_THEME.icon),
+            text("Playing") | color(ui::DEFAULT_THEME.label),
+            text(" "),
+            filler(),
+            paragraph(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, ui::MAX_PARAGRAPH_LENGTH),
+            text(" "),
+          }
+        ));
       } else {
         const NowPlayingError& error = nowPlayingResult.error();
 
@@ -339,6 +353,11 @@ namespace {
 #ifdef _WIN32
         if (std::holds_alternative<WindowsError>(error))
           DEBUG_LOG("WinRT error: {}", to_string(std::get<WindowsError>(error).message()));
+#endif
+
+#ifdef __APPLE__
+        if (std::holds_alternative<MacError>(error))
+          DEBUG_LOG("CoreAudio error: {}", std::get<MacError>(error));
 #endif
       }
     }

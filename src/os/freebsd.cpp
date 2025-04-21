@@ -1,6 +1,5 @@
 #ifdef __FreeBSD__
 
-#include <fmt/format.h>
 #include <fstream>
 #include <iostream>
 #include <sdbus-c++/sdbus-c++.h>
@@ -48,8 +47,7 @@ fn GetMprisPlayers(sdbus::IConnection& connection) -> std::vector<string> {
   const sdbus::ObjectPath  dbusObjectPath      = sdbus::ObjectPath("/org/freedesktop/DBus");
   const char*              dbusMethodListNames = "ListNames";
 
-  const std::unique_ptr<sdbus::IProxy> dbusProxy =
-    createProxy(connection, dbusInterface, dbusObjectPath);
+  const std::unique_ptr<sdbus::IProxy> dbusProxy = createProxy(connection, dbusInterface, dbusObjectPath);
 
   std::vector<string> names;
 
@@ -58,8 +56,7 @@ fn GetMprisPlayers(sdbus::IConnection& connection) -> std::vector<string> {
   std::vector<string> mprisPlayers;
 
   for (const std::basic_string<char>& name : names)
-    if (const char* mprisInterfaceName = "org.mpris.MediaPlayer2";
-        name.find(mprisInterfaceName) != std::string::npos)
+    if (const char* mprisInterfaceName = "org.mpris.MediaPlayer2"; name.find(mprisInterfaceName) != String::npos)
       mprisPlayers.push_back(name);
 
   return mprisPlayers;
@@ -74,8 +71,7 @@ fn GetActivePlayer(const std::vector<string>& mprisPlayers) -> string {
 
 fn GetNowPlaying() -> string {
   try {
-    const char *playerObjectPath    = "/org/mpris/MediaPlayer2",
-               *playerInterfaceName = "org.mpris.MediaPlayer2.Player";
+    const char *playerObjectPath = "/org/mpris/MediaPlayer2", *playerInterfaceName = "org.mpris.MediaPlayer2.Player";
 
     std::unique_ptr<sdbus::IConnection> connection = sdbus::createSessionBusConnection();
 
@@ -89,24 +85,22 @@ fn GetNowPlaying() -> string {
     if (activePlayer.empty())
       return "";
 
-    auto playerProxy = sdbus::createProxy(
-      *connection, sdbus::ServiceName(activePlayer), sdbus::ObjectPath(playerObjectPath)
-    );
+    auto playerProxy =
+      sdbus::createProxy(*connection, sdbus::ServiceName(activePlayer), sdbus::ObjectPath(playerObjectPath));
 
-    sdbus::Variant metadataVariant =
-      playerProxy->getProperty("Metadata").onInterface(playerInterfaceName);
+    sdbus::Variant metadataVariant = playerProxy->getProperty("Metadata").onInterface(playerInterfaceName);
 
-    if (metadataVariant.containsValueOfType<std::map<std::string, sdbus::Variant>>()) {
-      const auto& metadata = metadataVariant.get<std::map<std::string, sdbus::Variant>>();
+    if (metadataVariant.containsValueOfType<std::map<String, sdbus::Variant>>()) {
+      const auto& metadata = metadataVariant.get<std::map<String, sdbus::Variant>>();
 
       auto iter = metadata.find("xesam:title");
 
-      if (iter != metadata.end() && iter->second.containsValueOfType<std::string>())
-        return iter->second.get<std::string>();
+      if (iter != metadata.end() && iter->second.containsValueOfType<String>())
+        return iter->second.get<String>();
     }
   } catch (const sdbus::Error& e) {
     if (e.getName() != "com.github.altdesktop.playerctld.NoActivePlayer")
-      return fmt::format("Error: {}", e.what());
+      return std::format("Error: {}", e.what());
 
     return "No active player";
   }

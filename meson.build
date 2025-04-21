@@ -58,7 +58,7 @@ if host_system == 'darwin'
   objcpp = meson.get_compiler('objcpp')
   objcpp_flags = common_warning_flags + [
     '-Wno-switch-default',
-    '-std=c++2b',
+    '-std=c++23',
     '-fvisibility=hidden',
     '-fvisibility-inlines-hidden',
   ]

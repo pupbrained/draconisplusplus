@@ -6,7 +6,7 @@
 
 // NOLINTBEGIN(readability-identifier-naming)
 struct Condition {
-  string description;
+  String description;
 
   struct glaze {
     using T                     = Condition;
@@ -30,7 +30,7 @@ struct Coords {
 
 struct WeatherOutput {
   Main                   main;
-  string                 name;
+  String                 name;
   std::vector<Condition> weather;
   usize                  dt;
 

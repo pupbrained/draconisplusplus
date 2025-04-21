@@ -18,10 +18,7 @@
       system: let
         pkgs = import nixpkgs {inherit system;};
 
-        llvmPackages = with pkgs;
-          if hostPlatform.isLinux
-          then llvmPackages_20
-          else llvmPackages_19;
+        llvmPackages = pkgs.llvmPackages_20;
 
         stdenv = with pkgs;
           (
@@ -38,11 +35,12 @@
           ++ (with pkgsStatic; [
             curl
             ftxui
-            libiconv
-            sqlitecpp
             tomlplusplus
           ])
+          ++ darwinPkgs
           ++ linuxPkgs;
+
+        darwinPkgs = nixpkgs.lib.optionals stdenv.isDarwin (with pkgs.pkgsStatic; [libiconv]);
 
         linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs;
           [
@@ -50,6 +48,7 @@
           ]
           ++ (with pkgsStatic; [
             dbus
+            sqlitecpp
             xorg.libX11
             wayland
           ]));

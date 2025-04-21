@@ -14,24 +14,19 @@ namespace {
     std::vector<fs::path> possiblePaths;
 
 #ifdef _WIN32
-    // Windows possible paths in order of preference
     if (auto result = GetEnv("LOCALAPPDATA"); result)
       possiblePaths.push_back(fs::path(*result) / "draconis++" / "config.toml");
 
     if (auto result = GetEnv("USERPROFILE"); result) {
-      // Support for .config style on Windows (some users prefer this)
       possiblePaths.push_back(fs::path(*result) / ".config" / "draconis++" / "config.toml");
-      // Traditional Windows location alternative
       possiblePaths.push_back(fs::path(*result) / "AppData" / "Local" / "draconis++" / "config.toml");
     }
 
     if (auto result = GetEnv("APPDATA"); result)
       possiblePaths.push_back(fs::path(*result) / "draconis++" / "config.toml");
 
-    // Portable app option - config in same directory as executable
     possiblePaths.push_back(fs::path(".") / "config.toml");
 #else
-    // Unix/Linux paths in order of preference
     if (auto result = GetEnv("XDG_CONFIG_HOME"); result)
       possiblePaths.emplace_back(fs::path(*result) / "draconis++" / "config.toml");
 
@@ -40,18 +35,14 @@ namespace {
       possiblePaths.emplace_back(fs::path(*result) / ".draconis++" / "config.toml");
     }
 
-    // System-wide config
     possiblePaths.emplace_back("/etc/draconis++/config.toml");
 #endif
 
-    // Check if any of these configs already exist
     for (const auto& path : possiblePaths)
       if (std::error_code errc; exists(path, errc) && !errc)
         return path;
 
-    // If no config exists yet, return the default (first in priority)
     if (!possiblePaths.empty()) {
-      // Create directory structure for the default path
       const fs::path defaultDir = possiblePaths[0].parent_path();
 
       if (std::error_code errc; !exists(defaultDir, errc) && !errc) {
@@ -63,13 +54,11 @@ namespace {
       return possiblePaths[0];
     }
 
-    // Ultimate fallback if somehow we have no paths
     throw std::runtime_error("Could not determine a valid config path");
   }
 
   fn CreateDefaultConfig(const fs::path& configPath) -> bool {
     try {
-      // Ensure the directory exists
       std::error_code errc;
       create_directories(configPath.parent_path(), errc);
       if (errc) {
@@ -77,11 +66,9 @@ namespace {
         return false;
       }
 
-      // Create a default TOML document
       toml::table root;
 
-      // Get default username for General section
-      std::string defaultName;
+      String defaultName;
 #ifdef _WIN32
       std::array<char, 256> username;
       DWORD                 size = sizeof(username);
@@ -95,15 +82,12 @@ namespace {
         defaultName = "User";
 #endif
 
-      // General section
       toml::table* general = root.insert("general", toml::table {}).first->second.as_table();
       general->insert("name", defaultName);
 
-      // Now Playing section
       toml::table* nowPlaying = root.insert("now_playing", toml::table {}).first->second.as_table();
       nowPlaying->insert("enabled", false);
 
-      // Weather section
       toml::table* weather = root.insert("weather", toml::table {}).first->second.as_table();
       weather->insert("enabled", false);
       weather->insert("show_town_name", false);
@@ -111,7 +95,6 @@ namespace {
       weather->insert("units", "metric");
       weather->insert("location", "London");
 
-      // Write to file (using a stringstream for comments + TOML)
       std::ofstream file(configPath);
       if (!file) {
         ERROR_LOG("Failed to open config file for writing: {}", configPath.string());
@@ -154,18 +137,15 @@ fn Config::getInstance() -> Config {
   try {
     const fs::path configPath = GetConfigPath();
 
-    // Check if the config file exists
     if (!exists(configPath)) {
       INFO_LOG("Config file not found, creating defaults at {}", configPath.string());
 
-      // Create default config
       if (!CreateDefaultConfig(configPath)) {
         WARN_LOG("Failed to create default config, using in-memory defaults");
         return {};
       }
     }
 
-    // Now we should have a config file to read
     const toml::parse_result config = toml::parse_file(configPath.string());
     return fromToml(config);
   } catch (const std::exception& e) {

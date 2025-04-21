@@ -3,7 +3,6 @@
 #ifdef __APPLE__
 
 #include <expected>
-#include <string>
 
 #include "../../util/macros.h"
 
@@ -13,14 +12,14 @@
 
 @interface Bridge : NSObject
 + (void)fetchCurrentPlayingMetadata:(void (^)(std::expected<NSDictionary*, const char*>))completion;
-+ (std::expected<string, string>)macOSVersion;
++ (std::expected<String, String>)macOSVersion;
 @end
 
 #else
 
 extern "C++" {
-  fn GetCurrentPlayingInfo() -> std::expected<std::string, NowPlayingError>;
-  fn GetMacOSVersion() -> std::expected<std::string, const char*>;
+  fn GetCurrentPlayingInfo() -> std::expected<String, NowPlayingError>;
+  fn GetMacOSVersion() -> std::expected<String, String>;
 }
 
 #endif

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <expected>
 #include <string>
 
@@ -133,7 +134,7 @@ using isize = std::ptrdiff_t;
  * @typedef string
  * @brief Represents a string.
  */
-using string = std::string;
+using String = std::string;
 
 /**
  * @enum NowPlayingCode
@@ -150,13 +151,13 @@ enum class NowPlayingCode : u8 {
  * @typedef LinuxError
  * @brief Represents a Linux-specific error.
  */
-using LinuxError = std::string;
+using LinuxError = String;
 #elif defined(__APPLE__)
 /**
  * @typedef MacError
  * @brief Represents a macOS-specific error.
  */
-using MacError = std::string;
+using MacError = String;
 #elif defined(_WIN32)
 /**
  * @typedef WindowsError
@@ -179,7 +180,7 @@ using NowPlayingError = std::variant<
 
 enum class EnvError : u8 { NotFound, AccessError };
 
-inline auto GetEnv(const std::string& name) -> std::expected<std::string, EnvError> {
+inline auto GetEnv(const String& name) -> std::expected<String, EnvError> {
 #ifdef _WIN32
   char*  rawPtr     = nullptr;
   size_t bufferSize = 0;
@@ -190,7 +191,7 @@ inline auto GetEnv(const std::string& name) -> std::expected<std::string, EnvErr
   if (!rawPtr)
     return std::unexpected(EnvError::NotFound);
 
-  const std::string result(rawPtr);
+  const String result(rawPtr);
   free(rawPtr);
   return result;
 #else
@@ -198,6 +199,6 @@ inline auto GetEnv(const std::string& name) -> std::expected<std::string, EnvErr
   if (!value)
     return std::unexpected(EnvError::NotFound);
 
-  return std::string(value);
+  return String(value);
 #endif
 }
