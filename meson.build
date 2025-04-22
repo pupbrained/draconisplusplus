@@ -129,7 +129,8 @@ elif host_system == 'linux' or host_system == 'freebsd'
     dependency('xau'),
     dependency('xdmcp'),
     dependency('wayland-client'),
-    dependency('dbus-1', include_type: 'system'),
+    dependency('sigc++-3.0', include_type: 'system'),
+    dependency('dbus-cxx', include_type: 'system'),
   ]
 endif
 

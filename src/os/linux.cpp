@@ -4,12 +4,11 @@
 #include <X11/Xlib.h>
 #include <algorithm>
 #include <cstring>
-#include <dbus/dbus.h>
 #include <dirent.h>
 #include <expected>
 #include <filesystem>
 #include <fstream>
-#include <iostream>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <ranges>
@@ -22,6 +21,15 @@
 
 #include "os.h"
 #include "src/util/macros.h"
+
+#ifdef Success
+#undef Success
+#endif
+#ifdef None
+#undef None
+#endif
+
+#include <dbus-cxx.h>
 
 using std::expected;
 using std::optional;
@@ -51,7 +59,7 @@ namespace {
   using std::ranges::subrange;
   using std::ranges::transform;
 
-  fn GetX11WindowManager() -> string {
+  fn GetX11WindowManager() -> String {
     Display* display = XOpenDisplay(nullptr);
 
     // If XOpenDisplay fails, likely in a TTY
@@ -88,7 +96,7 @@ namespace {
           &nitems,
           &bytesAfter,
           &data
-        ) == Success &&
+        ) == 0 &&
         data) {
       wmWindow = *bit_cast<Window*>(data);
       XFree(data);
@@ -107,9 +115,9 @@ namespace {
             &nitems,
             &bytesAfter,
             &data
-          ) == Success &&
+          ) == 0 &&
           data) {
-        string name(bit_cast<char*>(data));
+        String name(bit_cast<char*>(data));
         XFree(data);
         XCloseDisplay(display);
         return name;
@@ -121,16 +129,16 @@ namespace {
     return "Unknown (X11)";
   }
 
-  fn TrimHyprlandWrapper(const string& input) -> string {
+  fn TrimHyprlandWrapper(const String& input) -> String {
     if (input.contains("hyprland"))
       return "Hyprland";
     return input;
   }
 
-  fn ReadProcessCmdline(int pid) -> string {
-    string   path = "/proc/" + to_string(pid) + "/cmdline";
+  fn ReadProcessCmdline(int pid) -> String {
+    String   path = "/proc/" + to_string(pid) + "/cmdline";
     ifstream cmdlineFile(path);
-    string   cmdline;
+    String   cmdline;
     if (getline(cmdlineFile, cmdline)) {
       // Replace null bytes with spaces
       replace(cmdline, '\0', ' ');
@@ -139,7 +147,7 @@ namespace {
     return "";
   }
 
-  fn DetectHyprlandSpecific() -> string {
+  fn DetectHyprlandSpecific() -> String {
     // Check environment variables first
     const char* xdgCurrentDesktop = getenv("XDG_CURRENT_DESKTOP");
     if (xdgCurrentDesktop && strcasestr(xdgCurrentDesktop, "hyprland"))
@@ -156,9 +164,9 @@ namespace {
     return "";
   }
 
-  fn GetWaylandCompositor() -> string {
+  fn GetWaylandCompositor() -> String {
     // First try Hyprland-specific detection
-    string hypr = DetectHyprlandSpecific();
+    String hypr = DetectHyprlandSpecific();
     if (!hypr.empty())
       return hypr;
 
@@ -179,10 +187,10 @@ namespace {
     }
 
     // Read both comm and cmdline
-    string compositorName;
+    String compositorName;
 
     // 1. Check comm (might be wrapped)
-    string   commPath = "/proc/" + to_string(cred.pid) + "/comm";
+    String   commPath = "/proc/" + to_string(cred.pid) + "/comm";
     ifstream commFile(commPath);
     if (commFile >> compositorName) {
       subrange removedRange = std::ranges::remove(compositorName, '\n');
@@ -190,19 +198,19 @@ namespace {
     }
 
     // 2. Check cmdline for actual binary reference
-    string cmdline = ReadProcessCmdline(cred.pid);
+    String cmdline = ReadProcessCmdline(cred.pid);
     if (cmdline.contains("hyprland")) {
       wl_display_disconnect(display);
       return "Hyprland";
     }
 
     // 3. Check exe symlink
-    string                exePath = "/proc/" + to_string(cred.pid) + "/exe";
+    String                exePath = "/proc/" + to_string(cred.pid) + "/exe";
     array<char, PATH_MAX> buf;
     ssize_t               lenBuf = readlink(exePath.c_str(), buf.data(), buf.size() - 1);
     if (lenBuf != -1) {
       buf.at(static_cast<usize>(lenBuf)) = '\0';
-      string exe(buf.data());
+      String exe(buf.data());
       if (exe.contains("hyprland")) {
         wl_display_disconnect(display);
         return "Hyprland";
@@ -215,7 +223,7 @@ namespace {
     return TrimHyprlandWrapper(compositorName);
   }
 
-  fn DetectFromEnvVars() -> optional<string> {
+  fn DetectFromEnvVars() -> optional<String> {
     // Use RAII to guard against concurrent env modifications
     static mutex      EnvMutex;
     lock_guard<mutex> lock(EnvMutex);
@@ -224,17 +232,17 @@ namespace {
     if (const char* xdgCurrentDesktop = getenv("XDG_CURRENT_DESKTOP")) {
       const string_view sview(xdgCurrentDesktop);
       const size_t      colon = sview.find(':');
-      return string(sview.substr(0, colon)); // Direct construct from view
+      return String(sview.substr(0, colon)); // Direct construct from view
     }
 
     // DESKTOP_SESSION
     if (const char* desktopSession = getenv("DESKTOP_SESSION"))
-      return string(string_view(desktopSession)); // Avoid intermediate view storage
+      return String(string_view(desktopSession)); // Avoid intermediate view storage
 
     return nullopt;
   }
 
-  fn DetectFromSessionFiles() -> optional<string> {
+  fn DetectFromSessionFiles() -> optional<String> {
     static constexpr array<pair<string_view, string_view>, 12> DE_PATTERNS = {
       // clang-format off
       pair {        "Budgie"sv,   "budgie"sv },
@@ -258,7 +266,7 @@ namespace {
     static constexpr array<string_view, 2> SESSION_PATHS = { "/usr/share/xsessions", "/usr/share/wayland-sessions" };
 
     // Single memory reserve for lowercase conversions
-    string lowercaseStem;
+    String lowercaseStem;
     lowercaseStem.reserve(32);
 
     for (const auto& path : SESSION_PATHS) {
@@ -279,14 +287,14 @@ namespace {
         );
 
         if (patternIter != DE_PATTERNS.end() && patternIter->first == lowercaseStem)
-          return string(patternIter->second);
+          return String(patternIter->second);
       }
     }
 
     return nullopt;
   }
 
-  fn DetectFromProcesses() -> optional<string> {
+  fn DetectFromProcesses() -> optional<String> {
     const array processChecks = {
       // clang-format off
       pair {     "plasmashell"sv,      "KDE"sv },
@@ -300,105 +308,74 @@ namespace {
     };
 
     ifstream cmdline("/proc/self/environ");
-    string   envVars((istreambuf_iterator<char>(cmdline)), istreambuf_iterator<char>());
+    String   envVars((istreambuf_iterator<char>(cmdline)), istreambuf_iterator<char>());
 
     for (const auto& [process, deName] : processChecks)
       if (envVars.contains(process))
-        return string(deName);
+        return String(deName);
 
     return nullopt;
   }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wold-style-cast"
-  fn GetMprisPlayers(DBusConnection* connection) -> vector<string> {
-    vector<string> mprisPlayers;
-    DBusError      err;
-    dbus_error_init(&err);
+  fn GetMprisPlayers(const std::shared_ptr<DBus::Connection>& connection) -> expected<vector<String>, NowPlayingError> {
+    try {
+      // Create the method call object
+      std::shared_ptr<DBus::CallMessage> call =
+        DBus::CallMessage::create("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "ListNames");
 
-    // Create a method call to org.freedesktop.DBus.ListNames
-    DBusMessage* msg = dbus_message_new_method_call(
-      "org.freedesktop.DBus",  // target service
-      "/org/freedesktop/DBus", // object path
-      "org.freedesktop.DBus",  // interface name
-      "ListNames"              // method name
-    );
+      // Send the message synchronously and get the reply
+      // Timeout parameter might be needed (e.g., 5000 ms)
+      std::shared_ptr<DBus::Message> reply = connection->send_with_reply_blocking(call, 5000);
 
-    if (!msg) {
-      DEBUG_LOG("Failed to create message for ListNames.");
-      return mprisPlayers;
-    }
-
-    // Send the message and block until we get a reply.
-    DBusMessage* reply = dbus_connection_send_with_reply_and_block(connection, msg, -1, &err);
-    dbus_message_unref(msg);
-
-    if (dbus_error_is_set(&err)) {
-      DEBUG_LOG("DBus error in ListNames: {}", err.message);
-      dbus_error_free(&err);
-      return mprisPlayers;
-    }
-
-    if (!reply) {
-      DEBUG_LOG("No reply received for ListNames.");
-      return mprisPlayers;
-    }
-
-    // The expected reply signature is "as" (an array of strings)
-    DBusMessageIter iter;
-
-    if (!dbus_message_iter_init(reply, &iter)) {
-      DEBUG_LOG("Reply has no arguments.");
-      dbus_message_unref(reply);
-      return mprisPlayers;
-    }
-
-    if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY) {
-      DEBUG_LOG("Reply argument is not an array.");
-      dbus_message_unref(reply);
-      return mprisPlayers;
-    }
-
-    // Iterate over the array of strings
-    DBusMessageIter subIter;
-    dbus_message_iter_recurse(&iter, &subIter);
-
-    while (dbus_message_iter_get_arg_type(&subIter) != DBUS_TYPE_INVALID) {
-      if (dbus_message_iter_get_arg_type(&subIter) == DBUS_TYPE_STRING) {
-        const char* name = nullptr;
-        dbus_message_iter_get_basic(&subIter, static_cast<void*>(&name));
-        if (name && std::string_view(name).contains("org.mpris.MediaPlayer2"))
-          mprisPlayers.emplace_back(name);
+      // Check if the reply itself is an error type
+      if (reply) {
+        ERROR_LOG("DBus timeout or null reply in ListNames");
+        return unexpected(LinuxError("DBus timeout in ListNames"));
       }
-      dbus_message_iter_next(&subIter);
+
+      vector<String>        allNamesStd;
+      DBus::MessageIterator reader(*reply);
+      reader >> allNamesStd;
+
+      // Filter for MPRIS players
+      vector<String> mprisPlayers; // Use std::string as String=std::string
+      for (const auto& name : allNamesStd) {
+        if (string_view(name).contains("org.mpris.MediaPlayer2")) {
+          mprisPlayers.emplace_back(name);
+        }
+      }
+      return mprisPlayers;
+    } catch (const DBus::Error& e) { // Catch specific dbus-cxx exceptions
+      ERROR_LOG("DBus::Error exception in ListNames: {}", e.what());
+      return unexpected(LinuxError(e.what()));
+    } catch (const std::exception& e) { // Catch other potential standard exceptions
+      ERROR_LOG("Standard exception getting MPRIS players: {}", e.what());
+      return unexpected(String(e.what()));
     }
-
-    dbus_message_unref(reply);
-    return mprisPlayers;
   }
-#pragma clang diagnostic pop
 
-  fn GetActivePlayer(const vector<string>& mprisPlayers) -> optional<string> {
+  // --- Logic remains the same ---
+  fn GetActivePlayer(const vector<String>& mprisPlayers) -> optional<String> {
     if (!mprisPlayers.empty())
       return mprisPlayers.front();
     return nullopt;
   }
 }
 
-fn GetOSVersion() -> expected<string, string> {
+fn GetOSVersion() -> expected<String, String> {
   constexpr const char* path = "/etc/os-release";
 
   ifstream file(path);
 
   if (!file.is_open())
-    return unexpected("Failed to open " + string(path));
+    return unexpected("Failed to open " + String(path));
 
-  string       line;
-  const string prefix = "PRETTY_NAME=";
+  String       line;
+  const String prefix = "PRETTY_NAME=";
 
   while (getline(file, line))
     if (line.starts_with(prefix)) {
-      string prettyName = line.substr(prefix.size());
+      String prettyName = line.substr(prefix.size());
 
       if (!prettyName.empty() && prettyName.front() == '"' && prettyName.back() == '"')
         return prettyName.substr(1, prettyName.size() - 2);
@@ -406,10 +383,10 @@ fn GetOSVersion() -> expected<string, string> {
       return prettyName;
     }
 
-  return unexpected("PRETTY_NAME line not found in " + string(path));
+  return unexpected("PRETTY_NAME line not found in " + String(path));
 }
 
-fn GetMemInfo() -> expected<u64, string> {
+fn GetMemInfo() -> expected<u64, String> {
   using std::from_chars, std::errc;
 
   constexpr const char* path = "/proc/meminfo";
@@ -417,14 +394,14 @@ fn GetMemInfo() -> expected<u64, string> {
   ifstream input(path);
 
   if (!input.is_open())
-    return unexpected("Failed to open " + string(path));
+    return unexpected("Failed to open " + String(path));
 
-  string line;
+  String line;
   while (getline(input, line)) {
     if (line.starts_with("MemTotal")) {
       const size_t colonPos = line.find(':');
 
-      if (colonPos == string::npos)
+      if (colonPos == String::npos)
         return unexpected("Invalid MemTotal line: no colon found");
 
       string_view view(line);
@@ -457,196 +434,126 @@ fn GetMemInfo() -> expected<u64, string> {
     }
   }
 
-  return unexpected("MemTotal line not found in " + string(path));
+  return unexpected("MemTotal line not found in " + String(path));
 }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wold-style-cast"
-fn GetNowPlaying() -> expected<string, NowPlayingError> {
-  DBusError err;
-  dbus_error_init(&err);
+fn GetNowPlaying() -> expected<String, NowPlayingError> {
+  try {
+    // 1. Get Dispatcher and Session Bus Connection
+    std::shared_ptr<DBus::Dispatcher> dispatcher = DBus::StandaloneDispatcher::create();
+    if (!dispatcher)
+      return unexpected(LinuxError("Failed to create DBus dispatcher"));
 
-  // Connect to the session bus
-  DBusConnection* connection = dbus_bus_get(DBUS_BUS_SESSION, &err);
+    std::shared_ptr<DBus::Connection> connection = dispatcher->create_connection(DBus::BusType::SESSION);
+    if (!connection)
+      return unexpected(LinuxError("Failed to connect to session bus"));
 
-  if (!connection)
-    if (dbus_error_is_set(&err)) {
-      ERROR_LOG("DBus connection error: {}", err.message);
+    // 2. Get list of MPRIS players
+    auto mprisPlayersResult = GetMprisPlayers(connection);
+    if (!mprisPlayersResult)
+      return unexpected(mprisPlayersResult.error()); // Forward the error
 
-      NowPlayingError error = LinuxError(err.message);
-      dbus_error_free(&err);
+    const vector<String>& mprisPlayers = *mprisPlayersResult;
 
-      return unexpected(error);
+    if (mprisPlayers.empty())
+      return unexpected(NowPlayingError { NowPlayingCode::NoPlayers });
+
+    // 3. Determine active player
+    optional<String> activePlayerOpt = GetActivePlayer(mprisPlayers);
+    if (!activePlayerOpt)
+      return unexpected(NowPlayingError { NowPlayingCode::NoActivePlayer });
+
+    // Use std::string for D-Bus service name
+    const String& activePlayerService = *activePlayerOpt;
+
+    // 4. Call Properties.Get for Metadata
+    const String interfaceNameStd = "org.mpris.MediaPlayer2.Player";
+    const String propertyNameStd  = "Metadata";
+
+    // Create call message
+    auto call = DBus::CallMessage::create(
+      activePlayerService,               // Target service
+      "/org/mpris/MediaPlayer2",         // Object path
+      "org.freedesktop.DBus.Properties", // Interface
+      "Get"
+    ); // Method name
+
+    (*call) << interfaceNameStd << propertyNameStd;
+
+    // Send message and get reply
+    std::shared_ptr<DBus::Message> replyMsg = connection->send_with_reply_blocking(call, 5000); // Use a timeout
+
+    if (!replyMsg) {
+      ERROR_LOG("DBus timeout or null reply in Properties.Get");
+      return unexpected(LinuxError("DBus timeout in Properties.Get"));
     }
 
-  vector<string> mprisPlayers = GetMprisPlayers(connection);
+    // 5. Parse the reply
+    DBus::Variant metadataVariant;
+    // Create reader/iterator from the message
+    DBus::MessageIterator reader(*replyMsg); // Use constructor
+    // *** Correction: Use get<T> on iterator instead of operator>> ***
+    reader >> metadataVariant;
 
-  if (mprisPlayers.empty()) {
-    dbus_connection_unref(connection);
-    return unexpected(NowPlayingError { NowPlayingCode::NoPlayers });
-  }
+    // Check the variant's signature
+    if (metadataVariant.to_signature() != "a{sv}") {
+      return unexpected("Unexpected reply type for Metadata");
+    }
+    String artistStd;
+    String titleStd;
 
-  optional<string> activePlayer = GetActivePlayer(mprisPlayers);
+    // Get the dictionary using the templated get<T>() method
+    std::map<String, DBus::Variant> metadataMap;
+    auto                            titleIter = metadataMap.find("xesam:title");
+    if (titleIter != metadataMap.end() && titleIter->second.to_signature() == "s") {
+      // Use the cast operator on variant to string
+      titleStd = static_cast<std::string>(titleIter->second);
+    }
 
-  if (!activePlayer.has_value()) {
-    dbus_connection_unref(connection);
-    return unexpected(NowPlayingError { NowPlayingCode::NoActivePlayer });
-  }
-
-  // Prepare a call to the Properties.Get method to fetch "Metadata"
-  DBusMessage* msg = dbus_message_new_method_call(
-    activePlayer->c_str(),             // target service (active player)
-    "/org/mpris/MediaPlayer2",         // object path
-    "org.freedesktop.DBus.Properties", // interface
-    "Get"                              // method name
-  );
-
-  if (!msg) {
-    dbus_connection_unref(connection);
-    return unexpected(NowPlayingError { /* error creating message */ });
-  }
-
-  const char* interfaceName = "org.mpris.MediaPlayer2.Player";
-  const char* propertyName  = "Metadata";
-
-  if (!dbus_message_append_args(
-        msg, DBUS_TYPE_STRING, &interfaceName, DBUS_TYPE_STRING, &propertyName, DBUS_TYPE_INVALID
-      )) {
-    dbus_message_unref(msg);
-    dbus_connection_unref(connection);
-    return unexpected(NowPlayingError { /* error appending arguments */ });
-  }
-
-  // Call the method and block until reply is received.
-  DBusMessage* reply = dbus_connection_send_with_reply_and_block(connection, msg, -1, &err);
-  dbus_message_unref(msg);
-
-  if (dbus_error_is_set(&err)) {
-    ERROR_LOG("DBus error in Properties.Get: {}", err.message);
-
-    NowPlayingError error = LinuxError(err.message);
-    dbus_error_free(&err);
-    dbus_connection_unref(connection);
-
-    return unexpected(error);
-  }
-
-  if (!reply) {
-    dbus_connection_unref(connection);
-    return unexpected(NowPlayingError { /* no reply error */ });
-  }
-
-  // The reply should contain a variant holding a dictionary ("a{sv}")
-  DBusMessageIter iter;
-
-  if (!dbus_message_iter_init(reply, &iter)) {
-    dbus_message_unref(reply);
-    dbus_connection_unref(connection);
-    return unexpected(NowPlayingError { /* no arguments in reply */ });
-  }
-
-  if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT) {
-    dbus_message_unref(reply);
-    dbus_connection_unref(connection);
-    return unexpected(NowPlayingError { /* unexpected argument type */ });
-  }
-
-  // Recurse into the variant to get the dictionary
-  DBusMessageIter variantIter;
-  dbus_message_iter_recurse(&iter, &variantIter);
-
-  if (dbus_message_iter_get_arg_type(&variantIter) != DBUS_TYPE_ARRAY) {
-    dbus_message_unref(reply);
-    dbus_connection_unref(connection);
-    return unexpected(NowPlayingError { /* expected array type */ });
-  }
-
-  string          title;
-  string          artist;
-  DBusMessageIter arrayIter;
-  dbus_message_iter_recurse(&variantIter, &arrayIter);
-
-  // Iterate over each dictionary entry (each entry is of type dict entry)
-  while (dbus_message_iter_get_arg_type(&arrayIter) != DBUS_TYPE_INVALID) {
-    if (dbus_message_iter_get_arg_type(&arrayIter) == DBUS_TYPE_DICT_ENTRY) {
-      DBusMessageIter dictEntry;
-      dbus_message_iter_recurse(&arrayIter, &dictEntry);
-
-      // Get the key (a string)
-      const char* key = nullptr;
-
-      if (dbus_message_iter_get_arg_type(&dictEntry) == DBUS_TYPE_STRING)
-        dbus_message_iter_get_basic(&dictEntry, static_cast<void*>(&key));
-
-      // Move to the value (a variant)
-      dbus_message_iter_next(&dictEntry);
-
-      if (dbus_message_iter_get_arg_type(&dictEntry) == DBUS_TYPE_VARIANT) {
-        DBusMessageIter valueIter;
-        dbus_message_iter_recurse(&dictEntry, &valueIter);
-
-        if (key && std::string_view(key) == "xesam:title") {
-          if (dbus_message_iter_get_arg_type(&valueIter) == DBUS_TYPE_STRING) {
-            const char* val = nullptr;
-            dbus_message_iter_get_basic(&valueIter, static_cast<void*>(&val));
-
-            if (val)
-              title = val;
-          }
-        } else if (key && std::string_view(key) == "xesam:artist") {
-          // Expect an array of strings
-          if (dbus_message_iter_get_arg_type(&valueIter) == DBUS_TYPE_ARRAY) {
-            DBusMessageIter subIter;
-            dbus_message_iter_recurse(&valueIter, &subIter);
-
-            if (dbus_message_iter_get_arg_type(&subIter) == DBUS_TYPE_STRING) {
-              const char* val = nullptr;
-              dbus_message_iter_get_basic(&subIter, static_cast<void*>(&val));
-
-              if (val)
-                artist = val;
-            }
-          }
-        }
+    // For line 525-534
+    auto artistIter = metadataMap.find("xesam:artist");
+    if (artistIter != metadataMap.end() && artistIter->second.to_signature() == "as") {
+      // Cast to vector<String>
+      std::vector<String> artistsStd = static_cast<std::vector<String>>(artistIter->second);
+      if (!artistsStd.empty()) {
+        artistStd = artistsStd.front();
       }
     }
 
-    dbus_message_iter_next(&arrayIter);
+    // 6. Construct result string
+    String result;
+    if (!artistStd.empty() && !titleStd.empty())
+      result = artistStd + " - " + titleStd;
+    else if (!titleStd.empty())
+      result = titleStd;
+    else if (!artistStd.empty())
+      result = artistStd;
+
+    return result;
+  } catch (const DBus::Error& e) { // Catch specific dbus-cxx exceptions
+    ERROR_LOG("DBus::Error exception in GetNowPlaying: {}", e.what());
+    return unexpected(LinuxError(e.what()));
+  } catch (const std::exception& e) { // Catch other potential standard exceptions
+    ERROR_LOG("Standard exception in GetNowPlaying: {}", e.what());
+    return unexpected(String(e.what()));
   }
-
-  dbus_message_unref(reply);
-  dbus_connection_unref(connection);
-
-  string result;
-
-  if (!artist.empty() && !title.empty())
-    result = artist + " - " + title;
-  else if (!title.empty())
-    result = title;
-  else if (!artist.empty())
-    result = artist;
-  else
-    result = "";
-
-  return result;
 }
-#pragma clang diagnostic pop
 
-fn GetWindowManager() -> string {
+fn GetWindowManager() -> String {
   // Check environment variables first
   const char* xdgSessionType = getenv("XDG_SESSION_TYPE");
   const char* waylandDisplay = getenv("WAYLAND_DISPLAY");
 
   // Prefer Wayland detection if Wayland session
   if ((waylandDisplay != nullptr) || (xdgSessionType && string_view(xdgSessionType).contains("wayland"))) {
-    string compositor = GetWaylandCompositor();
+    String compositor = GetWaylandCompositor();
     if (!compositor.empty())
       return compositor;
 
     // Fallback environment check
     const char* xdgCurrentDesktop = getenv("XDG_CURRENT_DESKTOP");
     if (xdgCurrentDesktop) {
-      string desktop(xdgCurrentDesktop);
+      String desktop(xdgCurrentDesktop);
       transform(compositor, compositor.begin(), ::tolower);
       if (desktop.contains("hyprland"))
         return "hyprland";
@@ -654,14 +561,14 @@ fn GetWindowManager() -> string {
   }
 
   // X11 detection
-  string x11wm = GetX11WindowManager();
+  String x11wm = GetX11WindowManager();
   if (!x11wm.empty())
     return x11wm;
 
   return "Unknown";
 }
 
-fn GetDesktopEnvironment() -> optional<string> {
+fn GetDesktopEnvironment() -> optional<String> {
   // Try environment variables first
   if (auto desktopEnvironment = DetectFromEnvVars(); desktopEnvironment.has_value())
     return desktopEnvironment;
@@ -674,7 +581,7 @@ fn GetDesktopEnvironment() -> optional<string> {
   return DetectFromProcesses();
 }
 
-fn GetShell() -> string {
+fn GetShell() -> String {
   const string_view shell = getenv("SHELL");
 
   if (shell.ends_with("bash"))
@@ -688,10 +595,10 @@ fn GetShell() -> string {
   if (shell.ends_with("sh"))
     return "SH";
 
-  return !shell.empty() ? string(shell) : "";
+  return !shell.empty() ? String(shell) : "";
 }
 
-fn GetHost() -> string {
+fn GetHost() -> String {
   constexpr const char* path = "/sys/class/dmi/id/product_family";
 
   ifstream file(path);
@@ -700,7 +607,7 @@ fn GetHost() -> string {
     return "";
   }
 
-  string productFamily;
+  String productFamily;
   if (!getline(file, productFamily)) {
     ERROR_LOG("Failed to read from {}", path);
     return "";
@@ -709,7 +616,7 @@ fn GetHost() -> string {
   return productFamily;
 }
 
-fn GetKernelVersion() -> string {
+fn GetKernelVersion() -> String {
   struct utsname uts;
 
   if (uname(&uts) == -1) {

@@ -1,0 +1,23 @@
+{
+    "dbus-cxx": {
+        "cargoLocks": null,
+        "date": null,
+        "extract": null,
+        "name": "dbus-cxx",
+        "passthru": null,
+        "pinned": false,
+        "src": {
+            "deepClone": false,
+            "fetchSubmodules": false,
+            "leaveDotGit": false,
+            "name": null,
+            "owner": "dbus-cxx",
+            "repo": "dbus-cxx",
+            "rev": "2.5.2",
+            "sha256": "sha256-if/9XIsf3an5Sij91UIIyNB3vlFAcKrm6YT5Mk7NhB0=",
+            "sparseCheckout": [],
+            "type": "github"
+        },
+        "version": "2.5.2"
+    }
+}

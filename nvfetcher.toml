@@ -1,0 +1,3 @@
+[dbus-cxx]
+src.github = "dbus-cxx/dbus-cxx"
+fetch.github = "dbus-cxx/dbus-cxx"
