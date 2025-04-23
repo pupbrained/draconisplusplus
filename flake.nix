@@ -34,36 +34,13 @@
 
         dbus-cxx = stdenv.mkDerivation {
           inherit (sources.dbus-cxx) pname version src;
-          nativeBuildInputs = [
-            pkgs.cmake
-            pkgs.pkg-config
-          ];
+          nativeBuildInputs = with pkgs; [cmake pkg-config];
 
-          buildInputs = [
-            pkgs.libsigcxx30
-          ];
+          buildInputs = with pkgs.pkgsStatic; [libsigcxx30];
 
-          preConfigure = ''
-            set -x # Print commands being run
-            echo "--- Checking pkg-config paths ---"
-            echo "PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
-            echo "--- Searching for sigc++ pc files ---"
-            find $PKG_CONFIG_PATH -name '*.pc' | grep sigc || echo "No sigc pc file found in PKG_CONFIG_PATH"
-            echo "--- Running pkg-config check ---"
-            pkg-config --exists --print-errors 'sigc++-3.0'
-            if [ $? -ne 0 ]; then
-              echo "ERROR: pkg-config check for sigc++-3.0 failed!"
-              # Optionally list all available packages known to pkg-config:
-              # pkg-config --list-all
-            fi
-            echo "--- End Debug ---"
-            set +x
+          prePatch = ''
+            substituteInPlace CMakeLists.txt --replace "add_library( dbus-cxx SHARED" "add_library( dbus-cxx STATIC"
           '';
-
-          cmakeFlags = [
-            "-DENABLE_QT_SUPPORT=OFF"
-            "-DENABLE_UV_SUPPORT=OFF"
-          ];
         };
 
         deps = with pkgs;
@@ -84,12 +61,11 @@
 
         linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs;
           [
-            libsigcxx30
             valgrind
           ]
           ++ (with pkgsStatic; [
-            dbus
             dbus-cxx
+            libsigcxx30
             sqlitecpp
             xorg.libX11
             wayland

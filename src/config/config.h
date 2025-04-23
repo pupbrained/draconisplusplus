@@ -17,15 +17,15 @@ using Location = std::variant<String, Coords>;
 struct General {
   String name = []() -> String {
 #ifdef _WIN32
-    std::array<char, 256> username;
-    DWORD                 size = sizeof(username);
+    Array<char, 256> username;
+    DWORD            size = sizeof(username);
     return GetUserNameA(username.data(), &size) ? username.data() : "User";
 #else
-    if (struct passwd* pwd = getpwuid(getuid()); pwd)
+    if (struct passwd* pwd = getpwuid(getuid()))
       return pwd->pw_name;
 
-    if (const char* envUser = getenv("USER"))
-      return envUser;
+    if (Result<String, EnvError> envUser = GetEnv("USER"))
+      return *envUser;
 
     return "User";
 #endif
@@ -33,22 +33,16 @@ struct General {
 
   static fn fromToml(const toml::table& tbl) -> General {
     General gen;
-
-    if (const std::optional<String> name = tbl["name"].value<String>())
-      gen.name = *name;
-
-    return gen;
+    return {
+      .name = tbl["name"].value_or(gen.name),
+    };
   }
 };
 
 struct NowPlaying {
   bool enabled = false;
 
-  static fn fromToml(const toml::table& tbl) -> NowPlaying {
-    NowPlaying nowPlaying;
-    nowPlaying.enabled = tbl["enabled"].value<bool>().value_or(false);
-    return nowPlaying;
-  }
+  static fn fromToml(const toml::table& tbl) -> NowPlaying { return { .enabled = tbl["enabled"].value_or(false) }; }
 };
 
 struct Weather {
@@ -60,37 +54,28 @@ struct Weather {
 
   static fn fromToml(const toml::table& tbl) -> Weather {
     Weather weather;
-    weather.enabled = tbl["enabled"].value_or<bool>(false);
 
-    if (auto apiKey = tbl["api_key"].value<String>()) {
-      const String& keyVal = apiKey.value();
+    Option<String> apiKey = tbl["api_key"].value<String>();
 
-      if (keyVal.empty())
-        weather.enabled = false;
-
-      weather.api_key = keyVal;
-    } else {
-      weather.enabled = false;
-    }
+    weather.enabled = tbl["enabled"].value_or<bool>(false) && apiKey;
 
     if (!weather.enabled)
       return weather;
 
-    weather.show_town_name = tbl["show_town_name"].value_or<bool>(false);
-    weather.units          = tbl["units"].value<String>().value_or("metric");
+    weather.api_key        = *apiKey;
+    weather.show_town_name = tbl["show_town_name"].value_or(false);
+    weather.units          = tbl["units"].value_or("metric");
 
     if (const toml::node_view<const toml::node> location = tbl["location"]) {
-      if (location.is_string()) {
-        weather.location = location.value<String>().value();
-      } else if (location.is_table()) {
-        const auto* coord = location.as_table();
-        Coords      coords;
-        coords.lat       = coord->get("lat")->value<double>().value();
-        coords.lon       = coord->get("lon")->value<double>().value();
-        weather.location = coords;
-      } else {
+      if (location.is_string())
+        weather.location = *location.value<String>();
+      else if (location.is_table())
+        weather.location = Coords {
+          .lat = *location.as_table()->get("lat")->value<double>(),
+          .lon = *location.as_table()->get("lon")->value<double>(),
+        };
+      else
         throw std::runtime_error("Invalid location type");
-      }
     }
 
     return weather;
@@ -105,18 +90,15 @@ struct Config {
   Weather    weather;
 
   static fn fromToml(const toml::table& tbl) -> Config {
-    Config cfg;
+    const toml::node_view genTbl = tbl["general"];
+    const toml::node_view npTbl  = tbl["now_playing"];
+    const toml::node_view wthTbl = tbl["weather"];
 
-    if (const auto* general = tbl["general"].as_table())
-      cfg.general = General::fromToml(*general);
-
-    if (const auto* nowPlaying = tbl["now_playing"].as_table())
-      cfg.now_playing = NowPlaying::fromToml(*nowPlaying);
-
-    if (const auto* weather = tbl["weather"].as_table())
-      cfg.weather = Weather::fromToml(*weather);
-
-    return cfg;
+    return {
+      .general     = genTbl.is_table() ? General::fromToml(*genTbl.as_table()) : General {},
+      .now_playing = npTbl.is_table() ? NowPlaying::fromToml(*npTbl.as_table()) : NowPlaying {},
+      .weather     = wthTbl.is_table() ? Weather::fromToml(*wthTbl.as_table()) : Weather {},
+    };
   }
 
   static fn getInstance() -> Config;

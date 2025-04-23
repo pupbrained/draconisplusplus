@@ -15,6 +15,11 @@
 
 #define fn auto
 
+#ifdef None
+#undef None
+#define None std::nullopt
+#endif
+
 namespace term {
   enum class Emphasis : u8 { none = 0, bold = 1, italic = 2 };
 
@@ -75,7 +80,7 @@ namespace term {
   constexpr fn operator|(Emphasis emph, FgColor fgColor)->Style { return { .emph = emph, .fg_col = fgColor }; }
   constexpr fn operator|(FgColor fgColor, Emphasis emph)->Style { return { .emph = emph, .fg_col = fgColor }; }
 
-  constexpr const char* reset = "\033[0m";
+  constexpr CStr reset = "\033[0m";
 
   template <typename... Args>
   fn Print(const Style& style, std::format_string<Args...> fmt, Args&&... args) -> void {

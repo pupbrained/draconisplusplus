@@ -4,13 +4,14 @@
 
 #include "../util/types.h"
 
-// NOLINTBEGIN(readability-identifier-naming)
+// NOLINTBEGIN(readability-identifier-naming) - Needs to specifically use `glaze`
 struct Condition {
   String description;
 
   struct glaze {
-    using T                     = Condition;
-    static constexpr auto value = glz::object("description", &T::description);
+    using T = Condition;
+
+    static constexpr glz::detail::Object value = glz::object("description", &T::description);
   };
 };
 
@@ -18,8 +19,9 @@ struct Main {
   f64 temp;
 
   struct glaze {
-    using T                     = Main;
-    static constexpr auto value = glz::object("temp", &T::temp);
+    using T = Main;
+
+    static constexpr glz::detail::Object value = glz::object("temp", &T::temp);
   };
 };
 
@@ -29,14 +31,16 @@ struct Coords {
 };
 
 struct WeatherOutput {
-  Main                   main;
-  String                 name;
-  std::vector<Condition> weather;
-  usize                  dt;
+  Main           main;
+  String         name;
+  Vec<Condition> weather;
+  usize          dt;
 
   struct glaze {
-    using T                     = WeatherOutput;
-    static constexpr auto value = glz::object("main", &T::main, "name", &T::name, "weather", &T::weather, "dt", &T::dt);
+    using T = WeatherOutput;
+
+    static constexpr glz::detail::Object value =
+      glz::object("main", &T::main, "name", &T::name, "weather", &T::weather, "dt", &T::dt);
   };
 };
 // NOLINTEND(readability-identifier-naming)

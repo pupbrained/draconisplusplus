@@ -8,11 +8,8 @@
 #include <tlhelp32.h>
 // clang-format on
 
-#include <algorithm>
 #include <cstring>
 #include <guiddef.h>
-#include <ranges>
-#include <vector>
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.Media.Control.h>
 #include <winrt/Windows.Storage.h>
@@ -22,7 +19,6 @@
 
 #include "os.h"
 
-using std::string_view;
 using RtlGetVersionPtr = NTSTATUS(WINAPI*)(PRTL_OSVERSIONINFOW);
 
 // NOLINTBEGIN(*-pro-type-cstyle-cast,*-no-int-to-ptr,*-pro-type-reinterpret-cast)
@@ -43,8 +39,8 @@ namespace {
 
     [[nodiscard]] fn isValid() const -> bool { return h_snapshot != INVALID_HANDLE_VALUE; }
 
-    [[nodiscard]] fn getProcesses() const -> std::vector<std::pair<DWORD, string>> {
-      std::vector<std::pair<DWORD, string>> processes;
+    [[nodiscard]] fn getProcesses() const -> std::vector<std::pair<DWORD, String>> {
+      std::vector<std::pair<DWORD, String>> processes;
 
       if (!isValid())
         return processes;
@@ -58,11 +54,11 @@ namespace {
       // Get first process
       if (Process32First(h_snapshot, &pe32)) {
         // Add first process to vector
-        processes.emplace_back(pe32.th32ProcessID, string(reinterpret_cast<const char*>(pe32.szExeFile)));
+        processes.emplace_back(pe32.th32ProcessID, String(reinterpret_cast<const char*>(pe32.szExeFile)));
 
         // Add remaining processes
         while (Process32Next(h_snapshot, &pe32))
-          processes.emplace_back(pe32.th32ProcessID, string(reinterpret_cast<const char*>(pe32.szExeFile)));
+          processes.emplace_back(pe32.th32ProcessID, String(reinterpret_cast<const char*>(pe32.szExeFile)));
       }
 
       return processes;
@@ -71,7 +67,7 @@ namespace {
     HANDLE h_snapshot;
   };
 
-  fn GetRegistryValue(const HKEY& hKey, const string& subKey, const string& valueName) -> string {
+  fn GetRegistryValue(const HKEY& hKey, const String& subKey, const String& valueName) -> String {
     HKEY key = nullptr;
     if (RegOpenKeyExA(hKey, subKey.c_str(), 0, KEY_READ, &key) != ERROR_SUCCESS)
       return "";
@@ -84,7 +80,7 @@ namespace {
     }
 
     // For string values, allocate one less byte to avoid the null terminator
-    string value((type == REG_SZ || type == REG_EXPAND_SZ) ? dataSize - 1 : dataSize, '\0');
+    String value((type == REG_SZ || type == REG_EXPAND_SZ) ? dataSize - 1 : dataSize, '\0');
 
     if (RegQueryValueExA(key, valueName.c_str(), nullptr, nullptr, std::bit_cast<LPBYTE>(value.data()), &dataSize) !=
         ERROR_SUCCESS) {
@@ -96,13 +92,13 @@ namespace {
     return value;
   }
 
-  fn GetProcessInfo() -> std::vector<std::pair<DWORD, string>> {
+  fn GetProcessInfo() -> std::vector<std::pair<DWORD, String>> {
     const ProcessSnapshot snapshot;
-    return snapshot.isValid() ? snapshot.getProcesses() : std::vector<std::pair<DWORD, string>> {};
+    return snapshot.isValid() ? snapshot.getProcesses() : std::vector<std::pair<DWORD, String>> {};
   }
 
-  fn IsProcessRunning(const std::vector<string>& processes, const string& name) -> bool {
-    return std::ranges::any_of(processes, [&name](const string& proc) -> bool {
+  fn IsProcessRunning(const std::vector<String>& processes, const String& name) -> bool {
+    return std::ranges::any_of(processes, [&name](const String& proc) -> bool {
       return _stricmp(proc.c_str(), name.c_str()) == 0;
     });
   }
@@ -127,7 +123,7 @@ namespace {
     return 0;
   }
 
-  fn GetProcessName(const DWORD pid) -> string {
+  fn GetProcessName(const DWORD pid) -> String {
     const ProcessSnapshot snapshot;
     if (!snapshot.isValid())
       return "";
@@ -149,17 +145,17 @@ namespace {
   }
 }
 
-fn GetMemInfo() -> expected<u64, string> {
+fn GetMemInfo() -> Result<u64, String> {
   try {
     using namespace winrt::Windows::System::Diagnostics;
     const SystemDiagnosticInfo diag = SystemDiagnosticInfo::GetForCurrentSystem();
     return diag.MemoryUsage().GetReport().TotalPhysicalSizeInBytes();
   } catch (const winrt::hresult_error& e) {
-    return std::unexpected("Failed to get memory info: " + to_string(e.message()));
+    return Err(std::format("Failed to get memory info: {}", to_string(e.message())));
   }
 }
 
-fn GetNowPlaying() -> expected<string, NowPlayingError> {
+fn GetNowPlaying() -> Result<String, NowPlayingError> {
   using namespace winrt::Windows::Media::Control;
   using namespace winrt::Windows::Foundation;
 
@@ -181,36 +177,31 @@ fn GetNowPlaying() -> expected<string, NowPlayingError> {
     }
 
     // If we reach this point, there is no current session
-    return std::unexpected(NowPlayingError { NowPlayingCode::NoActivePlayer });
-  } catch (const winrt::hresult_error& e) { return std::unexpected(NowPlayingError { e }); }
+    return Err(NowPlayingCode::NoActivePlayer);
+  } catch (const winrt::hresult_error& e) { return Err(e); }
 }
 
-fn GetOSVersion() -> expected<string, string> {
-  // First try using the native Windows API
+fn GetOSVersion() -> Result<String, String> {
   constexpr OSVERSIONINFOEXW osvi   = { sizeof(OSVERSIONINFOEXW), 0, 0, 0, 0, { 0 }, 0, 0, 0, 0, 0 };
   NTSTATUS                   status = 0;
 
-  // Get RtlGetVersion function from ntdll.dll (not affected by application manifest)
   if (const HMODULE ntdllHandle = GetModuleHandleW(L"ntdll.dll"))
     if (const auto rtlGetVersion = std::bit_cast<RtlGetVersionPtr>(GetProcAddress(ntdllHandle, "RtlGetVersion")))
       status = rtlGetVersion(std::bit_cast<PRTL_OSVERSIONINFOW>(&osvi));
 
-  string productName;
-  string edition;
+  String productName;
+  String edition;
 
-  if (status == 0) { // STATUS_SUCCESS
-    // We need to get the edition information which isn't available from version API
-    // Use GetProductInfo which is available since Vista
+  if (status == 0) {
     DWORD productType = 0;
     if (GetProductInfo(
           osvi.dwMajorVersion, osvi.dwMinorVersion, osvi.wServicePackMajor, osvi.wServicePackMinor, &productType
         )) {
       if (osvi.dwMajorVersion == 10) {
-        if (osvi.dwBuildNumber >= 22000) {
+        if (osvi.dwBuildNumber >= 22000)
           productName = "Windows 11";
-        } else {
+        else
           productName = "Windows 10";
-        }
 
         switch (productType) {
           case PRODUCT_PROFESSIONAL:
@@ -235,22 +226,20 @@ fn GetOSVersion() -> expected<string, string> {
       }
     }
   } else {
-    // Fallback to registry method if the API approach fails
     productName =
       GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", "ProductName");
 
-    // Check for Windows 11
     if (const i32 buildNumber = stoi(
           GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", "CurrentBuildNumber")
         );
-        buildNumber >= 22000 && productName.find("Windows 10") != string::npos)
+        buildNumber >= 22000 && productName.find("Windows 10") != String::npos)
       productName.replace(productName.find("Windows 10"), 10, "Windows 11");
   }
 
   if (!productName.empty()) {
-    string result = productName + edition;
+    String result = productName + edition;
 
-    const string displayVersion =
+    const String displayVersion =
       GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", "DisplayVersion");
 
     if (!displayVersion.empty())
@@ -262,13 +251,13 @@ fn GetOSVersion() -> expected<string, string> {
   return "Windows";
 }
 
-fn GetHost() -> string {
-  string hostName = GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SYSTEM\HardwareConfig\Current)", "SystemFamily");
+fn GetHost() -> String {
+  String hostName = GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SYSTEM\HardwareConfig\Current)", "SystemFamily");
 
   return hostName;
 }
 
-fn GetKernelVersion() -> string {
+fn GetKernelVersion() -> String {
   // ReSharper disable once CppLocalVariableMayBeConst
   if (HMODULE ntdllHandle = GetModuleHandleW(L"ntdll.dll")) {
     if (const auto rtlGetVersion = std::bit_cast<RtlGetVersionPtr>(GetProcAddress(ntdllHandle, "RtlGetVersion"))) {
@@ -286,28 +275,24 @@ fn GetKernelVersion() -> string {
   return "";
 }
 
-fn GetWindowManager() -> string {
-  // Get process information once and reuse it
+fn GetWindowManager() -> String {
   const auto          processInfo = GetProcessInfo();
-  std::vector<string> processNames;
+  std::vector<String> processNames;
 
   processNames.reserve(processInfo.size());
   for (const auto& name : processInfo | std::views::values) processNames.push_back(name);
 
-  // Check for third-party WMs using a map for cleaner code
-  const std::unordered_map<string, string> wmProcesses = {
+  const std::unordered_map<String, String> wmProcesses = {
     {   "glazewm.exe",  "GlazeWM" },
     {   "fancywm.exe",  "FancyWM" },
     {  "komorebi.exe", "Komorebi" },
     { "komorebic.exe", "Komorebi" }
   };
 
-  for (const auto& [processName, wmName] : wmProcesses) {
+  for (const auto& [processName, wmName] : wmProcesses)
     if (IsProcessRunning(processNames, processName))
       return wmName;
-  }
 
-  // Fallback to DWM detection
   BOOL compositionEnabled = FALSE;
   if (SUCCEEDED(DwmIsCompositionEnabled(&compositionEnabled)))
     return compositionEnabled ? "DWM" : "Windows Manager (Basic)";
@@ -315,9 +300,8 @@ fn GetWindowManager() -> string {
   return "Windows Manager";
 }
 
-fn GetDesktopEnvironment() -> optional<string> {
-  // Get version information from registry
-  const string buildStr =
+fn GetDesktopEnvironment() -> Option<String> {
+  const String buildStr =
     GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", "CurrentBuildNumber");
 
   if (buildStr.empty()) {
@@ -339,10 +323,10 @@ fn GetDesktopEnvironment() -> optional<string> {
     // Windows 8.1/10 Metro Era
     if (build >= 9200) { // Windows 8+
       // Distinguish between Windows 8 and 10
-      const string productName =
+      const String productName =
         GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", "ProductName");
 
-      if (productName.find("Windows 10") != string::npos)
+      if (productName.find("Windows 10") != String::npos)
         return "Metro (Windows 10)";
 
       if (build >= 9600)
@@ -355,7 +339,7 @@ fn GetDesktopEnvironment() -> optional<string> {
     if (build >= 7600)
       return "Aero (Windows 7)";
 
-    // Older versions
+    // Pre-Win7
     return "Classic";
   } catch (...) {
     DEBUG_LOG("Failed to parse CurrentBuildNumber");
@@ -363,9 +347,10 @@ fn GetDesktopEnvironment() -> optional<string> {
   }
 }
 
-fn GetShell() -> string {
-  // Define known shells map once for reuse
-  const std::unordered_map<string, string> knownShells = {
+fn GetShell() -> String {
+  // TODO: update this to use GetEnv
+
+  const std::unordered_map<String, String> knownShells = {
     {             "cmd.exe",              "Command Prompt" },
     {      "powershell.exe",                  "PowerShell" },
     {            "pwsh.exe",             "PowerShell Core" },
@@ -374,18 +359,15 @@ fn GetShell() -> string {
     {            "bash.exe", "Windows Subsystem for Linux" }
   };
 
-  // Detect MSYS2/MinGW shells
   char* msystemEnv = nullptr;
   if (_dupenv_s(&msystemEnv, nullptr, "MSYSTEM") == 0 && msystemEnv != nullptr) {
     const std::unique_ptr<char, decltype(&free)> msystemEnvGuard(msystemEnv, free);
 
-    // Get shell from environment variables
     char*  shell    = nullptr;
     size_t shellLen = 0;
     _dupenv_s(&shell, &shellLen, "SHELL");
     const std::unique_ptr<char, decltype(&free)> shellGuard(shell, free);
 
-    // If SHELL is empty, try LOGINSHELL
     if (!shell || strlen(shell) == 0) {
       char*  loginShell    = nullptr;
       size_t loginShellLen = 0;
@@ -395,36 +377,35 @@ fn GetShell() -> string {
     }
 
     if (shell) {
-      string       shellExe;
-      const string shellPath = shell;
+      String       shellExe;
+      const String shellPath = shell;
       const size_t lastSlash = shellPath.find_last_of("\\/");
-      shellExe               = (lastSlash != string::npos) ? shellPath.substr(lastSlash + 1) : shellPath;
+      shellExe               = (lastSlash != String::npos) ? shellPath.substr(lastSlash + 1) : shellPath;
       std::ranges::transform(shellExe, shellExe.begin(), ::tolower);
 
       // Use a map for shell name lookup instead of multiple if statements
-      const std::unordered_map<string_view, string> shellNames = {
+      const std::unordered_map<StringView, String> shellNames = {
         { "bash", "Bash" },
         {  "zsh",  "Zsh" },
         { "fish", "Fish" }
       };
 
       for (const auto& [pattern, name] : shellNames) {
-        if (shellExe.find(pattern) != string::npos)
+        if (shellExe.find(pattern) != String::npos)
           return name;
       }
 
       return shellExe.empty() ? "MSYS2" : "MSYS2/" + shellExe;
     }
 
-    // Fallback to process ancestry with cached process info
     const auto processInfo = GetProcessInfo();
     DWORD      pid         = GetCurrentProcessId();
 
     while (pid != 0) {
-      string processName = GetProcessName(pid);
+      String processName = GetProcessName(pid);
       std::ranges::transform(processName, processName.begin(), ::tolower);
 
-      const std::unordered_map<string, string> msysShells = {
+      const std::unordered_map<String, String> msysShells = {
         {   "bash.exe",   "Bash" },
         {    "zsh.exe",    "Zsh" },
         {   "fish.exe",   "Fish" },
@@ -442,10 +423,9 @@ fn GetShell() -> string {
     return "MSYS2";
   }
 
-  // Detect Windows shells
   DWORD pid = GetCurrentProcessId();
   while (pid != 0) {
-    string processName = GetProcessName(pid);
+    String processName = GetProcessName(pid);
     std::ranges::transform(processName, processName.begin(), ::tolower);
 
     if (auto shellIterator = knownShells.find(processName); shellIterator != knownShells.end())

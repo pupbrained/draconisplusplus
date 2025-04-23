@@ -1,31 +1,27 @@
 #pragma once
 
-#include <expected>
-
 #include "../util/macros.h"
 #include "../util/types.h"
-
-using std::optional, std::expected;
 
 /**
  * @brief Get the amount of installed RAM in bytes.
  */
-fn GetMemInfo() -> expected<u64, String>;
+fn GetMemInfo() -> Result<u64, String>;
 
 /**
  * @brief Get the currently playing song metadata.
  */
-fn GetNowPlaying() -> expected<String, NowPlayingError>;
+fn GetNowPlaying() -> Result<String, NowPlayingError>;
 
 /**
  * @brief Get the OS version.
  */
-fn GetOSVersion() -> expected<String, String>;
+fn GetOSVersion() -> Result<String, String>;
 
 /**
  * @brief Get the current desktop environment.
  */
-fn GetDesktopEnvironment() -> optional<String>;
+fn GetDesktopEnvironment() -> Option<String>;
 
 /**
  * @brief Get the current window manager.
@@ -56,4 +52,4 @@ fn GetPackageCount() -> u64;
  * @brief Get the current disk usage.
  * @return std::pair<u64, u64> Used space/total space
  */
-fn GetDiskUsage() -> std::pair<u64, u64>;
+fn GetDiskUsage() -> Pair<u64, u64>;

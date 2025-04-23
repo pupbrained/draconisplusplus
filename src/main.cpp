@@ -1,5 +1,4 @@
 #include <chrono>
-#include <expected>
 #include <ftxui/dom/elements.hpp>
 #include <ftxui/screen/color.hpp>
 #include <ftxui/screen/screen.hpp>
@@ -22,7 +21,7 @@ constexpr u64 GIB = 1'073'741'824;
 
 template <>
 struct std::formatter<BytesToGiB> : std::formatter<double> {
-  auto format(const BytesToGiB& BTG, auto& ctx) const {
+  fn format(const BytesToGiB& BTG, auto& ctx) const {
     return std::format_to(ctx.out(), "{:.2f}GiB", static_cast<f64>(BTG.value) / GIB);
   }
 };
@@ -30,7 +29,7 @@ struct std::formatter<BytesToGiB> : std::formatter<double> {
 namespace ui {
   using ftxui::Color;
 
-  constexpr int MAX_PARAGRAPH_LENGTH = 30;
+  constexpr i32 MAX_PARAGRAPH_LENGTH = 30;
 
   // Color themes
   struct Theme {
@@ -101,7 +100,7 @@ namespace ui {
 
 namespace {
   template <typename T, typename E, typename ValueFunc, typename ErrorFunc>
-  fn expected_visit(const std::expected<T, E>& exp, ValueFunc value_func, ErrorFunc error_func) {
+  fn visit_result(const Result<T, E>& exp, ValueFunc value_func, ErrorFunc error_func) {
     if (exp.has_value())
       return value_func(*exp);
 
@@ -117,7 +116,7 @@ namespace {
 
     u32 day = static_cast<u32>(ymd.day());
 
-    const char* suffix = static_cast<const char*>(
+    CStr suffix = static_cast<CStr>(
       (day >= 11 && day <= 13) ? "th"
       : (day % 10 == 1)        ? "st"
       : (day % 10 == 2)        ? "nd"
@@ -129,18 +128,18 @@ namespace {
   }
 
   struct SystemData {
-    String                                                date;
-    String                                                host;
-    String                                                kernel_version;
-    std::expected<String, String>                         os_version;
-    std::expected<u64, String>                            mem_info;
-    std::optional<String>                                 desktop_environment;
-    String                                                window_manager;
-    std::optional<std::expected<String, NowPlayingError>> now_playing;
-    std::optional<WeatherOutput>                          weather_info;
-    u64                                                   disk_used;
-    u64                                                   disk_total;
-    String                                                shell;
+    String                                  date;
+    String                                  host;
+    String                                  kernel_version;
+    Result<String, String>                  os_version;
+    Result<u64, String>                     mem_info;
+    Option<String>                          desktop_environment;
+    String                                  window_manager;
+    Option<Result<String, NowPlayingError>> now_playing;
+    Option<WeatherOutput>                   weather_info;
+    u64                                     disk_used;
+    u64                                     disk_total;
+    String                                  shell;
 
     static fn fetchSystemData(const Config& config) -> SystemData {
       SystemData data;
@@ -163,8 +162,8 @@ namespace {
       });
 
       // Conditional tasks
-      std::future<WeatherOutput>                          weather;
-      std::future<std::expected<String, NowPlayingError>> nowPlaying;
+      std::future<WeatherOutput>                   weather;
+      std::future<Result<String, NowPlayingError>> nowPlaying;
 
       if (config.weather.enabled)
         weather = std::async(std::launch::async, [&config] { return config.weather.getWeatherInfo(); });
@@ -191,7 +190,7 @@ namespace {
 
   fn CreateColorCircles() -> Element {
     return hbox(
-      std::views::iota(0, 16) | std::views::transform([](int colorIndex) {
+      std::views::iota(0, 16) | std::views::transform([](i32 colorIndex) {
         return hbox({ text("◯") | bold | color(static_cast<Color::Palette256>(colorIndex)), text(" ") });
       }) |
       std::ranges::to<Elements>()
@@ -224,7 +223,7 @@ namespace {
       return hbox(
         {
           text(String(icon)) | color(ui::DEFAULT_THEME.icon),
-          text(String(static_cast<const char*>(label))) | color(ui::DEFAULT_THEME.label),
+          text(String(static_cast<CStr>(label))) | color(ui::DEFAULT_THEME.label),
           filler(),
           text(String(value)) | color(ui::DEFAULT_THEME.value),
           text(" "),
@@ -283,13 +282,13 @@ namespace {
     if (!data.kernel_version.empty())
       content.push_back(createRow(kernelIcon, "Kernel", data.kernel_version));
 
-    expected_visit(
+    visit_result(
       data.os_version,
       [&](const String& version) { content.push_back(createRow(String(osIcon), "OS", version)); },
       [](const String& error) { ERROR_LOG("Failed to get OS version: {}", error); }
     );
 
-    expected_visit(
+    visit_result(
       data.mem_info,
       [&](const u64& mem) { content.push_back(createRow(memoryIcon, "RAM", std::format("{}", BytesToGiB { mem }))); },
       [](const String& error) { ERROR_LOG("Failed to get memory info: {}", error); }
@@ -312,8 +311,7 @@ namespace {
 
     // Now Playing row
     if (nowPlayingEnabled && data.now_playing.has_value()) {
-      if (const std::expected<String, NowPlayingError>& nowPlayingResult = *data.now_playing;
-          nowPlayingResult.has_value()) {
+      if (const Result<String, NowPlayingError>& nowPlayingResult = *data.now_playing; nowPlayingResult.has_value()) {
         const String& npText = *nowPlayingResult;
 
         content.push_back(separator() | color(ui::DEFAULT_THEME.border));
@@ -345,19 +343,12 @@ namespace {
 #pragma clang diagnostic pop
           }
 
-#ifdef __linux__
-        if (std::holds_alternative<LinuxError>(error))
-          DEBUG_LOG("DBus error: {}", std::get<LinuxError>(error));
-#endif
-
 #ifdef _WIN32
         if (std::holds_alternative<WindowsError>(error))
           DEBUG_LOG("WinRT error: {}", to_string(std::get<WindowsError>(error).message()));
-#endif
-
-#ifdef __APPLE__
-        if (std::holds_alternative<MacError>(error))
-          DEBUG_LOG("CoreAudio error: {}", std::get<MacError>(error));
+#else
+        if (std::holds_alternative<String>(error))
+          DEBUG_LOG("NowPlaying error: {}", std::get<String>(error));
 #endif
       }
     }

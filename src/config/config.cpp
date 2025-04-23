@@ -11,26 +11,26 @@ namespace fs = std::filesystem;
 
 namespace {
   fn GetConfigPath() -> fs::path {
-    std::vector<fs::path> possiblePaths;
+    Vec<fs::path> possiblePaths;
 
 #ifdef _WIN32
-    if (auto result = GetEnv("LOCALAPPDATA"); result)
+    if (auto result = GetEnv("LOCALAPPDATA"))
       possiblePaths.push_back(fs::path(*result) / "draconis++" / "config.toml");
 
-    if (auto result = GetEnv("USERPROFILE"); result) {
+    if (auto result = GetEnv("USERPROFILE")) {
       possiblePaths.push_back(fs::path(*result) / ".config" / "draconis++" / "config.toml");
       possiblePaths.push_back(fs::path(*result) / "AppData" / "Local" / "draconis++" / "config.toml");
     }
 
-    if (auto result = GetEnv("APPDATA"); result)
+    if (auto result = GetEnv("APPDATA"))
       possiblePaths.push_back(fs::path(*result) / "draconis++" / "config.toml");
 
     possiblePaths.push_back(fs::path(".") / "config.toml");
 #else
-    if (auto result = GetEnv("XDG_CONFIG_HOME"); result)
+    if (Result<String, EnvError> result = GetEnv("XDG_CONFIG_HOME"))
       possiblePaths.emplace_back(fs::path(*result) / "draconis++" / "config.toml");
 
-    if (auto result = GetEnv("HOME"); result) {
+    if (Result<String, EnvError> result = GetEnv("HOME")) {
       possiblePaths.emplace_back(fs::path(*result) / ".config" / "draconis++" / "config.toml");
       possiblePaths.emplace_back(fs::path(*result) / ".draconis++" / "config.toml");
     }
@@ -38,7 +38,7 @@ namespace {
     possiblePaths.emplace_back("/etc/draconis++/config.toml");
 #endif
 
-    for (const auto& path : possiblePaths)
+    for (const fs::path& path : possiblePaths)
       if (std::error_code errc; exists(path, errc) && !errc)
         return path;
 
@@ -68,18 +68,20 @@ namespace {
 
       toml::table root;
 
-      String defaultName;
 #ifdef _WIN32
-      std::array<char, 256> username;
-      DWORD                 size = sizeof(username);
-      defaultName                = GetUserNameA(username.data(), &size) ? username.data() : "User";
+      Array<char, 256> username;
+
+      DWORD size = sizeof(username);
+
+      String defaultName = GetUserNameA(username.data(), &size) ? username.data() : "User";
 #else
-      if (struct passwd* pwd = getpwuid(getuid()); pwd)
-        defaultName = pwd->pw_name;
-      else if (const char* envUser = getenv("USER"))
-        defaultName = envUser;
-      else
-        defaultName = "User";
+      const struct passwd* pwd     = getpwuid(getuid());
+      CStr                 pwdName = pwd ? pwd->pw_name : nullptr;
+
+      const Result<String, EnvError> envUser    = GetEnv("USER");
+      const Result<String, EnvError> envLogname = GetEnv("LOGNAME");
+
+      String defaultName = (pwdName) ? pwdName : (envUser) ? *envUser : (envLogname) ? *envLogname : "User";
 #endif
 
       toml::table* general = root.insert("general", toml::table {}).first->second.as_table();

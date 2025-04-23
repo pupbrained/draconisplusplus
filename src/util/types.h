@@ -1,10 +1,17 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <expected>
+#include <map>
+#include <memory>
+#include <optional>
 #include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 #ifdef _WIN32
 // ReSharper disable once CppUnusedIncludeDirective
@@ -131,10 +138,100 @@ using usize = std::size_t;
 using isize = std::ptrdiff_t;
 
 /**
- * @typedef string
+ * @typedef String
  * @brief Represents a string.
  */
 using String = std::string;
+
+/**
+ * @typedef StringView
+ * @brief Represents a string view.
+ *
+ * This type alias is used for non-owning views of strings, allowing for efficient string manipulation
+ * without copying the underlying data.
+ */
+using StringView = std::string_view;
+
+/**
+ * @typedef Exception
+ * @brief Represents a generic exception type.
+ */
+using Exception = std::exception;
+
+/**
+ * @typedef Expected
+ * @brief Represents an expected value or an error.
+ */
+template <typename Tp, typename Er>
+using Result = std::expected<Tp, Er>;
+
+/**
+ * @typedef Unexpected
+ * @brief Represents an unexpected error.
+ */
+template <typename Er>
+using Err = std::unexpected<Er>;
+
+/**
+ * @typedef Optional
+ * @brief Represents an optional value.
+ */
+template <typename Tp>
+using Option = std::optional<Tp>;
+
+/**
+ * @typedef Array
+ * @brief Represents a fixed-size array.
+ */
+template <typename Tp, std::size_t nm>
+using Array = std::array<Tp, nm>;
+
+/**
+ * @typedef Vec
+ * @brief Represents a dynamic array (vector).
+ */
+template <typename Tp>
+using Vec = std::vector<Tp>;
+
+/**
+ * @typedef Pair
+ * @brief Represents a pair of values.
+ */
+template <typename T1, typename T2>
+using Pair = std::pair<T1, T2>;
+
+/**
+ * @typedef Map
+ * @brief Represents a map (dictionary) of key-value pairs.
+ */
+template <typename Key, typename Val>
+using Map = std::map<Key, Val>;
+
+/**
+ * @typedef SharedPointer
+ * @brief Represents a shared pointer.
+ *
+ * This type alias is used for shared ownership of dynamically allocated objects.
+ */
+template <typename Tp>
+using SharedPointer = std::shared_ptr<Tp>;
+
+/**
+ * @typedef UniquePointer
+ * @brief Represents a unique pointer.
+ *
+ * This type alias is used for unique ownership of dynamically allocated objects.
+ */
+template <typename Tp, typename Dp>
+using UniquePointer = std::unique_ptr<Tp, Dp>;
+
+/**
+ * @typedef CStr
+ * @brief Represents a C string (const char*).
+ *
+ * This type alias is used for C-style strings, which are null-terminated arrays of characters.
+ */
+using CStr = const char*;
 
 /**
  * @enum NowPlayingCode
@@ -145,20 +242,7 @@ enum class NowPlayingCode : u8 {
   NoActivePlayer,
 };
 
-// Platform-specific error details
-#ifdef __linux__
-/**
- * @typedef LinuxError
- * @brief Represents a Linux-specific error.
- */
-using LinuxError = String;
-#elif defined(__APPLE__)
-/**
- * @typedef MacError
- * @brief Represents a macOS-specific error.
- */
-using MacError = String;
-#elif defined(_WIN32)
+#ifdef _WIN32
 /**
  * @typedef WindowsError
  * @brief Represents a Windows-specific error.
@@ -169,18 +253,16 @@ using WindowsError = winrt::hresult_error;
 // Unified error type
 using NowPlayingError = std::variant<
   NowPlayingCode,
-#ifdef __linux__
-  LinuxError
-#elif defined(__APPLE__)
-  MacError
-#elif defined(_WIN32)
+#ifdef _WIN32
   WindowsError
+#else
+  String
 #endif
   >;
 
 enum class EnvError : u8 { NotFound, AccessError };
 
-inline auto GetEnv(const String& name) -> std::expected<String, EnvError> {
+inline auto GetEnv(const String& name) -> Result<String, EnvError> {
 #ifdef _WIN32
   char*  rawPtr     = nullptr;
   size_t bufferSize = 0;
@@ -195,9 +277,10 @@ inline auto GetEnv(const String& name) -> std::expected<String, EnvError> {
   free(rawPtr);
   return result;
 #else
-  const char* value = std::getenv(name.c_str());
+  CStr value = std::getenv(name.c_str());
+
   if (!value)
-    return std::unexpected(EnvError::NotFound);
+    return Err(EnvError::NotFound);
 
   return String(value);
 #endif

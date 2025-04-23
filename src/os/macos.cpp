@@ -1,6 +1,5 @@
 #ifdef __APPLE__
 
-#include <expected>
 #include <flat_map>
 #include <span>
 #include <sys/statvfs.h>
@@ -10,21 +9,21 @@
 #include "os.h"
 #include "src/util/types.h"
 
-fn GetMemInfo() -> expected<u64, String> {
+fn GetMemInfo() -> Result<u64, String> {
   u64   mem  = 0;
   usize size = sizeof(mem);
 
   if (sysctlbyname("hw.memsize", &mem, &size, nullptr, 0) == -1)
-    return std::unexpected(std::format("sysctlbyname failed: {}", strerror(errno)));
+    return Err(std::format("sysctlbyname failed: {}", strerror(errno)));
 
   return mem;
 }
 
-fn GetNowPlaying() -> expected<String, NowPlayingError> { return GetCurrentPlayingInfo(); }
+fn GetNowPlaying() -> Result<String, NowPlayingError> { return GetCurrentPlayingInfo(); }
 
-fn GetOSVersion() -> expected<String, String> { return GetMacOSVersion(); }
+fn GetOSVersion() -> Result<String, String> { return GetMacOSVersion(); }
 
-fn GetDesktopEnvironment() -> optional<String> { return std::nullopt; }
+fn GetDesktopEnvironment() -> Option<String> { return None; }
 
 fn GetWindowManager() -> String { return "Yabai"; }
 
@@ -196,7 +195,6 @@ fn GetHost() -> String {
   return String(modelNameByHwModel[hwModel.data()]);
 }
 
-// returns free/total
 fn GetDiskUsage() -> std::pair<u64, u64> {
   struct statvfs vfs;
 

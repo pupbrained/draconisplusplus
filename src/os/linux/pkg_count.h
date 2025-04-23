@@ -2,37 +2,35 @@
 
 #include "src/util/macros.h"
 
-using std::optional;
-
 // Get package count from dpkg (Debian/Ubuntu)
-fn GetDpkgPackageCount() -> optional<usize>;
+fn GetDpkgPackageCount() -> Option<usize>;
 
 // Get package count from RPM (Red Hat/Fedora/CentOS)
-fn GetRpmPackageCount() -> std::optional<usize>;
+fn GetRpmPackageCount() -> Option<usize>;
 
 // Get package count from pacman (Arch Linux)
-fn GetPacmanPackageCount() -> std::optional<usize>;
+fn GetPacmanPackageCount() -> Option<usize>;
 
 // Get package count from Portage (Gentoo)
-fn GetPortagePackageCount() -> std::optional<usize>;
+fn GetPortagePackageCount() -> Option<usize>;
 
 // Get package count from zypper (openSUSE)
-fn GetZypperPackageCount() -> std::optional<usize>;
+fn GetZypperPackageCount() -> Option<usize>;
 
 // Get package count from apk (Alpine)
-fn GetApkPackageCount() -> std::optional<usize>;
+fn GetApkPackageCount() -> Option<usize>;
 
 // Get package count from nix
-fn GetNixPackageCount() -> std::optional<usize>;
+fn GetNixPackageCount() -> Option<usize>;
 
 // Get package count from flatpak
-fn GetFlatpakPackageCount() -> std::optional<usize>;
+fn GetFlatpakPackageCount() -> Option<usize>;
 
 // Get package count from snap
-fn GetSnapPackageCount() -> std::optional<usize>;
+fn GetSnapPackageCount() -> Option<usize>;
 
 // Get package count from AppImage
-fn GetAppimagePackageCount() -> std::optional<usize>;
+fn GetAppimagePackageCount() -> Option<usize>;
 
 // Get total package count from all available package managers
-fn GetTotalPackageCount() -> std::optional<usize>;
+fn GetTotalPackageCount() -> Option<usize>;

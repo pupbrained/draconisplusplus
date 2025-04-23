@@ -87,8 +87,7 @@ add_project_arguments(common_cpp_args, language: 'cpp')
 base_sources = files('src/config/config.cpp', 'src/config/weather.cpp', 'src/main.cpp')
 
 platform_sources = {
-  'linux': ['src/os/linux.cpp', 'src/os/linux/issetugid_stub.cpp'],
-  'freebsd': ['src/os/freebsd.cpp'],
+  'linux': ['src/os/linux.cpp', 'src/os/linux/issetugid_stub.cpp', 'src/os/linux/display_guards.cpp'],
   'darwin': ['src/os/macos.cpp', 'src/os/macos/bridge.mm'],
   'windows': ['src/os/windows.cpp'],
 }
@@ -121,7 +120,7 @@ elif host_system == 'windows'
     cpp.find_library('dwmapi'),
     cpp.find_library('windowsapp'),
   ]
-elif host_system == 'linux' or host_system == 'freebsd'
+elif host_system == 'linux'
   platform_deps += [
     dependency('SQLiteCpp'),
     dependency('x11'),
