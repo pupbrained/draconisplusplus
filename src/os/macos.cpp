@@ -9,7 +9,7 @@
 #include "os.h"
 #include "src/util/types.h"
 
-fn GetMemInfo() -> Result<u64, String> {
+fn os::GetMemInfo() -> Result<u64, String> {
   u64   mem  = 0;
   usize size = sizeof(mem);
 
@@ -19,15 +19,15 @@ fn GetMemInfo() -> Result<u64, String> {
   return mem;
 }
 
-fn GetNowPlaying() -> Result<String, NowPlayingError> { return GetCurrentPlayingInfo(); }
+fn os::GetNowPlaying() -> Result<String, NowPlayingError> { return GetCurrentPlayingInfo(); }
 
-fn GetOSVersion() -> Result<String, String> { return GetMacOSVersion(); }
+fn os::GetOSVersion() -> Result<String, String> { return GetMacOSVersion(); }
 
-fn GetDesktopEnvironment() -> Option<String> { return None; }
+fn os::GetDesktopEnvironment() -> Option<String> { return None; }
 
-fn GetWindowManager() -> String { return "Yabai"; }
+fn os::GetWindowManager() -> String { return "Yabai"; }
 
-fn GetKernelVersion() -> String {
+fn os::GetKernelVersion() -> String {
   std::array<char, 256> kernelVersion {};
   usize                 kernelVersionLen = sizeof(kernelVersion);
 
@@ -35,7 +35,7 @@ fn GetKernelVersion() -> String {
   return kernelVersion.data();
 }
 
-fn GetHost() -> String {
+fn os::GetHost() -> String {
   std::array<char, 256> hwModel {};
   size_t                hwModelLen = sizeof(hwModel);
 
@@ -195,7 +195,7 @@ fn GetHost() -> String {
   return String(modelNameByHwModel[hwModel.data()]);
 }
 
-fn GetDiskUsage() -> std::pair<u64, u64> {
+fn os::GetDiskUsage() -> std::pair<u64, u64> {
   struct statvfs vfs;
 
   if (statvfs("/", &vfs) != 0)
@@ -204,6 +204,6 @@ fn GetDiskUsage() -> std::pair<u64, u64> {
   return { (vfs.f_blocks - vfs.f_bfree) * vfs.f_frsize, vfs.f_blocks * vfs.f_frsize };
 }
 
-fn GetShell() -> String { return ""; }
+fn os::GetShell() -> String { return ""; }
 
 #endif

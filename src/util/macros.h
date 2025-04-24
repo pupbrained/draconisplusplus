@@ -28,24 +28,26 @@ namespace term {
     return static_cast<Emphasis>(static_cast<int>(emphA) | static_cast<int>(emphB));
   }
 
+  // clang-format off
   enum class Color : u8 {
-    black          = 30,
-    red            = 31,
-    green          = 32,
-    yellow         = 33,
-    blue           = 34,
-    magenta        = 35,
-    cyan           = 36,
-    white          = 37,
-    bright_black   = 90,
-    bright_red     = 91,
-    bright_green   = 92,
-    bright_yellow  = 93,
-    bright_blue    = 94,
-    bright_magenta = 95,
-    bright_cyan    = 96,
-    bright_white   = 97
+    black          [[maybe_unused]] = 30,
+    red            [[maybe_unused]] = 31,
+    green          [[maybe_unused]] = 32,
+    yellow         [[maybe_unused]] = 33,
+    blue           [[maybe_unused]] = 34,
+    magenta        [[maybe_unused]] = 35,
+    cyan           [[maybe_unused]] = 36,
+    white          [[maybe_unused]] = 37,
+    bright_black   [[maybe_unused]] = 90,
+    bright_red     [[maybe_unused]] = 91,
+    bright_green   [[maybe_unused]] = 92,
+    bright_yellow  [[maybe_unused]] = 93,
+    bright_blue    [[maybe_unused]] = 94,
+    bright_magenta [[maybe_unused]] = 95,
+    bright_cyan    [[maybe_unused]] = 96,
+    bright_white   [[maybe_unused]] = 97
   };
+  // clang-format on
 
   struct FgColor {
     Color col;

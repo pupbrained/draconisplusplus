@@ -9,6 +9,7 @@ project(
     'default_library=static',
     'buildtype=debugoptimized',
     'b_vscrt=mt',
+    'b_lto=true',
     'warning_level=3',
   ],
 )
@@ -24,6 +25,7 @@ common_warning_flags = [
   '-Wno-c++20-extensions',
   '-Wno-c++98-compat',
   '-Wno-c++98-compat-pedantic',
+  '-Wno-covered-switch-default',
   '-Wno-disabled-macro-expansion',
   '-Wno-missing-prototypes',
   '-Wno-padded',

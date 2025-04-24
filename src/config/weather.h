@@ -8,7 +8,7 @@
 struct Condition {
   String description;
 
-  struct glaze {
+  struct [[maybe_unused]] glaze {
     using T = Condition;
 
     static constexpr glz::detail::Object value = glz::object("description", &T::description);
@@ -18,7 +18,7 @@ struct Condition {
 struct Main {
   f64 temp;
 
-  struct glaze {
+  struct [[maybe_unused]] glaze {
     using T = Main;
 
     static constexpr glz::detail::Object value = glz::object("temp", &T::temp);
@@ -36,7 +36,7 @@ struct WeatherOutput {
   Vec<Condition> weather;
   usize          dt;
 
-  struct glaze {
+  struct [[maybe_unused]] glaze {
     using T = WeatherOutput;
 
     static constexpr glz::detail::Object value =

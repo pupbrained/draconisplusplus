@@ -34,6 +34,11 @@ fn SystemData::fetchSystemData(const Config& config) -> SystemData {
     .mem_info            = os::GetMemInfo(),
     .desktop_environment = os::GetDesktopEnvironment(),
     .window_manager      = os::GetWindowManager(),
+    .now_playing         = {},
+    .weather_info        = {},
+    .disk_used           = {},
+    .disk_total          = {},
+    .shell               = {},
   };
 
   auto diskShell = std::async(std::launch::async, [] {

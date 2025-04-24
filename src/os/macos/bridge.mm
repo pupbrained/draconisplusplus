@@ -95,15 +95,15 @@ extern "C++" {
         return;
       }
 
-      NSDictionary* metadata = *metadataResult;
+      const NSDictionary* const metadata = *metadataResult;
       if (!metadata) {
         result = std::unexpected(NowPlayingError { NowPlayingCode::NoPlayers });
         dispatch_semaphore_signal(semaphore);
         return;
       }
 
-      NSString* title  = metadata[@"kMRMediaRemoteNowPlayingInfoTitle"];
-      NSString* artist = metadata[@"kMRMediaRemoteNowPlayingInfoArtist"];
+      const NSString* const title  = metadata[@"kMRMediaRemoteNowPlayingInfoTitle"];
+      const NSString* const artist = metadata[@"kMRMediaRemoteNowPlayingInfoArtist"];
 
       if (!title && !artist)
         result = std::unexpected(NowPlayingError { "No metadata" });
