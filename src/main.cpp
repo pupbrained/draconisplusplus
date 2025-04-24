@@ -8,23 +8,10 @@
 #include <variant>
 
 #include "config/config.h"
+#include "core/system_data.h"
 #include "os/os.h"
 
 constexpr inline bool SHOW_ICONS = true;
-
-struct BytesToGiB {
-  u64 value;
-};
-
-// 1024^3 (size of 1 GiB)
-constexpr u64 GIB = 1'073'741'824;
-
-template <>
-struct std::formatter<BytesToGiB> : std::formatter<double> {
-  fn format(const BytesToGiB& BTG, auto& ctx) const {
-    return std::format_to(ctx.out(), "{:.2f}GiB", static_cast<f64>(BTG.value) / GIB);
-  }
-};
 
 namespace ui {
   using ftxui::Color;
@@ -99,93 +86,6 @@ namespace ui {
 }
 
 namespace {
-  template <typename T, typename E, typename ValueFunc, typename ErrorFunc>
-  fn visit_result(const Result<T, E>& exp, ValueFunc value_func, ErrorFunc error_func) {
-    if (exp.has_value())
-      return value_func(*exp);
-
-    return error_func(exp.error());
-  }
-
-  fn GetDate() -> String {
-    using namespace std::chrono;
-
-    const year_month_day ymd = year_month_day { floor<days>(system_clock::now()) };
-
-    String month = std::format("{:%B}", ymd);
-
-    u32 day = static_cast<u32>(ymd.day());
-
-    CStr suffix = static_cast<CStr>(
-      (day >= 11 && day <= 13) ? "th"
-      : (day % 10 == 1)        ? "st"
-      : (day % 10 == 2)        ? "nd"
-      : (day % 10 == 3)        ? "rd"
-                               : "th"
-    );
-
-    return std::format("{} {}{}", month, day, suffix);
-  }
-
-  struct SystemData {
-    String                                  date;
-    String                                  host;
-    String                                  kernel_version;
-    Result<String, String>                  os_version;
-    Result<u64, String>                     mem_info;
-    Option<String>                          desktop_environment;
-    String                                  window_manager;
-    Option<Result<String, NowPlayingError>> now_playing;
-    Option<WeatherOutput>                   weather_info;
-    u64                                     disk_used;
-    u64                                     disk_total;
-    String                                  shell;
-
-    static fn fetchSystemData(const Config& config) -> SystemData {
-      SystemData data;
-
-      // Single-threaded execution for core system info (faster on Windows)
-      data.date           = GetDate();
-      data.host           = os::GetHost();
-      data.kernel_version = os::GetKernelVersion();
-      data.os_version     = os::GetOSVersion();
-      data.mem_info       = os::GetMemInfo();
-
-      // Desktop environment info
-      data.desktop_environment = os::GetDesktopEnvironment();
-      data.window_manager      = os::GetWindowManager();
-
-      // Parallel execution for disk/shell only
-      auto diskShell = std::async(std::launch::async, [] {
-        auto [used, total] = os::GetDiskUsage();
-        return std::make_tuple(used, total, os::GetShell());
-      });
-
-      // Conditional tasks
-      std::future<WeatherOutput>                   weather;
-      std::future<Result<String, NowPlayingError>> nowPlaying;
-
-      if (config.weather.enabled)
-        weather = std::async(std::launch::async, [&config] { return config.weather.getWeatherInfo(); });
-
-      if (config.now_playing.enabled)
-        nowPlaying = std::async(std::launch::async, os::GetNowPlaying);
-
-      // Get remaining results
-      auto [used, total, shell] = diskShell.get();
-      data.disk_used            = used;
-      data.disk_total           = total;
-      data.shell                = shell;
-
-      if (weather.valid())
-        data.weather_info = weather.get();
-      if (nowPlaying.valid())
-        data.now_playing = nowPlaying.get();
-
-      return data;
-    }
-  };
-
   using namespace ftxui;
 
   fn CreateColorCircles() -> Element {
@@ -198,12 +98,12 @@ namespace {
   }
 
   fn SystemInfoBox(const Config& config, const SystemData& data) -> Element {
-    // Fetch data
     const String& name              = config.general.name;
     const Weather weather           = config.weather;
     const bool    nowPlayingEnabled = config.now_playing.enabled;
 
     const auto& [userIcon, paletteIcon, calendarIcon, hostIcon, kernelIcon, osIcon, memoryIcon, weatherIcon, musicIcon, diskIcon, shellIcon, deIcon, wmIcon] =
+      // ReSharper disable once CppDFAUnreachableCode
       SHOW_ICONS ? ui::NERD_ICONS : ui::EMPTY_ICONS;
 
     Elements content;
@@ -282,17 +182,15 @@ namespace {
     if (!data.kernel_version.empty())
       content.push_back(createRow(kernelIcon, "Kernel", data.kernel_version));
 
-    visit_result(
-      data.os_version,
-      [&](const String& version) { content.push_back(createRow(String(osIcon), "OS", version)); },
-      [](const String& error) { ERROR_LOG("Failed to get OS version: {}", error); }
-    );
+    if (data.os_version)
+      content.push_back(createRow(String(osIcon), "OS", *data.os_version));
+    else
+      ERROR_LOG("Failed to get OS version: {}", data.os_version.error());
 
-    visit_result(
-      data.mem_info,
-      [&](const u64& mem) { content.push_back(createRow(memoryIcon, "RAM", std::format("{}", BytesToGiB { mem }))); },
-      [](const String& error) { ERROR_LOG("Failed to get memory info: {}", error); }
-    );
+    if (data.mem_info)
+      content.push_back(createRow(memoryIcon, "RAM", std::format("{}", BytesToGiB { *data.mem_info })));
+    else
+      ERROR_LOG("Failed to get memory info: {}", data.mem_info.error());
 
     // Add Disk usage row
     content.push_back(
@@ -303,14 +201,14 @@ namespace {
 
     content.push_back(separator() | color(ui::DEFAULT_THEME.border));
 
-    if (data.desktop_environment.has_value() && *data.desktop_environment != data.window_manager)
+    if (data.desktop_environment && *data.desktop_environment != data.window_manager)
       content.push_back(createRow(deIcon, "DE", *data.desktop_environment));
 
     if (!data.window_manager.empty())
       content.push_back(createRow(wmIcon, "WM", data.window_manager));
 
     // Now Playing row
-    if (nowPlayingEnabled && data.now_playing.has_value()) {
+    if (nowPlayingEnabled && data.now_playing) {
       if (const Result<String, NowPlayingError>& nowPlayingResult = *data.now_playing; nowPlayingResult.has_value()) {
         const String& npText = *nowPlayingResult;
 

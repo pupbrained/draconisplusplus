@@ -6,6 +6,7 @@
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
 #include <fstream>
+#include <ranges>
 #include <sys/socket.h>
 #include <sys/statvfs.h>
 #include <sys/sysinfo.h>
@@ -18,28 +19,39 @@
 #include "src/util/macros.h"
 
 namespace fs = std::filesystem;
+using namespace std::string_view_literals;
 
 namespace {
   using os::linux::DisplayGuard;
   using os::linux::WaylandDisplayGuard;
 
+  constexpr auto Trim(StringView sv) -> StringView {
+    using namespace std::ranges;
+
+    constexpr auto isSpace = [](const char character) { return std::isspace(static_cast<unsigned char>(character)); };
+
+    const borrowed_iterator_t<StringView&>              start  = find_if_not(sv, isSpace);
+    const borrowed_iterator_t<reverse_view<StringView>> rstart = find_if_not(sv | views::reverse, isSpace);
+
+    return sv.substr(start - sv.begin(), sv.size() - (rstart - sv.rbegin()));
+  }
+
   fn GetX11WindowManager() -> String {
-    DisplayGuard display;
+    const DisplayGuard display;
 
     if (!display)
       return "";
 
-    Atom supportingWmCheck = XInternAtom(display.get(), "_NET_SUPPORTING_WM_CHECK", False);
-    Atom wmName            = XInternAtom(display.get(), "_NET_WM_NAME", False);
-    Atom utf8String        = XInternAtom(display.get(), "UTF8_STRING", False);
+    const Atom supportingWmCheck = XInternAtom(display.get(), "_NET_SUPPORTING_WM_CHECK", False);
+    const Atom wmName            = XInternAtom(display.get(), "_NET_WM_NAME", False);
+    const Atom utf8String        = XInternAtom(display.get(), "UTF8_STRING", False);
 
-    Window root = display.defaultRootWindow();
+    const Window root = display.defaultRootWindow();
 
-    Window wmWindow     = 0;
-    Atom   actualType   = 0;
-    i32    actualFormat = 0;
-    u64    nitems = 0, bytesAfter = 0;
-    u8*    data = nullptr;
+    Atom actualType   = 0;
+    i32  actualFormat = 0;
+    u64  nitems = 0, bytesAfter = 0;
+    u8*  data = nullptr;
 
     if (XGetWindowProperty(
           display.get(),
@@ -56,14 +68,13 @@ namespace {
           &data
         ) == Success &&
         data) {
-      UniquePointer<u8, decltype(&XFree)> dataGuard(data, XFree);
-      wmWindow = *std::bit_cast<Window*>(data);
+      const UniquePointer<u8, decltype(&XFree)> dataGuard(data, XFree);
 
       u8* nameData = nullptr;
 
       if (XGetWindowProperty(
             display.get(),
-            wmWindow,
+            *reinterpret_cast<Window*>(data),
             wmName,
             0,
             1024,
@@ -76,19 +87,18 @@ namespace {
             &nameData
           ) == Success &&
           nameData) {
-        UniquePointer<u8, decltype(&XFree)> nameGuard(nameData, XFree);
-        return std::bit_cast<char*>(nameData);
+        const UniquePointer<u8, decltype(&XFree)> nameGuard(nameData, XFree);
+        return reinterpret_cast<char*>(nameData);
       }
     }
 
     return "Unknown (X11)";
   }
 
-  fn ReadProcessCmdline(i32 pid) -> String {
+  fn ReadProcessCmdline(const i32 pid) -> String {
     std::ifstream cmdlineFile("/proc/" + std::to_string(pid) + "/cmdline");
-    String        cmdline;
 
-    if (getline(cmdlineFile, cmdline)) {
+    if (String cmdline; getline(cmdlineFile, cmdline)) {
       std::ranges::replace(cmdline, '\0', ' ');
       return cmdline;
     }
@@ -96,75 +106,66 @@ namespace {
     return "";
   }
 
-  fn DetectHyprlandSpecific() -> String {
-    Result<String, EnvError> xdgCurrentDesktop = GetEnv("XDG_CURRENT_DESKTOP");
+  fn DetectHyprlandSpecific() -> Option<String> {
+    if (Result<String, EnvError> xdgCurrentDesktop = GetEnv("XDG_CURRENT_DESKTOP")) {
+      std::ranges::transform(*xdgCurrentDesktop, xdgCurrentDesktop->begin(), tolower);
 
-    if (xdgCurrentDesktop) {
-      std::ranges::transform(*xdgCurrentDesktop, xdgCurrentDesktop->begin(), ::tolower);
-
-      if (xdgCurrentDesktop->contains("hyprland"))
+      if (xdgCurrentDesktop->contains("hyprland"sv))
         return "Hyprland";
     }
 
     if (GetEnv("HYPRLAND_INSTANCE_SIGNATURE"))
       return "Hyprland";
 
-    if (fs::exists("/run/user/" + std::to_string(getuid()) + "/hypr"))
+    if (fs::exists(std::format("/run/user/{}/hypr", getuid())))
       return "Hyprland";
 
-    return "";
+    return None;
   }
 
   fn GetWaylandCompositor() -> String {
-    String hypr = DetectHyprlandSpecific();
+    if (const Option<String> hypr = DetectHyprlandSpecific())
+      return *hypr;
 
-    if (!hypr.empty())
-      return hypr;
-
-    WaylandDisplayGuard display;
+    const WaylandDisplayGuard display;
 
     if (!display)
       return "";
 
-    i32 fileDescriptor = display.fd();
+    const i32 fileDescriptor = display.fd();
 
-    struct ucred cred;
-    socklen_t    len = sizeof(cred);
+    ucred cred;
+    u32   len = sizeof(cred);
 
     if (getsockopt(fileDescriptor, SOL_SOCKET, SO_PEERCRED, &cred, &len) == -1)
       return "";
 
     String compositorName;
 
-    String        commPath = "/proc/" + std::to_string(cred.pid) + "/comm";
-    std::ifstream commFile(commPath);
-    if (commFile >> compositorName) {
-      std::ranges::subrange removedRange = std::ranges::remove(compositorName, '\n');
+    const String commPath = std::format("/proc/{}/comm", cred.pid);
+    if (std::ifstream commFile(commPath); commFile >> compositorName) {
+      const std::ranges::subrange removedRange = std::ranges::remove(compositorName, '\n');
       compositorName.erase(removedRange.begin(), removedRange.end());
     }
 
-    String cmdline = ReadProcessCmdline(cred.pid);
-    if (cmdline.contains("hyprland"))
+    if (const String cmdline = ReadProcessCmdline(cred.pid); cmdline.contains("hyprland"sv))
       return "Hyprland";
 
-    String                exePath = "/proc/" + std::to_string(cred.pid) + "/exe";
+    const String exePath = std::format("/proc/{}/exe", cred.pid);
+
     Array<char, PATH_MAX> buf;
-    ssize_t               lenBuf = readlink(exePath.c_str(), buf.data(), buf.size() - 1);
-    if (lenBuf != -1) {
+    if (const isize lenBuf = readlink(exePath.c_str(), buf.data(), buf.size() - 1); lenBuf != -1) {
       buf.at(static_cast<usize>(lenBuf)) = '\0';
-      String exe(buf.data());
-      if (exe.contains("hyprland"))
+      if (const String exe(buf.data()); exe.contains("hyprland"sv))
         return "Hyprland";
     }
 
-    return compositorName.contains("hyprland") ? "Hyprland" : compositorName;
+    return compositorName.contains("hyprland"sv) ? "Hyprland" : compositorName;
   }
 
   fn DetectFromEnvVars() -> Option<String> {
     if (Result<String, EnvError> xdgCurrentDesktop = GetEnv("XDG_CURRENT_DESKTOP")) {
-      const size_t colon = xdgCurrentDesktop->find(':');
-
-      if (colon != String::npos)
+      if (const usize colon = xdgCurrentDesktop->find(':'); colon != String::npos)
         return xdgCurrentDesktop->substr(0, colon);
 
       return *xdgCurrentDesktop;
@@ -205,11 +206,11 @@ namespace {
           continue;
 
         String lowercaseStem = entry.path().stem().string();
-        std::ranges::transform(lowercaseStem, lowercaseStem.begin(), ::tolower);
+        std::ranges::transform(lowercaseStem, lowercaseStem.begin(), tolower);
 
-        for (const Pair pattern : DE_PATTERNS)
-          if (pattern.first == lowercaseStem)
-            return String(pattern.second);
+        for (const auto [fst, snd] : DE_PATTERNS)
+          if (fst == lowercaseStem)
+            return String(snd);
       }
     }
 
@@ -230,7 +231,7 @@ namespace {
     // clang-format on
 
     std::ifstream cmdline("/proc/self/environ");
-    String        envVars((std::istreambuf_iterator<char>(cmdline)), std::istreambuf_iterator<char>());
+    const String  envVars((std::istreambuf_iterator(cmdline)), std::istreambuf_iterator<char>());
 
     for (const auto& [process, deName] : processChecks)
       if (envVars.contains(process))
@@ -241,10 +242,10 @@ namespace {
 
   fn GetMprisPlayers(const SharedPointer<DBus::Connection>& connection) -> Result<Vec<String>, NowPlayingError> {
     try {
-      SharedPointer<DBus::CallMessage> call =
+      const SharedPointer<DBus::CallMessage> call =
         DBus::CallMessage::create("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "ListNames");
 
-      SharedPointer<DBus::Message> reply = connection->send_with_reply_blocking(call, 500);
+      const SharedPointer<DBus::Message> reply = connection->send_with_reply_blocking(call, 500);
 
       if (!reply) {
         ERROR_LOG("DBus timeout or null reply in ListNames");
@@ -257,7 +258,7 @@ namespace {
 
       Vec<String> mprisPlayers;
       for (const String& name : allNamesStd)
-        if (StringView(name).contains("org.mpris.MediaPlayer2"))
+        if (StringView(name).contains("org.mpris.MediaPlayer2"sv))
           mprisPlayers.emplace_back(name);
 
       return mprisPlayers;
@@ -269,10 +270,9 @@ namespace {
       return Err(e.what());
     }
   }
-
 }
 
-fn GetOSVersion() -> Result<String, String> {
+fn os::GetOSVersion() -> Result<String, String> {
   constexpr CStr path = "/etc/os-release";
 
   std::ifstream file(path);
@@ -298,22 +298,22 @@ fn GetOSVersion() -> Result<String, String> {
   return Err(std::format("PRETTY_NAME line not found in {}", path));
 }
 
-fn GetMemInfo() -> Result<u64, String> {
+fn os::GetMemInfo() -> Result<u64, String> {
   struct sysinfo info;
 
   if (sysinfo(&info) != 0)
     return Err(std::format("sysinfo failed: {}", std::error_code(errno, std::generic_category()).message()));
 
-  return static_cast<u64>(info.totalram * info.mem_unit);
+  return info.totalram * info.mem_unit;
 }
 
-fn GetNowPlaying() -> Result<String, NowPlayingError> {
+fn os::GetNowPlaying() -> Result<String, NowPlayingError> {
   try {
-    SharedPointer<DBus::Dispatcher> dispatcher = DBus::StandaloneDispatcher::create();
+    const SharedPointer<DBus::Dispatcher> dispatcher = DBus::StandaloneDispatcher::create();
     if (!dispatcher)
       return Err("Failed to create DBus dispatcher");
 
-    SharedPointer<DBus::Connection> connection = dispatcher->create_connection(DBus::BusType::SESSION);
+    const SharedPointer<DBus::Connection> connection = dispatcher->create_connection(DBus::BusType::SESSION);
     if (!connection)
       return Err("Failed to connect to session bus");
 
@@ -326,14 +326,14 @@ fn GetNowPlaying() -> Result<String, NowPlayingError> {
     if (mprisPlayers.empty())
       return Err(NowPlayingCode::NoPlayers);
 
-    String activePlayer = mprisPlayers.front();
+    const String activePlayer = mprisPlayers.front();
 
-    SharedPointer<DBus::CallMessage> metadataCall =
+    const SharedPointer<DBus::CallMessage> metadataCall =
       DBus::CallMessage::create(activePlayer, "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "Get");
 
-    (*metadataCall) << "org.mpris.MediaPlayer2.Player" << "Metadata";
+    *metadataCall << "org.mpris.MediaPlayer2.Player" << "Metadata";
 
-    SharedPointer<DBus::Message> metadataReply = connection->send_with_reply_blocking(metadataCall, 5000);
+    const SharedPointer<DBus::Message> metadataReply = connection->send_with_reply_blocking(metadataCall, 5000);
 
     String title;
     String artist;
@@ -347,12 +347,11 @@ fn GetNowPlaying() -> Result<String, NowPlayingError> {
         if (metadataVariant.type() == DBus::DataType::ARRAY) {
           Map<String, DBus::Variant> metadata = metadataVariant.to_map<String, DBus::Variant>();
 
-          auto titleIter = metadata.find("xesam:title");
-          if (titleIter != metadata.end() && titleIter->second.type() == DBus::DataType::STRING)
+          if (auto titleIter = metadata.find("xesam:title");
+              titleIter != metadata.end() && titleIter->second.type() == DBus::DataType::STRING)
             title = titleIter->second.to_string();
 
-          auto artistIter = metadata.find("xesam:artist");
-          if (artistIter != metadata.end()) {
+          if (auto artistIter = metadata.find("xesam:artist"); artistIter != metadata.end()) {
             if (artistIter->second.type() == DBus::DataType::ARRAY) {
               if (Vec<String> artists = artistIter->second.to_vector<String>(); !artists.empty())
                 artist = artists[0];
@@ -369,24 +368,24 @@ fn GetNowPlaying() -> Result<String, NowPlayingError> {
       } catch (const Exception& e) { ERROR_LOG("Error processing metadata reply: {}", e.what()); }
     }
 
-    return std::format("{}{}{}", artist, (!artist.empty() && !title.empty()) ? " - " : "", title);
+    return std::format("{}{}{}", artist, !artist.empty() && !title.empty() ? " - " : "", title);
   } catch (const DBus::Error& e) { return Err(std::format("DBus error: {}", e.what())); } catch (const Exception& e) {
     return Err(std::format("General error: {}", e.what()));
   }
 }
 
-fn GetWindowManager() -> String {
+fn os::GetWindowManager() -> String {
   const Result<String, EnvError> waylandDisplay = GetEnv("WAYLAND_DISPLAY");
-  const Result<String, EnvError> xdgSessionType = GetEnv("XDG_SESSION_TYPE");
 
-  if (waylandDisplay || (xdgSessionType && xdgSessionType->contains("wayland"))) {
+  if (const Result<String, EnvError> xdgSessionType = GetEnv("XDG_SESSION_TYPE");
+      waylandDisplay || (xdgSessionType && xdgSessionType->contains("wayland"sv))) {
     String compositor = GetWaylandCompositor();
     if (!compositor.empty())
       return compositor;
 
     if (const Result<String, EnvError> xdgCurrentDesktop = GetEnv("XDG_CURRENT_DESKTOP")) {
-      std::ranges::transform(compositor, compositor.begin(), ::tolower);
-      if (xdgCurrentDesktop->contains("hyprland"))
+      std::ranges::transform(compositor, compositor.begin(), tolower);
+      if (xdgCurrentDesktop->contains("hyprland"sv))
         return "Hyprland";
     }
   }
@@ -397,7 +396,7 @@ fn GetWindowManager() -> String {
   return "Unknown";
 }
 
-fn GetDesktopEnvironment() -> Option<String> {
+fn os::GetDesktopEnvironment() -> Option<String> {
   if (Option<String> desktopEnvironment = DetectFromEnvVars())
     return desktopEnvironment;
 
@@ -407,19 +406,21 @@ fn GetDesktopEnvironment() -> Option<String> {
   return DetectFromProcesses();
 }
 
-fn GetShell() -> String {
-  const Vec<Pair<String, String>> shellMap {
-    { "bash",    "Bash" },
-    {  "zsh",     "Zsh" },
-    { "fish",    "Fish" },
-    {   "nu", "Nushell" },
-    {   "sh",      "SH" }, // sh last because other shells contain "sh"
-  };
-
+fn os::GetShell() -> String {
   if (const Result<String, EnvError> shellPath = GetEnv("SHELL")) {
-    for (const auto& shellPair : shellMap)
-      if (shellPath->contains(shellPair.first))
-        return shellPair.second;
+    // clang-format off
+    constexpr Array<Pair<StringView, StringView>, 5> shellMap {{
+      { "bash",    "Bash" },
+      {  "zsh",     "Zsh" },
+      { "fish",    "Fish" },
+      {   "nu", "Nushell" },
+      {   "sh",      "SH" }, // sh last because other shells contain "sh"
+    }};
+    // clang-format on
+
+    for (const auto& [exe, name] : shellMap)
+      if (shellPath->contains(exe))
+        return String(name);
 
     return *shellPath; // fallback to the raw shell path
   }
@@ -427,7 +428,7 @@ fn GetShell() -> String {
   return "";
 }
 
-fn GetHost() -> String {
+fn os::GetHost() -> String {
   constexpr CStr path = "/sys/class/dmi/id/product_family";
 
   std::ifstream file(path);
@@ -444,21 +445,21 @@ fn GetHost() -> String {
     return "";
   }
 
-  return productFamily.erase(productFamily.find_last_not_of(" \t\n\r") + 1);
+  return String(Trim(productFamily));
 }
 
-fn GetKernelVersion() -> String {
-  struct utsname uts;
+fn os::GetKernelVersion() -> String {
+  utsname uts;
 
   if (uname(&uts) == -1) {
     ERROR_LOG("uname() failed: {}", std::error_code(errno, std::generic_category()).message());
     return "";
   }
 
-  return static_cast<CStr>(uts.release);
+  return uts.release;
 }
 
-fn GetDiskUsage() -> Pair<u64, u64> {
+fn os::GetDiskUsage() -> Pair<u64, u64> {
   struct statvfs stat;
 
   if (statvfs("/", &stat) == -1) {
@@ -466,7 +467,9 @@ fn GetDiskUsage() -> Pair<u64, u64> {
     return { 0, 0 };
   }
 
+  // ReSharper disable CppRedundantParentheses
   return { (stat.f_blocks * stat.f_frsize) - (stat.f_bfree * stat.f_frsize), stat.f_blocks * stat.f_frsize };
+  // ReSharper restore CppRedundantParentheses
 }
 
 #endif

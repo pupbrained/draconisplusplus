@@ -21,7 +21,7 @@ struct General {
     DWORD            size = sizeof(username);
     return GetUserNameA(username.data(), &size) ? username.data() : "User";
 #else
-    if (struct passwd* pwd = getpwuid(getuid()))
+    if (const passwd* pwd = getpwuid(getuid()))
       return pwd->pw_name;
 
     if (Result<String, EnvError> envUser = GetEnv("USER"))
@@ -55,7 +55,7 @@ struct Weather {
   static fn fromToml(const toml::table& tbl) -> Weather {
     Weather weather;
 
-    Option<String> apiKey = tbl["api_key"].value<String>();
+    const Option<String> apiKey = tbl["api_key"].value<String>();
 
     weather.enabled = tbl["enabled"].value_or<bool>(false) && apiKey;
 

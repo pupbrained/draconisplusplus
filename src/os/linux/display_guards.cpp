@@ -1,13 +1,13 @@
 #ifdef __linux__
 
-#include <utility> // for std::exchange
+#include <utility>
 
 #include "display_guards.h"
 
 #include "src/util/macros.h"
 
 namespace os::linux {
-  DisplayGuard::DisplayGuard(CStr name) : m_Display(XOpenDisplay(name)) {}
+  DisplayGuard::DisplayGuard(const CStr name) : m_Display(XOpenDisplay(name)) {}
 
   DisplayGuard::~DisplayGuard() {
     if (m_Display)

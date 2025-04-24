@@ -121,8 +121,7 @@ fn LogImpl(const LogLevel level, const std::source_location& loc, std::format_st
   -> void {
   using namespace std::chrono;
 
-  const time_point<system_clock, duration<long long, std::ratio<1, 1>>> now =
-    std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now());
+  const time_point<system_clock, duration<i64>> now = std::chrono::floor<seconds>(system_clock::now());
 
   const auto [color, levelStr] = [&] {
     switch (level) {

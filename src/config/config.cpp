@@ -74,13 +74,13 @@ namespace {
 
       String defaultName = GetUserNameA(username.data(), &size) ? username.data() : "User";
 #else
-      const struct passwd* pwd     = getpwuid(getuid());
-      CStr                 pwdName = pwd ? pwd->pw_name : nullptr;
+      const passwd* pwd     = getpwuid(getuid());
+      CStr          pwdName = pwd ? pwd->pw_name : nullptr;
 
       const Result<String, EnvError> envUser    = GetEnv("USER");
       const Result<String, EnvError> envLogname = GetEnv("LOGNAME");
 
-      String defaultName = (pwdName) ? pwdName : (envUser) ? *envUser : (envLogname) ? *envLogname : "User";
+      String defaultName = pwdName ? pwdName : envUser ? *envUser : envLogname ? *envLogname : "User";
 #endif
 
       toml::table* general = root.insert("general", toml::table {}).first->second.as_table();

@@ -13,7 +13,6 @@ namespace os::linux {
    * Automatically handles resource acquisition and cleanup
    */
   class DisplayGuard {
-   private:
     Display* m_Display;
 
    public:
@@ -32,9 +31,9 @@ namespace os::linux {
     DisplayGuard(DisplayGuard&& other) noexcept;
     fn operator=(DisplayGuard&& other) noexcept -> DisplayGuard&;
 
-    [[nodiscard]] operator bool() const;
-    [[nodiscard]] fn get() const -> Display*;
-    [[nodiscard]] fn defaultRootWindow() const -> Window;
+    [[nodiscard]] explicit operator bool() const;
+    [[nodiscard]] fn       get() const -> Display*;
+    [[nodiscard]] fn       defaultRootWindow() const -> Window;
   };
 
   /**
@@ -42,7 +41,6 @@ namespace os::linux {
    * Automatically handles resource acquisition and cleanup
    */
   class WaylandDisplayGuard {
-   private:
     wl_display* m_Display;
 
    public:
@@ -60,9 +58,9 @@ namespace os::linux {
     WaylandDisplayGuard(WaylandDisplayGuard&& other) noexcept;
     fn operator=(WaylandDisplayGuard&& other) noexcept -> WaylandDisplayGuard&;
 
-    [[nodiscard]] operator bool() const;
-    [[nodiscard]] fn get() const -> wl_display*;
-    [[nodiscard]] fn fd() const -> i32;
+    [[nodiscard]] explicit operator bool() const;
+    [[nodiscard]] fn       get() const -> wl_display*;
+    [[nodiscard]] fn       fd() const -> i32;
   };
 }
 

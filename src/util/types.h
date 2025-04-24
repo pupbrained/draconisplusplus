@@ -259,12 +259,12 @@ using NowPlayingError = std::variant<
 
 enum class EnvError : u8 { NotFound, AccessError };
 
-inline auto GetEnv(const String& name) -> Result<String, EnvError> {
+inline auto GetEnv(CStr name) -> Result<String, EnvError> {
 #ifdef _WIN32
   char* rawPtr     = nullptr;
   usize bufferSize = 0;
 
-  const i32 err = _dupenv_s(&rawPtr, &bufferSize, name.c_str());
+  const i32 err = _dupenv_s(&rawPtr, &bufferSize, name);
 
   const UniquePointer<char, decltype(&free)> ptrManager(rawPtr, free);
 
@@ -276,7 +276,7 @@ inline auto GetEnv(const String& name) -> Result<String, EnvError> {
 
   return ptrManager.get();
 #else
-  CStr value = std::getenv(name.c_str());
+  const CStr value = std::getenv(name);
 
   if (!value)
     return Err(EnvError::NotFound);

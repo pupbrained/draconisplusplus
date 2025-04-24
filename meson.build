@@ -89,7 +89,7 @@ add_project_arguments(common_cpp_args, language : 'cpp')
 # ------- #
 #  Files  #
 # ------- #
-base_sources = files('src/config/config.cpp', 'src/config/weather.cpp', 'src/main.cpp')
+base_sources = files('src/core/system_data.cpp', 'src/config/config.cpp', 'src/config/weather.cpp', 'src/main.cpp')
 
 platform_sources = {
   'linux' : ['src/os/linux.cpp', 'src/os/linux/issetugid_stub.cpp', 'src/os/linux/display_guards.cpp'],

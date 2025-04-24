@@ -39,7 +39,7 @@ namespace {
     DEBUG_LOG("Reading from cache file...");
 
     try {
-      const String  content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+      const String  content((std::istreambuf_iterator(ifs)), std::istreambuf_iterator<char>());
       WeatherOutput result;
 
       if (const glz::error_ctx errc = glz::read<glaze_opts>(result, content); errc.ec != glz::error_code::none)
