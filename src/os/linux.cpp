@@ -219,13 +219,13 @@ namespace {
   fn DetectFromProcesses() -> Option<String> {
     // clang-format off
     const Array<Pair<StringView, StringView>, 7> processChecks = {{
-      {      "plasmashell",       "KDE" },
-      {      "gnome-shell",     "GNOME" },
-      {    "xfce4-session",      "XFCE" },
-      {     "mate-session",      "MATE" },
-      { "cinnamon-session",  "Cinnamon" },
-      {        "budgie-wm",    "Budgie" },
-      {     "lxqt-session",      "LXQt" },
+      {      "plasmashell",      "KDE" },
+      {      "gnome-shell",    "GNOME" },
+      {    "xfce4-session",     "XFCE" },
+      {     "mate-session",     "MATE" },
+      { "cinnamon-session", "Cinnamon" },
+      {        "budgie-wm",   "Budgie" },
+      {     "lxqt-session",     "LXQt" },
     }};
     // clang-format on
 

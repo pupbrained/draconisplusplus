@@ -1,6 +1,5 @@
 #include <cstdlib>
 #include <filesystem>
-#include <iostream>
 #include <stdexcept>
 
 #include "config.h"
@@ -149,6 +148,8 @@ fn Config::getInstance() -> Config {
     }
 
     const toml::parse_result config = toml::parse_file(configPath.string());
+
+    DEBUG_LOG("Config loaded from {}", configPath.string());
     return fromToml(config);
   } catch (const std::exception& e) {
     DEBUG_LOG("Config loading failed: {}, using defaults", e.what());

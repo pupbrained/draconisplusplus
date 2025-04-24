@@ -1,15 +1,12 @@
 #pragma once
 
 #include <array>
-#include <cstddef>
-#include <cstdint>
 #include <cstdlib>
 #include <expected>
 #include <map>
 #include <memory>
 #include <optional>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -183,8 +180,8 @@ using Option = std::optional<Tp>;
  * @typedef Array
  * @brief Represents a fixed-size array.
  */
-template <typename Tp, std::size_t nm>
-using Array = std::array<Tp, nm>;
+template <typename Tp, usize sz>
+using Array = std::array<Tp, sz>;
 
 /**
  * @typedef Vec
@@ -264,18 +261,20 @@ enum class EnvError : u8 { NotFound, AccessError };
 
 inline auto GetEnv(const String& name) -> Result<String, EnvError> {
 #ifdef _WIN32
-  char*  rawPtr     = nullptr;
-  size_t bufferSize = 0;
+  char* rawPtr     = nullptr;
+  usize bufferSize = 0;
 
-  if (_dupenv_s(&rawPtr, &bufferSize, name.c_str()) != 0)
-    return std::unexpected(EnvError::AccessError);
+  const i32 err = _dupenv_s(&rawPtr, &bufferSize, name.c_str());
 
-  if (!rawPtr)
-    return std::unexpected(EnvError::NotFound);
+  const UniquePointer<char, decltype(&free)> ptrManager(rawPtr, free);
 
-  const String result(rawPtr);
-  free(rawPtr);
-  return result;
+  if (err != 0)
+    return Err(EnvError::AccessError);
+
+  if (!ptrManager)
+    return Err(EnvError::NotFound);
+
+  return ptrManager.get();
 #else
   CStr value = std::getenv(name.c_str());
 

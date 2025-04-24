@@ -146,19 +146,19 @@ namespace {
 
       // Single-threaded execution for core system info (faster on Windows)
       data.date           = GetDate();
-      data.host           = GetHost();
-      data.kernel_version = GetKernelVersion();
-      data.os_version     = GetOSVersion();
-      data.mem_info       = GetMemInfo();
+      data.host           = os::GetHost();
+      data.kernel_version = os::GetKernelVersion();
+      data.os_version     = os::GetOSVersion();
+      data.mem_info       = os::GetMemInfo();
 
       // Desktop environment info
-      data.desktop_environment = GetDesktopEnvironment();
-      data.window_manager      = GetWindowManager();
+      data.desktop_environment = os::GetDesktopEnvironment();
+      data.window_manager      = os::GetWindowManager();
 
       // Parallel execution for disk/shell only
       auto diskShell = std::async(std::launch::async, [] {
-        auto [used, total] = GetDiskUsage();
-        return std::make_tuple(used, total, GetShell());
+        auto [used, total] = os::GetDiskUsage();
+        return std::make_tuple(used, total, os::GetShell());
       });
 
       // Conditional tasks
@@ -169,7 +169,7 @@ namespace {
         weather = std::async(std::launch::async, [&config] { return config.weather.getWeatherInfo(); });
 
       if (config.now_playing.enabled)
-        nowPlaying = std::async(std::launch::async, GetNowPlaying);
+        nowPlaying = std::async(std::launch::async, os::GetNowPlaying);
 
       // Get remaining results
       auto [used, total, shell] = diskShell.get();
@@ -330,17 +330,8 @@ namespace {
 
         if (std::holds_alternative<NowPlayingCode>(error))
           switch (std::get<NowPlayingCode>(error)) {
-            case NowPlayingCode::NoPlayers:
-              DEBUG_LOG("No players found");
-              break;
-            case NowPlayingCode::NoActivePlayer:
-              DEBUG_LOG("No active player found");
-              break;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wcovered-switch-default"
-            default:
-              std::unreachable();
-#pragma clang diagnostic pop
+            case NowPlayingCode::NoPlayers:      DEBUG_LOG("No players found"); break;
+            case NowPlayingCode::NoActivePlayer: DEBUG_LOG("No active player found"); break;
           }
 
 #ifdef _WIN32

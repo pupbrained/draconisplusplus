@@ -1,8 +1,11 @@
 AlignAfterOpenBracket: BlockIndent
 AlignArrayOfStructures: Right
 AlignConsecutiveAssignments: true
+AlignConsecutiveShortCaseStatements:
+  Enabled: true
 AlignConsecutiveDeclarations: true
 AllowShortBlocksOnASingleLine: Always
+AllowShortCaseLabelsOnASingleLine: true
 AllowShortEnumsOnASingleLine: true
 AllowShortFunctionsOnASingleLine: All
 AllowShortLoopsOnASingleLine: true

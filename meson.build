@@ -4,12 +4,12 @@
 project(
   'draconis++',
   'cpp',
-  version: '0.1.0',
-  default_options: [
+  version : '0.1.0',
+  default_options : [
     'default_library=static',
-    'warning_level=everything',
     'buildtype=debugoptimized',
     'b_vscrt=mt',
+    'warning_level=3',
   ],
 )
 
@@ -32,29 +32,34 @@ common_warning_flags = [
 ]
 
 common_cpp_flags = {
-  'common': [
+  'common' : [
     '-fno-strict-enums',
     '-fvisibility=hidden',
     '-fvisibility-inlines-hidden',
     '-std=c++26',
   ],
-  'msvc': [
+  'msvc' : [
     '-DNOMINMAX',
     '/MT',
     '/Zc:__cplusplus',
     '/Zc:preprocessor',
+    '/external:W0',
+    '/external:anglebrackets',
     '/std:c++latest',
+    '/w44668',
+    '/w44710',
+    '/w44820',
   ],
-  'unix_extra': [
+  'unix_extra' : [
     '-march=native',
     '-nostdlib++',
   ],
-  'windows_extra': '-DCURL_STATICLIB',
+  'windows_extra' : '-DCURL_STATICLIB',
 }
 
 # Configure Objective-C++ for macOS
 if host_system == 'darwin'
-  add_languages('objcpp', native: false)
+  add_languages('objcpp', native : false)
   objcpp = meson.get_compiler('objcpp')
   objcpp_flags = common_warning_flags + [
     '-Wno-switch-default',
@@ -62,7 +67,7 @@ if host_system == 'darwin'
     '-fvisibility=hidden',
     '-fvisibility-inlines-hidden',
   ]
-  add_project_arguments(objcpp.get_supported_arguments(objcpp_flags), language: 'objcpp')
+  add_project_arguments(objcpp.get_supported_arguments(objcpp_flags), language : 'objcpp')
 endif
 
 # Apply C++ compiler arguments
@@ -79,7 +84,7 @@ else
   common_cpp_args = cpp.get_supported_arguments(common_cpp_args)
 endif
 
-add_project_arguments(common_cpp_args, language: 'cpp')
+add_project_arguments(common_cpp_args, language : 'cpp')
 
 # ------- #
 #  Files  #
@@ -87,9 +92,9 @@ add_project_arguments(common_cpp_args, language: 'cpp')
 base_sources = files('src/config/config.cpp', 'src/config/weather.cpp', 'src/main.cpp')
 
 platform_sources = {
-  'linux': ['src/os/linux.cpp', 'src/os/linux/issetugid_stub.cpp', 'src/os/linux/display_guards.cpp'],
-  'darwin': ['src/os/macos.cpp', 'src/os/macos/bridge.mm'],
-  'windows': ['src/os/windows.cpp'],
+  'linux' : ['src/os/linux.cpp', 'src/os/linux/issetugid_stub.cpp', 'src/os/linux/display_guards.cpp'],
+  'darwin' : ['src/os/macos.cpp', 'src/os/macos/bridge.mm'],
+  'windows' : ['src/os/windows.cpp'],
 }
 
 sources = base_sources + files(platform_sources.get(host_system, []))
@@ -98,9 +103,9 @@ sources = base_sources + files(platform_sources.get(host_system, []))
 #  Dependencies Config  #
 # --------------------- #
 common_deps = [
-  dependency('libcurl', include_type: 'system', static: true),
-  dependency('tomlplusplus', include_type: 'system', static: true),
-  dependency('openssl', include_type: 'system', static: true, required: false),
+  dependency('libcurl', include_type : 'system', static : true),
+  dependency('tomlplusplus', include_type : 'system', static : true),
+  dependency('openssl', include_type : 'system', static : true, required : false),
 ]
 
 # Platform-specific dependencies
@@ -110,8 +115,8 @@ if host_system == 'darwin'
   platform_deps += [
     dependency(
       'appleframeworks',
-      modules: ['foundation', 'mediaplayer', 'systemconfiguration'],
-      static: true,
+      modules : ['foundation', 'mediaplayer', 'systemconfiguration'],
+      static : true,
     ),
     dependency('iconv'),
   ]
@@ -128,8 +133,8 @@ elif host_system == 'linux'
     dependency('xau'),
     dependency('xdmcp'),
     dependency('wayland-client'),
-    dependency('sigc++-3.0', include_type: 'system'),
-    dependency('dbus-cxx', include_type: 'system'),
+    dependency('sigc++-3.0', include_type : 'system'),
+    dependency('dbus-cxx', include_type : 'system'),
   ]
 endif
 
@@ -137,30 +142,30 @@ endif
 ftxui_components = ['ftxui::screen', 'ftxui::dom', 'ftxui::component']
 ftxui_dep = dependency(
   'ftxui',
-  modules: ftxui_components,
-  include_type: 'system',
-  static: true,
-  required: false,
+  modules : ftxui_components,
+  include_type : 'system',
+  static : true,
+  required : false,
 )
 
 if not ftxui_dep.found()
   ftxui_dep = declare_dependency(
-    dependencies: [
-      dependency('ftxui-dom', fallback: ['ftxui', 'dom_dep']),
-      dependency('ftxui-screen', fallback: ['ftxui', 'screen_dep']),
-      dependency('ftxui-component', fallback: ['ftxui', 'component_dep']),
+    dependencies : [
+      dependency('ftxui-dom', fallback : ['ftxui', 'dom_dep']),
+      dependency('ftxui-screen', fallback : ['ftxui', 'screen_dep']),
+      dependency('ftxui-component', fallback : ['ftxui', 'component_dep']),
     ],
   )
 endif
 
-glaze_dep = dependency('glaze', include_type: 'system', required: false)
+glaze_dep = dependency('glaze', include_type : 'system', required : false)
 
 if not glaze_dep.found()
   cmake = import('cmake')
 
   glaze_proj = cmake.subproject('glaze')
 
-  glaze_dep = glaze_proj.dependency('glaze_glaze', include_type: 'system')
+  glaze_dep = glaze_proj.dependency('glaze_glaze', include_type : 'system')
 endif
 
 # Combine all dependencies
@@ -184,8 +189,8 @@ endif
 executable(
   'draconis++',
   sources,
-  objc_args: objc_args,
-  link_args: link_args,
-  dependencies: deps,
-  install: true,
+  objc_args : objc_args,
+  link_args : link_args,
+  dependencies : deps,
+  install : true,
 )

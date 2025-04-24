@@ -17,8 +17,9 @@
 
 #ifdef None
 #undef None
-#define None std::nullopt
 #endif
+
+#define None std::nullopt
 
 namespace term {
   enum class Emphasis : u8 { none = 0, bold = 1, italic = 2 };
@@ -49,16 +50,14 @@ namespace term {
   struct FgColor {
     Color col;
 
-    constexpr explicit FgColor(Color color) : col(color) {}
+    constexpr explicit FgColor(const Color color) : col(color) {}
 
     [[nodiscard]] fn ansiCode() const -> String { return std::format("\033[{}m", static_cast<int>(col)); }
   };
 
-  constexpr fn Fg(Color color) -> FgColor { return FgColor(color); }
-
   struct Style {
     Emphasis emph   = Emphasis::none;
-    FgColor  fg_col = FgColor(static_cast<Color>(-1)); // Invalid color
+    FgColor  fg_col = FgColor(static_cast<Color>(-1));
 
     [[nodiscard]] fn ansiCode() const -> String {
       String result;
@@ -77,8 +76,13 @@ namespace term {
     }
   };
 
-  constexpr fn operator|(Emphasis emph, FgColor fgColor)->Style { return { .emph = emph, .fg_col = fgColor }; }
-  constexpr fn operator|(FgColor fgColor, Emphasis emph)->Style { return { .emph = emph, .fg_col = fgColor }; }
+  constexpr fn operator|(const Emphasis emph, const FgColor fgColor)->Style {
+    return { .emph = emph, .fg_col = fgColor };
+  }
+
+  constexpr fn operator|(const FgColor fgColor, const Emphasis emph)->Style {
+    return { .emph = emph, .fg_col = fgColor };
+  }
 
   constexpr CStr reset = "\033[0m";
 
@@ -122,19 +126,11 @@ fn LogImpl(const LogLevel level, const std::source_location& loc, std::format_st
 
   const auto [color, levelStr] = [&] {
     switch (level) {
-      case LogLevel::DEBUG:
-        return std::make_pair(log_colors::debug, "DEBUG");
-      case LogLevel::INFO:
-        return std::make_pair(log_colors::info, "INFO ");
-      case LogLevel::WARN:
-        return std::make_pair(log_colors::warn, "WARN ");
-      case LogLevel::ERROR:
-        return std::make_pair(log_colors::error, "ERROR");
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wcovered-switch-default"
-      default:
-        std::unreachable();
-#pragma clang diagnostic pop
+      case LogLevel::DEBUG: return std::make_pair(log_colors::debug, "DEBUG");
+      case LogLevel::INFO:  return std::make_pair(log_colors::info, "INFO ");
+      case LogLevel::WARN:  return std::make_pair(log_colors::warn, "WARN ");
+      case LogLevel::ERROR: return std::make_pair(log_colors::error, "ERROR");
+      default:              std::unreachable();
     }
   }();
 
@@ -142,20 +138,22 @@ fn LogImpl(const LogLevel level, const std::source_location& loc, std::format_st
 
   using namespace term;
 
-  Print(Fg(log_colors::timestamp), "[{:%H:%M:%S}] ", now);
-  Print(Emphasis::bold | Fg(color), "{} ", levelStr);
+  Print(FgColor(log_colors::timestamp), "[{:%H:%M:%S}] ", now);
+  Print(Emphasis::bold | FgColor(color), "{} ", levelStr);
   Print(fmt, std::forward<Args>(args)...);
 
 #ifndef NDEBUG
-  Print(Fg(log_colors::file_info), "\n{:>14} ", "╰──");
-  Print(Emphasis::italic | Fg(log_colors::file_info), "{}:{}", filename, loc.line());
+  Print(FgColor(log_colors::file_info), "\n{:>14} ", "╰──");
+  Print(Emphasis::italic | FgColor(log_colors::file_info), "{}:{}", filename, loc.line());
 #endif
 
   Print("\n");
 }
 
+#ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-macros"
+#endif
 #ifdef NDEBUG
 #define DEBUG_LOG(...) static_cast<void>(0)
 #else
@@ -164,4 +162,6 @@ fn LogImpl(const LogLevel level, const std::source_location& loc, std::format_st
 #define INFO_LOG(...) LogImpl(LogLevel::INFO, std::source_location::current(), __VA_ARGS__)
 #define WARN_LOG(...) LogImpl(LogLevel::WARN, std::source_location::current(), __VA_ARGS__)
 #define ERROR_LOG(...) LogImpl(LogLevel::ERROR, std::source_location::current(), __VA_ARGS__)
+#ifdef __clang__
 #pragma clang diagnostic pop
+#endif
