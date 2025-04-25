@@ -33,19 +33,19 @@ namespace ui {
   };
 
   struct Icons {
-    [[maybe_unused]] StringView user;
-    [[maybe_unused]] StringView palette;
-    [[maybe_unused]] StringView calendar;
-    [[maybe_unused]] StringView host;
-    [[maybe_unused]] StringView kernel;
-    [[maybe_unused]] StringView os;
-    [[maybe_unused]] StringView memory;
-    [[maybe_unused]] StringView weather;
-    [[maybe_unused]] StringView music;
-    [[maybe_unused]] StringView disk;
-    [[maybe_unused]] StringView shell;
-    [[maybe_unused]] StringView desktop;
-    [[maybe_unused]] StringView window_manager;
+    StringView user;
+    StringView palette;
+    StringView calendar;
+    StringView host;
+    StringView kernel;
+    StringView os;
+    StringView memory;
+    StringView weather;
+    StringView music;
+    StringView disk;
+    StringView shell;
+    StringView desktop;
+    StringView window_manager;
   };
 
   static constexpr Icons EMPTY_ICONS = {
@@ -105,21 +105,25 @@ namespace {
 
     content.push_back(text(String(userIcon) + "Hello " + name + "! ") | bold | color(Color::Cyan));
     content.push_back(separator() | color(ui::DEFAULT_THEME.border));
-    content.push_back(hbox({
-      text(String(paletteIcon)) | color(ui::DEFAULT_THEME.icon),
-      CreateColorCircles(),
-    }));
+    content.push_back(hbox(
+      {
+        text(String(paletteIcon)) | color(ui::DEFAULT_THEME.icon),
+        CreateColorCircles(),
+      }
+    ));
     content.push_back(separator() | color(ui::DEFAULT_THEME.border));
 
     // Helper function for aligned rows
     fn createRow = [&](const auto& icon, const auto& label, const auto& value) {
-      return hbox({
-        text(String(icon)) | color(ui::DEFAULT_THEME.icon),
-        text(String(static_cast<CStr>(label))) | color(ui::DEFAULT_THEME.label),
-        filler(),
-        text(String(value)) | color(ui::DEFAULT_THEME.value),
-        text(" "),
-      });
+      return hbox(
+        {
+          text(String(icon)) | color(ui::DEFAULT_THEME.icon),
+          text(String(static_cast<CStr>(label))) | color(ui::DEFAULT_THEME.label),
+          filler(),
+          text(String(value)) | color(ui::DEFAULT_THEME.value),
+          text(" "),
+        }
+      );
     };
 
     // System info rows
@@ -130,31 +134,39 @@ namespace {
       const WeatherOutput& weatherInfo = data.weather_info.value();
 
       if (weather.show_town_name)
-        content.push_back(hbox({
-          text(String(weatherIcon)) | color(ui::DEFAULT_THEME.icon),
-          text("Weather") | color(ui::DEFAULT_THEME.label),
-          filler(),
+        content.push_back(hbox(
+          {
+            text(String(weatherIcon)) | color(ui::DEFAULT_THEME.icon),
+            text("Weather") | color(ui::DEFAULT_THEME.label),
+            filler(),
 
-          hbox({
-            text(std::format("{}°F ", std::lround(weatherInfo.main.temp))),
-            text("in "),
-            text(weatherInfo.name),
-            text(" "),
-          }) |
-            color(ui::DEFAULT_THEME.value),
-        }));
+            hbox(
+              {
+                text(std::format("{}°F ", std::lround(weatherInfo.main.temp))),
+                text("in "),
+                text(weatherInfo.name),
+                text(" "),
+              }
+            ) |
+              color(ui::DEFAULT_THEME.value),
+          }
+        ));
       else
-        content.push_back(hbox({
-          text(String(weatherIcon)) | color(ui::DEFAULT_THEME.icon),
-          text("Weather") | color(ui::DEFAULT_THEME.label),
-          filler(),
+        content.push_back(hbox(
+          {
+            text(String(weatherIcon)) | color(ui::DEFAULT_THEME.icon),
+            text("Weather") | color(ui::DEFAULT_THEME.label),
+            filler(),
 
-          hbox({
-            text(std::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description)),
-            text(" "),
-          }) |
-            color(ui::DEFAULT_THEME.value),
-        }));
+            hbox(
+              {
+                text(std::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description)),
+                text(" "),
+              }
+            ) |
+              color(ui::DEFAULT_THEME.value),
+          }
+        ));
     }
 
     content.push_back(separator() | color(ui::DEFAULT_THEME.border));
@@ -196,14 +208,16 @@ namespace {
         const String& npText = *nowPlayingResult;
 
         content.push_back(separator() | color(ui::DEFAULT_THEME.border));
-        content.push_back(hbox({
-          text(String(musicIcon)) | color(ui::DEFAULT_THEME.icon),
-          text("Playing") | color(ui::DEFAULT_THEME.label),
-          text(" "),
-          filler(),
-          paragraph(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, ui::MAX_PARAGRAPH_LENGTH),
-          text(" "),
-        }));
+        content.push_back(hbox(
+          {
+            text(String(musicIcon)) | color(ui::DEFAULT_THEME.icon),
+            text("Playing") | color(ui::DEFAULT_THEME.label),
+            text(" "),
+            filler(),
+            paragraph(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, ui::MAX_PARAGRAPH_LENGTH),
+            text(" "),
+          }
+        ));
       } else {
         const NowPlayingError& error = nowPlayingResult.error();
 
@@ -229,6 +243,9 @@ namespace {
 }
 
 fn main() -> i32 {
+  std::locale::global(std::locale(""));
+  DEBUG_LOG("Global locale set to: {}", std::locale().name());
+
   const Config&    config = Config::getInstance();
   const SystemData data   = SystemData::fetchSystemData(config);
 

@@ -67,7 +67,7 @@
             dbus-cxx
             libsigcxx30
             sqlitecpp
-            xorg.libX11
+            xorg.libxcb
             wayland
           ]));
       in

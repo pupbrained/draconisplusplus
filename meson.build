@@ -130,7 +130,6 @@ elif host_system == 'windows'
 elif host_system == 'linux'
   platform_deps += [
     dependency('SQLiteCpp'),
-    dependency('x11'),
     dependency('xcb'),
     dependency('xau'),
     dependency('xdmcp'),
@@ -164,9 +163,7 @@ glaze_dep = dependency('glaze', include_type : 'system', required : false)
 
 if not glaze_dep.found()
   cmake = import('cmake')
-
   glaze_proj = cmake.subproject('glaze')
-
   glaze_dep = glaze_proj.dependency('glaze_glaze', include_type : 'system')
 endif
 

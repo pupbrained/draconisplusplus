@@ -1,5 +1,7 @@
+// ReSharper disable CppDFAConstantParameter
 #pragma once
 
+// Fixes conflict in Windows with <windows.h>
 #ifdef _WIN32
 #undef ERROR
 #endif
@@ -13,139 +15,213 @@
 
 #include "types.h"
 
+/// Macro alias for trailing return type functions.
 #define fn auto
 
-#ifdef None
-#undef None
-#endif
-
+/// Macro alias for std::nullopt, represents an empty optional value.
 #define None std::nullopt
 
+/**
+ * @namespace term
+ * @brief Provides terminal-related utilities, including color and style formatting.
+ */
 namespace term {
-  enum class Emphasis : u8 { none = 0, bold = 1, italic = 2 };
+  /**
+   * @enum Emphasis
+   * @brief Represents text emphasis styles.
+   *
+   * Enum values can be combined using bitwise OR to apply multiple styles at once.
+   */
+  enum class Emphasis : u8 {
+    Bold,  ///< Bold text.
+    Italic ///< Italic text.
+  };
 
+  /**
+   * @enum Color
+   * @brief Represents ANSI color codes for terminal output.
+   *
+   * Color codes can be used to format terminal output.
+   */
+  enum class Color : u8 {
+    Black         = 30, ///< Black color.
+    Red           = 31, ///< Red color.
+    Green         = 32, ///< Green color.
+    Yellow        = 33, ///< Yellow color.
+    Blue          = 34, ///< Blue color.
+    Magenta       = 35, ///< Magenta color.
+    Cyan          = 36, ///< Cyan color.
+    White         = 37, ///< White color.
+    BrightBlack   = 90, ///< Bright black (gray) color.
+    BrightRed     = 91, ///< Bright red color.
+    BrightGreen   = 92, ///< Bright green color.
+    BrightYellow  = 93, ///< Bright yellow color.
+    BrightBlue    = 94, ///< Bright blue color.
+    BrightMagenta = 95, ///< Bright magenta color.
+    BrightCyan    = 96, ///< Bright cyan color.
+    BrightWhite   = 97, ///< Bright white color.
+  };
+
+  /**
+   * @brief Combines two emphasis styles using bitwise OR.
+   * @param emphA The first emphasis style.
+   * @param emphB The second emphasis style.
+   * @return The combined emphasis style.
+   */
   constexpr fn operator|(Emphasis emphA, Emphasis emphB)->Emphasis {
-    return static_cast<Emphasis>(static_cast<int>(emphA) | static_cast<int>(emphB));
+    return static_cast<Emphasis>(static_cast<u8>(emphA) | static_cast<u8>(emphB));
   }
 
-  // clang-format off
-  enum class Color : u8 {
-    black          [[maybe_unused]] = 30,
-    red            [[maybe_unused]] = 31,
-    green          [[maybe_unused]] = 32,
-    yellow         [[maybe_unused]] = 33,
-    blue           [[maybe_unused]] = 34,
-    magenta        [[maybe_unused]] = 35,
-    cyan           [[maybe_unused]] = 36,
-    white          [[maybe_unused]] = 37,
-    bright_black   [[maybe_unused]] = 90,
-    bright_red     [[maybe_unused]] = 91,
-    bright_green   [[maybe_unused]] = 92,
-    bright_yellow  [[maybe_unused]] = 93,
-    bright_blue    [[maybe_unused]] = 94,
-    bright_magenta [[maybe_unused]] = 95,
-    bright_cyan    [[maybe_unused]] = 96,
-    bright_white   [[maybe_unused]] = 97
-  };
-  // clang-format on
+  /**
+   * @brief Checks if two emphasis styles are equal using bitwise AND.
+   * @param emphA The first emphasis style.
+   * @param emphB The second emphasis style.
+   * @return The result of the bitwise AND operation.
+   */
+  constexpr fn operator&(Emphasis emphA, Emphasis emphB)->u8 { return static_cast<u8>(emphA) & static_cast<u8>(emphB); }
 
-  struct FgColor {
-    Color col;
-
-    constexpr explicit FgColor(const Color color) : col(color) {}
-
-    [[nodiscard]] fn ansiCode() const -> String { return std::format("\033[{}m", static_cast<int>(col)); }
-  };
-
+  /**
+   * @struct Style
+   * @brief Represents a combination of text styles.
+   *
+   * Emphasis and color are both optional, allowing for flexible styling.
+   */
   struct Style {
-    Emphasis emph   = Emphasis::none;
-    FgColor  fg_col = FgColor(static_cast<Color>(-1));
+    Option<Emphasis> emph;   ///< Optional emphasis style.
+    Option<Color>    fg_col; ///< Optional foreground color style.
 
+    /**
+     * @brief Generates the ANSI escape code for the combined styles.
+     * @return The ANSI escape code for the combined styles.
+     */
     [[nodiscard]] fn ansiCode() const -> String {
       String result;
 
-      if (emph != Emphasis::none) {
-        if ((static_cast<int>(emph) & static_cast<int>(Emphasis::bold)) != 0)
+      if (emph) {
+        if ((*emph & Emphasis::Bold) != 0)
           result += "\033[1m";
-        if ((static_cast<int>(emph) & static_cast<int>(Emphasis::italic)) != 0)
+        if ((*emph & Emphasis::Italic) != 0)
           result += "\033[3m";
       }
 
-      if (static_cast<int>(fg_col.col) != -1)
-        result += fg_col.ansiCode();
+      if (fg_col)
+        result += std::format("\033[{}m", static_cast<u8>(*fg_col));
 
       return result;
     }
   };
 
-  constexpr fn operator|(const Emphasis emph, const FgColor fgColor)->Style {
+  /**
+   * @brief Combines an emphasis style and a foreground color into a Style.
+   * @param emph The emphasis style to apply.
+   * @param fgColor The foreground color to apply.
+   * @return The combined style.
+   */
+  constexpr fn operator|(const Emphasis emph, const Color fgColor)->Style {
     return { .emph = emph, .fg_col = fgColor };
   }
 
-  constexpr fn operator|(const FgColor fgColor, const Emphasis emph)->Style {
+  /**
+   * @brief Combines a foreground color and an emphasis style into a Style.
+   * @param fgColor The foreground color to apply.
+   * @param emph The emphasis style to apply.
+   * @return The combined style.
+   */
+  constexpr fn operator|(const Color fgColor, const Emphasis emph)->Style {
     return { .emph = emph, .fg_col = fgColor };
   }
 
-  constexpr CStr reset = "\033[0m";
-
+  /**
+   * @brief Prints formatted text with the specified style.
+   * @tparam Args Parameter pack for format arguments.
+   * @param style The Style object containing emphasis and/or color.
+   * @param fmt The format string.
+   * @param args The arguments for the format string.
+   */
   template <typename... Args>
   fn Print(const Style& style, std::format_string<Args...> fmt, Args&&... args) -> void {
-    std::print("{}{}{}", style.ansiCode(), std::format(fmt, std::forward<Args>(args)...), reset);
+    if (const String styleCode = style.ansiCode(); styleCode.empty())
+      std::print(fmt, std::forward<Args>(args)...);
+    else
+      std::print("{}{}{}", styleCode, std::format(fmt, std::forward<Args>(args)...), "\033[0m");
   }
 
+  /**
+   * @brief Prints formatted text with the specified foreground color.
+   * @tparam Args Parameter pack for format arguments.
+   * @param fgColor The foreground color to apply.
+   * @param fmt The format string.
+   * @param args The arguments for the format string.
+   */
   template <typename... Args>
-  fn Print(const FgColor& fgColor, std::format_string<Args...> fmt, Args&&... args) -> void {
-    std::print("{}{}{}", fgColor.ansiCode(), std::format(fmt, std::forward<Args>(args)...), reset);
+  fn Print(const Color& fgColor, std::format_string<Args...> fmt, Args&&... args) -> void {
+    Print({ .emph = None, .fg_col = fgColor }, fmt, std::forward<Args>(args)...);
   }
 
+  /**
+   * @brief Prints formatted text with the specified emphasis style.
+   * @tparam Args Parameter pack for format arguments.
+   * @param emph The emphasis style to apply.
+   * @param fmt The format string.
+   * @param args The arguments for the format string.
+   */
   template <typename... Args>
-  fn Print(Emphasis emph, std::format_string<Args...> fmt, Args&&... args) -> void {
-    Print({ .emph = emph }, fmt, std::forward<Args>(args)...);
+  fn Print(const Emphasis emph, std::format_string<Args...> fmt, Args&&... args) -> void {
+    Print({ .emph = emph, .fg_col = None }, fmt, std::forward<Args>(args)...);
   }
 
+  /**
+   * @brief Prints formatted text with no specific style (default terminal style).
+   * @tparam Args Parameter pack for format arguments.
+   * @param fmt The format string.
+   * @param args The arguments for the format string.
+   */
   template <typename... Args>
   fn Print(std::format_string<Args...> fmt, Args&&... args) -> void {
+    // Directly use std::print for unstyled output
     std::print(fmt, std::forward<Args>(args)...);
   }
 }
 
-namespace log_colors {
-  using term::Color;
-
-  constexpr Color debug = Color::cyan, info = Color::green, warn = Color::yellow, error = Color::red,
-                  timestamp = Color::bright_white, file_info = Color::bright_white;
-}
-
+/**
+ * @enum LogLevel
+ * @brief Represents different log levels.
+ */
 enum class LogLevel : u8 { DEBUG, INFO, WARN, ERROR };
 
+/**
+ * @brief Logs a message with the specified log level, source location, and format string.
+ * @tparam Args Parameter pack for format arguments.
+ * @param level The log level (DEBUG, INFO, WARN, ERROR).
+ * @param loc The source location of the log message.
+ * @param fmt The format string.
+ * @param args The arguments for the format string.
+ */
 template <typename... Args>
-fn LogImpl(const LogLevel level, const std::source_location& loc, std::format_string<Args...> fmt, Args&&... args)
-  -> void {
+fn LogImpl(const LogLevel level, const std::source_location& loc, std::format_string<Args...> fmt, Args&&... args) {
   using namespace std::chrono;
-
-  const time_point<system_clock, duration<i64>> now = std::chrono::floor<seconds>(system_clock::now());
+  using namespace term;
+  using enum Color;
 
   const auto [color, levelStr] = [&] {
     switch (level) {
-      case LogLevel::DEBUG: return std::make_pair(log_colors::debug, "DEBUG");
-      case LogLevel::INFO:  return std::make_pair(log_colors::info, "INFO ");
-      case LogLevel::WARN:  return std::make_pair(log_colors::warn, "WARN ");
-      case LogLevel::ERROR: return std::make_pair(log_colors::error, "ERROR");
+      case LogLevel::DEBUG: return std::make_pair(Cyan, "DEBUG");
+      case LogLevel::INFO:  return std::make_pair(Green, "INFO ");
+      case LogLevel::WARN:  return std::make_pair(Yellow, "WARN ");
+      case LogLevel::ERROR: return std::make_pair(Red, "ERROR");
       default:              std::unreachable();
     }
   }();
 
   const String filename = std::filesystem::path(loc.file_name()).lexically_normal().string();
 
-  using namespace term;
-
-  Print(FgColor(log_colors::timestamp), "[{:%H:%M:%S}] ", now);
-  Print(Emphasis::bold | FgColor(color), "{} ", levelStr);
+  Print(BrightWhite, "[{:%X}] ", zoned_time { current_zone(), std::chrono::floor<seconds>(system_clock::now()) });
+  Print(Emphasis::Bold | color, "{} ", levelStr);
   Print(fmt, std::forward<Args>(args)...);
 
 #ifndef NDEBUG
-  Print(FgColor(log_colors::file_info), "\n{:>14} ", "╰──");
-  Print(Emphasis::italic | FgColor(log_colors::file_info), "{}:{}", filename, loc.line());
+  Print(BrightWhite, "\n{:>14} ", "╰──");
+  Print(Emphasis::Italic | BrightWhite, "{}:{}", filename, loc.line());
 #endif
 
   Print("\n");

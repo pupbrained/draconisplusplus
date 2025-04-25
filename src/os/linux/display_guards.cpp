@@ -7,35 +7,36 @@
 #include "src/util/macros.h"
 
 namespace os::linux {
-  DisplayGuard::DisplayGuard(const CStr name) : m_Display(XOpenDisplay(name)) {}
+  XorgDisplayGuard::XorgDisplayGuard(const CStr name) : m_Connection(xcb_connect(name, nullptr)) {}
 
-  DisplayGuard::~DisplayGuard() {
-    if (m_Display)
-      XCloseDisplay(m_Display);
+  XorgDisplayGuard::~XorgDisplayGuard() {
+    if (m_Connection)
+      xcb_disconnect(m_Connection);
   }
 
-  DisplayGuard::DisplayGuard(DisplayGuard&& other) noexcept : m_Display(std::exchange(other.m_Display, nullptr)) {}
+  XorgDisplayGuard::XorgDisplayGuard(XorgDisplayGuard&& other) noexcept
+    : m_Connection(std::exchange(other.m_Connection, nullptr)) {}
 
-  fn DisplayGuard::operator=(DisplayGuard&& other) noexcept -> DisplayGuard& {
+  fn XorgDisplayGuard::operator=(XorgDisplayGuard&& other) noexcept -> XorgDisplayGuard& {
     if (this != &other) {
-      if (m_Display)
-        XCloseDisplay(m_Display);
-
-      m_Display = std::exchange(other.m_Display, nullptr);
+      if (m_Connection)
+        xcb_disconnect(m_Connection);
+      m_Connection = std::exchange(other.m_Connection, nullptr);
     }
-
     return *this;
   }
 
-  DisplayGuard::operator bool() const { return m_Display != nullptr; }
+  XorgDisplayGuard::operator bool() const { return m_Connection && !xcb_connection_has_error(m_Connection); }
 
-  fn DisplayGuard::get() const -> Display* { return m_Display; }
+  fn XorgDisplayGuard::get() const -> xcb_connection_t* { return m_Connection; }
 
-  fn DisplayGuard::defaultRootWindow() const -> Window {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
-    return DefaultRootWindow(m_Display);
-#pragma clang diagnostic pop
+  fn XorgDisplayGuard::setup() const -> const xcb_setup_t* {
+    return m_Connection ? xcb_get_setup(m_Connection) : nullptr;
+  }
+
+  fn XorgDisplayGuard::rootScreen() const -> xcb_screen_t* {
+    const xcb_setup_t* setup = this->setup();
+    return setup ? xcb_setup_roots_iterator(setup).data : nullptr;
   }
 
   WaylandDisplayGuard::WaylandDisplayGuard() : m_Display(wl_display_connect(nullptr)) {}

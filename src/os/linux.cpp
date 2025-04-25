@@ -3,8 +3,7 @@
 // clang-format off
 #include <dbus-cxx.h> // needs to be at top for Success/None
 // clang-format on
-#include <X11/Xatom.h>
-#include <X11/Xlib.h>
+#include <cstring>
 #include <fstream>
 #include <ranges>
 #include <sys/socket.h>
@@ -13,6 +12,7 @@
 #include <sys/utsname.h>
 #include <system_error>
 #include <wayland-client.h>
+#include <xcb/xcb.h>
 
 #include "os.h"
 #include "src/os/linux/display_guards.h"
@@ -22,77 +22,69 @@ namespace fs = std::filesystem;
 using namespace std::string_view_literals;
 
 namespace {
-  using os::linux::DisplayGuard;
-  using os::linux::WaylandDisplayGuard;
-
-  constexpr auto Trim(StringView sv) -> StringView {
+  constexpr auto Trim(StringView sview) -> StringView {
     using namespace std::ranges;
 
     constexpr auto isSpace = [](const char character) { return std::isspace(static_cast<unsigned char>(character)); };
 
-    const borrowed_iterator_t<StringView&>              start  = find_if_not(sv, isSpace);
-    const borrowed_iterator_t<reverse_view<StringView>> rstart = find_if_not(sv | views::reverse, isSpace);
+    const borrowed_iterator_t<StringView&>              start  = find_if_not(sview, isSpace);
+    const borrowed_iterator_t<reverse_view<StringView>> rstart = find_if_not(sview | views::reverse, isSpace);
 
-    return sv.substr(start - sv.begin(), sv.size() - (rstart - sv.rbegin()));
+    return sview.substr(start - sview.begin(), sview.size() - (rstart - sview.rbegin()));
   }
 
   fn GetX11WindowManager() -> String {
-    const DisplayGuard display;
+    using os::linux::XcbReplyGuard;
+    using os::linux::XorgDisplayGuard;
 
-    if (!display)
+    const XorgDisplayGuard conn;
+    if (!conn)
       return "";
 
-    const Atom supportingWmCheck = XInternAtom(display.get(), "_NET_SUPPORTING_WM_CHECK", False);
-    const Atom wmName            = XInternAtom(display.get(), "_NET_WM_NAME", False);
-    const Atom utf8String        = XInternAtom(display.get(), "UTF8_STRING", False);
+    fn internAtom = [&conn](const StringView name) -> XcbReplyGuard<xcb_intern_atom_reply_t> {
+      const auto cookie = xcb_intern_atom(conn.get(), 0, static_cast<uint16_t>(name.size()), name.data());
+      return XcbReplyGuard(xcb_intern_atom_reply(conn.get(), cookie, nullptr));
+    };
 
-    const Window root = display.defaultRootWindow();
+    const XcbReplyGuard<xcb_intern_atom_reply_t> supportingWmCheck = internAtom("_NET_SUPPORTING_WM_CHECK");
+    const XcbReplyGuard<xcb_intern_atom_reply_t> wmName            = internAtom("_NET_WM_NAME");
+    const XcbReplyGuard<xcb_intern_atom_reply_t> utf8String        = internAtom("UTF8_STRING");
 
-    Atom actualType   = 0;
-    i32  actualFormat = 0;
-    u64  nitems = 0, bytesAfter = 0;
-    u8*  data = nullptr;
+    if (!supportingWmCheck || !wmName || !utf8String)
+      return "Unknown (X11)";
 
-    if (XGetWindowProperty(
-          display.get(),
-          root,
-          supportingWmCheck,
-          0,
-          1,
-          False,
-          XA_WINDOW,
-          &actualType,
-          &actualFormat,
-          &nitems,
-          &bytesAfter,
-          &data
-        ) == Success &&
-        data) {
-      const UniquePointer<u8, decltype(&XFree)> dataGuard(data, XFree);
+    const xcb_window_t root = conn.rootScreen()->root;
 
-      u8* nameData = nullptr;
+    fn getProperty = [&conn](
+                       const xcb_window_t window,
+                       const xcb_atom_t   property,
+                       const xcb_atom_t   type,
+                       const uint32_t     offset,
+                       const uint32_t     length
+                     ) -> XcbReplyGuard<xcb_get_property_reply_t> {
+      const xcb_get_property_cookie_t cookie = xcb_get_property(conn.get(), 0, window, property, type, offset, length);
+      return XcbReplyGuard(xcb_get_property_reply(conn.get(), cookie, nullptr));
+    };
 
-      if (XGetWindowProperty(
-            display.get(),
-            *reinterpret_cast<Window*>(data),
-            wmName,
-            0,
-            1024,
-            False,
-            utf8String,
-            &actualType,
-            &actualFormat,
-            &nitems,
-            &bytesAfter,
-            &nameData
-          ) == Success &&
-          nameData) {
-        const UniquePointer<u8, decltype(&XFree)> nameGuard(nameData, XFree);
-        return reinterpret_cast<char*>(nameData);
-      }
-    }
+    const XcbReplyGuard<xcb_get_property_reply_t> wmWindowReply =
+      getProperty(root, supportingWmCheck->atom, XCB_ATOM_WINDOW, 0, 1);
 
-    return "Unknown (X11)";
+    if (!wmWindowReply || wmWindowReply->type != XCB_ATOM_WINDOW || wmWindowReply->format != 32 ||
+        xcb_get_property_value_length(wmWindowReply.get()) == 0)
+      return "Unknown (X11)";
+
+    const xcb_window_t wmWindow = *static_cast<xcb_window_t*>(xcb_get_property_value(wmWindowReply.get()));
+
+    const XcbReplyGuard<xcb_get_property_reply_t> wmNameReply =
+      getProperty(wmWindow, wmName->atom, utf8String->atom, 0, 1024);
+
+    if (!wmNameReply || wmNameReply->type != utf8String->atom || xcb_get_property_value_length(wmNameReply.get()) == 0)
+      return "Unknown (X11)";
+
+    const char* nameData = static_cast<const char*>(xcb_get_property_value(wmNameReply.get()));
+    const usize length   = xcb_get_property_value_length(wmNameReply.get());
+
+    return { nameData, length };
   }
 
   fn ReadProcessCmdline(const i32 pid) -> String {
@@ -124,6 +116,8 @@ namespace {
   }
 
   fn GetWaylandCompositor() -> String {
+    using os::linux::WaylandDisplayGuard;
+
     if (const Option<String> hypr = DetectHyprlandSpecific())
       return *hypr;
 
