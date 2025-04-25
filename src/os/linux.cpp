@@ -11,6 +11,7 @@
 #include <sys/sysinfo.h>
 #include <sys/utsname.h>
 #include <system_error>
+#include <unistd.h>
 #include <wayland-client.h>
 #include <xcb/xcb.h>
 
@@ -162,50 +163,14 @@ namespace {
       if (const usize colon = xdgCurrentDesktop->find(':'); colon != String::npos)
         return xdgCurrentDesktop->substr(0, colon);
 
+      DEBUG_LOG("Found XDG_CURRENT_DESKTOP: {}", *xdgCurrentDesktop);
+
       return *xdgCurrentDesktop;
     }
 
-    if (Result<String, EnvError> desktopSession = GetEnv("DESKTOP_SESSION"))
+    if (Result<String, EnvError> desktopSession = GetEnv("DESKTOP_SESSION")) {
+      DEBUG_LOG("Found DESKTOP_SESSION: {}", *desktopSession);
       return *desktopSession;
-
-    return None;
-  }
-
-  fn DetectFromSessionFiles() -> Option<String> {
-    // clang-format off
-    static constexpr Array<Pair<StringView, StringView>, 12> DE_PATTERNS = {{
-      {        "budgie",   "Budgie" },
-      {      "cinnamon", "Cinnamon" },
-      {          "lxqt",     "LXQt" },
-      {          "mate",     "MATE" },
-      {         "unity",    "Unity" },
-      {         "gnome",    "GNOME" },
-      { "gnome-wayland",    "GNOME" },
-      {    "gnome-xorg",    "GNOME" },
-      {           "kde",      "KDE" },
-      {        "plasma",      "KDE" },
-      {     "plasmax11",      "KDE" },
-      {          "xfce",     "XFCE" },
-    }};
-    // clang-format on
-
-    static constexpr Array<StringView, 2> SESSION_PATHS = { "/usr/share/xsessions", "/usr/share/wayland-sessions" };
-
-    for (const StringView& path : SESSION_PATHS) {
-      if (!fs::exists(path))
-        continue;
-
-      for (const fs::directory_entry& entry : fs::directory_iterator(path)) {
-        if (!entry.is_regular_file())
-          continue;
-
-        String lowercaseStem = entry.path().stem().string();
-        std::ranges::transform(lowercaseStem, lowercaseStem.begin(), tolower);
-
-        for (const auto [fst, snd] : DE_PATTERNS)
-          if (fst == lowercaseStem)
-            return String(snd);
-      }
     }
 
     return None;
@@ -228,8 +193,10 @@ namespace {
     const String  envVars((std::istreambuf_iterator(cmdline)), std::istreambuf_iterator<char>());
 
     for (const auto& [process, deName] : processChecks)
-      if (envVars.contains(process))
+      if (envVars.contains(process)) {
+        DEBUG_LOG("Found from process check: {}", deName);
         return String(deName);
+      }
 
     return None;
   }
@@ -374,8 +341,11 @@ fn os::GetWindowManager() -> String {
   if (const Result<String, EnvError> xdgSessionType = GetEnv("XDG_SESSION_TYPE");
       waylandDisplay || (xdgSessionType && xdgSessionType->contains("wayland"sv))) {
     String compositor = GetWaylandCompositor();
-    if (!compositor.empty())
+
+    if (!compositor.empty()) {
+      DEBUG_LOG("Found compositor: {}", compositor);
       return compositor;
+    }
 
     if (const Result<String, EnvError> xdgCurrentDesktop = GetEnv("XDG_CURRENT_DESKTOP")) {
       std::ranges::transform(compositor, compositor.begin(), tolower);
@@ -392,9 +362,6 @@ fn os::GetWindowManager() -> String {
 
 fn os::GetDesktopEnvironment() -> Option<String> {
   if (Option<String> desktopEnvironment = DetectFromEnvVars())
-    return desktopEnvironment;
-
-  if (Option<String> desktopEnvironment = DetectFromSessionFiles())
     return desktopEnvironment;
 
   return DetectFromProcesses();

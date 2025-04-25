@@ -1,3 +1,6 @@
 [submodule "subprojects/glaze"]
 	path = subprojects/glaze
 	url = https://github.com/stephenberry/glaze
+[submodule "subprojects/dbus_cxx"]
+	path = subprojects/dbus_cxx
+	url = https://github.com/dbus-cxx/dbus-cxx

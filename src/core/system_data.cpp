@@ -14,7 +14,7 @@ namespace {
     try {
       return std::format(std::locale(""), "{:%B %d}", ymd);
     } catch (const std::runtime_error& e) {
-      ERROR_LOG("Warning: Could not retrieve or use system locale ({}). Falling back to default C locale.", e.what());
+      WARN_LOG("Could not retrieve or use system locale ({}). Falling back to default C locale.", e.what());
       return std::format(std::locale::classic(), "{:%B %d}", ymd);
     }
   }

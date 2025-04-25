@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>    // std::array alias (Array)
+#include <cmath>    // std::float_t, std::double_t (f32/f64)
 #include <cstdlib>  // std::getenv, std::free
 #include <expected> // std::expected alias (Result)
 #include <map>      // std::map alias (Map)
