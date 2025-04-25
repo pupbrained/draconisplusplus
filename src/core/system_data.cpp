@@ -11,17 +11,12 @@ namespace {
 
     const year_month_day ymd = year_month_day { floor<days>(system_clock::now()) };
 
-    String month = std::format("{:%B}", ymd);
-
-    u32 day = static_cast<u32>(ymd.day());
-
-    CStr suffix = day >= 11 && day <= 13 ? "th"
-                  : day % 10 == 1        ? "st"
-                  : day % 10 == 2        ? "nd"
-                  : day % 10 == 3        ? "rd"
-                                         : "th";
-
-    return std::format("{} {}{}", month, day, suffix);
+    try {
+      return std::format(std::locale(""), "{:%B %d}", ymd);
+    } catch (const std::runtime_error& e) {
+      ERROR_LOG("Warning: Could not retrieve or use system locale ({}). Falling back to default C locale.", e.what());
+      return std::format(std::locale::classic(), "{:%B %d}", ymd);
+    }
   }
 }
 

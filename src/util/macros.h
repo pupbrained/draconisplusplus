@@ -201,7 +201,11 @@ template <typename... Args>
 fn LogImpl(const LogLevel level, const std::source_location& loc, std::format_string<Args...> fmt, Args&&... args) {
   using namespace std::chrono;
   using namespace term;
+#ifdef _WIN32
+  using enum term::Color;
+#else
   using enum Color;
+#endif
 
   const auto [color, levelStr] = [&] {
     switch (level) {
@@ -213,32 +217,66 @@ fn LogImpl(const LogLevel level, const std::source_location& loc, std::format_st
     }
   }();
 
-  const String filename = std::filesystem::path(loc.file_name()).lexically_normal().string();
-
   Print(BrightWhite, "[{:%X}] ", zoned_time { current_zone(), std::chrono::floor<seconds>(system_clock::now()) });
   Print(Emphasis::Bold | color, "{} ", levelStr);
   Print(fmt, std::forward<Args>(args)...);
 
 #ifndef NDEBUG
   Print(BrightWhite, "\n{:>14} ", "╰──");
-  Print(Emphasis::Italic | BrightWhite, "{}:{}", filename, loc.line());
+  Print(
+    Emphasis::Italic | BrightWhite,
+    "{}:{}",
+    std::filesystem::path(loc.file_name()).lexically_normal().string(),
+    loc.line()
+  );
 #endif
 
   Print("\n");
 }
 
+// Suppress unused macro warnings in Clang
 #ifdef __clang__
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-macros"
 #endif
+
 #ifdef NDEBUG
 #define DEBUG_LOG(...) static_cast<void>(0)
 #else
+/**
+ * @def DEBUG_LOG
+ * @brief Logs a message at the DEBUG level.
+ * @details Only active in non-release builds (when NDEBUG is not defined).
+ * Includes timestamp, level, message, and source location.
+ * @param ... Format string and arguments for the log message.
+ */
 #define DEBUG_LOG(...) LogImpl(LogLevel::DEBUG, std::source_location::current(), __VA_ARGS__)
 #endif
+
+/**
+ * @def INFO_LOG(...)
+ * @brief Logs a message at the INFO level.
+ * @details Includes timestamp, level, message, and source location (in debug builds).
+ * @param ... Format string and arguments for the log message.
+ */
 #define INFO_LOG(...) LogImpl(LogLevel::INFO, std::source_location::current(), __VA_ARGS__)
+
+/**
+ * @def WARN_LOG(...)
+ * @brief Logs a message at the WARN level.
+ * @details Includes timestamp, level, message, and source location (in debug builds).
+ * @param ... Format string and arguments for the log message.
+ */
 #define WARN_LOG(...) LogImpl(LogLevel::WARN, std::source_location::current(), __VA_ARGS__)
+
+/**
+ * @def ERROR_LOG(...)
+ * @brief Logs a message at the ERROR level.
+ * @details Includes timestamp, level, message, and source location (in debug builds).
+ * @param ... Format string and arguments for the log message.
+ */
 #define ERROR_LOG(...) LogImpl(LogLevel::ERROR, std::source_location::current(), __VA_ARGS__)
+
 #ifdef __clang__
 #pragma clang diagnostic pop
 #endif

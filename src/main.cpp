@@ -243,9 +243,6 @@ namespace {
 }
 
 fn main() -> i32 {
-  std::locale::global(std::locale(""));
-  DEBUG_LOG("Global locale set to: {}", std::locale().name());
-
   const Config&    config = Config::getInstance();
   const SystemData data   = SystemData::fetchSystemData(config);
 
