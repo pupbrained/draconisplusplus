@@ -20,7 +20,7 @@ namespace {
   }
 }
 
-fn SystemData::fetchSystemData(const Config& config) -> SystemData {
+SystemData SystemData::fetchSystemData(const Config& config) {
   SystemData data {
     .date                = GetDate(),
     .host                = os::GetHost(),
@@ -29,36 +29,42 @@ fn SystemData::fetchSystemData(const Config& config) -> SystemData {
     .mem_info            = os::GetMemInfo(),
     .desktop_environment = os::GetDesktopEnvironment(),
     .window_manager      = os::GetWindowManager(),
-    .now_playing         = {},
-    .weather_info        = {},
-    .disk_used           = {},
-    .disk_total          = {},
-    .shell               = {},
+    .disk_usage          = {},
+    .shell               = None,
+    .now_playing         = None,
+    .weather_info        = None,
   };
 
-  auto diskShell = std::async(std::launch::async, [] {
-    auto [used, total] = os::GetDiskUsage();
-    return std::make_tuple(used, total, os::GetShell());
+  auto diskShellFuture = std::async(std::launch::async, [] {
+    Result<DiskSpace, OsError> diskResult  = os::GetDiskUsage();
+    Option<String>             shellOption = os::GetShell();
+    return std::make_tuple(std::move(diskResult), std::move(shellOption));
   });
 
-  std::future<WeatherOutput>                   weather;
-  std::future<Result<String, NowPlayingError>> nowPlaying;
+  std::future<WeatherOutput>                      weatherFuture;
+  std::future<Result<MediaInfo, NowPlayingError>> nowPlayingFuture;
 
   if (config.weather.enabled)
-    weather = std::async(std::launch::async, [&config] { return config.weather.getWeatherInfo(); });
+    weatherFuture = std::async(std::launch::async, [&config] { return config.weather.getWeatherInfo(); });
 
   if (config.now_playing.enabled)
-    nowPlaying = std::async(std::launch::async, os::GetNowPlaying);
+    nowPlayingFuture = std::async(std::launch::async, os::GetNowPlaying);
 
-  auto [used, total, shell] = diskShell.get();
-  data.disk_used            = used;
-  data.disk_total           = total;
-  data.shell                = shell;
+  auto [diskResult, shellOption] = diskShellFuture.get();
 
-  if (weather.valid())
-    data.weather_info = weather.get();
-  if (nowPlaying.valid())
-    data.now_playing = nowPlaying.get();
+  data.disk_usage = std::move(diskResult);
+  data.shell      = std::move(shellOption);
+
+  if (weatherFuture.valid())
+    try {
+      data.weather_info = weatherFuture.get();
+    } catch (const std::exception& e) {
+      ERROR_LOG("Failed to get weather info: {}", e.what());
+      data.weather_info = None;
+    }
+
+  if (nowPlayingFuture.valid())
+    data.now_playing = nowPlayingFuture.get();
 
   return data;
 }

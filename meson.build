@@ -48,9 +48,6 @@ common_cpp_flags = {
     '/external:W0',
     '/external:anglebrackets',
     '/std:c++latest',
-    '/w44668',
-    '/w44710',
-    '/w44820',
   ],
   'unix_extra' : [
     '-march=native',
@@ -128,6 +125,13 @@ elif host_system == 'windows'
     cpp.find_library('windowsapp'),
   ]
 elif host_system == 'linux'
+  dbus_cxx_dep = dependency('dbus-cxx', include_type : 'system', required : false)
+
+  if not dbus_cxx_dep.found()
+    cmake = import('cmake')
+    dbus_cxx_proj = cmake.subproject('dbus_cxx')
+    dbus_cxx_dep = dbus_cxx_proj.dependency('dbus_cxx', include_type : 'system')
+  endif
   platform_deps += [
     dependency('SQLiteCpp'),
     dependency('xcb'),
@@ -135,6 +139,7 @@ elif host_system == 'linux'
     dependency('xdmcp'),
     dependency('wayland-client'),
     dependency('sigc++-3.0', include_type : 'system'),
+    dbus_cxx_dep,
   ]
 endif
 
@@ -158,14 +163,6 @@ if not ftxui_dep.found()
   )
 endif
 
-dbus_cxx_dep = dependency('dbus-cxx', include_type : 'system', required : false)
-
-if not dbus_cxx_dep.found()
-  cmake = import('cmake')
-  dbus_cxx_proj = cmake.subproject('dbus_cxx')
-  dbus_cxx_dep = dbus_cxx_proj.dependency('dbus_cxx', include_type : 'system')
-endif
-
 glaze_dep = dependency('glaze', include_type : 'system', required : false)
 
 if not glaze_dep.found()
@@ -175,7 +172,7 @@ if not glaze_dep.found()
 endif
 
 # Combine all dependencies
-deps = common_deps + platform_deps + ftxui_dep + dbus_cxx_dep + glaze_dep
+deps = common_deps + platform_deps + ftxui_dep + glaze_dep
 
 # ------------------------- #
 #  Link/ObjC Configuration  #

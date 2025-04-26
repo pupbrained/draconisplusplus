@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>    // std::array alias (Array)
-#include <cmath>    // std::float_t, std::double_t (f32/f64)
 #include <cstdlib>  // std::getenv, std::free
 #include <expected> // std::expected alias (Result)
 #include <map>      // std::map alias (Map)
@@ -36,8 +35,8 @@ using i64 = std::int64_t; ///< 64-bit signed integer.
 // Provides concise names for standard floating-point types. //
 //-----------------------------------------------------------//
 
-using f32 = std::float_t;  ///< 32-bit floating-point number.
-using f64 = std::double_t; ///< 64-bit floating-point number.
+using f32 = float;  ///< 32-bit floating-point number.
+using f64 = double; ///< 64-bit floating-point number.
 
 //-------------------------------------------------//
 // Size Type Aliases                               //
@@ -155,25 +154,98 @@ enum class NowPlayingCode : u8 {
   NoActivePlayer, ///< Players were found, but none are currently active or playing.
 };
 
-#ifdef _WIN32
-using WindowsError = winrt::hresult_error; ///< Alias for WinRT HRESULT error type.
-#endif
+/**
+ * @enum OsErrorCode
+ * @brief Error codes for general OS-level operations.
+ */
+enum class OsErrorCode : u8 {
+  ApiUnavailable,   ///< An underlying OS API failed, is unavailable, or returned an error.
+  BufferTooSmall,   ///< A pre-allocated buffer was insufficient (less common with dynamic allocation).
+  InternalError,    ///< An unspecified internal error within the abstraction layer.
+  IoError,          ///< A general input/output error occurred.
+  NetworkError,     ///< Network-related error (relevant if OS functions involve network).
+  NotFound,         ///< A required resource (file, registry key, device) was not found.
+  NotSupported,     ///< The requested operation is not supported on this platform or configuration.
+  ParseError,       ///< Failed to parse data obtained from the OS (e.g., file content, API output).
+  PermissionDenied, ///< Insufficient permissions to perform the operation.
+  PlatformSpecific, ///< An error specific to the platform occurred (check message for details).
+  Success,          ///< Operation completed successfully (often implicit).
+  Timeout,          ///< An operation timed out (e.g., waiting for DBus reply).
+  Other,            ///< A generic error code for unclassified errors.
+};
 
 /**
- * @typedef NowPlayingError
- * @brief Represents the possible errors returned by "Now Playing" functions.
- * It's a variant that can hold either a generic NowPlayingCode,
- * a platform-specific error (WindowsError on Windows, String on others),
- * or potentially other error types if extended.
+ * @struct OsError
+ * @brief Holds structured information about an OS-level error.
+ *
+ * Used as the error type in Result for many os:: functions.
  */
-using NowPlayingError = std::variant<
-  NowPlayingCode,
+struct OsError {
+  String      message = "Unknown Error";    ///< A descriptive error message, potentially including platform details.
+  OsErrorCode code    = OsErrorCode::Other; ///< The general category of the error.
+
+  OsError(const OsErrorCode errc, String msg) : message(std::move(msg)), code(errc) {}
+
+  explicit OsError(const Exception& e) : message(e.what()) {}
+
 #ifdef _WIN32
-  WindowsError
-#else
-  String
+  explicit OsError(const winrt::hresult_error& e)
+    : message(winrt::to_string(e.message())), code(OsErrorCode::PlatformSpecific) {}
 #endif
-  >;
+
+#ifndef _WIN32
+  OsError(OsErrorCode c, int errno_val) : code(c), message(std::system_category().message(errno_val)) {}
+#endif
+};
+
+/**
+ * @struct DiskSpace
+ * @brief Represents disk usage information.
+ *
+ * Used as the success type for os::GetDiskUsage.
+ */
+struct DiskSpace {
+  u64 used_bytes;  ///< Currently used disk space in bytes.
+  u64 total_bytes; ///< Total disk space in bytes.
+};
+
+/**
+ * @struct MediaInfo
+ * @brief Holds structured metadata about currently playing media.
+ *
+ * Used as the success type for os::GetNowPlaying.
+ * Using Option<> for fields that might not always be available.
+ */
+struct MediaInfo {
+  /**
+   * @enum PlaybackStatus
+   * @brief Represents the playback status of the media player.
+   */
+  enum class PlaybackStatus : u8 { Playing, Paused, Stopped, Unknown };
+
+  Option<String> title;    ///< Track title.
+  Option<String> artist;   ///< Track artist(s).
+  Option<String> album;    ///< Album name.
+  Option<String> app_name; ///< Name of the media player application (e.g., "Spotify", "Firefox").
+  PlaybackStatus status = PlaybackStatus::Unknown; ///< Current playback status.
+
+  MediaInfo(Option<String> t, Option<String> a, Option<String> al, Option<String> app)
+    : title(std::move(t)), artist(std::move(a)), album(std::move(al)), app_name(std::move(app)) {}
+};
+
+//--------------------------------------------------------//
+// Potentially Update Existing Application-Specific Types //
+//--------------------------------------------------------//
+
+/**
+ * @typedef NowPlayingError (Updated Recommendation)
+ * @brief Represents the possible errors returned by os::GetNowPlaying.
+ *
+ * It's a variant that can hold either a specific NowPlayingCode
+ * (indicating player state like 'no active player') or a general OsError
+ * (indicating an underlying system/API failure).
+ */
+using NowPlayingError = std::variant<NowPlayingCode, OsError>;
 
 /**
  * @enum EnvError

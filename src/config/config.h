@@ -86,11 +86,12 @@ struct NowPlaying {
  * @brief Holds configuration settings for the Weather feature.
  */
 struct Weather {
-  bool     enabled        = false; ///< Flag to enable or disable the Weather feature.
-  bool     show_town_name = false; ///< Flag to show the town name in the output.
-  Location location;               ///< Location for weather data, can be a city name or coordinates.
-  String   api_key;                ///< API key for the weather service.
-  String   units;                  ///< Units for temperature, either "metric" or "imperial".
+  Location location; ///< Location for weather data, can be a city name or coordinates.
+  String   api_key;  ///< API key for the weather service.
+  String   units;    ///< Units for temperature, either "metric" or "imperial".
+
+  bool enabled        = false; ///< Flag to enable or disable the Weather feature.
+  bool show_town_name = false; ///< Flag to show the town name in the output.
 
   /**
    * @brief Parses a TOML table to create a Weather instance.
@@ -143,8 +144,8 @@ struct Weather {
  */
 struct Config {
   General    general;     ///< General configuration settings.
-  NowPlaying now_playing; ///< Now Playing configuration settings.
   Weather    weather;     ///< Weather configuration settings.`
+  NowPlaying now_playing; ///< Now Playing configuration settings.
 
   /**
    * @brief Parses a TOML table to create a Config instance.
@@ -158,8 +159,8 @@ struct Config {
 
     return {
       .general     = genTbl.is_table() ? General::fromToml(*genTbl.as_table()) : General {},
-      .now_playing = npTbl.is_table() ? NowPlaying::fromToml(*npTbl.as_table()) : NowPlaying {},
       .weather     = wthTbl.is_table() ? Weather::fromToml(*wthTbl.as_table()) : Weather {},
+      .now_playing = npTbl.is_table() ? NowPlaying::fromToml(*npTbl.as_table()) : NowPlaying {},
     };
   }
 

@@ -94,9 +94,8 @@ namespace {
   }
 
   fn SystemInfoBox(const Config& config, const SystemData& data) -> Element {
-    const String& name              = config.general.name;
-    const Weather weather           = config.weather;
-    const bool    nowPlayingEnabled = config.now_playing.enabled;
+    const String& name    = config.general.name;
+    const Weather weather = config.weather;
 
     const auto& [userIcon, paletteIcon, calendarIcon, hostIcon, kernelIcon, osIcon, memoryIcon, weatherIcon, musicIcon, diskIcon, shellIcon, deIcon, wmIcon] =
       ui::SHOW_ICONS ? ui::NERD_ICONS : ui::EMPTY_ICONS;
@@ -114,11 +113,11 @@ namespace {
     content.push_back(separator() | color(ui::DEFAULT_THEME.border));
 
     // Helper function for aligned rows
-    fn createRow = [&](const auto& icon, const auto& label, const auto& value) {
+    fn createRow = [&](const StringView& icon, const StringView& label, const StringView& value) { // NEW
       return hbox(
         {
           text(String(icon)) | color(ui::DEFAULT_THEME.icon),
-          text(String(static_cast<CStr>(label))) | color(ui::DEFAULT_THEME.label),
+          text(String(label)) | color(ui::DEFAULT_THEME.label),
           filler(),
           text(String(value)) | color(ui::DEFAULT_THEME.value),
           text(" "),
@@ -171,28 +170,38 @@ namespace {
 
     content.push_back(separator() | color(ui::DEFAULT_THEME.border));
 
-    if (!data.host.empty())
-      content.push_back(createRow(hostIcon, "Host", data.host));
+    if (data.host)
+      content.push_back(createRow(hostIcon, "Host", *data.host));
+    else
+      ERROR_LOG("Failed to get host info: {}", data.host.error().message);
 
-    if (!data.kernel_version.empty())
-      content.push_back(createRow(kernelIcon, "Kernel", data.kernel_version));
+    if (data.kernel_version)
+      content.push_back(createRow(kernelIcon, "Kernel", *data.kernel_version));
+    else
+      ERROR_LOG("Failed to get kernel version: {}", data.kernel_version.error().message);
 
     if (data.os_version)
       content.push_back(createRow(String(osIcon), "OS", *data.os_version));
     else
-      ERROR_LOG("Failed to get OS version: {}", data.os_version.error());
+      ERROR_LOG("Failed to get OS version: {}", data.os_version.error().message);
 
     if (data.mem_info)
       content.push_back(createRow(memoryIcon, "RAM", std::format("{}", BytesToGiB { *data.mem_info })));
     else
-      ERROR_LOG("Failed to get memory info: {}", data.mem_info.error());
+      ERROR_LOG("Failed to get memory info: {}", data.mem_info.error().message);
 
     // Add Disk usage row
-    content.push_back(
-      createRow(diskIcon, "Disk", std::format("{}/{}", BytesToGiB { data.disk_used }, BytesToGiB { data.disk_total }))
-    );
+    if (data.disk_usage)
+      content.push_back(createRow(
+        diskIcon,
+        "Disk",
+        std::format("{}/{}", BytesToGiB { data.disk_usage->used_bytes }, BytesToGiB { data.disk_usage->total_bytes })
+      ));
+    else
+      ERROR_LOG("Failed to get disk usage: {}", data.disk_usage.error().message);
 
-    content.push_back(createRow(shellIcon, "Shell", data.shell));
+    if (data.shell)
+      content.push_back(createRow(shellIcon, "Shell", *data.shell));
 
     content.push_back(separator() | color(ui::DEFAULT_THEME.border));
 
@@ -202,10 +211,13 @@ namespace {
     if (data.window_manager)
       content.push_back(createRow(wmIcon, "WM", *data.window_manager));
 
-    // Now Playing row
-    if (nowPlayingEnabled && data.now_playing) {
-      if (const Result<String, NowPlayingError>& nowPlayingResult = *data.now_playing; nowPlayingResult.has_value()) {
-        const String& npText = *nowPlayingResult;
+    if (config.now_playing.enabled && data.now_playing) {
+      if (const Result<MediaInfo, NowPlayingError>& nowPlayingResult = *data.now_playing) {
+        const MediaInfo& info = *nowPlayingResult;
+
+        const String title  = info.title.value_or("Unknown Title");
+        const String artist = info.artist.value_or("Unknown Artist");
+        const String npText = artist + " - " + title;
 
         content.push_back(separator() | color(ui::DEFAULT_THEME.border));
         content.push_back(hbox(
@@ -219,22 +231,13 @@ namespace {
           }
         ));
       } else {
-        const NowPlayingError& error = nowPlayingResult.error();
-
-        if (std::holds_alternative<NowPlayingCode>(error))
+        if (const NowPlayingError& error = nowPlayingResult.error(); std::holds_alternative<NowPlayingCode>(error)) {
           switch (std::get<NowPlayingCode>(error)) {
             case NowPlayingCode::NoPlayers:      DEBUG_LOG("No players found"); break;
             case NowPlayingCode::NoActivePlayer: DEBUG_LOG("No active player found"); break;
-            default:                             std::unreachable();
           }
-
-#ifdef _WIN32
-        if (std::holds_alternative<WindowsError>(error))
-          DEBUG_LOG("WinRT error: {}", to_string(std::get<WindowsError>(error).message()));
-#else
-        if (std::holds_alternative<String>(error))
-          DEBUG_LOG("NowPlaying error: {}", std::get<String>(error));
-#endif
+        } else
+          ERROR_LOG("Failed to get now playing info: {}", std::get<OsError>(error).message);
       }
     }
 

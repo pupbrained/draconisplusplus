@@ -16,27 +16,27 @@ namespace os {
   /**
    * @brief Get the total amount of physical RAM installed in the system.
    * @return A Result containing the total RAM in bytes (u64) on success,
-   * or an error message (String) on failure.
+   * or an OsError on failure.
    */
-  fn GetMemInfo() -> Result<u64, String>;
+  fn GetMemInfo() -> Result<u64, OsError>;
 
   /**
-   * @brief Gets metadata about the currently playing media.
-   * @return A Result containing the media information (String) on success,
-   * or an error code (NowPlayingError) on failure.
+   * @brief Gets structured metadata about the currently playing media.
+   * @return A Result containing the media information (MediaInfo struct) on success,
+   * or a NowPlayingError (indicating player state or system error) on failure.
    */
-  fn GetNowPlaying() -> Result<String, NowPlayingError>;
+  fn GetNowPlaying() -> Result<MediaInfo, NowPlayingError>;
 
   /**
    * @brief Gets the "pretty" name of the operating system.
    * @details Examples: "Ubuntu 24.04.2 LTS", "Windows 11 Pro 24H2", "macOS 15 Sequoia".
    * @return A Result containing the OS version String on success,
-   * or an error message (String) on failure.
+   * or an OsError on failure.
    */
-  fn GetOSVersion() -> Result<String, String>;
+  fn GetOSVersion() -> Result<String, OsError>;
 
   /**
-   * @brief Attempts to retrieve the desktop environment.
+   * @brief Attempts to retrieve the desktop environment name.
    * @details This is most relevant on Linux. May check environment variables (XDG_CURRENT_DESKTOP),
    * session files, or running processes. On Windows/macOS, it might return a
    * UI theme identifier (e.g., "Fluent", "Aqua") or None.
@@ -45,53 +45,54 @@ namespace os {
   fn GetDesktopEnvironment() -> Option<String>;
 
   /**
-   * @brief Attempts to retrieve the window manager.
+   * @brief Attempts to retrieve the window manager name.
    * @details On Linux, checks Wayland compositor or X11 WM properties. On Windows, returns "DWM" or similar.
    * On macOS, might return "Quartz Compositor" or a specific tiling WM name if active.
-   * @return A String containing the detected WM name, or None if detection fails or is not applicable.
+   * @return An Option containing the detected WM name String, or None if detection fails.
    */
   fn GetWindowManager() -> Option<String>;
 
   /**
-   * @brief Attempts to detect the current user shell.
+   * @brief Attempts to detect the current user shell name.
    * @details Checks the SHELL environment variable on Linux/macOS. On Windows, inspects the process tree
    * to identify known shells like PowerShell, Cmd, or MSYS2 shells (Bash, Zsh).
-   * @return A String containing the detected shell name (e.g., "Bash", "Zsh", "PowerShell", "Fish").
-   * May return the full path or "Unknown" as a fallback.
+   * @return An Option containing the detected shell name (e.g., "Bash", "Zsh", "PowerShell", "Fish"), or None if
+   * detection fails.
    */
-  fn GetShell() -> String;
+  fn GetShell() -> Option<String>;
 
   /**
    * @brief Gets a system identifier, often the hardware model or product family.
    * @details Examples: "MacBookPro18,3", "Latitude 5420", "ThinkPad T490".
    * Implementation varies: reads DMI info on Linux, registry on Windows, sysctl on macOS.
-   * @return A String containing the host/product identifier. May be empty if retrieval fails.
+   * @return A Result containing the host/product identifier String on success,
+   * or an OsError on failure (e.g., permission reading DMI/registry, API error).
    */
-  fn GetHost() -> String;
+  fn GetHost() -> Result<String, OsError>;
 
   /**
    * @brief Gets the operating system's kernel version string.
    * @details Examples: "5.15.0-76-generic", "10.0.22621", "23.1.0".
    * Uses uname() on Linux/macOS, WinRT/registry on Windows.
-   * @return A String containing the kernel version. May be empty if retrieval fails.
+   * @return A Result containing the kernel version String on success,
+   * or an OsError on failure.
    */
-  fn GetKernelVersion() -> String;
+  fn GetKernelVersion() -> Result<String, OsError>;
 
   /**
-   * @brief Gets the number of installed packages (Linux-specific).
-   * @details Sums counts from various package managers (dpkg, rpm, pacman, flatpak, snap, etc.).
-   * Returns 0 on non-Linux platforms or if no package managers are found.
-   * @return A u64 representing the total count of detected packages.
+   * @brief Gets the number of installed packages (Platform-specific).
+   * @details On Linux, sums counts from various package managers. On other platforms, behavior may vary.
+   * @return A Result containing the package count (u64) on success,
+   * or an OsError on failure (e.g., permission errors, command not found)
+   * or if not supported (OsErrorCode::NotSupported).
    */
-  fn GetPackageCount() -> u64; // Note: Implementation likely exists only in linux.cpp
+  fn GetPackageCount() -> Result<u64, OsError>; // Note: Returns OsError{OsErrorCode::NotSupported} on Win/Mac likely
 
   /**
    * @brief Gets the disk usage for the primary/root filesystem.
    * @details Uses statvfs on Linux/macOS, GetDiskFreeSpaceExW on Windows.
-   * @return A Pair<u64, u64> where:
-   * - first: Used disk space in bytes.
-   * - second: Total disk space in bytes.
-   * Returns {0, 0} on failure.
+   * @return A Result containing the DiskSpace struct (used/total bytes) on success,
+   * or an OsError on failure (e.g., filesystem not found, permission error).
    */
-  fn GetDiskUsage() -> Pair<u64, u64>;
-}
+  fn GetDiskUsage() -> Result<DiskSpace, OsError>;
+} // namespace os

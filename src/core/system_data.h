@@ -56,21 +56,20 @@ struct std::formatter<BytesToGiB> : std::formatter<double> {
  * in order to display it at all at once during runtime.
  */
 struct SystemData {
-  using NowPlayingResult = Option<Result<String, NowPlayingError>>;
+  using NowPlayingResult = Option<Result<MediaInfo, NowPlayingError>>;
 
   // clang-format off
-  String                 date;                ///< Current date (e.g., "April 24th").
-  String                 host;                ///< Host or product family name (e.g., "MacBook Pro").
-  String                 kernel_version;      ///< OS kernel version (e.g., "5.15.0-generic").
-  Result<String, String> os_version;          ///< OS pretty name (e.g., "Ubuntu 22.04 LTS") or an error message.
-  Result<u64, String>    mem_info;            ///< Total physical RAM in bytes or an error message.
-  Option<String>         desktop_environment; ///< Detected desktop environment (e.g., "GNOME", "KDE", "Fluent (Windows 11)"). Might be None.
-  Option<String>         window_manager;      ///< Detected window manager (e.g., "Mutter", "KWin", "DWM").
-  NowPlayingResult       now_playing;         ///< Currently playing media ("Artist - Title") or an error/None if disabled/unavailable.
-  Option<WeatherOutput>  weather_info;        ///< Weather information or None if disabled/unavailable.
-  u64                    disk_used;           ///< Used disk space in bytes for the root filesystem.
-  u64                    disk_total;          ///< Total disk space in bytes for the root filesystem.
-  String                 shell;               ///< Name of the current user shell (e.g., "Bash", "Zsh", "PowerShell").
+  String                     date;                ///< Current date (e.g., "April 26th"). Always expected to succeed.
+  Result<String, OsError>    host;                ///< Host/product family (e.g., "MacBookPro18,3") or OS error.
+  Result<String, OsError>    kernel_version;      ///< OS kernel version (e.g., "23.4.0") or OS error.
+  Result<String, OsError>    os_version;          ///< OS pretty name (e.g., "macOS Sonoma 14.4.1") or OS error.
+  Result<u64, OsError>       mem_info;            ///< Total physical RAM in bytes or OS error.
+  Option<String>             desktop_environment; ///< Detected desktop environment (e.g., "Aqua", "Plasma"). None if not detected/applicable.
+  Option<String>             window_manager;      ///< Detected window manager (e.g., "Quartz Compositor", "KWin"). None if not detected/applicable.
+  Result<DiskSpace, OsError> disk_usage;          ///< Used/Total disk space for root filesystem or OS error.
+  Option<String>             shell;               ///< Name of the current user shell (e.g., "zsh"). None if not detected.
+  NowPlayingResult           now_playing;         ///< Optional: Result of fetching media info (MediaInfo on success, NowPlayingError on failure). None if disabled.
+  Option<WeatherOutput>      weather_info;        ///< Optional: Weather information. None if disabled or error during fetch.
   // clang-format on
 
   /**
