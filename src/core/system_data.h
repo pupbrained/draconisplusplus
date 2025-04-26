@@ -65,7 +65,7 @@ struct SystemData {
   Result<String, String> os_version;          ///< OS pretty name (e.g., "Ubuntu 22.04 LTS") or an error message.
   Result<u64, String>    mem_info;            ///< Total physical RAM in bytes or an error message.
   Option<String>         desktop_environment; ///< Detected desktop environment (e.g., "GNOME", "KDE", "Fluent (Windows 11)"). Might be None.
-  String                 window_manager;      ///< Detected window manager (e.g., "Mutter", "KWin", "DWM").
+  Option<String>         window_manager;      ///< Detected window manager (e.g., "Mutter", "KWin", "DWM").
   NowPlayingResult       now_playing;         ///< Currently playing media ("Artist - Title") or an error/None if disabled/unavailable.
   Option<WeatherOutput>  weather_info;        ///< Weather information or None if disabled/unavailable.
   u64                    disk_used;           ///< Used disk space in bytes for the root filesystem.

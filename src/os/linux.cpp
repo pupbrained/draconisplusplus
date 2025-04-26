@@ -19,28 +19,17 @@
 #include "src/os/linux/display_guards.h"
 #include "src/util/macros.h"
 
-namespace fs = std::filesystem;
 using namespace std::string_view_literals;
 
 namespace {
-  constexpr auto Trim(StringView sview) -> StringView {
-    using namespace std::ranges;
-
-    constexpr auto isSpace = [](const char character) { return std::isspace(static_cast<unsigned char>(character)); };
-
-    const borrowed_iterator_t<StringView&>              start  = find_if_not(sview, isSpace);
-    const borrowed_iterator_t<reverse_view<StringView>> rstart = find_if_not(sview | views::reverse, isSpace);
-
-    return sview.substr(start - sview.begin(), sview.size() - (rstart - sview.rbegin()));
-  }
-
-  fn GetX11WindowManager() -> String {
+  fn GetX11WindowManager() -> Option<String> {
     using os::linux::XcbReplyGuard;
     using os::linux::XorgDisplayGuard;
 
     const XorgDisplayGuard conn;
+
     if (!conn)
-      return "";
+      RETURN_ERR("Failed to open X11 display");
 
     fn internAtom = [&conn](const StringView name) -> XcbReplyGuard<xcb_intern_atom_reply_t> {
       const auto cookie = xcb_intern_atom(conn.get(), 0, static_cast<uint16_t>(name.size()), name.data());
@@ -52,153 +41,108 @@ namespace {
     const XcbReplyGuard<xcb_intern_atom_reply_t> utf8String        = internAtom("UTF8_STRING");
 
     if (!supportingWmCheck || !wmName || !utf8String)
-      return "Unknown (X11)";
+      RETURN_ERR("Failed to get X11 atoms");
 
-    const xcb_window_t root = conn.rootScreen()->root;
-
-    fn getProperty = [&conn](
-                       const xcb_window_t window,
-                       const xcb_atom_t   property,
-                       const xcb_atom_t   type,
-                       const uint32_t     offset,
-                       const uint32_t     length
-                     ) -> XcbReplyGuard<xcb_get_property_reply_t> {
-      const xcb_get_property_cookie_t cookie = xcb_get_property(conn.get(), 0, window, property, type, offset, length);
-      return XcbReplyGuard(xcb_get_property_reply(conn.get(), cookie, nullptr));
-    };
-
-    const XcbReplyGuard<xcb_get_property_reply_t> wmWindowReply =
-      getProperty(root, supportingWmCheck->atom, XCB_ATOM_WINDOW, 0, 1);
+    const XcbReplyGuard<xcb_get_property_reply_t> wmWindowReply(xcb_get_property_reply(
+      conn.get(),
+      xcb_get_property(conn.get(), 0, conn.rootScreen()->root, supportingWmCheck->atom, XCB_ATOM_WINDOW, 0, 1),
+      nullptr
+    ));
 
     if (!wmWindowReply || wmWindowReply->type != XCB_ATOM_WINDOW || wmWindowReply->format != 32 ||
         xcb_get_property_value_length(wmWindowReply.get()) == 0)
-      return "Unknown (X11)";
+      RETURN_ERR("Failed to get _NET_SUPPORTING_WM_CHECK property");
 
-    const xcb_window_t wmWindow = *static_cast<xcb_window_t*>(xcb_get_property_value(wmWindowReply.get()));
-
-    const XcbReplyGuard<xcb_get_property_reply_t> wmNameReply =
-      getProperty(wmWindow, wmName->atom, utf8String->atom, 0, 1024);
+    const XcbReplyGuard<xcb_get_property_reply_t> wmNameReply(xcb_get_property_reply(
+      conn.get(),
+      xcb_get_property(
+        conn.get(),
+        0,
+        *static_cast<xcb_window_t*>(xcb_get_property_value(wmWindowReply.get())),
+        wmName->atom,
+        utf8String->atom,
+        0,
+        1024
+      ),
+      nullptr
+    ));
 
     if (!wmNameReply || wmNameReply->type != utf8String->atom || xcb_get_property_value_length(wmNameReply.get()) == 0)
-      return "Unknown (X11)";
+      RETURN_ERR("Failed to get _NET_WM_NAME property");
 
     const char* nameData = static_cast<const char*>(xcb_get_property_value(wmNameReply.get()));
     const usize length   = xcb_get_property_value_length(wmNameReply.get());
 
-    return { nameData, length };
+    return String(nameData, length);
   }
 
-  fn ReadProcessCmdline(const i32 pid) -> String {
-    std::ifstream cmdlineFile("/proc/" + std::to_string(pid) + "/cmdline");
-
-    if (String cmdline; getline(cmdlineFile, cmdline)) {
-      std::ranges::replace(cmdline, '\0', ' ');
-      return cmdline;
-    }
-
-    return "";
-  }
-
-  fn DetectHyprlandSpecific() -> Option<String> {
-    if (Result<String, EnvError> xdgCurrentDesktop = GetEnv("XDG_CURRENT_DESKTOP")) {
-      std::ranges::transform(*xdgCurrentDesktop, xdgCurrentDesktop->begin(), tolower);
-
-      if (xdgCurrentDesktop->contains("hyprland"sv))
-        return "Hyprland";
-    }
-
-    if (GetEnv("HYPRLAND_INSTANCE_SIGNATURE"))
-      return "Hyprland";
-
-    if (fs::exists(std::format("/run/user/{}/hypr", getuid())))
-      return "Hyprland";
-
-    return None;
-  }
-
-  fn GetWaylandCompositor() -> String {
+  fn GetWaylandCompositor() -> Option<String> {
     using os::linux::WaylandDisplayGuard;
-
-    if (const Option<String> hypr = DetectHyprlandSpecific())
-      return *hypr;
 
     const WaylandDisplayGuard display;
 
     if (!display)
-      return "";
+      RETURN_ERR("Failed to open Wayland display");
 
     const i32 fileDescriptor = display.fd();
+    if (fileDescriptor < 0)
+      RETURN_ERR("Failed to get Wayland file descriptor");
 
-    ucred cred;
-    u32   len = sizeof(cred);
+    ucred     cred;
+    socklen_t len = sizeof(cred);
 
     if (getsockopt(fileDescriptor, SOL_SOCKET, SO_PEERCRED, &cred, &len) == -1)
-      return "";
+      RETURN_ERR("Failed to get socket credentials: {}", std::error_code(errno, std::generic_category()).message());
+
+    Array<char, 128> exeLinkPathBuf;
+
+    auto [out, size] = std::format_to_n(exeLinkPathBuf.data(), exeLinkPathBuf.size() - 1, "/proc/{}/exe", cred.pid);
+
+    if (out >= exeLinkPathBuf.data() + exeLinkPathBuf.size() - 1)
+      RETURN_ERR("Failed to format /proc path (PID too large?)");
+
+    *out = '\0';
+
+    const char* exeLinkPath = exeLinkPathBuf.data();
+
+    Array<char, PATH_MAX> exeRealPathBuf;
+
+    const isize bytesRead = readlink(exeLinkPath, exeRealPathBuf.data(), exeRealPathBuf.size() - 1);
+
+    if (bytesRead == -1)
+      RETURN_ERR("Failed to read link {}: {}", exeLinkPath, std::error_code(errno, std::generic_category()).message());
+
+    exeRealPathBuf.at(bytesRead) = '\0';
 
     String compositorName;
 
-    const String commPath = std::format("/proc/{}/comm", cred.pid);
-    if (std::ifstream commFile(commPath); commFile >> compositorName) {
-      const std::ranges::subrange removedRange = std::ranges::remove(compositorName, '\n');
-      compositorName.erase(removedRange.begin(), removedRange.end());
+    try {
+      namespace fs = std::filesystem;
+
+      const fs::path exePath(exeRealPathBuf.data());
+
+      compositorName = exePath.filename().string();
+    } catch (const std::filesystem::filesystem_error& e) {
+      RETURN_ERR("Error getting compositor name from path '{}': {}", exeRealPathBuf.data(), e.what());
+    } catch (...) { RETURN_ERR("Unknown error getting compositor name"); }
+
+    if (compositorName.empty() || compositorName == "." || compositorName == "/")
+      RETURN_ERR("Empty or invalid compositor name {}", compositorName);
+
+    const StringView compositorNameView = compositorName;
+
+    if (constexpr StringView wrappedSuffix = "-wrapped"; compositorNameView.length() > 1 + wrappedSuffix.length() &&
+        compositorNameView[0] == '.' && compositorNameView.ends_with(wrappedSuffix)) {
+      const StringView cleanedView =
+        compositorNameView.substr(1, compositorNameView.length() - 1 - wrappedSuffix.length());
+
+      if (cleanedView.empty())
+        RETURN_ERR("Compositor name invalid after heuristic: original='%s'\n", compositorName.c_str());
+
+      return String(cleanedView);
     }
 
-    if (const String cmdline = ReadProcessCmdline(cred.pid); cmdline.contains("hyprland"sv))
-      return "Hyprland";
-
-    const String exePath = std::format("/proc/{}/exe", cred.pid);
-
-    Array<char, PATH_MAX> buf;
-    if (const isize lenBuf = readlink(exePath.c_str(), buf.data(), buf.size() - 1); lenBuf != -1) {
-      buf.at(static_cast<usize>(lenBuf)) = '\0';
-      if (const String exe(buf.data()); exe.contains("hyprland"sv))
-        return "Hyprland";
-    }
-
-    return compositorName.contains("hyprland"sv) ? "Hyprland" : compositorName;
-  }
-
-  fn DetectFromEnvVars() -> Option<String> {
-    if (Result<String, EnvError> xdgCurrentDesktop = GetEnv("XDG_CURRENT_DESKTOP")) {
-      if (const usize colon = xdgCurrentDesktop->find(':'); colon != String::npos)
-        return xdgCurrentDesktop->substr(0, colon);
-
-      DEBUG_LOG("Found XDG_CURRENT_DESKTOP: {}", *xdgCurrentDesktop);
-
-      return *xdgCurrentDesktop;
-    }
-
-    if (Result<String, EnvError> desktopSession = GetEnv("DESKTOP_SESSION")) {
-      DEBUG_LOG("Found DESKTOP_SESSION: {}", *desktopSession);
-      return *desktopSession;
-    }
-
-    return None;
-  }
-
-  fn DetectFromProcesses() -> Option<String> {
-    // clang-format off
-    const Array<Pair<StringView, StringView>, 7> processChecks = {{
-      {      "plasmashell",      "KDE" },
-      {      "gnome-shell",    "GNOME" },
-      {    "xfce4-session",     "XFCE" },
-      {     "mate-session",     "MATE" },
-      { "cinnamon-session", "Cinnamon" },
-      {        "budgie-wm",   "Budgie" },
-      {     "lxqt-session",     "LXQt" },
-    }};
-    // clang-format on
-
-    std::ifstream cmdline("/proc/self/environ");
-    const String  envVars((std::istreambuf_iterator(cmdline)), std::istreambuf_iterator<char>());
-
-    for (const auto& [process, deName] : processChecks)
-      if (envVars.contains(process)) {
-        DEBUG_LOG("Found from process check: {}", deName);
-        return String(deName);
-      }
-
-    return None;
+    return compositorName;
   }
 
   fn GetMprisPlayers(const SharedPointer<DBus::Connection>& connection) -> Result<Vec<String>, NowPlayingError> {
@@ -275,6 +219,7 @@ fn os::GetNowPlaying() -> Result<String, NowPlayingError> {
       return Err("Failed to create DBus dispatcher");
 
     const SharedPointer<DBus::Connection> connection = dispatcher->create_connection(DBus::BusType::SESSION);
+
     if (!connection)
       return Err("Failed to connect to session bus");
 
@@ -335,36 +280,31 @@ fn os::GetNowPlaying() -> Result<String, NowPlayingError> {
   }
 }
 
-fn os::GetWindowManager() -> String {
-  const Result<String, EnvError> waylandDisplay = GetEnv("WAYLAND_DISPLAY");
-
-  if (const Result<String, EnvError> xdgSessionType = GetEnv("XDG_SESSION_TYPE");
-      waylandDisplay || (xdgSessionType && xdgSessionType->contains("wayland"sv))) {
-    String compositor = GetWaylandCompositor();
-
-    if (!compositor.empty()) {
-      DEBUG_LOG("Found compositor: {}", compositor);
-      return compositor;
-    }
-
-    if (const Result<String, EnvError> xdgCurrentDesktop = GetEnv("XDG_CURRENT_DESKTOP")) {
-      std::ranges::transform(compositor, compositor.begin(), tolower);
-      if (xdgCurrentDesktop->contains("hyprland"sv))
-        return "Hyprland";
-    }
-  }
-
-  if (String x11wm = GetX11WindowManager(); !x11wm.empty())
-    return x11wm;
-
-  return "Unknown";
+fn os::GetWindowManager() -> Option<String> {
+  // clang-format off
+  return GetWaylandCompositor()
+    .or_else([] { return GetX11WindowManager(); })
+    .and_then([](const String& windowManager) -> Option<String> {
+      DEBUG_LOG("Found window manager: {}", windowManager);
+      return windowManager;
+    });
+  // clang-format on
 }
 
 fn os::GetDesktopEnvironment() -> Option<String> {
-  if (Option<String> desktopEnvironment = DetectFromEnvVars())
-    return desktopEnvironment;
+  return GetEnv("XDG_CURRENT_DESKTOP")
+    .transform([](const String& xdgDesktop) -> String {
+      if (const usize colon = xdgDesktop.find(':'); colon != String::npos)
+        return xdgDesktop.substr(0, colon);
 
-  return DetectFromProcesses();
+      return xdgDesktop;
+    })
+    .or_else([](const EnvError&) -> Result<String, EnvError> { return GetEnv("DESKTOP_SESSION"); })
+    .transform([](const String& finalValue) -> Option<String> {
+      DEBUG_LOG("Found desktop environment: {}", finalValue);
+      return finalValue;
+    })
+    .value_or(None);
 }
 
 fn os::GetShell() -> String {
@@ -406,7 +346,7 @@ fn os::GetHost() -> String {
     return "";
   }
 
-  return String(Trim(productFamily));
+  return productFamily;
 }
 
 fn os::GetKernelVersion() -> String {

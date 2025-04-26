@@ -199,8 +199,8 @@ namespace {
     if (data.desktop_environment && *data.desktop_environment != data.window_manager)
       content.push_back(createRow(deIcon, "DE", *data.desktop_environment));
 
-    if (!data.window_manager.empty())
-      content.push_back(createRow(wmIcon, "WM", data.window_manager));
+    if (data.window_manager)
+      content.push_back(createRow(wmIcon, "WM", *data.window_manager));
 
     // Now Playing row
     if (nowPlayingEnabled && data.now_playing) {

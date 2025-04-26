@@ -4,6 +4,7 @@ AlignConsecutiveAssignments: true
 AlignConsecutiveShortCaseStatements:
   Enabled: true
 AlignConsecutiveDeclarations: true
+AlignOperands: DontAlign
 AllowShortBlocksOnASingleLine: Always
 AllowShortCaseLabelsOnASingleLine: true
 AllowShortEnumsOnASingleLine: true

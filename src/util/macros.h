@@ -217,7 +217,7 @@ fn LogImpl(const LogLevel level, const std::source_location& loc, std::format_st
     }
   }();
 
-  Print(BrightWhite, "[{:%X}] ", zoned_time { current_zone(), std::chrono::floor<seconds>(system_clock::now()) });
+  Print(BrightWhite, "[{:%X}] ", std::chrono::floor<seconds>(system_clock::now()));
   Print(Emphasis::Bold | color, "{} ", levelStr);
   Print(fmt, std::forward<Args>(args)...);
 
@@ -276,6 +276,18 @@ fn LogImpl(const LogLevel level, const std::source_location& loc, std::format_st
  * @param ... Format string and arguments for the log message.
  */
 #define ERROR_LOG(...) LogImpl(LogLevel::ERROR, std::source_location::current(), __VA_ARGS__)
+
+/**
+ * @def RETURN_ERR(...)
+ * @brief Logs an error message and returns a value.
+ * @details Logs the error message with the ERROR log level and returns the specified value.
+ * @param ... Format string and arguments for the error message.
+ */
+#define RETURN_ERR(...)     \
+  do {                      \
+    ERROR_LOG(__VA_ARGS__); \
+    return None;            \
+  } while (0)
 
 #ifdef __clang__
 #pragma clang diagnostic pop

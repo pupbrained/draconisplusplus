@@ -48,9 +48,9 @@ namespace os {
    * @brief Attempts to retrieve the window manager.
    * @details On Linux, checks Wayland compositor or X11 WM properties. On Windows, returns "DWM" or similar.
    * On macOS, might return "Quartz Compositor" or a specific tiling WM name if active.
-   * @return A String containing the detected WM name. Might return "Unknown" or a default value if detection fails.
+   * @return A String containing the detected WM name, or None if detection fails or is not applicable.
    */
-  fn GetWindowManager() -> String;
+  fn GetWindowManager() -> Option<String>;
 
   /**
    * @brief Attempts to detect the current user shell.
