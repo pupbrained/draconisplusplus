@@ -5,7 +5,6 @@
 // clang-format on
 #include <cstring>
 #include <fstream>
-#include <ranges>
 #include <sys/socket.h>
 #include <sys/statvfs.h>
 #include <sys/sysinfo.h>
@@ -18,57 +17,120 @@
 #include "os.h"
 #include "src/os/linux/display_guards.h"
 #include "src/util/macros.h"
+#include "src/util/types.h"
 
 using namespace std::string_view_literals;
 
 namespace {
-  fn GetX11WindowManager() -> Option<String> {
+  fn MakeOsErrorFromDBus(const DBus::Error& err) -> OsError {
+    String name = err.name();
+
+    if (name == "org.freedesktop.DBus.Error.ServiceUnknown" || name == "org.freedesktop.DBus.Error.NameHasNoOwner")
+      return OsError { OsErrorCode::NotFound, std::format("DBus service/name not found: {}", err.message()) };
+
+    if (name == "org.freedesktop.DBus.Error.NoReply" || name == "org.freedesktop.DBus.Error.Timeout")
+      return OsError { OsErrorCode::Timeout, std::format("DBus timeout/no reply: {}", err.message()) };
+
+    if (name == "org.freedesktop.DBus.Error.AccessDenied")
+      return OsError { OsErrorCode::PermissionDenied, std::format("DBus access denied: {}", err.message()) };
+
+    return OsError { OsErrorCode::PlatformSpecific, std::format("DBus error: {} - {}", name, err.message()) };
+  }
+
+  fn MakeOsErrorFromErrno(const String& context = "") -> OsError {
+    const i32    errNo   = errno;
+    const String msg     = std::system_category().message(errNo);
+    const String fullMsg = context.empty() ? msg : std::format("{}: {}", context, msg);
+
+    switch (errNo) {
+      case EACCES:
+      case EPERM:        return OsError { OsErrorCode::PermissionDenied, fullMsg };
+      case ENOENT:       return OsError { OsErrorCode::NotFound, fullMsg };
+      case ETIMEDOUT:    return OsError { OsErrorCode::Timeout, fullMsg };
+      case ENOTSUP:      return OsError { OsErrorCode::NotSupported, fullMsg };
+      case EIO:          return OsError { OsErrorCode::IoError, fullMsg };
+      case ECONNREFUSED:
+      case ENETDOWN:
+      case ENETUNREACH:  return OsError { OsErrorCode::NetworkError, fullMsg };
+      default:           return OsError { OsErrorCode::PlatformSpecific, fullMsg };
+    }
+  }
+
+  fn GetX11WindowManager() -> Result<String, OsError> {
     using os::linux::XcbReplyGuard;
     using os::linux::XorgDisplayGuard;
 
     const XorgDisplayGuard conn;
 
     if (!conn)
-      RETURN_ERR("Failed to open X11 display");
+      if (const i32 err = xcb_connection_has_error(conn.get()); !conn || err != 0)
+        return Err(
+          OsError {
+            OsErrorCode::ApiUnavailable,
+            [&] -> String {
+              switch (err) {
+                case 0:                                return "Connection object invalid, but no specific XCB error code";
+                case XCB_CONN_ERROR:                   return "Stream/Socket/Pipe Error";
+                case XCB_CONN_CLOSED_EXT_NOTSUPPORTED: return "Closed: Extension Not Supported";
+                case XCB_CONN_CLOSED_MEM_INSUFFICIENT: return "Closed: Insufficient Memory";
+                case XCB_CONN_CLOSED_REQ_LEN_EXCEED:   return "Closed: Request Length Exceeded";
+                case XCB_CONN_CLOSED_PARSE_ERR:        return "Closed: Display String Parse Error";
+                case XCB_CONN_CLOSED_INVALID_SCREEN:   return "Closed: Invalid Screen";
+                case XCB_CONN_CLOSED_FDPASSING_FAILED: return "Closed: FD Passing Failed";
+                default:                               return std::format("Unknown Error Code ({})", err);
+              }
+            }(),
+          }
+        );
 
-    fn internAtom = [&conn](const StringView name) -> XcbReplyGuard<xcb_intern_atom_reply_t> {
-      const auto cookie = xcb_intern_atom(conn.get(), 0, static_cast<uint16_t>(name.size()), name.data());
-      return XcbReplyGuard(xcb_intern_atom_reply(conn.get(), cookie, nullptr));
+    fn internAtom = [&conn](const StringView name) -> Result<xcb_atom_t, OsError> {
+      const XcbReplyGuard<xcb_intern_atom_reply_t> reply(xcb_intern_atom_reply(
+        conn.get(), xcb_intern_atom(conn.get(), 0, static_cast<uint16_t>(name.size()), name.data()), nullptr
+      ));
+
+      if (!reply)
+        return Err(
+          OsError { OsErrorCode::PlatformSpecific, std::format("Failed to get X11 atom reply for '{}'", name) }
+        );
+
+      return reply->atom;
     };
 
-    const XcbReplyGuard<xcb_intern_atom_reply_t> supportingWmCheck = internAtom("_NET_SUPPORTING_WM_CHECK");
-    const XcbReplyGuard<xcb_intern_atom_reply_t> wmName            = internAtom("_NET_WM_NAME");
-    const XcbReplyGuard<xcb_intern_atom_reply_t> utf8String        = internAtom("UTF8_STRING");
+    const Result<xcb_atom_t, OsError> supportingWmCheckAtom = internAtom("_NET_SUPPORTING_WM_CHECK");
+    const Result<xcb_atom_t, OsError> wmNameAtom            = internAtom("_NET_WM_NAME");
+    const Result<xcb_atom_t, OsError> utf8StringAtom        = internAtom("UTF8_STRING");
 
-    if (!supportingWmCheck || !wmName || !utf8String)
-      RETURN_ERR("Failed to get X11 atoms");
+    if (!supportingWmCheckAtom || !wmNameAtom || !utf8StringAtom) {
+      if (!supportingWmCheckAtom)
+        ERROR_LOG("Failed to get _NET_SUPPORTING_WM_CHECK atom");
+
+      if (!wmNameAtom)
+        ERROR_LOG("Failed to get _NET_WM_NAME atom");
+
+      if (!utf8StringAtom)
+        ERROR_LOG("Failed to get UTF8_STRING atom");
+
+      return Err(OsError { OsErrorCode::PlatformSpecific, "Failed to get X11 atoms" });
+    }
 
     const XcbReplyGuard<xcb_get_property_reply_t> wmWindowReply(xcb_get_property_reply(
       conn.get(),
-      xcb_get_property(conn.get(), 0, conn.rootScreen()->root, supportingWmCheck->atom, XCB_ATOM_WINDOW, 0, 1),
+      xcb_get_property(conn.get(), 0, conn.rootScreen()->root, *supportingWmCheckAtom, XCB_ATOM_WINDOW, 0, 1),
       nullptr
     ));
 
     if (!wmWindowReply || wmWindowReply->type != XCB_ATOM_WINDOW || wmWindowReply->format != 32 ||
         xcb_get_property_value_length(wmWindowReply.get()) == 0)
-      RETURN_ERR("Failed to get _NET_SUPPORTING_WM_CHECK property");
+      return Err(OsError { OsErrorCode::NotFound, "Failed to get _NET_SUPPORTING_WM_CHECK property" });
+
+    const xcb_window_t wmRootWindow = *static_cast<xcb_window_t*>(xcb_get_property_value(wmWindowReply.get()));
 
     const XcbReplyGuard<xcb_get_property_reply_t> wmNameReply(xcb_get_property_reply(
-      conn.get(),
-      xcb_get_property(
-        conn.get(),
-        0,
-        *static_cast<xcb_window_t*>(xcb_get_property_value(wmWindowReply.get())),
-        wmName->atom,
-        utf8String->atom,
-        0,
-        1024
-      ),
-      nullptr
+      conn.get(), xcb_get_property(conn.get(), 0, wmRootWindow, *wmNameAtom, *utf8StringAtom, 0, 1024), nullptr
     ));
 
-    if (!wmNameReply || wmNameReply->type != utf8String->atom || xcb_get_property_value_length(wmNameReply.get()) == 0)
-      RETURN_ERR("Failed to get _NET_WM_NAME property");
+    if (!wmNameReply || wmNameReply->type != *utf8StringAtom || xcb_get_property_value_length(wmNameReply.get()) == 0)
+      return Err(OsError { OsErrorCode::NotFound, "Failed to get _NET_WM_NAME property" });
 
     const char* nameData = static_cast<const char*>(xcb_get_property_value(wmNameReply.get()));
     const usize length   = xcb_get_property_value_length(wmNameReply.get());
@@ -76,30 +138,30 @@ namespace {
     return String(nameData, length);
   }
 
-  fn GetWaylandCompositor() -> Option<String> {
+  fn GetWaylandCompositor() -> Result<String, OsError> {
     using os::linux::WaylandDisplayGuard;
 
     const WaylandDisplayGuard display;
 
     if (!display)
-      RETURN_ERR("Failed to open Wayland display");
+      return Err(OsError { OsErrorCode::NotFound, "Failed to connect to display (is Wayland running?)" });
 
     const i32 fileDescriptor = display.fd();
     if (fileDescriptor < 0)
-      RETURN_ERR("Failed to get Wayland file descriptor");
+      return Err(OsError { OsErrorCode::ApiUnavailable, "Failed to get Wayland file descriptor" });
 
     ucred     cred;
     socklen_t len = sizeof(cred);
 
     if (getsockopt(fileDescriptor, SOL_SOCKET, SO_PEERCRED, &cred, &len) == -1)
-      RETURN_ERR("Failed to get socket credentials: {}", std::error_code(errno, std::generic_category()).message());
+      return Err(MakeOsErrorFromErrno("Failed to get socket credentials (SO_PEERCRED)"));
 
     Array<char, 128> exeLinkPathBuf;
 
     auto [out, size] = std::format_to_n(exeLinkPathBuf.data(), exeLinkPathBuf.size() - 1, "/proc/{}/exe", cred.pid);
 
     if (out >= exeLinkPathBuf.data() + exeLinkPathBuf.size() - 1)
-      RETURN_ERR("Failed to format /proc path (PID too large?)");
+      return Err(OsError { OsErrorCode::InternalError, "Failed to format /proc path (PID too large?)" });
 
     *out = '\0';
 
@@ -110,26 +172,30 @@ namespace {
     const isize bytesRead = readlink(exeLinkPath, exeRealPathBuf.data(), exeRealPathBuf.size() - 1);
 
     if (bytesRead == -1)
-      RETURN_ERR("Failed to read link {}: {}", exeLinkPath, std::error_code(errno, std::generic_category()).message());
+      return Err(MakeOsErrorFromErrno(std::format("Failed to read link '{}'", exeLinkPath)));
 
     exeRealPathBuf.at(bytesRead) = '\0';
 
-    String compositorName;
+    StringView compositorNameView;
 
-    try {
-      namespace fs = std::filesystem;
+    const StringView pathView(exeRealPathBuf.data(), bytesRead);
 
-      const fs::path exePath(exeRealPathBuf.data());
+    StringView filenameView;
 
-      compositorName = exePath.filename().string();
-    } catch (const std::filesystem::filesystem_error& e) {
-      RETURN_ERR("Error getting compositor name from path '{}': {}", exeRealPathBuf.data(), e.what());
-    } catch (...) { RETURN_ERR("Unknown error getting compositor name"); }
+    if (const usize lastCharPos = pathView.find_last_not_of('/'); lastCharPos != StringView::npos) {
+      const StringView relevantPart = pathView.substr(0, lastCharPos + 1);
 
-    if (compositorName.empty() || compositorName == "." || compositorName == "/")
-      RETURN_ERR("Empty or invalid compositor name {}", compositorName);
+      if (const usize separatorPos = relevantPart.find_last_of('/'); separatorPos == StringView::npos)
+        filenameView = relevantPart;
+      else
+        filenameView = relevantPart.substr(separatorPos + 1);
+    }
 
-    const StringView compositorNameView = compositorName;
+    if (!filenameView.empty())
+      compositorNameView = filenameView;
+
+    if (compositorNameView.empty() || compositorNameView == "." || compositorNameView == "/")
+      return Err(OsError { OsErrorCode::NotFound, "Failed to get compositor name from path" });
 
     if (constexpr StringView wrappedSuffix = "-wrapped"; compositorNameView.length() > 1 + wrappedSuffix.length() &&
         compositorNameView[0] == '.' && compositorNameView.ends_with(wrappedSuffix)) {
@@ -137,158 +203,212 @@ namespace {
         compositorNameView.substr(1, compositorNameView.length() - 1 - wrappedSuffix.length());
 
       if (cleanedView.empty())
-        RETURN_ERR("Compositor name invalid after heuristic: original='%s'\n", compositorName.c_str());
+        return Err(OsError { OsErrorCode::NotFound, "Compositor name invalid after heuristic" });
 
       return String(cleanedView);
     }
 
-    return compositorName;
+    return String(compositorNameView);
   }
 
-  fn GetMprisPlayers(const SharedPointer<DBus::Connection>& connection) -> Result<Vec<String>, NowPlayingError> {
+  fn GetMprisPlayers(const SharedPointer<DBus::Connection>& connection) -> Result<String, OsError> {
     try {
       const SharedPointer<DBus::CallMessage> call =
         DBus::CallMessage::create("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "ListNames");
 
-      const SharedPointer<DBus::Message> reply = connection->send_with_reply_blocking(call, 500);
+      const SharedPointer<DBus::Message> reply = connection->send_with_reply_blocking(call, 5);
 
-      if (!reply) {
-        ERROR_LOG("DBus timeout or null reply in ListNames");
-        return Err("DBus timeout in ListNames");
-      }
+      if (!reply || !reply->is_valid())
+        return Err(OsError { OsErrorCode::Timeout, "Failed to get reply from ListNames" });
 
       Vec<String>           allNamesStd;
       DBus::MessageIterator reader(*reply);
       reader >> allNamesStd;
 
-      Vec<String> mprisPlayers;
       for (const String& name : allNamesStd)
         if (StringView(name).contains("org.mpris.MediaPlayer2"sv))
-          mprisPlayers.emplace_back(name);
+          return name;
 
-      return mprisPlayers;
-    } catch (const DBus::Error& e) {
-      ERROR_LOG("DBus::Error exception in ListNames: {}", e.what());
-      return Err(e.what());
-    } catch (const Exception& e) {
-      ERROR_LOG("Standard exception getting MPRIS players: {}", e.what());
-      return Err(e.what());
+      return Err(OsError { OsErrorCode::NotFound, "No MPRIS players found" });
+    } catch (const DBus::Error& e) { return Err(MakeOsErrorFromDBus(e)); } catch (const Exception& e) {
+      return Err(OsError { OsErrorCode::InternalError, e.what() });
+    }
+  }
+
+  fn GetMediaPlayerMetadata(const SharedPointer<DBus::Connection>& connection, const String& playerBusName)
+    -> Result<MediaInfo, OsError> {
+    try {
+      const SharedPointer<DBus::CallMessage> metadataCall =
+        DBus::CallMessage::create(playerBusName, "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "Get");
+
+      *metadataCall << "org.mpris.MediaPlayer2.Player" << "Metadata";
+
+      const SharedPointer<DBus::Message> metadataReply = connection->send_with_reply_blocking(metadataCall, 1000);
+
+      if (!metadataReply || !metadataReply->is_valid()) {
+        return Err(OsError { OsErrorCode::Timeout, "DBus Get Metadata call timed out or received invalid reply" });
+      }
+
+      DBus::MessageIterator iter(*metadataReply);
+      DBus::Variant         metadataVariant;
+      iter >> metadataVariant; // Can throw
+
+      // MPRIS metadata is variant containing a dict a{sv}
+      if (metadataVariant.type() != DBus::DataType::DICT_ENTRY && metadataVariant.type() != DBus::DataType::ARRAY) {
+        return Err(
+          OsError {
+            OsErrorCode::ParseError,
+            std::format(
+              "Inner metadata variant is not the expected type, expected dict/a{{sv}} but got '{}'",
+              metadataVariant.signature().str()
+            ),
+          }
+        );
+      }
+
+      Map<String, DBus::Variant> metadata = metadataVariant.to_map<String, DBus::Variant>(); // Can throw
+
+      Option<String> title   = None;
+      Option<String> artist  = None;
+      Option<String> album   = None;
+      Option<String> appName = None; // Try to get app name too
+
+      if (auto titleIter = metadata.find("xesam:title");
+          titleIter != metadata.end() && titleIter->second.type() == DBus::DataType::STRING)
+        title = titleIter->second.to_string();
+
+      if (auto artistIter = metadata.find("xesam:artist"); artistIter != metadata.end()) {
+        if (artistIter->second.type() == DBus::DataType::ARRAY) {
+          if (Vec<String> artists = artistIter->second.to_vector<String>(); !artists.empty())
+            artist = artists[0];
+        } else if (artistIter->second.type() == DBus::DataType::STRING) {
+          artist = artistIter->second.to_string();
+        }
+      }
+
+      if (auto albumIter = metadata.find("xesam:album");
+          albumIter != metadata.end() && albumIter->second.type() == DBus::DataType::STRING)
+        album = albumIter->second.to_string();
+
+      try {
+        const SharedPointer<DBus::CallMessage> identityCall =
+          DBus::CallMessage::create(playerBusName, "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "Get");
+        *identityCall << "org.mpris.MediaPlayer2" << "Identity";
+        if (const SharedPointer<DBus::Message> identityReply = connection->send_with_reply_blocking(identityCall, 500);
+            identityReply && identityReply->is_valid()) {
+          DBus::MessageIterator identityIter(*identityReply);
+          DBus::Variant         identityVariant;
+          identityIter >> identityVariant;
+          if (identityVariant.type() == DBus::DataType::STRING)
+            appName = identityVariant.to_string();
+        }
+      } catch (const DBus::Error& e) {
+        DEBUG_LOG("Failed to get player Identity property for {}: {}", playerBusName, e.what()); // Non-fatal
+      }
+
+      return MediaInfo(std::move(title), std::move(artist), std::move(album), std::move(appName));
+    } catch (const DBus::Error& e) { return Err(MakeOsErrorFromDBus(e)); } catch (const Exception& e) {
+      return Err(
+        OsError { OsErrorCode::InternalError, std::format("Standard exception processing metadata: {}", e.what()) }
+      );
     }
   }
 }
 
-fn os::GetOSVersion() -> Result<String, String> {
+fn os::GetOSVersion() -> Result<String, OsError> {
   constexpr CStr path = "/etc/os-release";
 
   std::ifstream file(path);
 
   if (!file)
-    return Err(std::format("Failed to open {}", path));
+    return Err(OsError { OsErrorCode::NotFound, std::format("Failed to open {}", path) });
 
-  String       line;
-  const String prefix = "PRETTY_NAME=";
+  String               line;
+  constexpr StringView prefix = "PRETTY_NAME=";
 
-  while (getline(file, line))
-    if (line.starts_with(prefix)) {
-      StringView valueView = StringView(line).substr(prefix.size());
+  while (getline(file, line)) {
+    if (StringView(line).starts_with(prefix)) {
+      String value = line.substr(prefix.size());
 
-      if (!valueView.empty() && valueView.front() == '"' && valueView.back() == '"') {
-        valueView.remove_prefix(1);
-        valueView.remove_suffix(1);
-      }
+      if ((value.length() >= 2 && value.front() == '"' && value.back() == '"') ||
+          (value.length() >= 2 && value.front() == '\'' && value.back() == '\''))
+        value = value.substr(1, value.length() - 2);
 
-      return String(valueView);
+      if (value.empty())
+        return Err(
+          OsError { OsErrorCode::ParseError, std::format("PRETTY_NAME value is empty or only quotes in {}", path) }
+        );
+
+      return value;
     }
+  }
 
-  return Err(std::format("PRETTY_NAME line not found in {}", path));
+  return Err(OsError { OsErrorCode::NotFound, std::format("PRETTY_NAME line not found in {}", path) });
 }
 
-fn os::GetMemInfo() -> Result<u64, String> {
+fn os::GetMemInfo() -> Result<u64, OsError> {
   struct sysinfo info;
 
   if (sysinfo(&info) != 0)
-    return Err(std::format("sysinfo failed: {}", std::error_code(errno, std::generic_category()).message()));
+    return Err(MakeOsErrorFromErrno("sysinfo call failed"));
+
+  const u64 totalRam = info.totalram;
+  const u64 memUnit  = info.mem_unit;
+
+  if (memUnit == 0)
+    return Err(OsError { OsErrorCode::InternalError, "sysinfo returned mem_unit of zero" });
+
+  if (totalRam > std::numeric_limits<u64>::max() / memUnit)
+    return Err(OsError { OsErrorCode::InternalError, "Potential overflow calculating total RAM" });
 
   return info.totalram * info.mem_unit;
 }
 
-fn os::GetNowPlaying() -> Result<String, NowPlayingError> {
-  try {
-    const SharedPointer<DBus::Dispatcher> dispatcher = DBus::StandaloneDispatcher::create();
-    if (!dispatcher)
-      return Err("Failed to create DBus dispatcher");
+fn os::GetNowPlaying() -> Result<MediaInfo, NowPlayingError> {
+  // Dispatcher must outlive the try-block because 'connection' depends on it later.
+  // ReSharper disable once CppTooWideScope, CppJoinDeclarationAndAssignment
+  SharedPointer<DBus::Dispatcher> dispatcher;
+  SharedPointer<DBus::Connection> connection;
 
-    const SharedPointer<DBus::Connection> connection = dispatcher->create_connection(DBus::BusType::SESSION);
+  try {
+    dispatcher = DBus::StandaloneDispatcher::create();
+
+    if (!dispatcher)
+      return Err(OsError { OsErrorCode::ApiUnavailable, "Failed to create DBus dispatcher" });
+
+    connection = dispatcher->create_connection(DBus::BusType::SESSION);
 
     if (!connection)
-      return Err("Failed to connect to session bus");
-
-    Result<Vec<String>, NowPlayingError> mprisPlayersResult = GetMprisPlayers(connection);
-    if (!mprisPlayersResult)
-      return Err(mprisPlayersResult.error());
-
-    const Vec<String>& mprisPlayers = *mprisPlayersResult;
-
-    if (mprisPlayers.empty())
-      return Err(NowPlayingCode::NoPlayers);
-
-    const String activePlayer = mprisPlayers.front();
-
-    const SharedPointer<DBus::CallMessage> metadataCall =
-      DBus::CallMessage::create(activePlayer, "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "Get");
-
-    *metadataCall << "org.mpris.MediaPlayer2.Player" << "Metadata";
-
-    const SharedPointer<DBus::Message> metadataReply = connection->send_with_reply_blocking(metadataCall, 5000);
-
-    String title;
-    String artist;
-
-    if (metadataReply && metadataReply->is_valid()) {
-      try {
-        DBus::MessageIterator iter(*metadataReply);
-        DBus::Variant         metadataVariant;
-        iter >> metadataVariant;
-
-        if (metadataVariant.type() == DBus::DataType::ARRAY) {
-          Map<String, DBus::Variant> metadata = metadataVariant.to_map<String, DBus::Variant>();
-
-          if (auto titleIter = metadata.find("xesam:title");
-              titleIter != metadata.end() && titleIter->second.type() == DBus::DataType::STRING)
-            title = titleIter->second.to_string();
-
-          if (auto artistIter = metadata.find("xesam:artist"); artistIter != metadata.end()) {
-            if (artistIter->second.type() == DBus::DataType::ARRAY) {
-              if (Vec<String> artists = artistIter->second.to_vector<String>(); !artists.empty())
-                artist = artists[0];
-            } else if (artistIter->second.type() == DBus::DataType::STRING)
-              artist = artistIter->second.to_string();
-          }
-        } else {
-          ERROR_LOG(
-            "Metadata variant is not the expected type, expected a{{sv}} but got {}", metadataVariant.signature().str()
-          );
-        }
-      } catch (const DBus::Error& e) {
-        ERROR_LOG("DBus error processing metadata reply: {}", e.what());
-      } catch (const Exception& e) { ERROR_LOG("Error processing metadata reply: {}", e.what()); }
-    }
-
-    return std::format("{}{}{}", artist, !artist.empty() && !title.empty() ? " - " : "", title);
-  } catch (const DBus::Error& e) { return Err(std::format("DBus error: {}", e.what())); } catch (const Exception& e) {
-    return Err(std::format("General error: {}", e.what()));
+      return Err(OsError { OsErrorCode::ApiUnavailable, "Failed to connect to DBus session bus" });
+  } catch (const DBus::Error& e) { return Err(MakeOsErrorFromDBus(e)); } catch (const Exception& e) {
+    return Err(OsError { OsErrorCode::InternalError, e.what() });
   }
+
+  Result<String, NowPlayingError> playerBusName = GetMprisPlayers(connection);
+
+  if (!playerBusName)
+    return Err(playerBusName.error());
+
+  Result<MediaInfo, OsError> metadataResult = GetMediaPlayerMetadata(connection, *playerBusName);
+
+  if (!metadataResult)
+    return Err(metadataResult.error());
+
+  return std::move(*metadataResult);
 }
 
 fn os::GetWindowManager() -> Option<String> {
-  // clang-format off
-  return GetWaylandCompositor()
-    .or_else([] { return GetX11WindowManager(); })
-    .and_then([](const String& windowManager) -> Option<String> {
-      DEBUG_LOG("Found window manager: {}", windowManager);
-      return windowManager;
-    });
-  // clang-format on
+  if (Result<String, OsError> waylandResult = GetWaylandCompositor())
+    return *waylandResult;
+  else
+    DEBUG_LOG("Could not detect Wayland compositor: {}", waylandResult.error().message);
+
+  if (Result<String, OsError> x11Result = GetX11WindowManager())
+    return *x11Result;
+  else
+    DEBUG_LOG("Could not detect X11 window manager: {}", x11Result.error().message);
+
+  return None;
 }
 
 fn os::GetDesktopEnvironment() -> Option<String> {
@@ -307,7 +427,7 @@ fn os::GetDesktopEnvironment() -> Option<String> {
     .value_or(None);
 }
 
-fn os::GetShell() -> String {
+fn os::GetShell() -> Option<String> {
   if (const Result<String, EnvError> shellPath = GetEnv("SHELL")) {
     // clang-format off
     constexpr Array<Pair<StringView, StringView>, 5> shellMap {{
@@ -326,51 +446,68 @@ fn os::GetShell() -> String {
     return *shellPath; // fallback to the raw shell path
   }
 
-  return "";
+  return None;
 }
 
-fn os::GetHost() -> String {
-  constexpr CStr path = "/sys/class/dmi/id/product_family";
+fn os::GetHost() -> Result<String, OsError> {
+  constexpr CStr primaryPath  = "/sys/class/dmi/id/product_family";
+  constexpr CStr fallbackPath = "/sys/class/dmi/id/product_name";
 
-  std::ifstream file(path);
+  fn readFirstLine = [&](const String& path) -> Result<String, OsError> {
+    std::ifstream file(path);
+    String        line;
 
-  if (!file) {
-    ERROR_LOG("Failed to open {}", path);
-    return "";
-  }
+    if (!file)
+      return Err(
+        OsError { OsErrorCode::NotFound, std::format("Failed to open DMI product identifier file '{}'", path) }
+      );
 
-  String productFamily;
+    if (!getline(file, line))
+      return Err(OsError { OsErrorCode::ParseError, std::format("DMI product identifier file ('{}') is empty", path) });
 
-  if (!getline(file, productFamily)) {
-    ERROR_LOG("Failed to read from {} (is it empty?)", path);
-    return "";
-  }
+    return line;
+  };
 
-  return productFamily;
+  return readFirstLine(primaryPath).or_else([&](const OsError& primaryError) -> Result<String, OsError> {
+    return readFirstLine(fallbackPath).or_else([&](const OsError& fallbackError) -> Result<String, OsError> {
+      return Err(
+        OsError {
+          OsErrorCode::InternalError,
+          std::format(
+            "Failed to get host identifier. Primary ('{}'): {}. Fallback ('{}'): {}",
+            primaryPath,
+            primaryError.message,
+            fallbackPath,
+            fallbackError.message
+          ),
+        }
+      );
+    });
+  });
 }
 
-fn os::GetKernelVersion() -> String {
+fn os::GetKernelVersion() -> Result<String, OsError> {
   utsname uts;
 
-  if (uname(&uts) == -1) {
-    ERROR_LOG("uname() failed: {}", std::error_code(errno, std::generic_category()).message());
-    return "";
-  }
+  if (uname(&uts) == -1)
+    return Err(MakeOsErrorFromErrno("uname call failed"));
+
+  if (strlen(uts.release) == 0)
+    return Err(OsError { OsErrorCode::ParseError, "uname returned null kernel release" });
 
   return uts.release;
 }
 
-fn os::GetDiskUsage() -> Pair<u64, u64> {
+fn os::GetDiskUsage() -> Result<DiskSpace, OsError> {
   struct statvfs stat;
 
-  if (statvfs("/", &stat) == -1) {
-    ERROR_LOG("statvfs() failed: {}", std::error_code(errno, std::generic_category()).message());
-    return { 0, 0 };
-  }
+  if (statvfs("/", &stat) == -1)
+    return Err(MakeOsErrorFromErrno(std::format("Failed to get filesystem stats for '/' (statvfs call failed)")));
 
-  // ReSharper disable CppRedundantParentheses
-  return { (stat.f_blocks * stat.f_frsize) - (stat.f_bfree * stat.f_frsize), stat.f_blocks * stat.f_frsize };
-  // ReSharper restore CppRedundantParentheses
+  return DiskSpace {
+    .used_bytes  = (stat.f_blocks * stat.f_frsize) - (stat.f_bfree * stat.f_frsize),
+    .total_bytes = stat.f_blocks * stat.f_frsize,
+  };
 }
 
 #endif

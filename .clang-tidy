@@ -32,6 +32,7 @@ Checks: >
   -readability-magic-numbers
 CheckOptions:
   cppcoreguidelines-avoid-do-while.IgnoreMacros: "true"
+  readability-else-after-return.WarnOnUnfixable: false
   readability-identifier-naming.ClassCase: CamelCase
   readability-identifier-naming.EnumCase: CamelCase
   readability-identifier-naming.LocalConstantCase: camelBack

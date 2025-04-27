@@ -159,19 +159,18 @@ enum class NowPlayingCode : u8 {
  * @brief Error codes for general OS-level operations.
  */
 enum class OsErrorCode : u8 {
-  ApiUnavailable,   ///< An underlying OS API failed, is unavailable, or returned an error.
-  BufferTooSmall,   ///< A pre-allocated buffer was insufficient (less common with dynamic allocation).
-  InternalError,    ///< An unspecified internal error within the abstraction layer.
-  IoError,          ///< A general input/output error occurred.
-  NetworkError,     ///< Network-related error (relevant if OS functions involve network).
-  NotFound,         ///< A required resource (file, registry key, device) was not found.
-  NotSupported,     ///< The requested operation is not supported on this platform or configuration.
-  ParseError,       ///< Failed to parse data obtained from the OS (e.g., file content, API output).
+  IoError,          ///< General I/O error (filesystem, pipes, etc.).
   PermissionDenied, ///< Insufficient permissions to perform the operation.
-  PlatformSpecific, ///< An error specific to the platform occurred (check message for details).
-  Success,          ///< Operation completed successfully (often implicit).
-  Timeout,          ///< An operation timed out (e.g., waiting for DBus reply).
-  Other,            ///< A generic error code for unclassified errors.
+  NotFound,         ///< A required resource (file, registry key, device, API endpoint) was not found.
+  ParseError,       ///< Failed to parse data obtained from the OS (e.g., file content, API output).
+  ApiUnavailable,   ///< A required OS service/API is unavailable or failed unexpectedly at runtime.
+  NotSupported,     ///< The requested operation is not supported on this platform, version, or configuration.
+  Timeout,          ///< An operation timed out (e.g., waiting for IPC reply).
+  BufferTooSmall,   ///< Optional: Keep if using fixed C-style buffers, otherwise remove.
+  InternalError,    ///< An error occurred within the application's OS abstraction code logic.
+  NetworkError,     ///< A network-related error occurred (e.g., DNS resolution, connection failure).
+  PlatformSpecific, ///< An unmapped error specific to the underlying OS platform occurred (check message).
+  Other,            ///< A generic or unclassified error originating from the OS or an external library.
 };
 
 /**
@@ -186,15 +185,51 @@ struct OsError {
 
   OsError(const OsErrorCode errc, String msg) : message(std::move(msg)), code(errc) {}
 
-  explicit OsError(const Exception& e) : message(e.what()) {}
+  explicit OsError(const Exception& exc) : message(exc.what()) {}
+
+  explicit OsError(const std::error_code& errc) : message(errc.message()) {
+    using enum OsErrorCode;
+    using enum std::errc;
+
+    switch (static_cast<std::errc>(errc.value())) {
+      case permission_denied:         code = PermissionDenied; break;
+      case no_such_file_or_directory: code = NotFound; break;
+      case timed_out:                 code = Timeout; break;
+      case io_error:                  code = IoError; break;
+      case network_unreachable:
+      case network_down:
+      case connection_refused:        code = NetworkError; break;
+      case not_supported:             code = NotSupported; break;
+      default:                        code = errc.category() == std::generic_category() ? InternalError : PlatformSpecific; break;
+    }
+  }
 
 #ifdef _WIN32
   explicit OsError(const winrt::hresult_error& e)
-    : message(winrt::to_string(e.message())), code(OsErrorCode::PlatformSpecific) {}
-#endif
+    : message(winrt::to_string(e.message())) /*, original_code(e.code()) */ {
+    switch (e.code()) {
+      case E_ACCESSDENIED:                              code = OsErrorCode::PermissionDenied; break;
+      case HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND):
+      case HRESULT_FROM_WIN32(ERROR_PATH_NOT_FOUND):
+      case HRESULT_FROM_WIN32(ERROR_SERVICE_NOT_FOUND): code = OsErrorCode::NotFound; break;
+      case HRESULT_FROM_WIN32(ERROR_TIMEOUT):
+      case HRESULT_FROM_WIN32(ERROR_SEM_TIMEOUT):       code = OsErrorCode::Timeout; break;
+      case HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED):     code = OsErrorCode::NotSupported; break;
+      default:                                          code = OsErrorCode::PlatformSpecific; break;
+    }
+  }
+#else
+  OsError(OsErrorCode code_hint, int errno_val) : message(std::system_category().message(errno_val)), code(code_hint) {
+    using enum OsErrorCode;
 
-#ifndef _WIN32
-  OsError(OsErrorCode c, int errno_val) : code(c), message(std::system_category().message(errno_val)) {}
+    switch (errno_val) {
+      case EACCES:    code = PermissionDenied; break;
+      case ENOENT:    code = NotFound; break;
+      case ETIMEDOUT: code = Timeout; break;
+      case ENOTSUP:   code = NotSupported; break;
+      default:        code = PlatformSpecific; break;
+    }
+  }
 #endif
 };
 
@@ -229,8 +264,8 @@ struct MediaInfo {
   Option<String> app_name; ///< Name of the media player application (e.g., "Spotify", "Firefox").
   PlaybackStatus status = PlaybackStatus::Unknown; ///< Current playback status.
 
-  MediaInfo(Option<String> t, Option<String> a, Option<String> al, Option<String> app)
-    : title(std::move(t)), artist(std::move(a)), album(std::move(al)), app_name(std::move(app)) {}
+  MediaInfo(Option<String> title, Option<String> artist, Option<String> album, Option<String> app)
+    : title(std::move(title)), artist(std::move(artist)), album(std::move(album)), app_name(std::move(app)) {}
 };
 
 //--------------------------------------------------------//
