@@ -1,7 +1,14 @@
 #pragma once
 
-#include "src/config/config.h"
-#include "src/util/types.h"
+#include <format> // for formatter, format_to
+#include <string> // for basic_string
+#include <thread> // for formatter
+
+#include "src/config/weather.h" // for WeatherOutput
+#include "src/util/macros.h"    // for fn
+#include "src/util/types.h"     // for OsError, DiskSpace, Result, String
+
+struct Config;
 
 /**
  * @struct BytesToGiB

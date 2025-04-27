@@ -1,4 +1,3 @@
-# noinspection SpellCheckingInspection
 Checks: >
   *,
   -ctad-maybe-unsupported,
@@ -23,7 +22,6 @@ Checks: >
   -llvm-namespace-comment,
   -llvmlibc-*,
   -misc-non-private-member-variables-in-classes,
-  -modernize-use-nullptr,
   -readability-avoid-nested-conditional-operator,
   -readability-braces-around-statements,
   -readability-function-cognitive-complexity,

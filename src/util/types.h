@@ -1,20 +1,23 @@
 #pragma once
 
-#include <array>        // std::array alias (Array)
-#include <cstdlib>      // std::getenv, std::free
-#include <expected>     // std::expected alias (Result)
-#include <format>       // std::format
-#include <map>          // std::map alias (Map)
-#include <memory>       // std::shared_ptr and std::unique_ptr aliases (SharedPointer, UniquePointer)
-#include <optional>     // std::optional alias (Option)
-#include <string>       // std::string and std::string_view aliases (String, StringView)
-#include <system_error> // std::error_code and std::system_error
-#include <utility>      // std::pair alias (Pair)
-#include <variant>      // std::variant alias (NowPlayingError)
-#include <vector>       // std::vector alias (Vec)
+#include <array>           // std::array alias (Array)
+#include <cstdlib>         // std::getenv, std::free
+#include <expected>        // std::expected alias (Result)
+#include <format>          // std::format
+#include <map>             // std::map alias (Map)
+#include <memory>          // std::shared_ptr and std::unique_ptr aliases (SharedPointer, UniquePointer)
+#include <optional>        // std::optional alias (Option)
+#include <source_location> // std::source_location
+#include <string>          // std::string and std::string_view aliases (String, StringView)
+#include <system_error>    // std::error_code and std::system_error
+#include <utility>         // std::pair alias (Pair)
+#include <variant>         // std::variant alias (NowPlayingError)
+#include <vector>          // std::vector alias (Vec)
 
 #ifdef _WIN32
-#include <winrt/base.h> // winrt::hresult_error (WindowsError)
+  #include <winrt/base.h> // winrt::hresult_error
+#elifdef __linux__
+  #include <dbus-cxx.h> // DBus::Error
 #endif
 
 //----------------------------------------------------------------//
@@ -182,14 +185,20 @@ enum class OsErrorCode : u8 {
  * Used as the error type in Result for many os:: functions.
  */
 struct OsError {
-  String      message = "Unknown Error";    ///< A descriptive error message, potentially including platform details.
-  OsErrorCode code    = OsErrorCode::Other; ///< The general category of the error.
+  // ReSharper disable CppDFANotInitializedField
+  String               message;  ///< A descriptive error message, potentially including platform details.
+  OsErrorCode          code;     ///< The general category of the error.
+  std::source_location location; ///< The source location where the error occurred (file, line, function).
+  // ReSharper restore CppDFANotInitializedField
 
-  OsError(const OsErrorCode errc, String msg) : message(std::move(msg)), code(errc) {}
+  OsError(const OsErrorCode errc, String msg, const std::source_location& loc = std::source_location::current())
+    : message(std::move(msg)), code(errc), location(loc) {}
 
-  explicit OsError(const Exception& exc) : message(exc.what()) {}
+  explicit OsError(const Exception& exc, const std::source_location& loc = std::source_location::current())
+    : message(exc.what()), code(OsErrorCode::InternalError), location(loc) {}
 
-  explicit OsError(const std::error_code& errc) : message(errc.message()) {
+  explicit OsError(const std::error_code& errc, const std::source_location& loc = std::source_location::current())
+    : message(errc.message()), location(loc) {
     using enum OsErrorCode;
     using enum std::errc;
 
@@ -205,10 +214,8 @@ struct OsError {
       default:                        code = errc.category() == std::generic_category() ? InternalError : PlatformSpecific; break;
     }
   }
-
 #ifdef _WIN32
-  explicit OsError(const winrt::hresult_error& e)
-    : message(winrt::to_string(e.message())) /*, original_code(e.code()) */ {
+  explicit OsError(const winrt::hresult_error& e) : message(winrt::to_string(e.message())) {
     switch (e.code()) {
       case E_ACCESSDENIED:                              code = OsErrorCode::PermissionDenied; break;
       case HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND):
@@ -221,7 +228,8 @@ struct OsError {
     }
   }
 #else
-  OsError(OsErrorCode code_hint, int errno_val) : message(std::system_category().message(errno_val)), code(code_hint) {
+  OsError(const OsErrorCode code_hint, const int errno_val)
+    : message(std::system_category().message(errno_val)), code(code_hint) {
     using enum OsErrorCode;
 
     switch (errno_val) {
@@ -233,42 +241,56 @@ struct OsError {
     }
   }
 
-  static auto withErrno(const String& context) -> OsError {
+  static auto withErrno(const String& context, const std::source_location& loc = std::source_location::current())
+    -> OsError {
     const i32    errNo   = errno;
     const String msg     = std::system_category().message(errNo);
     const String fullMsg = std::format("{}: {}", context, msg);
 
+    OsErrorCode code;
     switch (errNo) {
       case EACCES:
-      case EPERM:        return OsError { OsErrorCode::PermissionDenied, fullMsg };
-      case ENOENT:       return OsError { OsErrorCode::NotFound, fullMsg };
-      case ETIMEDOUT:    return OsError { OsErrorCode::Timeout, fullMsg };
-      case ENOTSUP:      return OsError { OsErrorCode::NotSupported, fullMsg };
-      case EIO:          return OsError { OsErrorCode::IoError, fullMsg };
+      case EPERM:        code = OsErrorCode::PermissionDenied; break;
+      case ENOENT:       code = OsErrorCode::NotFound; break;
+      case ETIMEDOUT:    code = OsErrorCode::Timeout; break;
+      case ENOTSUP:      code = OsErrorCode::NotSupported; break;
+      case EIO:          code = OsErrorCode::IoError; break;
       case ECONNREFUSED:
       case ENETDOWN:
-      case ENETUNREACH:  return OsError { OsErrorCode::NetworkError, fullMsg };
-      default:           return OsError { OsErrorCode::PlatformSpecific, fullMsg };
+      case ENETUNREACH:  code = OsErrorCode::NetworkError; break;
+      default:           code = OsErrorCode::PlatformSpecific; break;
     }
+
+    return OsError { code, fullMsg, loc };
   }
 
-#ifdef __linux__
-  static auto fromDBus(const DBus::Error& err) -> OsError {
-    String name = err.name();
+  #ifdef __linux__
+  static auto fromDBus(const DBus::Error& err, const std::source_location& loc = std::source_location::current())
+    -> OsError {
+    String      name     = err.name();
+    OsErrorCode codeHint = OsErrorCode::PlatformSpecific;
+    String      message;
 
-    if (name == "org.freedesktop.DBus.Error.ServiceUnknown" || name == "org.freedesktop.DBus.Error.NameHasNoOwner")
-      return OsError { OsErrorCode::NotFound, std::format("DBus service/name not found: {}", err.message()) };
+    using namespace std::string_view_literals;
 
-    if (name == "org.freedesktop.DBus.Error.NoReply" || name == "org.freedesktop.DBus.Error.Timeout")
-      return OsError { OsErrorCode::Timeout, std::format("DBus timeout/no reply: {}", err.message()) };
+    if (name == "org.freedesktop.DBus.Error.ServiceUnknown"sv ||
+        name == "org.freedesktop.DBus.Error.NameHasNoOwner"sv) {
+      codeHint = OsErrorCode::NotFound;
+      message  = std::format("DBus service/name not found: {}", err.message());
+    } else if (name == "org.freedesktop.DBus.Error.NoReply"sv || name == "org.freedesktop.DBus.Error.Timeout"sv) {
+      codeHint = OsErrorCode::Timeout;
+      message  = std::format("DBus timeout/no reply: {}", err.message());
+    } else if (name == "org.freedesktop.DBus.Error.AccessDenied"sv) {
+      codeHint = OsErrorCode::PermissionDenied;
+      message  = std::format("DBus access denied: {}", err.message());
+    } else {
+      message = std::format("DBus error: {} - {}", name, err.message());
+    }
 
-    if (name == "org.freedesktop.DBus.Error.AccessDenied")
-      return OsError { OsErrorCode::PermissionDenied, std::format("DBus access denied: {}", err.message()) };
-
-    return OsError { OsErrorCode::PlatformSpecific, std::format("DBus error: {} - {}", name, err.message()) };
+    return OsError { codeHint, message, loc };
   }
-#endif // __linux__
-#endif // _WIN32
+  #endif
+#endif
 };
 
 /**
@@ -297,8 +319,7 @@ struct MediaInfo {
 
   MediaInfo() = default;
 
-  MediaInfo(Option<String> title, Option<String> artist)
-    : title(std::move(title)), artist(std::move(artist)) {}
+  MediaInfo(Option<String> title, Option<String> artist) : title(std::move(title)), artist(std::move(artist)) {}
 
   MediaInfo(Option<String> title, Option<String> artist, Option<String> album, Option<String> app)
     : title(std::move(title)), artist(std::move(artist)), album(std::move(album)), app_name(std::move(app)) {}
@@ -333,7 +354,7 @@ enum class EnvError : u8 {
  * @return A Result containing the value of the environment variable as a String,
  * or an EnvError if an error occurred.
  */
-inline auto GetEnv(CStr name) -> Result<String, EnvError> {
+[[nodiscard]] inline auto GetEnv(CStr name) -> Result<String, EnvError> {
 #ifdef _WIN32
   char* rawPtr     = nullptr;
   usize bufferSize = 0;

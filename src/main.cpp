@@ -4,7 +4,6 @@
 #include <ftxui/screen/screen.hpp>
 #include <future>
 #include <string>
-#include <utility>
 #include <variant>
 
 #include "config/config.h"
@@ -79,7 +78,7 @@ namespace ui {
     .desktop        = " 󰇄  ",
     .window_manager = "   ",
   };
-}
+} // namespace ui
 
 namespace {
   using namespace ftxui;
@@ -173,24 +172,23 @@ namespace {
     if (data.host)
       content.push_back(createRow(hostIcon, "Host", *data.host));
     else
-      ERROR_LOG("Failed to get host info: {}", data.host.error().message);
+      ERROR_LOG_LOC(data.host.error());
 
     if (data.kernel_version)
       content.push_back(createRow(kernelIcon, "Kernel", *data.kernel_version));
     else
-      ERROR_LOG("Failed to get kernel version: {}", data.kernel_version.error().message);
+      ERROR_LOG_LOC(data.kernel_version.error());
 
     if (data.os_version)
       content.push_back(createRow(String(osIcon), "OS", *data.os_version));
     else
-      ERROR_LOG("Failed to get OS version: {}", data.os_version.error().message);
+      ERROR_LOG_LOC(data.os_version.error());
 
     if (data.mem_info)
       content.push_back(createRow(memoryIcon, "RAM", std::format("{}", BytesToGiB { *data.mem_info })));
     else
-      ERROR_LOG("Failed to get memory info: {}", data.mem_info.error().message);
+      ERROR_LOG_LOC(data.mem_info.error());
 
-    // Add Disk usage row
     if (data.disk_usage)
       content.push_back(createRow(
         diskIcon,
@@ -198,7 +196,7 @@ namespace {
         std::format("{}/{}", BytesToGiB { data.disk_usage->used_bytes }, BytesToGiB { data.disk_usage->total_bytes })
       ));
     else
-      ERROR_LOG("Failed to get disk usage: {}", data.disk_usage.error().message);
+      ERROR_LOG_LOC(data.disk_usage.error());
 
     if (data.shell)
       content.push_back(createRow(shellIcon, "Shell", *data.shell));
@@ -230,20 +228,13 @@ namespace {
             text(" "),
           }
         ));
-      } else {
-        if (const NowPlayingError& error = nowPlayingResult.error(); std::holds_alternative<NowPlayingCode>(error)) {
-          switch (std::get<NowPlayingCode>(error)) {
-            case NowPlayingCode::NoPlayers:      DEBUG_LOG("No players found"); break;
-            case NowPlayingCode::NoActivePlayer: DEBUG_LOG("No active player found"); break;
-          }
-        } else
-          ERROR_LOG("Failed to get now playing info: {}", std::get<OsError>(error).message);
-      }
+      } else
+        DEBUG_LOG_LOC(nowPlayingResult.error());
     }
 
     return vbox(content) | borderRounded | color(Color::White);
   }
-}
+} // namespace
 
 fn main() -> i32 {
   const Config&    config = Config::getInstance();

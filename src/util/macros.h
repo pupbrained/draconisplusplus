@@ -1,10 +1,9 @@
-// ReSharper disable CppDFAConstantParameter
 #pragma once
 
 // Fixes conflict in Windows with <windows.h>
 #ifdef _WIN32
-#undef ERROR
-#endif
+  #undef ERROR
+#endif // _WIN32
 
 #include <chrono>
 #include <filesystem>
@@ -117,9 +116,11 @@ namespace term {
    * @param fgColor The foreground color to apply.
    * @return The combined style.
    */
+  // ReSharper disable CppDFAConstantParameter
   constexpr fn operator|(const Emphasis emph, const Color fgColor)->Style {
     return { .emph = emph, .fg_col = fgColor };
   }
+  // ReSharper restore CppDFAConstantParameter
 
   /**
    * @brief Combines a foreground color and an emphasis style into a Style.
@@ -181,7 +182,7 @@ namespace term {
     // Directly use std::print for unstyled output
     std::print(fmt, std::forward<Args>(args)...);
   }
-}
+} // namespace term
 
 /**
  * @enum LogLevel
@@ -201,11 +202,12 @@ template <typename... Args>
 fn LogImpl(const LogLevel level, const std::source_location& loc, std::format_string<Args...> fmt, Args&&... args) {
   using namespace std::chrono;
   using namespace term;
-#ifdef _WIN32
+
+#ifdef _MSC_VER
   using enum term::Color;
 #else
   using enum Color;
-#endif
+#endif // _MSC_VER
 
   const auto [color, levelStr] = [&] {
     switch (level) {
@@ -229,29 +231,82 @@ fn LogImpl(const LogLevel level, const std::source_location& loc, std::format_st
     std::filesystem::path(loc.file_name()).lexically_normal().string(),
     loc.line()
   );
-#endif
+#endif // !NDEBUG
 
   Print("\n");
 }
 
+namespace detail {
+  template <typename ErrorType>
+  fn LogAppError(const LogLevel level, const ErrorType& error_obj) {
+    using DecayedErrorType = std::decay_t<ErrorType>;
+
+    std::source_location log_location = std::source_location::current();
+    String               error_message_part;
+    LogLevel             final_log_level = level;
+
+    if constexpr (std::is_same_v<DecayedErrorType, OsError>) {
+      log_location       = error_obj.location;
+      error_message_part = error_obj.message;
+
+    } else if constexpr (std::is_same_v<DecayedErrorType, NowPlayingError>) {
+      if (std::holds_alternative<OsError>(error_obj)) {
+        const OsError& osErr = std::get<OsError>(error_obj);
+        log_location         = osErr.location;
+        error_message_part   = osErr.message;
+      } else if (std::holds_alternative<NowPlayingCode>(error_obj)) {
+        const NowPlayingCode npCode = std::get<NowPlayingCode>(error_obj);
+        log_location                = std::source_location::current();
+        final_log_level             = LogLevel::DEBUG;
+        switch (npCode) {
+          case NowPlayingCode::NoPlayers:      error_message_part = "No media players found"; break;
+          case NowPlayingCode::NoActivePlayer: error_message_part = "No active media player found"; break;
+          default:                             error_message_part = "Unknown NowPlayingCode"; break;
+        }
+      }
+    } else {
+      log_location = std::source_location::current();
+      if constexpr (std::is_base_of_v<std::exception, DecayedErrorType>)
+        error_message_part = error_obj.what();
+      else if constexpr (requires { error_obj.message; })
+        error_message_part = error_obj.message;
+      else
+        error_message_part = "Unknown error type logged";
+    }
+
+    LogImpl(final_log_level, log_location, "{}", error_message_part);
+  }
+} // namespace detail
+
 // Suppress unused macro warnings in Clang
 #ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunused-macros"
-#endif
+  #pragma clang diagnostic push
+  #pragma clang diagnostic ignored "-Wunused-macros"
+#endif // __clang__
 
 #ifdef NDEBUG
-#define DEBUG_LOG(...) static_cast<void>(0)
+  #define DEBUG_LOG(...) static_cast<void>(0)
+  #define DEBUG_LOG_LOC(...) static_cast<void>(0)
 #else
-/**
- * @def DEBUG_LOG
- * @brief Logs a message at the DEBUG level.
- * @details Only active in non-release builds (when NDEBUG is not defined).
- * Includes timestamp, level, message, and source location.
- * @param ... Format string and arguments for the log message.
- */
-#define DEBUG_LOG(...) LogImpl(LogLevel::DEBUG, std::source_location::current(), __VA_ARGS__)
-#endif
+  /**
+   * @def DEBUG_LOG
+   * @brief Logs a message at the DEBUG level.
+   * @details Only active in non-release builds (when NDEBUG is not defined).
+   * Includes timestamp, level, message, and source location.
+   * @param ... Format string and arguments for the log message.
+   */
+  #define DEBUG_LOG(...) LogImpl(LogLevel::DEBUG, std::source_location::current(), __VA_ARGS__)
+  /**
+   * @def DEBUG_LOG_LOC(error_obj)
+   * @brief Logs an application-specific error at the DEBUG level, using its stored location if available.
+   * @details Only active in non-release builds (when NDEBUG is not defined).
+   * @param error_obj The error object (e.g., OsError, NowPlayingError).
+   */
+  #define DEBUG_LOG_LOC(error_obj)                                                    \
+    do {                                                                              \
+      [&](const auto& err) { detail::LogAppError(LogLevel::DEBUG, err); }(error_obj); \
+    } while (0)
+#endif // NDEBUG
 
 /**
  * @def INFO_LOG(...)
@@ -278,17 +333,15 @@ fn LogImpl(const LogLevel level, const std::source_location& loc, std::format_st
 #define ERROR_LOG(...) LogImpl(LogLevel::ERROR, std::source_location::current(), __VA_ARGS__)
 
 /**
- * @def RETURN_ERR(...)
- * @brief Logs an error message and returns a value.
- * @details Logs the error message with the ERROR log level and returns the specified value.
- * @param ... Format string and arguments for the error message.
+ * @def ERROR_LOG_LOC(error_obj)
+ * @brief Logs an application-specific error at the ERROR level, using its stored location if available.
+ * @param error_obj The error object (e.g., OsError, NowPlayingError).
  */
-#define RETURN_ERR(...)     \
-  do {                      \
-    ERROR_LOG(__VA_ARGS__); \
-    return None;            \
+#define ERROR_LOG_LOC(error_obj)                                                    \
+  do {                                                                              \
+    [&](const auto& err) { detail::LogAppError(LogLevel::ERROR, err); }(error_obj); \
   } while (0)
 
 #ifdef __clang__
-#pragma clang diagnostic pop
-#endif
+  #pragma clang diagnostic pop
+#endif // __clang__

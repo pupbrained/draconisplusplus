@@ -1,9 +1,15 @@
-#include <future>
-
 #include "system_data.h"
 
-#include "src/config/config.h"
-#include "src/os/os.h"
+#include <chrono>    // for year_month_day, floor, days...
+#include <exception> // for exception
+#include <future>    // for future, async, launch
+#include <locale>    // for locale
+#include <stdexcept> // for runtime_error
+#include <tuple>     // for tuple, get, make_tuple
+#include <utility>   // for move
+
+#include "src/config/config.h" // for Config, Weather, NowPlaying
+#include "src/os/os.h"         // for GetDesktopEnvironment, GetHost...
 
 namespace {
   fn GetDate() -> String {
@@ -18,7 +24,7 @@ namespace {
       return std::format(std::locale::classic(), "{:%B %d}", ymd);
     }
   }
-}
+} // namespace
 
 SystemData SystemData::fetchSystemData(const Config& config) {
   SystemData data {

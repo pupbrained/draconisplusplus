@@ -1,34 +1,40 @@
+BasedOnStyle: Chromium
 AlignAfterOpenBracket: BlockIndent
 AlignArrayOfStructures: Right
-AlignConsecutiveAssignments: true
+AlignConsecutiveAssignments:
+  Enabled: true
+AlignConsecutiveDeclarations:
+  Enabled: true
+  PadOperators: true
+AlignConsecutiveMacros:
+  Enabled: true
 AlignConsecutiveShortCaseStatements:
   Enabled: true
-AlignConsecutiveDeclarations: true
 AlignOperands: DontAlign
 AllowShortBlocksOnASingleLine: Always
 AllowShortCaseLabelsOnASingleLine: true
-AllowShortEnumsOnASingleLine: true
 AllowShortFunctionsOnASingleLine: All
 AllowShortLoopsOnASingleLine: true
-BasedOnStyle: Chromium
 BinPackArguments: false
-BinPackParameters: false
 ColumnLimit: 120
 ConstructorInitializerIndentWidth: 2
 ContinuationIndentWidth: 2
 Cpp11BracedListStyle: false
-FixNamespaceComments: false
-IndentAccessModifiers: false
-IndentExternBlock: Indent
-IndentWidth: 2
-NamespaceIndentation: All
-SpaceBeforeCpp11BracedList: true
-SpacesBeforeTrailingComments: 1
-QualifierAlignment: Left
-
 IncludeBlocks: Regroup
 IncludeCategories:
-  - Regex: '".*"'
+  # 1. System headers (<iostream>, <vector>, etc.)
+  - Regex: '^<.*>$'
     Priority: 1
-  - Regex: '<.*>'
-    Priority: -1
+  # 2. Project headers starting with "src/"
+  - Regex: '^"src/.*"'
+    Priority: 2
+  # 3. All other quoted headers (including same-directory like "system_data.h")
+  #    This acts as a fallback for quoted includes not matching the above.
+  - Regex: '^".*"'
+    Priority: 3
+IndentExternBlock: Indent
+IndentPPDirectives: BeforeHash
+NamespaceIndentation: All
+QualifierAlignment: Left
+SpaceBeforeCpp11BracedList: true
+SpacesBeforeTrailingComments: 1
