@@ -9,37 +9,40 @@
 #include "os.h"
 #include "src/util/types.h"
 
-fn os::GetMemInfo() -> Result<u64, String> {
+fn os::GetMemInfo() -> Result<u64, OsError> {
   u64   mem  = 0;
   usize size = sizeof(mem);
 
   if (sysctlbyname("hw.memsize", &mem, &size, nullptr, 0) == -1)
-    return Err(std::format("sysctlbyname failed: {}", strerror(errno)));
+    return Err(OsError::withErrno("Failed to get memory info"));
 
   return mem;
 }
 
-fn os::GetNowPlaying() -> Result<String, NowPlayingError> { return GetCurrentPlayingInfo(); }
+fn os::GetNowPlaying() -> Result<MediaInfo, NowPlayingError> { return GetCurrentPlayingInfo(); }
 
-fn os::GetOSVersion() -> Result<String, String> { return GetMacOSVersion(); }
+fn os::GetOSVersion() -> Result<String, OsError> { return GetMacOSVersion(); }
 
 fn os::GetDesktopEnvironment() -> Option<String> { return None; }
 
-fn os::GetWindowManager() -> String { return "Yabai"; }
+fn os::GetWindowManager() -> Option<String> { return None; }
 
-fn os::GetKernelVersion() -> String {
+fn os::GetKernelVersion() -> Result<String, OsError> {
   std::array<char, 256> kernelVersion {};
   usize                 kernelVersionLen = sizeof(kernelVersion);
 
-  sysctlbyname("kern.osrelease", std::span(kernelVersion).data(), &kernelVersionLen, nullptr, 0);
+  if (sysctlbyname("kern.osrelease", kernelVersion.data(), &kernelVersionLen, nullptr, 0) == -1)
+    return Err(OsError::withErrno("Failed to get kernel version"));
+
   return kernelVersion.data();
 }
 
-fn os::GetHost() -> String {
+fn os::GetHost() -> Result<String, OsError> {
   std::array<char, 256> hwModel {};
   size_t                hwModelLen = sizeof(hwModel);
 
-  sysctlbyname("hw.model", hwModel.data(), &hwModelLen, nullptr, 0);
+  if (sysctlbyname("hw.model", hwModel.data(), &hwModelLen, nullptr, 0) == -1)
+    return Err(OsError::withErrno("Failed to get host info"));
 
   // taken from https://github.com/fastfetch-cli/fastfetch/blob/dev/src/detection/host/host_mac.c
   // shortened a lot of the entries to remove unnecessary info
@@ -192,18 +195,22 @@ fn os::GetHost() -> String {
     {        "iMac9,1",          "iMac (24/20-inch, 2009)" },
   };
 
-  return String(modelNameByHwModel[hwModel.data()]);
+  const auto it = modelNameByHwModel.find(hwModel.data());
+  if (it == modelNameByHwModel.end())
+    return Err(OsError::withErrno("Failed to get host info"));
+
+  return String(it->second);
 }
 
-fn os::GetDiskUsage() -> std::pair<u64, u64> {
+fn os::GetDiskUsage() -> Result<DiskSpace, OsError> {
   struct statvfs vfs;
 
   if (statvfs("/", &vfs) != 0)
-    return { 0, 0 };
+    return Err(OsError::withErrno("Failed to get disk usage"));
 
-  return { (vfs.f_blocks - vfs.f_bfree) * vfs.f_frsize, vfs.f_blocks * vfs.f_frsize };
+  return DiskSpace { .used_bytes=(vfs.f_blocks - vfs.f_bfree) * vfs.f_frsize, .total_bytes=vfs.f_blocks * vfs.f_frsize };
 }
 
-fn os::GetShell() -> String { return ""; }
+fn os::GetShell() -> Option<String> { return None; }
 
 #endif

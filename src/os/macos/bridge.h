@@ -11,15 +11,15 @@
 #import <Foundation/Foundation.h>
 
 @interface Bridge : NSObject
-+ (void)fetchCurrentPlayingMetadata:(void (^)(std::expected<NSDictionary*, const char*>))completion;
-+ (std::expected<String, String>)macOSVersion;
++ (void)fetchCurrentPlayingMetadata:(void (^)(Result<NSDictionary*, const char*>))completion;
++ (Result<String, OsError>)macOSVersion;
 @end
 
 #else
 
 extern "C++" {
-  fn GetCurrentPlayingInfo() -> std::expected<String, NowPlayingError>;
-  fn GetMacOSVersion() -> std::expected<String, String>;
+  fn GetCurrentPlayingInfo() -> Result<MediaInfo, NowPlayingError>;
+  fn GetMacOSVersion() -> Result<String, OsError>;
 }
 
 #endif

@@ -59,7 +59,7 @@ using MRMediaRemoteGetNowPlayingInfoFunction =
   );
 }
 
-+ (std::expected<String, String>)macOSVersion {
++ (Result<String, OsError>)macOSVersion {
   NSProcessInfo*           processInfo = [NSProcessInfo processInfo];
   NSOperatingSystemVersion osVersion   = [processInfo operatingSystemVersion];
 
@@ -84,20 +84,21 @@ using MRMediaRemoteGetNowPlayingInfoFunction =
 
 extern "C++" {
   // NOLINTBEGIN(misc-use-internal-linkage)
-  fn GetCurrentPlayingInfo() -> std::expected<String, NowPlayingError> {
-    __block std::expected<String, NowPlayingError> result;
-    dispatch_semaphore_t                           semaphore = dispatch_semaphore_create(0);
+  fn GetCurrentPlayingInfo() -> Result<MediaInfo, NowPlayingError> {
+    __block Result<MediaInfo, NowPlayingError> result;
+
+    dispatch_semaphore_t                           const semaphore = dispatch_semaphore_create(0);
 
     [Bridge fetchCurrentPlayingMetadata:^(std::expected<NSDictionary*, const char*> metadataResult) {
       if (!metadataResult) {
-        result = std::unexpected(NowPlayingError { metadataResult.error() });
+        result = Err(OsError { OsErrorCode::InternalError, metadataResult.error() });
         dispatch_semaphore_signal(semaphore);
         return;
       }
 
       const NSDictionary* const metadata = *metadataResult;
       if (!metadata) {
-        result = std::unexpected(NowPlayingError { NowPlayingCode::NoPlayers });
+        result = Err(OsError { OsErrorCode::InternalError, "No metadata" });
         dispatch_semaphore_signal(semaphore);
         return;
       }
@@ -105,14 +106,10 @@ extern "C++" {
       const NSString* const title  = metadata[@"kMRMediaRemoteNowPlayingInfoTitle"];
       const NSString* const artist = metadata[@"kMRMediaRemoteNowPlayingInfoArtist"];
 
-      if (!title && !artist)
-        result = std::unexpected(NowPlayingError { "No metadata" });
-      else if (!title)
-        result = String([artist UTF8String]);
-      else if (!artist)
-        result = String([title UTF8String]);
-      else
-        result = String([[NSString stringWithFormat:@"%@ - %@", title, artist] UTF8String]);
+      result = MediaInfo(
+        title ? Option(String([title UTF8String])) : None,
+        artist ? Option(String([artist UTF8String])) : None
+      );
 
       dispatch_semaphore_signal(semaphore);
     }];
@@ -121,7 +118,7 @@ extern "C++" {
     return result;
   }
 
-  fn GetMacOSVersion() -> std::expected<String, String> { return [Bridge macOSVersion]; }
+  fn GetMacOSVersion() -> Result<String, OsError> { return [Bridge macOSVersion]; }
   // NOLINTEND(misc-use-internal-linkage)
 }
 

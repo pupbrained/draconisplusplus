@@ -1,15 +1,17 @@
 #pragma once
 
-#include <array>    // std::array alias (Array)
-#include <cstdlib>  // std::getenv, std::free
-#include <expected> // std::expected alias (Result)
-#include <map>      // std::map alias (Map)
-#include <memory>   // std::shared_ptr and std::unique_ptr aliases (SharedPointer, UniquePointer)
-#include <optional> // std::optional alias (Option)
-#include <string>   // std::string and std::string_view aliases (String, StringView)
-#include <utility>  // std::pair alias (Pair)
-#include <variant>  // std::variant alias (NowPlayingError)
-#include <vector>   // std::vector alias (Vec)
+#include <array>        // std::array alias (Array)
+#include <cstdlib>      // std::getenv, std::free
+#include <expected>     // std::expected alias (Result)
+#include <format>       // std::format
+#include <map>          // std::map alias (Map)
+#include <memory>       // std::shared_ptr and std::unique_ptr aliases (SharedPointer, UniquePointer)
+#include <optional>     // std::optional alias (Option)
+#include <string>       // std::string and std::string_view aliases (String, StringView)
+#include <system_error> // std::error_code and std::system_error
+#include <utility>      // std::pair alias (Pair)
+#include <variant>      // std::variant alias (NowPlayingError)
+#include <vector>       // std::vector alias (Vec)
 
 #ifdef _WIN32
 #include <winrt/base.h> // winrt::hresult_error (WindowsError)
@@ -230,7 +232,43 @@ struct OsError {
       default:        code = PlatformSpecific; break;
     }
   }
-#endif
+
+  static auto withErrno(const String& context) -> OsError {
+    const i32    errNo   = errno;
+    const String msg     = std::system_category().message(errNo);
+    const String fullMsg = std::format("{}: {}", context, msg);
+
+    switch (errNo) {
+      case EACCES:
+      case EPERM:        return OsError { OsErrorCode::PermissionDenied, fullMsg };
+      case ENOENT:       return OsError { OsErrorCode::NotFound, fullMsg };
+      case ETIMEDOUT:    return OsError { OsErrorCode::Timeout, fullMsg };
+      case ENOTSUP:      return OsError { OsErrorCode::NotSupported, fullMsg };
+      case EIO:          return OsError { OsErrorCode::IoError, fullMsg };
+      case ECONNREFUSED:
+      case ENETDOWN:
+      case ENETUNREACH:  return OsError { OsErrorCode::NetworkError, fullMsg };
+      default:           return OsError { OsErrorCode::PlatformSpecific, fullMsg };
+    }
+  }
+
+#ifdef __linux__
+  static auto fromDBus(const DBus::Error& err) -> OsError {
+    String name = err.name();
+
+    if (name == "org.freedesktop.DBus.Error.ServiceUnknown" || name == "org.freedesktop.DBus.Error.NameHasNoOwner")
+      return OsError { OsErrorCode::NotFound, std::format("DBus service/name not found: {}", err.message()) };
+
+    if (name == "org.freedesktop.DBus.Error.NoReply" || name == "org.freedesktop.DBus.Error.Timeout")
+      return OsError { OsErrorCode::Timeout, std::format("DBus timeout/no reply: {}", err.message()) };
+
+    if (name == "org.freedesktop.DBus.Error.AccessDenied")
+      return OsError { OsErrorCode::PermissionDenied, std::format("DBus access denied: {}", err.message()) };
+
+    return OsError { OsErrorCode::PlatformSpecific, std::format("DBus error: {} - {}", name, err.message()) };
+  }
+#endif // __linux__
+#endif // _WIN32
 };
 
 /**
@@ -252,17 +290,15 @@ struct DiskSpace {
  * Using Option<> for fields that might not always be available.
  */
 struct MediaInfo {
-  /**
-   * @enum PlaybackStatus
-   * @brief Represents the playback status of the media player.
-   */
-  enum class PlaybackStatus : u8 { Playing, Paused, Stopped, Unknown };
-
   Option<String> title;    ///< Track title.
   Option<String> artist;   ///< Track artist(s).
   Option<String> album;    ///< Album name.
   Option<String> app_name; ///< Name of the media player application (e.g., "Spotify", "Firefox").
-  PlaybackStatus status = PlaybackStatus::Unknown; ///< Current playback status.
+
+  MediaInfo() = default;
+
+  MediaInfo(Option<String> title, Option<String> artist)
+    : title(std::move(title)), artist(std::move(artist)) {}
 
   MediaInfo(Option<String> title, Option<String> artist, Option<String> album, Option<String> app)
     : title(std::move(title)), artist(std::move(artist)), album(std::move(album)), app_name(std::move(app)) {}
