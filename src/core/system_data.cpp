@@ -1,15 +1,17 @@
-#include "system_data.h"
+#include "system_data.hpp"
 
-#include <chrono>    // for year_month_day, floor, days...
-#include <exception> // for exception
-#include <future>    // for future, async, launch
-#include <locale>    // for locale
-#include <stdexcept> // for runtime_error
-#include <tuple>     // for tuple, get, make_tuple
-#include <utility>   // for move
+#include <chrono>    // std::chrono::{year_month_day, floor, days, system_clock}
+#include <exception> // std::exception (Exception)
+#include <future>    // std::{future, async, launch}
+#include <locale>    // std::locale
+#include <stdexcept> // std::runtime_error
+#include <tuple>     // std::{tuple, get, make_tuple}
+#include <utility>   // std::move
 
-#include "src/config/config.h" // for Config, Weather, NowPlaying
-#include "src/os/os.h"         // for GetDesktopEnvironment, GetHost...
+#include "src/config/config.hpp"
+#include "src/os/os.hpp"
+
+#include "util/logging.hpp"
 
 namespace {
   fn GetDate() -> String {
@@ -20,13 +22,13 @@ namespace {
     try {
       return std::format(std::locale(""), "{:%B %d}", ymd);
     } catch (const std::runtime_error& e) {
-      WARN_LOG("Could not retrieve or use system locale ({}). Falling back to default C locale.", e.what());
+      warn_log("Could not retrieve or use system locale ({}). Falling back to default C locale.", e.what());
       return std::format(std::locale::classic(), "{:%B %d}", ymd);
     }
   }
 } // namespace
 
-SystemData SystemData::fetchSystemData(const Config& config) {
+fn SystemData::fetchSystemData(const Config& config) -> SystemData {
   SystemData data {
     .date                = GetDate(),
     .host                = os::GetHost(),
@@ -42,13 +44,13 @@ SystemData SystemData::fetchSystemData(const Config& config) {
   };
 
   auto diskShellFuture = std::async(std::launch::async, [] {
-    Result<DiskSpace, OsError> diskResult  = os::GetDiskUsage();
-    Option<String>             shellOption = os::GetShell();
+    Result<DiskSpace, DraconisError> diskResult  = os::GetDiskUsage();
+    Option<String>                   shellOption = os::GetShell();
     return std::make_tuple(std::move(diskResult), std::move(shellOption));
   });
 
-  std::future<WeatherOutput>                      weatherFuture;
-  std::future<Result<MediaInfo, NowPlayingError>> nowPlayingFuture;
+  std::future<weather::Output>                  weatherFuture;
+  std::future<Result<MediaInfo, DraconisError>> nowPlayingFuture;
 
   if (config.weather.enabled)
     weatherFuture = std::async(std::launch::async, [&config] { return config.weather.getWeatherInfo(); });
@@ -65,7 +67,7 @@ SystemData SystemData::fetchSystemData(const Config& config) {
     try {
       data.weather_info = weatherFuture.get();
     } catch (const std::exception& e) {
-      ERROR_LOG("Failed to get weather info: {}", e.what());
+      error_log("Failed to get weather info: {}", e.what());
       data.weather_info = None;
     }
 

@@ -1,19 +1,31 @@
 #pragma once
 
 #ifdef _WIN32
-#include <windows.h> // GetUserNameA
+  #include <windows.h> // GetUserNameA
 #else
-#include <pwd.h>    // getpwuid
-#include <unistd.h> // getuid
+  #include <pwd.h>    // getpwuid, passwd
+  #include <unistd.h> // getuid
 #endif
 
-#include <toml++/toml.hpp>
+#include <stdexcept>                 // std::runtime_error
+#include <string>                    // std::string (String)
+#include <toml++/impl/node.hpp>      // toml::node
+#include <toml++/impl/node_view.hpp> // toml::node_view
+#include <toml++/impl/table.hpp>     // toml::table
+#include <variant>                   // std::variant
 
-#include "src/util/macros.h"
-#include "weather.h"
+#include "src/core/util/defs.hpp"
+#include "src/core/util/error.hpp"
+#include "src/core/util/helpers.hpp"
+#include "src/core/util/types.hpp"
+
+#include "weather.hpp"
+
+using util::error::DraconisError;
+using util::types::String, util::types::Array, util::types::Option, util::types::Result;
 
 /// Alias for the location type used in Weather config, can be a city name (String) or coordinates (Coords).
-using Location = std::variant<String, Coords>;
+using Location = std::variant<String, weather::Coords>;
 
 /**
  * @struct General
@@ -43,11 +55,11 @@ struct General {
       return pwd->pw_name;
 
     // Try to get the username using environment variables
-    if (Result<String, EnvError> envUser = GetEnv("USER"))
+    if (Result<String, DraconisError> envUser = util::helpers::GetEnv("USER"))
       return *envUser;
 
     // Finally, try to get the username using LOGNAME
-    if (Result<String, EnvError> envLogname = GetEnv("LOGNAME"))
+    if (Result<String, DraconisError> envLogname = util::helpers::GetEnv("LOGNAME"))
       return *envLogname;
 
     // If all else fails, return a default name
@@ -116,7 +128,7 @@ struct Weather {
       if (location.is_string())
         weather.location = *location.value<String>();
       else if (location.is_table())
-        weather.location = Coords {
+        weather.location = weather::Coords {
           .lat = *location.as_table()->get("lat")->value<double>(),
           .lon = *location.as_table()->get("lon")->value<double>(),
         };
@@ -135,7 +147,7 @@ struct Weather {
    * API key, and units. It returns a WeatherOutput object containing the
    * retrieved weather data.
    */
-  [[nodiscard]] fn getWeatherInfo() const -> WeatherOutput;
+  [[nodiscard]] fn getWeatherInfo() const -> weather::Output;
 };
 
 /**

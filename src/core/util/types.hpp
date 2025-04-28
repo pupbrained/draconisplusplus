@@ -1,0 +1,145 @@
+#pragma once
+
+#include <array>       // std::array (Array)
+#include <expected>    // std::expected (Result)
+#include <map>         // std::map (Map)
+#include <memory>      // std::shared_ptr and std::unique_ptr (SharedPointer, UniquePointer)
+#include <optional>    // std::optional (Option)
+#include <string>      // std::string (String, StringView)
+#include <string_view> // std::string_view (StringView)
+#include <utility>     // std::pair (Pair)
+#include <vector>      // std::vector (Vec)
+
+namespace util::types {
+  using u8  = std::uint8_t;  ///< 8-bit unsigned integer.
+  using u16 = std::uint16_t; ///< 16-bit unsigned integer.
+  using u32 = std::uint32_t; ///< 32-bit unsigned integer.
+  using u64 = std::uint64_t; ///< 64-bit unsigned integer.
+
+  using i8  = std::int8_t;  ///< 8-bit signed integer.
+  using i16 = std::int16_t; ///< 16-bit signed integer.
+  using i32 = std::int32_t; ///< 32-bit signed integer.
+  using i64 = std::int64_t; ///< 64-bit signed integer.
+
+  using f32 = float;  ///< 32-bit floating-point number.
+  using f64 = double; ///< 64-bit floating-point number.
+
+  using usize = std::size_t;    ///< Unsigned size type (result of sizeof).
+  using isize = std::ptrdiff_t; ///< Signed size type (result of pointer subtraction).
+
+  using String     = std::string;      ///< Owning, mutable string.
+  using StringView = std::string_view; ///< Non-owning view of a string.
+  using CStr       = const char*;      ///< Pointer to a null-terminated C-style string.
+
+  using Exception = std::exception; ///< Standard exception type.
+
+  /**
+   * @typedef Result
+   * @brief Alias for std::expected<Tp, Er>. Represents a value that can either be
+   * a success value of type Tp or an error value of type Er.
+   * @tparam Tp The type of the success value.
+   * @tparam Er The type of the error value.
+   */
+  template <typename Tp, typename Er>
+  using Result = std::expected<Tp, Er>;
+
+  /**
+   * @typedef Err
+   * @brief Alias for std::unexpected<Er>. Used to construct a Result in an error state.
+   * @tparam Er The type of the error value.
+   */
+  template <typename Er>
+  using Err = std::unexpected<Er>;
+
+  /**
+   * @typedef Option
+   * @brief Alias for std::optional<Tp>. Represents a value that may or may not be present.
+   * @tparam Tp The type of the potential value.
+   */
+  template <typename Tp>
+  using Option = std::optional<Tp>;
+
+  /**
+   * @typedef Array
+   * @brief Alias for std::array<Tp, sz>. Represents a fixed-size array.
+   * @tparam Tp The element type.
+   * @tparam sz The size of the array.
+   */
+  template <typename Tp, usize sz>
+  using Array = std::array<Tp, sz>;
+
+  /**
+   * @typedef Vec
+   * @brief Alias for std::vector<Tp>. Represents a dynamic-size array (vector).
+   * @tparam Tp The element type.
+   */
+  template <typename Tp>
+  using Vec = std::vector<Tp>;
+
+  /**
+   * @typedef Pair
+   * @brief Alias for std::pair<T1, T2>. Represents a pair of values.
+   * @tparam T1 The type of the first element.
+   * @tparam T2 The type of the second element.
+   */
+  template <typename T1, typename T2>
+  using Pair = std::pair<T1, T2>;
+
+  /**
+   * @typedef Map
+   * @brief Alias for std::map<Key, Val>. Represents an ordered map (dictionary).
+   * @tparam Key The key type.
+   * @tparam Val The value type.
+   */
+  template <typename Key, typename Val>
+  using Map = std::map<Key, Val>;
+
+  /**
+   * @typedef SharedPointer
+   * @brief Alias for std::shared_ptr<Tp>. Manages shared ownership of a dynamically allocated object.
+   * @tparam Tp The type of the managed object.
+   */
+  template <typename Tp>
+  using SharedPointer = std::shared_ptr<Tp>;
+
+  /**
+   * @typedef UniquePointer
+   * @brief Alias for std::unique_ptr<Tp, Dp>. Manages unique ownership of a dynamically allocated object.
+   * @tparam Tp The type of the managed object.
+   * @tparam Dp The deleter type (defaults to std::default_delete<Tp>).
+   */
+  template <typename Tp, typename Dp = std::default_delete<Tp>>
+  using UniquePointer = std::unique_ptr<Tp, Dp>;
+
+  /**
+   * @struct DiskSpace
+   * @brief Represents disk usage information.
+   *
+   * Used as the success type for os::GetDiskUsage.
+   */
+  struct DiskSpace {
+    u64 used_bytes;  ///< Currently used disk space in bytes.
+    u64 total_bytes; ///< Total disk space in bytes.
+  };
+
+  /**
+   * @struct MediaInfo
+   * @brief Holds structured metadata about currently playing media.
+   *
+   * Used as the success type for os::GetNowPlaying.
+   * Using Option<> for fields that might not always be available.
+   */
+  struct MediaInfo {
+    Option<String> title;    ///< Track title.
+    Option<String> artist;   ///< Track artist(s).
+    Option<String> album;    ///< Album name.
+    Option<String> app_name; ///< Name of the media player application (e.g., "Spotify", "Firefox").
+
+    MediaInfo() = default;
+
+    MediaInfo(Option<String> title, Option<String> artist) : title(std::move(title)), artist(std::move(artist)) {}
+
+    MediaInfo(Option<String> title, Option<String> artist, Option<String> album, Option<String> app)
+      : title(std::move(title)), artist(std::move(artist)), album(std::move(album)), app_name(std::move(app)) {}
+  };
+} // namespace util::types

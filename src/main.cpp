@@ -1,20 +1,28 @@
-#include <chrono>
-#include <ftxui/dom/elements.hpp>
-#include <ftxui/screen/color.hpp>
-#include <ftxui/screen/screen.hpp>
-#include <future>
-#include <string>
-#include <variant>
+#include <cmath>                   // std::lround
+#include <format>                  // std::format
+#include <ftxui/dom/elements.hpp>  // ftxui::{hbox, vbox, text, separator, filler}
+#include <ftxui/dom/node.hpp>      // ftxui::{Element, Render}
+#include <ftxui/screen/color.hpp>  // ftxui::Color
+#include <ftxui/screen/screen.hpp> // ftxui::{Screen, Dimension::Full}
+#include <optional>                // std::optional (operator!=)
+#include <ranges>                  // std::ranges::{to, views}
+#include <string>                  // std::string (String)
+#include <string_view>             // std::string_view (StringView)
 
-#include "config/config.h"
-#include "core/system_data.h"
-#include "os/os.h"
+#include "src/config/weather.hpp"
+
+#include "config/config.hpp"
+#include "core/system_data.hpp"
+#include "core/util/logging.hpp"
+#include "os/os.hpp"
 
 namespace ui {
   using ftxui::Color;
+  using util::types::StringView, util::types::i32;
 
-  static constexpr inline bool SHOW_ICONS           = true;
-  static constexpr i32         MAX_PARAGRAPH_LENGTH = 30;
+  static constexpr inline StringView ICON_TYPE = "EMOJI";
+
+  static constexpr i32 MAX_PARAGRAPH_LENGTH = 30;
 
   // Color themes
   struct Theme {
@@ -47,7 +55,7 @@ namespace ui {
     StringView window_manager;
   };
 
-  static constexpr Icons EMPTY_ICONS = {
+  static constexpr Icons NONE = {
     .user           = "",
     .palette        = "",
     .calendar       = "",
@@ -63,7 +71,7 @@ namespace ui {
     .window_manager = "",
   };
 
-  static constexpr Icons NERD_ICONS = {
+  static constexpr Icons NERD = {
     .user           = "   ",
     .palette        = "   ",
     .calendar       = "   ",
@@ -78,9 +86,26 @@ namespace ui {
     .desktop        = " 󰇄  ",
     .window_manager = "   ",
   };
+
+  static constexpr Icons EMOJI = {
+    .user           = " 👤 ",
+    .palette        = " 🎨 ",
+    .calendar       = " 📅 ",
+    .host           = " 💻 ",
+    .kernel         = " 🫀 ",
+    .os             = " 🤖 ",
+    .memory         = " 🧠 ",
+    .weather        = " 🌈 ",
+    .music          = " 🎵 ",
+    .disk           = " 💾 ",
+    .shell          = " 💲 ",
+    .desktop        = " 🖥 ️",
+    .window_manager = " 🪟 ",
+  };
 } // namespace ui
 
 namespace {
+  using namespace util::logging;
   using namespace ftxui;
 
   fn CreateColorCircles() -> Element {
@@ -97,7 +122,9 @@ namespace {
     const Weather weather = config.weather;
 
     const auto& [userIcon, paletteIcon, calendarIcon, hostIcon, kernelIcon, osIcon, memoryIcon, weatherIcon, musicIcon, diskIcon, shellIcon, deIcon, wmIcon] =
-      ui::SHOW_ICONS ? ui::NERD_ICONS : ui::EMPTY_ICONS;
+      ui::ICON_TYPE == "NERD"    ? ui::NERD
+      : ui::ICON_TYPE == "EMOJI" ? ui::EMOJI
+                                 : ui::NONE;
 
     Elements content;
 
@@ -129,7 +156,7 @@ namespace {
 
     // Weather row
     if (weather.enabled && data.weather_info.has_value()) {
-      const WeatherOutput& weatherInfo = data.weather_info.value();
+      const weather::Output& weatherInfo = data.weather_info.value();
 
       if (weather.show_town_name)
         content.push_back(hbox(
@@ -172,22 +199,22 @@ namespace {
     if (data.host)
       content.push_back(createRow(hostIcon, "Host", *data.host));
     else
-      ERROR_LOG_LOC(data.host.error());
+      error_at(data.host.error());
 
     if (data.kernel_version)
       content.push_back(createRow(kernelIcon, "Kernel", *data.kernel_version));
     else
-      ERROR_LOG_LOC(data.kernel_version.error());
+      error_at(data.kernel_version.error());
 
     if (data.os_version)
       content.push_back(createRow(String(osIcon), "OS", *data.os_version));
     else
-      ERROR_LOG_LOC(data.os_version.error());
+      error_at(data.os_version.error());
 
     if (data.mem_info)
       content.push_back(createRow(memoryIcon, "RAM", std::format("{}", BytesToGiB { *data.mem_info })));
     else
-      ERROR_LOG_LOC(data.mem_info.error());
+      error_at(data.mem_info.error());
 
     if (data.disk_usage)
       content.push_back(createRow(
@@ -196,7 +223,7 @@ namespace {
         std::format("{}/{}", BytesToGiB { data.disk_usage->used_bytes }, BytesToGiB { data.disk_usage->total_bytes })
       ));
     else
-      ERROR_LOG_LOC(data.disk_usage.error());
+      error_at(data.disk_usage.error());
 
     if (data.shell)
       content.push_back(createRow(shellIcon, "Shell", *data.shell));
@@ -210,7 +237,7 @@ namespace {
       content.push_back(createRow(wmIcon, "WM", *data.window_manager));
 
     if (config.now_playing.enabled && data.now_playing) {
-      if (const Result<MediaInfo, NowPlayingError>& nowPlayingResult = *data.now_playing) {
+      if (const Result<MediaInfo, DraconisError>& nowPlayingResult = *data.now_playing) {
         const MediaInfo& info = *nowPlayingResult;
 
         const String title  = info.title.value_or("Unknown Title");
@@ -229,7 +256,7 @@ namespace {
           }
         ));
       } else
-        DEBUG_LOG_LOC(nowPlayingResult.error());
+        debug_at(nowPlayingResult.error());
     }
 
     return vbox(content) | borderRounded | color(Color::White);
@@ -239,6 +266,8 @@ namespace {
 fn main() -> i32 {
   const Config&    config = Config::getInstance();
   const SystemData data   = SystemData::fetchSystemData(config);
+
+  debug_log("{}", *os::GetPackageCount());
 
   Element document = vbox({ hbox({ SystemInfoBox(config, data), filler() }), text("") });
 

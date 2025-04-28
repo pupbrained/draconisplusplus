@@ -1,13 +1,19 @@
-#include <filesystem>
-#include <stdexcept>
+#include "config.hpp"
 
-#include "config.h"
+#include <filesystem>             // std::filesystem::{path, operator/, exists, create_directories}
+#include <fstream>                // std::{ifstream, ofstream, operator<<}
+#include <stdexcept>              // std::runtime_error
+#include <system_error>           // std::error_code
+#include <toml++/impl/parser.hpp> // toml::{parse_file, parse_result}
+#include <utility>                // std::pair (Pair)
 
-#include "src/util/macros.h"
+#include "src/core/util/logging.hpp"
 
 namespace fs = std::filesystem;
 
 namespace {
+  using util::types::Vec, util::types::CStr, util::types::Exception;
+
   fn GetConfigPath() -> fs::path {
     Vec<fs::path> possiblePaths;
 
@@ -25,10 +31,10 @@ namespace {
 
     possiblePaths.push_back(fs::path(".") / "config.toml");
 #else
-    if (Result<String, EnvError> result = GetEnv("XDG_CONFIG_HOME"))
+    if (Result<String, DraconisError> result = util::helpers::GetEnv("XDG_CONFIG_HOME"))
       possiblePaths.emplace_back(fs::path(*result) / "draconis++" / "config.toml");
 
-    if (Result<String, EnvError> result = GetEnv("HOME")) {
+    if (Result<String, DraconisError> result = util::helpers::GetEnv("HOME")) {
       possiblePaths.emplace_back(fs::path(*result) / ".config" / "draconis++" / "config.toml");
       possiblePaths.emplace_back(fs::path(*result) / ".draconis++" / "config.toml");
     }
@@ -46,7 +52,7 @@ namespace {
       if (std::error_code errc; !exists(defaultDir, errc) && !errc) {
         create_directories(defaultDir, errc);
         if (errc)
-          WARN_LOG("Warning: Failed to create config directory: {}", errc.message());
+          warn_log("Warning: Failed to create config directory: {}", errc.message());
       }
 
       return possiblePaths[0];
@@ -60,7 +66,7 @@ namespace {
       std::error_code errc;
       create_directories(configPath.parent_path(), errc);
       if (errc) {
-        ERROR_LOG("Failed to create config directory: {}", errc.message());
+        error_log("Failed to create config directory: {}", errc.message());
         return false;
       }
 
@@ -76,8 +82,8 @@ namespace {
       const passwd* pwd     = getpwuid(getuid());
       CStr          pwdName = pwd ? pwd->pw_name : nullptr;
 
-      const Result<String, EnvError> envUser    = GetEnv("USER");
-      const Result<String, EnvError> envLogname = GetEnv("LOGNAME");
+      const Result<String, DraconisError> envUser    = util::helpers::GetEnv("USER");
+      const Result<String, DraconisError> envLogname = util::helpers::GetEnv("LOGNAME");
 
       String defaultName = pwdName ? pwdName : envUser ? *envUser : envLogname ? *envLogname : "User";
 #endif
@@ -97,7 +103,7 @@ namespace {
 
       std::ofstream file(configPath);
       if (!file) {
-        ERROR_LOG("Failed to open config file for writing: {}", configPath.string());
+        error_log("Failed to open config file for writing: {}", configPath.string());
         return false;
       }
 
@@ -124,34 +130,34 @@ namespace {
       file << "# lat = 51.5074\n";
       file << "# lon = -0.1278\n";
 
-      INFO_LOG("Created default config file at {}", configPath.string());
+      info_log("Created default config file at {}", configPath.string());
       return true;
-    } catch (const std::exception& e) {
-      ERROR_LOG("Failed to create default config file: {}", e.what());
+    } catch (const Exception& e) {
+      error_log("Failed to create default config file: {}", e.what());
       return false;
     }
   }
-}
+} // namespace
 
 fn Config::getInstance() -> Config {
   try {
     const fs::path configPath = GetConfigPath();
 
     if (!exists(configPath)) {
-      INFO_LOG("Config file not found, creating defaults at {}", configPath.string());
+      info_log("Config file not found, creating defaults at {}", configPath.string());
 
       if (!CreateDefaultConfig(configPath)) {
-        WARN_LOG("Failed to create default config, using in-memory defaults");
+        warn_log("Failed to create default config, using in-memory defaults");
         return {};
       }
     }
 
     const toml::parse_result config = toml::parse_file(configPath.string());
 
-    DEBUG_LOG("Config loaded from {}", configPath.string());
+    debug_log("Config loaded from {}", configPath.string());
     return fromToml(config);
-  } catch (const std::exception& e) {
-    DEBUG_LOG("Config loading failed: {}, using defaults", e.what());
+  } catch (const Exception& e) {
+    debug_log("Config loading failed: {}, using defaults", e.what());
     return {};
   }
 }

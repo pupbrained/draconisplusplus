@@ -141,8 +141,6 @@
 
             LD_LIBRARY_PATH = "${lib.makeLibraryPath deps}";
             NIX_ENFORCE_NO_NATIVE = 0;
-
-            name = "C++";
           };
         }
     );
