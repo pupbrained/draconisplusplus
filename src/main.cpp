@@ -267,7 +267,10 @@ fn main() -> i32 {
   const Config&    config = Config::getInstance();
   const SystemData data   = SystemData::fetchSystemData(config);
 
-  debug_log("{}", *os::GetPackageCount());
+  if (const Result<u64, DraconisError>& packageCount = os::GetPackageCount())
+    debug_log("{}", *packageCount);
+  else
+    debug_at(packageCount.error());
 
   Element document = vbox({ hbox({ SystemInfoBox(config, data), filler() }), text("") });
 

@@ -2,25 +2,25 @@
 
 #ifdef __APPLE__
 
-#include <expected>
+// clang-format off
+#include "src/core/util/defs.hpp"
+#include "src/core/util/error.hpp"
+#include "src/core/util/types.hpp"
+// clang-format on
+using util::error::DraconisError;
+using util::types::MediaInfo, util::types::String, util::types::Result;
 
-#include "../../util/macros.h"
-
-#ifdef __OBJC__
-
-#import <Foundation/Foundation.h>
+  #ifdef __OBJC__
+    #import <Foundation/Foundation.h>
 
 @interface Bridge : NSObject
 + (void)fetchCurrentPlayingMetadata:(void (^)(Result<NSDictionary*, const char*>))completion;
-+ (Result<String, OsError>)macOSVersion;
++ (Result<String, DraconisError>)macOSVersion;
 @end
-
-#else
-
+  #else
 extern "C++" {
-  fn GetCurrentPlayingInfo() -> Result<MediaInfo, NowPlayingError>;
-  fn GetMacOSVersion() -> Result<String, OsError>;
+  fn GetCurrentPlayingInfo() -> Result<MediaInfo, DraconisError>;
+  fn GetMacOSVersion() -> Result<String, DraconisError>;
 }
-
-#endif
+  #endif
 #endif

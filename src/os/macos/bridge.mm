@@ -1,5 +1,8 @@
 #ifdef __APPLE__
 
+// clang-format off
+#import "bridge.hpp"
+
 #import <dispatch/dispatch.h>
 #include <expected>
 #include <functional>
@@ -8,7 +11,11 @@
 #include <string>
 #include <utility>
 
-#import "bridge.h"
+#include "src/core/util/error.hpp"
+// clang-format on
+
+using util::error::DraconisErrorCode;
+using util::types::Err, util::types::Option;
 
 using MRMediaRemoteGetNowPlayingInfoFunction =
   void (*)(dispatch_queue_t queue, void (^handler)(NSDictionary* information));
@@ -59,7 +66,7 @@ using MRMediaRemoteGetNowPlayingInfoFunction =
   );
 }
 
-+ (Result<String, OsError>)macOSVersion {
++ (Result<String, DraconisError>)macOSVersion {
   NSProcessInfo*           processInfo = [NSProcessInfo processInfo];
   NSOperatingSystemVersion osVersion   = [processInfo operatingSystemVersion];
 
@@ -84,21 +91,21 @@ using MRMediaRemoteGetNowPlayingInfoFunction =
 
 extern "C++" {
   // NOLINTBEGIN(misc-use-internal-linkage)
-  fn GetCurrentPlayingInfo() -> Result<MediaInfo, NowPlayingError> {
-    __block Result<MediaInfo, NowPlayingError> result;
+  fn GetCurrentPlayingInfo() -> Result<MediaInfo, DraconisError> {
+    __block Result<MediaInfo, DraconisError> result;
 
-    dispatch_semaphore_t                           const semaphore = dispatch_semaphore_create(0);
+    const dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
 
     [Bridge fetchCurrentPlayingMetadata:^(std::expected<NSDictionary*, const char*> metadataResult) {
       if (!metadataResult) {
-        result = Err(OsError { OsErrorCode::InternalError, metadataResult.error() });
+        result = Err(DraconisError(DraconisErrorCode::InternalError, metadataResult.error()));
         dispatch_semaphore_signal(semaphore);
         return;
       }
 
       const NSDictionary* const metadata = *metadataResult;
       if (!metadata) {
-        result = Err(OsError { OsErrorCode::InternalError, "No metadata" });
+        result = Err(DraconisError(DraconisErrorCode::InternalError, "No metadata"));
         dispatch_semaphore_signal(semaphore);
         return;
       }
@@ -107,8 +114,7 @@ extern "C++" {
       const NSString* const artist = metadata[@"kMRMediaRemoteNowPlayingInfoArtist"];
 
       result = MediaInfo(
-        title ? Option(String([title UTF8String])) : None,
-        artist ? Option(String([artist UTF8String])) : None
+        title ? Option(String([title UTF8String])) : None, artist ? Option(String([artist UTF8String])) : None
       );
 
       dispatch_semaphore_signal(semaphore);
@@ -118,7 +124,7 @@ extern "C++" {
     return result;
   }
 
-  fn GetMacOSVersion() -> Result<String, OsError> { return [Bridge macOSVersion]; }
+  fn GetMacOSVersion() -> Result<String, DraconisError> { return [Bridge macOSVersion]; }
   // NOLINTEND(misc-use-internal-linkage)
 }
 
