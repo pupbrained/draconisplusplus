@@ -12,7 +12,7 @@
 #include "src/core/util/types.hpp"
 
 namespace util::logging {
-  using types::u8, types::i32, types::String, types::StringView, types::Option;
+  using types::u8, types::i32, types::String, types::StringView, types::Option, types::None;
 
   /**
    * @namespace term
@@ -184,7 +184,7 @@ namespace util::logging {
    * @enum LogLevel
    * @brief Represents different log levels.
    */
-  enum class LogLevel : u8 { DEBUG, INFO, WARN, ERROR };
+  enum class LogLevel : u8 { Debug, Info, Warn, Error };
 
   /**
    * @brief Logs a message with the specified log level, source location, and format string.
@@ -199,30 +199,24 @@ namespace util::logging {
     using namespace std::chrono;
     using namespace term;
 
-#ifdef _MSC_VER
-    using enum term::Color;
-#else
-    using enum Color;
-#endif // _MSC_VER
-
     const auto [color, levelStr] = [&] {
       switch (level) {
-        case LogLevel::DEBUG: return std::make_pair(Cyan, "DEBUG");
-        case LogLevel::INFO:  return std::make_pair(Green, "INFO ");
-        case LogLevel::WARN:  return std::make_pair(Yellow, "WARN ");
-        case LogLevel::ERROR: return std::make_pair(Red, "ERROR");
+        case LogLevel::Debug: return std::make_pair(Color::Cyan, "DEBUG");
+        case LogLevel::Info:  return std::make_pair(Color::Green, "INFO ");
+        case LogLevel::Warn:  return std::make_pair(Color::Yellow, "WARN ");
+        case LogLevel::Error: return std::make_pair(Color::Red, "ERROR");
         default:              std::unreachable();
       }
     }();
 
-    Print(BrightWhite, "[{:%X}] ", std::chrono::floor<seconds>(system_clock::now()));
+    Print(Color::BrightWhite, "[{:%X}] ", std::chrono::floor<seconds>(system_clock::now()));
     Print(Emphasis::Bold | color, "{} ", levelStr);
     Print(fmt, std::forward<Args>(args)...);
 
 #ifndef NDEBUG
-    Print(BrightWhite, "\n{:>14} ", "╰──");
+    Print(Color::BrightWhite, "\n{:>14} ", "╰──");
     Print(
-      Emphasis::Italic | BrightWhite,
+      Emphasis::Italic | Color::BrightWhite,
       "{}:{}",
       std::filesystem::path(loc.file_name()).lexically_normal().string(),
       loc.line()
@@ -236,31 +230,31 @@ namespace util::logging {
   fn LogAppError(const LogLevel level, const ErrorType& error_obj) {
     using DecayedErrorType = std::decay_t<ErrorType>;
 
-    std::source_location log_location;
-    String               error_message_part;
+    std::source_location logLocation;
+    String               errorMessagePart;
 
     if constexpr (std::is_same_v<DecayedErrorType, error::DraconisError>) {
-      log_location       = error_obj.location;
-      error_message_part = error_obj.message;
+      logLocation      = error_obj.location;
+      errorMessagePart = error_obj.message;
     } else {
-      log_location = std::source_location::current();
+      logLocation = std::source_location::current();
       if constexpr (std::is_base_of_v<std::exception, DecayedErrorType>)
-        error_message_part = error_obj.what();
+        errorMessagePart = error_obj.what();
       else if constexpr (requires { error_obj.message; })
-        error_message_part = error_obj.message;
+        errorMessagePart = error_obj.message;
       else
-        error_message_part = "Unknown error type logged";
+        errorMessagePart = "Unknown error type logged";
     }
 
-    LogImpl(level, log_location, "{}", error_message_part);
+    LogImpl(level, logLocation, "{}", errorMessagePart);
   }
 
 #ifndef NDEBUG
   #define debug_log(fmt, ...)                                                                           \
     ::util::logging::LogImpl(                                                                           \
-      ::util::logging::LogLevel::DEBUG, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__ \
+      ::util::logging::LogLevel::Debug, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__ \
     )
-  #define debug_at(error_obj) ::util::logging::LogAppError(::util::logging::LogLevel::DEBUG, error_obj);
+  #define debug_at(error_obj) ::util::logging::LogAppError(::util::logging::LogLevel::Debug, error_obj);
 #else
   #define debug_log(...) ((void)0)
   #define debug_at(...)  ((void)0)
@@ -268,19 +262,19 @@ namespace util::logging {
 
 #define info_log(fmt, ...)                                                                           \
   ::util::logging::LogImpl(                                                                          \
-    ::util::logging::LogLevel::INFO, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__ \
+    ::util::logging::LogLevel::Info, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__ \
   )
-#define info_at(error_obj) ::util::logging::LogAppError(::util::logging::LogLevel::INFO, error_obj);
+#define info_at(error_obj) ::util::logging::LogAppError(::util::logging::LogLevel::Info, error_obj);
 
 #define warn_log(fmt, ...)                                                                           \
   ::util::logging::LogImpl(                                                                          \
-    ::util::logging::LogLevel::WARN, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__ \
+    ::util::logging::LogLevel::Warn, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__ \
   )
-#define warn_at(error_obj) ::util::logging::LogAppError(::util::logging::LogLevel::WARN, error_obj);
+#define warn_at(error_obj) ::util::logging::LogAppError(::util::logging::LogLevel::Warn, error_obj);
 
 #define error_log(fmt, ...)                                                                           \
   ::util::logging::LogImpl(                                                                           \
-    ::util::logging::LogLevel::ERROR, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__ \
+    ::util::logging::LogLevel::Error, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__ \
   )
-#define error_at(error_obj) ::util::logging::LogAppError(::util::logging::LogLevel::ERROR, error_obj);
+#define error_at(error_obj) ::util::logging::LogAppError(::util::logging::LogLevel::Error, error_obj);
 } // namespace util::logging

@@ -15,6 +15,8 @@ namespace {
   using util::types::Vec, util::types::CStr, util::types::Exception;
 
   fn GetConfigPath() -> fs::path {
+    using util::helpers::GetEnv;
+
     Vec<fs::path> possiblePaths;
 
 #ifdef _WIN32
@@ -31,10 +33,10 @@ namespace {
 
     possiblePaths.push_back(fs::path(".") / "config.toml");
 #else
-    if (Result<String, DraconisError> result = util::helpers::GetEnv("XDG_CONFIG_HOME"))
+    if (Result<String, DraconisError> result = GetEnv("XDG_CONFIG_HOME"))
       possiblePaths.emplace_back(fs::path(*result) / "draconis++" / "config.toml");
 
-    if (Result<String, DraconisError> result = util::helpers::GetEnv("HOME")) {
+    if (Result<String, DraconisError> result = GetEnv("HOME")) {
       possiblePaths.emplace_back(fs::path(*result) / ".config" / "draconis++" / "config.toml");
       possiblePaths.emplace_back(fs::path(*result) / ".draconis++" / "config.toml");
     }

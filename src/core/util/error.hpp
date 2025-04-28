@@ -1,11 +1,10 @@
 #pragma once
 
-#include <format>          // std::format
 #include <source_location> // std::source_location
-#include <string_view>     // std::string_view (StringView)
 #include <system_error>    // std::error_code
 
 #ifdef _WIN32
+  #include <winerror.h>   // error values
   #include <winrt/base.h> // winrt::hresult_error
 #elifdef __linux__
   #include <dbus-cxx/error.h> // DBus::Error
@@ -79,16 +78,16 @@ namespace util::error {
       }
     }
 #ifdef _WIN32
-    explicit OsError(const winrt::hresult_error& e) : message(winrt::to_string(e.message())) {
+    explicit DraconisError(const winrt::hresult_error& e) : message(winrt::to_string(e.message())) {
       switch (e.code()) {
-        case E_ACCESSDENIED:                              code = OsErrorCode::PermissionDenied; break;
+        case E_ACCESSDENIED:                              code = DraconisErrorCode::PermissionDenied; break;
         case HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND):
         case HRESULT_FROM_WIN32(ERROR_PATH_NOT_FOUND):
-        case HRESULT_FROM_WIN32(ERROR_SERVICE_NOT_FOUND): code = OsErrorCode::NotFound; break;
+        case HRESULT_FROM_WIN32(ERROR_SERVICE_NOT_FOUND): code = DraconisErrorCode::NotFound; break;
         case HRESULT_FROM_WIN32(ERROR_TIMEOUT):
-        case HRESULT_FROM_WIN32(ERROR_SEM_TIMEOUT):       code = OsErrorCode::Timeout; break;
-        case HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED):     code = OsErrorCode::NotSupported; break;
-        default:                                          code = OsErrorCode::PlatformSpecific; break;
+        case HRESULT_FROM_WIN32(ERROR_SEM_TIMEOUT):       code = DraconisErrorCode::Timeout; break;
+        case HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED):     code = DraconisErrorCode::NotSupported; break;
+        default:                                          code = DraconisErrorCode::PlatformSpecific; break;
       }
     }
 #else

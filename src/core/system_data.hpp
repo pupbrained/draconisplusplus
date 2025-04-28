@@ -69,17 +69,17 @@ struct SystemData {
   using NowPlayingResult = Option<Result<MediaInfo, util::error::DraconisError>>;
 
   // clang-format off
-  String                           date;                ///< Current date (e.g., "April 26th"). Always expected to succeed.
+  String                                        date;                ///< Current date (e.g., "April 26th"). Always expected to succeed.
   Result<String, util::error::DraconisError>    host;                ///< Host/product family (e.g., "MacBookPro18,3") or OS util::erroror.
   Result<String, util::error::DraconisError>    kernel_version;      ///< OS kernel version (e.g., "23.4.0") or OS error.
   Result<String, util::error::DraconisError>    os_version;          ///< OS pretty name (e.g., "macOS Sonoma 14.4.1") or OS error.
   Result<u64, util::error::DraconisError>       mem_info;            ///< Total physical RAM in bytes or OS error.
-  Option<String>                   desktop_environment; ///< Detected desktop environment (e.g., "Aqua", "Plasma"). None if not detected/applicable.
-  Option<String>                   window_manager;      ///< Detected window manager (e.g., "Quartz Compositor", "KWin"). None if not detected/applicable.
+  Option<String>                                desktop_environment; ///< Detected desktop environment (e.g., "Aqua", "Plasma"). None if not detected/applicable.
+  Option<String>                                window_manager;      ///< Detected window manager (e.g., "Quartz Compositor", "KWin"). None if not detected/applicable.
   Result<DiskSpace, util::error::DraconisError> disk_usage;          ///< Used/Total disk space for root filesystem or OS error.
-  Option<String>                   shell;               ///< Name of the current user shell (e.g., "zsh"). None if not detected.
-  NowPlayingResult                 now_playing;         ///< Optional: Result of fetching media info (MediaInfo on success, NowPlayingError on failure). None if disabled.
-  Option<weather::Output>          weather_info;        ///< Optional: Weather information. None if disabled or util::erroror during fetch.
+  Option<String>                                shell;               ///< Name of the current user shell (e.g., "zsh"). None if not detected.
+  NowPlayingResult                              now_playing;         ///< Optional: Result of fetching media info (MediaInfo on success, NowPlayingError on failure). None if disabled.
+  Option<weather::Output>                       weather_info;        ///< Optional: Weather information. None if disabled or util::erroror during fetch.
   // clang-format on
 
   /**

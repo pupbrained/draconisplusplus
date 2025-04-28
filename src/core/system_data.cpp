@@ -29,6 +29,8 @@ namespace {
 } // namespace
 
 fn SystemData::fetchSystemData(const Config& config) -> SystemData {
+  using util::types::None;
+
   SystemData data {
     .date                = GetDate(),
     .host                = os::GetHost(),
@@ -66,10 +68,7 @@ fn SystemData::fetchSystemData(const Config& config) -> SystemData {
   if (weatherFuture.valid())
     try {
       data.weather_info = weatherFuture.get();
-    } catch (const std::exception& e) {
-      error_log("Failed to get weather info: {}", e.what());
-      data.weather_info = None;
-    }
+    } catch (const std::exception& e) { data.weather_info = None; }
 
   if (nowPlayingFuture.valid())
     data.now_playing = nowPlayingFuture.get();

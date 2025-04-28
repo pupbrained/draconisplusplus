@@ -270,7 +270,7 @@ fn main() -> i32 {
   if (const Result<u64, DraconisError>& packageCount = os::GetPackageCount())
     debug_log("{}", *packageCount);
   else
-    debug_at(packageCount.error());
+    error_at(packageCount.error());
 
   Element document = vbox({ hbox({ SystemInfoBox(config, data), filler() }), text("") });
 

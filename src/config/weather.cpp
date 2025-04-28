@@ -11,7 +11,6 @@
 #include <glaze/core/read.hpp>    // glz::read
 #include <glaze/core/reflect.hpp> // glz::format_error
 #include <glaze/json/write.hpp>   // glz::write_json
-#include <glaze/util/atoi.hpp>    // glz::atoi
 #include <iterator>               // std::istreambuf_iterator
 #include <system_error>           // std::error_code
 #include <utility>                // std::move

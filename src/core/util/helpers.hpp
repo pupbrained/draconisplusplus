@@ -5,7 +5,8 @@
 #include "types.hpp"
 
 namespace util::helpers {
-  using types::Result, types::String, types::CStr, types::UniquePointer, types::Err;
+  using error::DraconisError, error::DraconisErrorCode;
+  using types::Result, types::String, types::CStr, types::Err;
 
   /**
    * @brief Safely retrieves an environment variable.
@@ -13,8 +14,10 @@ namespace util::helpers {
    * @return A Result containing the value of the environment variable as a String,
    * or an EnvError if an error occurred.
    */
-  [[nodiscard]] inline fn GetEnv(CStr name) -> Result<String, error::DraconisError> {
+  [[nodiscard]] inline fn GetEnv(CStr name) -> Result<String, DraconisError> {
 #ifdef _WIN32
+    using types::i32, types::usize, types::UniquePointer;
+
     char* rawPtr     = nullptr;
     usize bufferSize = 0;
 
@@ -35,7 +38,7 @@ namespace util::helpers {
     const CStr value = std::getenv(name);
 
     if (!value)
-      return Err(error::DraconisError(error::DraconisErrorCode::NotFound, "Environment variable not found"));
+      return Err(DraconisError(DraconisErrorCode::NotFound, "Environment variable not found"));
 
     return value;
 #endif

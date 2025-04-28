@@ -33,6 +33,8 @@ namespace util::types {
 
   using Exception = std::exception; ///< Standard exception type.
 
+  inline constexpr std::nullopt_t None = std::nullopt; ///< Represents an empty optional value.
+
   /**
    * @typedef Result
    * @brief Alias for std::expected<Tp, Er>. Represents a value that can either be

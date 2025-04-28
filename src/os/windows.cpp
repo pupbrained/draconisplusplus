@@ -5,7 +5,6 @@
 #include <windows.h>
 #include <wincrypt.h>
 #include <dwmapi.h>
-// clang-format on
 
 #include <cstring>
 #include <ranges>
@@ -17,9 +16,18 @@
 #include <winrt/base.h>
 #include <winrt/impl/Windows.Media.Control.2.h>
 
-#include "os.h"
+#include "src/core/util/error.hpp"
+#include "src/core/util/helpers.hpp"
+#include "src/core/util/logging.hpp"
+#include "src/core/util/types.hpp"
+
+#include "os.hpp"
+// clang-format on
 
 namespace {
+  using util::error::DraconisError, util::error::DraconisErrorCode;
+  using namespace util::types;
+
   struct OSVersion {
     u16 major;
     u16 minor;
@@ -36,10 +44,10 @@ namespace {
           .revision = static_cast<u16>(versionUl & 0xFFFF),
         };
       } catch (const std::invalid_argument& e) {
-        ERROR_LOG("Invalid argument: {}", e.what());
+        error_log("Invalid argument: {}", e.what());
       } catch (const std::out_of_range& e) {
-        ERROR_LOG("Value out of range: {}", e.what());
-      } catch (const winrt::hresult_error& e) { ERROR_LOG("Windows error: {}", winrt::to_string(e.message())); }
+        error_log("Value out of range: {}", e.what());
+      } catch (const winrt::hresult_error& e) { error_log("Windows error: {}", winrt::to_string(e.message())); }
 
       return { .major = 0, .minor = 0, .build = 0, .revision = 0 };
     }
@@ -83,7 +91,7 @@ namespace {
     return value;
   }
 
-  fn GetProcessInfo() -> Result<Vec<Pair<DWORD, String>>, OsError> {
+  fn GetProcessInfo() -> Result<Vec<Pair<DWORD, String>>, DraconisError> {
     try {
       using namespace winrt::Windows::System::Diagnostics;
       using namespace winrt::Windows::Foundation::Collections;
@@ -96,8 +104,8 @@ namespace {
       for (const auto& processInfo : processInfos)
         processes.emplace_back(processInfo.ProcessId(), winrt::to_string(processInfo.ExecutableFileName()));
       return processes;
-    } catch (const winrt::hresult_error& e) { return Err(OsError(e)); } catch (const std::exception& e) {
-      return Err(OsError(e));
+    } catch (const winrt::hresult_error& e) { return Err(DraconisError(e)); } catch (const std::exception& e) {
+      return Err(DraconisError(e));
     }
   }
 
@@ -121,7 +129,8 @@ namespace {
       try {
         currentProcessInfo = ProcessDiagnosticInfo::TryGetForProcessId(startPid);
       } catch (const winrt::hresult_error& e) {
-        RETURN_ERR("Failed to get process info for PID {}: {}", startPid, winrt::to_string(e.message()));
+        error_log("Failed to get process info for PID {}: {}", startPid, winrt::to_string(e.message()));
+        return None;
       }
 
       while (currentProcessInfo) {
@@ -145,9 +154,9 @@ namespace {
         currentProcessInfo = currentProcessInfo.Parent();
       }
     } catch (const winrt::hresult_error& e) {
-      ERROR_LOG("WinRT error during process tree walk (start PID {}): {}", startPid, winrt::to_string(e.message()));
+      error_log("WinRT error during process tree walk (start PID {}): {}", startPid, winrt::to_string(e.message()));
     } catch (const std::exception& e) {
-      ERROR_LOG("Standard exception during process tree walk (start PID {}): {}", startPid, e.what());
+      error_log("Standard exception during process tree walk (start PID {}): {}", startPid, e.what());
     }
 
     return None;
@@ -164,23 +173,23 @@ namespace {
         return (versionUl >> 16) & 0xFFFF;
       }
     } catch (const winrt::hresult_error& e) {
-      DEBUG_LOG("WinRT error getting build number: {}", winrt::to_string(e.message()));
-    } catch (const Exception& e) { DEBUG_LOG("Standard exception getting build number: {}", e.what()); }
+      debug_log("WinRT error getting build number: {}", winrt::to_string(e.message()));
+    } catch (const Exception& e) { debug_log("Standard exception getting build number: {}", e.what()); }
 
     return None;
   }
-}
+} // namespace
 
-fn os::GetMemInfo() -> Result<u64, OsError> {
+fn os::GetMemInfo() -> Result<u64, DraconisError> {
   try {
     return winrt::Windows::System::Diagnostics::SystemDiagnosticInfo::GetForCurrentSystem()
       .MemoryUsage()
       .GetReport()
       .TotalPhysicalSizeInBytes();
-  } catch (const winrt::hresult_error& e) { return Err(OsError(e)); }
+  } catch (const winrt::hresult_error& e) { return Err(DraconisError(e)); }
 }
 
-fn os::GetNowPlaying() -> Result<MediaInfo, NowPlayingError> {
+fn os::GetNowPlaying() -> Result<MediaInfo, DraconisError> {
   using namespace winrt::Windows::Media::Control;
   using namespace winrt::Windows::Foundation;
 
@@ -200,11 +209,11 @@ fn os::GetNowPlaying() -> Result<MediaInfo, NowPlayingError> {
       );
     }
 
-    return Err(NowPlayingCode::NoActivePlayer);
-  } catch (const winrt::hresult_error& e) { return Err(OsError(e)); }
+    return Err(DraconisError(DraconisErrorCode::NotFound, "No media session found"));
+  } catch (const winrt::hresult_error& e) { return Err(DraconisError(e)); }
 }
 
-fn os::GetOSVersion() -> Result<String, OsError> {
+fn os::GetOSVersion() -> Result<String, DraconisError> {
   try {
     const String regSubKey = R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)";
 
@@ -212,7 +221,7 @@ fn os::GetOSVersion() -> Result<String, OsError> {
     const String displayVersion = GetRegistryValue(HKEY_LOCAL_MACHINE, regSubKey, "DisplayVersion");
 
     if (productName.empty())
-      return Err(OsError { OsErrorCode::NotFound, "ProductName not found in registry" });
+      return Err(DraconisError(DraconisErrorCode::NotFound, "ProductName not found in registry"));
 
     if (const Option<u64> buildNumberOpt = GetBuildNumber()) {
       if (const u64 buildNumber = *buildNumberOpt; buildNumber >= 22000) {
@@ -227,18 +236,18 @@ fn os::GetOSVersion() -> Result<String, OsError> {
         }
       }
     } else {
-      DEBUG_LOG("Warning: Could not get build number via WinRT; Win11 detection might be inaccurate.");
+      debug_log("Warning: Could not get build number via WinRT; Win11 detection might be inaccurate.");
     }
 
     return displayVersion.empty() ? productName : productName + " " + displayVersion;
-  } catch (const std::exception& e) { return Err(OsError(e)); }
+  } catch (const std::exception& e) { return Err(DraconisError(e)); }
 }
 
-fn os::GetHost() -> Result<String, OsError> {
+fn os::GetHost() -> Result<String, DraconisError> {
   return GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SYSTEM\HardwareConfig\Current)", "SystemFamily");
 }
 
-fn os::GetKernelVersion() -> Result<String, OsError> {
+fn os::GetKernelVersion() -> Result<String, DraconisError> {
   try {
     using namespace winrt::Windows::System::Profile;
 
@@ -247,15 +256,15 @@ fn os::GetKernelVersion() -> Result<String, OsError> {
     if (const winrt::hstring familyVersion = versionInfo.DeviceFamilyVersion(); !familyVersion.empty())
       if (auto [major, minor, build, revision] = OSVersion::parseDeviceFamilyVersion(familyVersion); build > 0)
         return std::format("{}.{}.{}.{}", major, minor, build, revision);
-  } catch (const winrt::hresult_error& e) { return Err(OsError(e)); } catch (const Exception& e) {
-    return Err(OsError(e));
+  } catch (const winrt::hresult_error& e) { return Err(DraconisError(e)); } catch (const Exception& e) {
+    return Err(DraconisError(e));
   }
 
-  return Err(OsError { OsErrorCode::NotFound, "Could not determine kernel version" });
+  return Err(DraconisError(DraconisErrorCode::NotFound, "Could not determine kernel version"));
 }
 
 fn os::GetWindowManager() -> Option<String> {
-  if (const Result<Vec<Pair<DWORD, String>>, OsError> processInfoResult = GetProcessInfo()) {
+  if (const Result<Vec<Pair<DWORD, String>>, DraconisError> processInfoResult = GetProcessInfo()) {
     const Vec<Pair<DWORD, String>>& processInfo = *processInfoResult;
 
     Vec<String> processNames;
@@ -279,7 +288,7 @@ fn os::GetWindowManager() -> Option<String> {
       if (IsProcessRunning(processNames, processExe))
         return wmName;
   } else {
-    ERROR_LOG("Failed to get process info for WM detection: {}", processInfoResult.error().message);
+    error_log("Failed to get process info for WM detection: {}", processInfoResult.error().message);
   }
 
   BOOL compositionEnabled = FALSE;
@@ -295,8 +304,8 @@ fn os::GetDesktopEnvironment() -> Option<String> {
     GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", "CurrentBuildNumber");
 
   if (buildStr.empty()) {
-    DEBUG_LOG("Failed to get CurrentBuildNumber from registry");
-    return std::nullopt;
+    debug_log("Failed to get CurrentBuildNumber from registry");
+    return None;
   }
 
   try {
@@ -332,22 +341,25 @@ fn os::GetDesktopEnvironment() -> Option<String> {
     // Pre-Win7
     return "Classic";
   } catch (...) {
-    DEBUG_LOG("Failed to parse CurrentBuildNumber");
-    return std::nullopt;
+    debug_log("Failed to parse CurrentBuildNumber");
+    return None;
   }
 }
 
 fn os::GetShell() -> Option<String> {
+  using util::helpers::GetEnv;
+
   try {
     const DWORD currentPid =
       winrt::Windows::System::Diagnostics::ProcessDiagnosticInfo::GetForCurrentProcess().ProcessId();
 
-    if (const Result<String, EnvError> msystemResult = GetEnv("MSYSTEM"); msystemResult && !msystemResult->empty()) {
+    if (const Result<String, DraconisError> msystemResult = GetEnv("MSYSTEM");
+        msystemResult && !msystemResult->empty()) {
       String shellPath;
 
-      if (const Result<String, EnvError> shellResult = GetEnv("SHELL"); shellResult && !shellResult->empty())
+      if (const Result<String, DraconisError> shellResult = GetEnv("SHELL"); shellResult && !shellResult->empty())
         shellPath = *shellResult;
-      else if (const Result<String, EnvError> loginShellResult = GetEnv("LOGINSHELL");
+      else if (const Result<String, DraconisError> loginShellResult = GetEnv("LOGINSHELL");
                loginShellResult && !loginShellResult->empty())
         shellPath = *loginShellResult;
 
@@ -355,8 +367,8 @@ fn os::GetShell() -> Option<String> {
         const usize lastSlash = shellPath.find_last_of("\\/");
         String      shellExe  = (lastSlash != String::npos) ? shellPath.substr(lastSlash + 1) : shellPath;
 
-        std::ranges::transform(shellExe, shellExe.begin(), [](const u8 c) {
-          return static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        std::ranges::transform(shellExe, shellExe.begin(), [](const u8 character) {
+          return static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
         });
 
         if (shellExe.ends_with(".exe"))
@@ -378,19 +390,23 @@ fn os::GetShell() -> Option<String> {
     if (const Option<String> windowsShell = FindShellInProcessTree(currentPid, windowsShellMap))
       return *windowsShell;
   } catch (const winrt::hresult_error& e) {
-    ERROR_LOG("WinRT error during shell detection: {}", winrt::to_string(e.message()));
-  } catch (const std::exception& e) { ERROR_LOG("Standard exception during shell detection: {}", e.what()); }
+    error_log("WinRT error during shell detection: {}", winrt::to_string(e.message()));
+  } catch (const std::exception& e) { error_log("Standard exception during shell detection: {}", e.what()); }
 
   return None;
 }
 
-fn os::GetDiskUsage() -> Result<DiskSpace, OsError> {
+fn os::GetDiskUsage() -> Result<DiskSpace, DraconisError> {
   ULARGE_INTEGER freeBytes, totalBytes;
 
   if (GetDiskFreeSpaceExW(L"C:\\", nullptr, &totalBytes, &freeBytes))
     return DiskSpace { .used_bytes = totalBytes.QuadPart - freeBytes.QuadPart, .total_bytes = totalBytes.QuadPart };
 
-  return Err(OsError { OsErrorCode::NotFound, "Failed to get disk usage" });
+  return Err(DraconisError(util::error::DraconisErrorCode::NotFound, "Failed to get disk usage"));
+}
+
+fn os::GetPackageCount() -> Result<u64, DraconisError> {
+  return Err(DraconisError(DraconisErrorCode::NotFound, "GetPackageCount not implemented"));
 }
 
 #endif
