@@ -26,52 +26,59 @@ namespace {
       return std::format(std::locale::classic(), "{:%B %d}", ymd);
     }
   }
+
+  fn log_timing(const std::string& name, const std::chrono::steady_clock::duration& duration) -> void {
+    const auto millis = std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(duration);
+    debug_log("{} took: {} ms", name, millis.count());
+  };
+
+  template <typename Func>
+  fn time_execution(const std::string& name, Func&& func) {
+    const auto start = std::chrono::steady_clock::now();
+    if constexpr (std::is_void_v<decltype(func())>) {
+      func();
+
+      const auto end = std::chrono::steady_clock::now();
+
+      log_timing(name, end - start);
+    } else {
+      auto result = func();
+
+      const auto end = std::chrono::steady_clock::now();
+      log_timing(name, end - start);
+
+      return result;
+    }
+  }
 } // namespace
 
 fn SystemData::fetchSystemData(const Config& config) -> SystemData {
-  using util::types::None;
+  using util::types::None, util::types::Exception;
+  using namespace os;
 
   SystemData data {
-    .date                = GetDate(),
-    .host                = os::GetHost(),
-    .kernel_version      = os::GetKernelVersion(),
-    .os_version          = os::GetOSVersion(),
-    .mem_info            = os::GetMemInfo(),
-    .desktop_environment = os::GetDesktopEnvironment(),
-    .window_manager      = os::GetWindowManager(),
-    .disk_usage          = {},
-    .shell               = None,
-    .now_playing         = None,
-    .weather_info        = None,
+    .date                = time_execution("GetDate", GetDate),
+    .host                = time_execution("GetHost", GetHost),
+    .kernel_version      = time_execution("GetKernelVersion", GetKernelVersion),
+    .os_version          = time_execution("GetOSVersion", GetOSVersion),
+    .mem_info            = time_execution("GetMemInfo", GetMemInfo),
+    .desktop_environment = time_execution("GetDesktopEnvironment", GetDesktopEnvironment),
+    .window_manager      = time_execution("GetWindowManager", GetWindowManager),
+    .disk_usage          = time_execution("GetDiskUsage", GetDiskUsage),
+    .shell               = time_execution("GetShell", GetShell),
   };
 
-  auto diskShellFuture = std::async(std::launch::async, [] {
-    Result<DiskSpace, DraconisError> diskResult  = os::GetDiskUsage();
-    Option<String>                   shellOption = os::GetShell();
-    return std::make_tuple(std::move(diskResult), std::move(shellOption));
-  });
+  if (const Result<MediaInfo, DraconisError>& nowPlayingResult = time_execution("GetNowPlaying", os::GetNowPlaying)) {
+    data.now_playing = nowPlayingResult;
+  } else {
+    data.now_playing = None;
+  }
 
-  std::future<weather::Output>                  weatherFuture;
-  std::future<Result<MediaInfo, DraconisError>> nowPlayingFuture;
+  const auto start  = std::chrono::steady_clock::now();
+  data.weather_info = config.weather.getWeatherInfo();
+  const auto end    = std::chrono::steady_clock::now();
 
-  if (config.weather.enabled)
-    weatherFuture = std::async(std::launch::async, [&config] { return config.weather.getWeatherInfo(); });
-
-  if (config.now_playing.enabled)
-    nowPlayingFuture = std::async(std::launch::async, os::GetNowPlaying);
-
-  auto [diskResult, shellOption] = diskShellFuture.get();
-
-  data.disk_usage = std::move(diskResult);
-  data.shell      = std::move(shellOption);
-
-  if (weatherFuture.valid())
-    try {
-      data.weather_info = weatherFuture.get();
-    } catch (const std::exception& e) { data.weather_info = None; }
-
-  if (nowPlayingFuture.valid())
-    data.now_playing = nowPlayingFuture.get();
+  log_timing("config.weather.getWeatherInfo", end - start);
 
   return data;
 }

@@ -20,8 +20,6 @@ namespace ui {
   using ftxui::Color;
   using util::types::StringView, util::types::i32;
 
-  static constexpr inline StringView ICON_TYPE = "EMOJI";
-
   static constexpr i32 MAX_PARAGRAPH_LENGTH = 30;
 
   // Color themes
@@ -55,7 +53,7 @@ namespace ui {
     StringView window_manager;
   };
 
-  static constexpr Icons NONE = {
+  [[maybe_unused]] static constexpr Icons NONE = {
     .user           = "",
     .palette        = "",
     .calendar       = "",
@@ -71,7 +69,7 @@ namespace ui {
     .window_manager = "",
   };
 
-  static constexpr Icons NERD = {
+  [[maybe_unused]] static constexpr Icons NERD = {
     .user           = "   ",
     .palette        = "   ",
     .calendar       = "   ",
@@ -87,7 +85,7 @@ namespace ui {
     .window_manager = "   ",
   };
 
-  static constexpr Icons EMOJI = {
+  [[maybe_unused]] static constexpr Icons EMOJI = {
     .user           = " 👤 ",
     .palette        = " 🎨 ",
     .calendar       = " 📅 ",
@@ -99,9 +97,11 @@ namespace ui {
     .music          = " 🎵 ",
     .disk           = " 💾 ",
     .shell          = " 💲 ",
-    .desktop        = " 🖥 ️",
+    .desktop        = " 🖥️ ",
     .window_manager = " 🪟 ",
   };
+
+  static constexpr inline Icons ICON_TYPE = NERD;
 } // namespace ui
 
 namespace {
@@ -122,9 +122,7 @@ namespace {
     const Weather weather = config.weather;
 
     const auto& [userIcon, paletteIcon, calendarIcon, hostIcon, kernelIcon, osIcon, memoryIcon, weatherIcon, musicIcon, diskIcon, shellIcon, deIcon, wmIcon] =
-      ui::ICON_TYPE == "NERD"    ? ui::NERD
-      : ui::ICON_TYPE == "EMOJI" ? ui::EMOJI
-                                 : ui::NONE;
+      ui::ICON_TYPE;
 
     Elements content;
 
@@ -264,6 +262,10 @@ namespace {
 } // namespace
 
 fn main() -> i32 {
+#ifdef _WIN32
+  winrt::init_apartment();
+#endif
+
   const Config&    config = Config::getInstance();
   const SystemData data   = SystemData::fetchSystemData(config);
 

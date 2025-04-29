@@ -7,12 +7,36 @@
 #include <toml++/impl/parser.hpp> // toml::{parse_file, parse_result}
 #include <utility>                // std::pair (Pair)
 
+#include "src/core/util/helpers.hpp"
 #include "src/core/util/logging.hpp"
 
 namespace fs = std::filesystem;
 
 namespace {
   using util::types::Vec, util::types::CStr, util::types::Exception;
+  constexpr const char* defaultConfigTemplate = R"cfg(# Draconis++ Configuration File
+
+# General settings
+[general]
+name = "{}"  # Your display name
+
+# Now Playing integration
+[now_playing]
+enabled = false  # Set to true to enable media integration
+
+# Weather settings
+[weather]
+enabled = false        # Set to true to enable weather display
+show_town_name = false # Show location name in weather display
+api_key = ""           # Your weather API key
+units = "metric"       # Use "metric" for °C or "imperial" for °F
+location = "London"    # Your city name
+
+# Alternatively, you can specify coordinates instead of a city name:
+# [weather.location]
+# lat = 51.5074
+# lon = -0.1278
+  )cfg";
 
   fn GetConfigPath() -> fs::path {
     using util::helpers::GetEnv;
@@ -30,8 +54,6 @@ namespace {
 
     if (auto result = GetEnv("APPDATA"))
       possiblePaths.push_back(fs::path(*result) / "draconis++" / "config.toml");
-
-    possiblePaths.push_back(fs::path(".") / "config.toml");
 #else
     if (Result<String, DraconisError> result = GetEnv("XDG_CONFIG_HOME"))
       possiblePaths.emplace_back(fs::path(*result) / "draconis++" / "config.toml");
@@ -40,18 +62,18 @@ namespace {
       possiblePaths.emplace_back(fs::path(*result) / ".config" / "draconis++" / "config.toml");
       possiblePaths.emplace_back(fs::path(*result) / ".draconis++" / "config.toml");
     }
-
-    possiblePaths.emplace_back("/etc/draconis++/config.toml");
 #endif
 
+    possiblePaths.push_back(fs::path(".") / "config.toml");
+
     for (const fs::path& path : possiblePaths)
-      if (std::error_code errc; exists(path, errc) && !errc)
+      if (std::error_code errc; fs::exists(path, errc) && !errc)
         return path;
 
     if (!possiblePaths.empty()) {
       const fs::path defaultDir = possiblePaths[0].parent_path();
 
-      if (std::error_code errc; !exists(defaultDir, errc) && !errc) {
+      if (std::error_code errc; !fs::exists(defaultDir, errc) || !errc) {
         create_directories(defaultDir, errc);
         if (errc)
           warn_log("Warning: Failed to create config directory: {}", errc.message());
@@ -60,26 +82,33 @@ namespace {
       return possiblePaths[0];
     }
 
-    throw std::runtime_error("Could not determine a valid config path");
+    warn_log("Could not determine a preferred config path. Falling back to './config.toml'");
+    return fs::path(".") / "config.toml";
   }
 
   fn CreateDefaultConfig(const fs::path& configPath) -> bool {
     try {
       std::error_code errc;
       create_directories(configPath.parent_path(), errc);
+
       if (errc) {
         error_log("Failed to create config directory: {}", errc.message());
         return false;
       }
 
-      toml::table root;
+      String defaultName;
 
 #ifdef _WIN32
       Array<char, 256> username;
 
       DWORD size = sizeof(username);
 
-      String defaultName = GetUserNameA(username.data(), &size) ? username.data() : "User";
+      if (GetUserNameA(username.data(), &size)) {
+        defaultName = username.data();
+      } else {
+        debug_log("Failed to get username: {}", GetLastError());
+        defaultName = "User";
+      }
 #else
       const passwd* pwd     = getpwuid(getuid());
       CStr          pwdName = pwd ? pwd->pw_name : nullptr;
@@ -87,21 +116,8 @@ namespace {
       const Result<String, DraconisError> envUser    = util::helpers::GetEnv("USER");
       const Result<String, DraconisError> envLogname = util::helpers::GetEnv("LOGNAME");
 
-      String defaultName = pwdName ? pwdName : envUser ? *envUser : envLogname ? *envLogname : "User";
+      defaultName = pwdName ? pwdName : envUser ? *envUser : envLogname ? *envLogname : "User";
 #endif
-
-      toml::table* general = root.insert("general", toml::table {}).first->second.as_table();
-      general->insert("name", defaultName);
-
-      toml::table* nowPlaying = root.insert("now_playing", toml::table {}).first->second.as_table();
-      nowPlaying->insert("enabled", false);
-
-      toml::table* weather = root.insert("weather", toml::table {}).first->second.as_table();
-      weather->insert("enabled", false);
-      weather->insert("show_town_name", false);
-      weather->insert("api_key", "");
-      weather->insert("units", "metric");
-      weather->insert("location", "London");
 
       std::ofstream file(configPath);
       if (!file) {
@@ -109,57 +125,82 @@ namespace {
         return false;
       }
 
-      file << "# Draconis++ Configuration File\n\n";
+      try {
+        const std::string formattedConfig = std::format(defaultConfigTemplate, defaultName);
+        file << formattedConfig;
+      } catch (const std::format_error& fmt_err) {
+        error_log("Failed to format default config string: {}. Using fallback name 'User'.", fmt_err.what());
 
-      file << "# General settings\n";
-      file << "[general]\n";
-      file << "name = \"" << defaultName << "\"  # Your display name\n\n";
+        try {
+          const std::string fallbackConfig = std::format(defaultConfigTemplate, "User");
+          file << fallbackConfig;
+        } catch (...) {
+          error_log("Failed to format default config even with fallback name.");
+          return false;
+        }
+      }
 
-      file << "# Now Playing integration\n";
-      file << "[now_playing]\n";
-      file << "enabled = false  # Set to true to enable media integration\n\n";
-
-      file << "# Weather settings\n";
-      file << "[weather]\n";
-      file << "enabled = false        # Set to true to enable weather display\n";
-      file << "show_town_name = false # Show location name in weather display\n";
-      file << "api_key = \"\"         # Your weather API key\n";
-      file << "units = \"metric\"     # Use \"metric\" for °C or \"imperial\" for °F\n";
-      file << "location = \"London\"  # Your city name\n\n";
-
-      file << "# Alternatively, you can specify coordinates instead of a city name:\n";
-      file << "# [weather.location]\n";
-      file << "# lat = 51.5074\n";
-      file << "# lon = -0.1278\n";
+      if (!file) {
+        error_log("Failed to write to config file: {}", configPath.string());
+        return false;
+      }
 
       info_log("Created default config file at {}", configPath.string());
       return true;
+    } catch (const fs::filesystem_error& fs_err) {
+      error_log("Filesystem error during default config creation: {}", fs_err.what());
+      return false;
     } catch (const Exception& e) {
       error_log("Failed to create default config file: {}", e.what());
+      return false;
+    } catch (...) {
+      error_log("An unexpected error occurred during default config creation.");
       return false;
     }
   }
 } // namespace
 
+Config::Config(const toml::table& tbl) {
+  const toml::node_view genTbl = tbl["general"];
+  const toml::node_view npTbl  = tbl["now_playing"];
+  const toml::node_view wthTbl = tbl["weather"];
+
+  this->general     = genTbl.is_table() ? General::fromToml(*genTbl.as_table()) : General {};
+  this->now_playing = npTbl.is_table() ? NowPlaying::fromToml(*npTbl.as_table()) : NowPlaying {};
+  this->weather     = wthTbl.is_table() ? Weather::fromToml(*wthTbl.as_table()) : Weather {};
+}
+
 fn Config::getInstance() -> Config {
   try {
     const fs::path configPath = GetConfigPath();
 
-    if (!exists(configPath)) {
-      info_log("Config file not found, creating defaults at {}", configPath.string());
+    std::error_code ec;
+
+    const bool exists = fs::exists(configPath, ec);
+
+    if (ec)
+      warn_log(
+        "Failed to check if config file exists at {}: {}. Assuming it doesn't.", configPath.string(), ec.message()
+      );
+
+    if (!exists) {
+      info_log("Config file not found at {}, creating defaults.", configPath.string());
 
       if (!CreateDefaultConfig(configPath)) {
-        warn_log("Failed to create default config, using in-memory defaults");
+        warn_log("Failed to create default config file at {}. Using in-memory defaults.", configPath.string());
         return {};
       }
     }
 
-    const toml::parse_result config = toml::parse_file(configPath.string());
+    const toml::table config = toml::parse_file(configPath.string());
 
     debug_log("Config loaded from {}", configPath.string());
-    return fromToml(config);
+    return Config(config);
   } catch (const Exception& e) {
     debug_log("Config loading failed: {}, using defaults", e.what());
+    return {};
+  } catch (...) {
+    error_log("An unexpected error occurred during config loading. Using in-memory defaults.");
     return {};
   }
 }

@@ -1,190 +1,136 @@
 #pragma once
 
-#include <chrono>          // std::chrono::{days, floor, seconds, system_clock}
-#include <filesystem>      // std::filesystem::path
-#include <format>          // std::format
-#include <print>           // std::print
-#include <source_location> // std::source_location
-#include <utility>         // std::{forward, make_pair}
+#include <chrono>                 // std::chrono::{days, floor, seconds, system_clock}
+#include <filesystem>             // std::filesystem::path
+#include <format>                 // std::format
+#include <ftxui/screen/color.hpp> // ftxui::Color
+#include <mutex>                  // std::mutex
+#include <print>                  // std::print
+#include <source_location>        // std::source_location
+#include <utility>                // std::forward
 
 #include "src/core/util/defs.hpp"
 #include "src/core/util/error.hpp"
 #include "src/core/util/types.hpp"
 
 namespace util::logging {
-  using types::u8, types::i32, types::String, types::StringView, types::Option, types::None;
+  using types::usize, types::u8, types::i32, types::i64, types::CStr, types::String, types::StringView, types::Array,
+    types::Option, types::None;
 
-  /**
-   * @namespace term
-   * @brief Provides terminal-related utilities, including color and style formatting.
-   */
-  namespace term {
-    /**
-     * @enum Emphasis
-     * @brief Represents text emphasis styles.
-     *
-     * Enum values can be combined using bitwise OR to apply multiple styles at once.
-     */
-    enum class Emphasis : u8 {
-      Bold,  ///< Bold text.
-      Italic ///< Italic text.
+  // Store all compile-time constants in a struct
+  struct LogLevelConst {
+    // ANSI color codes
+    // clang-format off
+    static constexpr Array<const char*, 16> COLOR_CODE_LITERALS = {
+      "\033[38;5;0m",  "\033[38;5;1m",  "\033[38;5;2m",  "\033[38;5;3m",
+      "\033[38;5;4m",  "\033[38;5;5m",  "\033[38;5;6m",  "\033[38;5;7m",
+      "\033[38;5;8m",  "\033[38;5;9m",  "\033[38;5;10m", "\033[38;5;11m",
+      "\033[38;5;12m", "\033[38;5;13m", "\033[38;5;14m", "\033[38;5;15m",
     };
+    // clang-format on
 
-    /**
-     * @enum Color
-     * @brief Represents ANSI color codes for terminal output.
-     *
-     * Color codes can be used to format terminal output.
-     */
-    enum class Color : u8 {
-      Black         = 30, ///< Black color.
-      Red           = 31, ///< Red color.
-      Green         = 32, ///< Green color.
-      Yellow        = 33, ///< Yellow color.
-      Blue          = 34, ///< Blue color.
-      Magenta       = 35, ///< Magenta color.
-      Cyan          = 36, ///< Cyan color.
-      White         = 37, ///< White color.
-      BrightBlack   = 90, ///< Bright black (gray) color.
-      BrightRed     = 91, ///< Bright red color.
-      BrightGreen   = 92, ///< Bright green color.
-      BrightYellow  = 93, ///< Bright yellow color.
-      BrightBlue    = 94, ///< Bright blue color.
-      BrightMagenta = 95, ///< Bright magenta color.
-      BrightCyan    = 96, ///< Bright cyan color.
-      BrightWhite   = 97, ///< Bright white color.
-    };
+    // ANSI formatting constants
+    static constexpr const char* RESET_CODE   = "\033[0m";
+    static constexpr const char* BOLD_START   = "\033[1m";
+    static constexpr const char* BOLD_END     = "\033[22m";
+    static constexpr const char* ITALIC_START = "\033[3m";
+    static constexpr const char* ITALIC_END   = "\033[23m";
 
-    /**
-     * @brief Combines two emphasis styles using bitwise OR.
-     * @param emphA The first emphasis style.
-     * @param emphB The second emphasis style.
-     * @return The combined emphasis style.
-     */
-    constexpr fn operator|(Emphasis emphA, Emphasis emphB)->Emphasis {
-      return static_cast<Emphasis>(static_cast<u8>(emphA) | static_cast<u8>(emphB));
-    }
+    // Log level text constants
+    static constexpr StringView DEBUG_STR = "DEBUG";
+    static constexpr StringView INFO_STR  = "INFO ";
+    static constexpr StringView WARN_STR  = "WARN ";
+    static constexpr StringView ERROR_STR = "ERROR";
 
-    /**
-     * @brief Checks if two emphasis styles are equal using bitwise AND.
-     * @param emphA The first emphasis style.
-     * @param emphB The second emphasis style.
-     * @return The result of the bitwise AND operation.
-     */
-    constexpr fn operator&(Emphasis emphA, Emphasis emphB)->u8 {
-      return static_cast<u8>(emphA) & static_cast<u8>(emphB);
-    }
+    // Log level color constants
+    static constexpr ftxui::Color::Palette16 DEBUG_COLOR      = ftxui::Color::Palette16::Cyan;
+    static constexpr ftxui::Color::Palette16 INFO_COLOR       = ftxui::Color::Palette16::Green;
+    static constexpr ftxui::Color::Palette16 WARN_COLOR       = ftxui::Color::Palette16::Yellow;
+    static constexpr ftxui::Color::Palette16 ERROR_COLOR      = ftxui::Color::Palette16::Red;
+    static constexpr ftxui::Color::Palette16 DEBUG_INFO_COLOR = ftxui::Color::Palette16::GrayLight;
 
-    /**
-     * @struct Style
-     * @brief Represents a combination of text styles.
-     *
-     * Emphasis and color are both optional, allowing for flexible styling.
-     */
-    struct Style {
-      Option<Emphasis> emph;   ///< Optional emphasis style.
-      Option<Color>    fg_col; ///< Optional foreground color style.
+    static constexpr CStr TIMESTAMP_FORMAT = "{:%X}";
+    static constexpr CStr LOG_FORMAT       = "{} {} {}";
 
-      /**
-       * @brief Generates the ANSI escape code for the combined styles.
-       * @return The ANSI escape code for the combined styles.
-       */
-      [[nodiscard]] fn ansiCode() const -> String {
-        String result;
-
-        if (emph) {
-          if ((*emph & Emphasis::Bold) != 0)
-            result += "\033[1m";
-          if ((*emph & Emphasis::Italic) != 0)
-            result += "\033[3m";
-        }
-
-        if (fg_col)
-          result += std::format("\033[{}m", static_cast<u8>(*fg_col));
-
-        return result;
-      }
-    };
-
-    /**
-     * @brief Combines an emphasis style and a foreground color into a Style.
-     * @param emph The emphasis style to apply.
-     * @param fgColor The foreground color to apply.
-     * @return The combined style.
-     */
-    // ReSharper disable CppDFAConstantParameter
-    constexpr fn operator|(const Emphasis emph, const Color fgColor)->Style {
-      return { .emph = emph, .fg_col = fgColor };
-    }
-    // ReSharper restore CppDFAConstantParameter
-
-    /**
-     * @brief Combines a foreground color and an emphasis style into a Style.
-     * @param fgColor The foreground color to apply.
-     * @param emph The emphasis style to apply.
-     * @return The combined style.
-     */
-    constexpr fn operator|(const Color fgColor, const Emphasis emph)->Style {
-      return { .emph = emph, .fg_col = fgColor };
-    }
-
-    /**
-     * @brief Prints formatted text with the specified style.
-     * @tparam Args Parameter pack for format arguments.
-     * @param style The Style object containing emphasis and/or color.
-     * @param fmt The format string.
-     * @param args The arguments for the format string.
-     */
-    template <typename... Args>
-    fn Print(const Style& style, std::format_string<Args...> fmt, Args&&... args) -> void {
-      if (const String styleCode = style.ansiCode(); styleCode.empty())
-        std::print(fmt, std::forward<Args>(args)...);
-      else
-        std::print("{}{}{}", styleCode, std::format(fmt, std::forward<Args>(args)...), "\033[0m");
-    }
-
-    /**
-     * @brief Prints formatted text with the specified foreground color.
-     * @tparam Args Parameter pack for format arguments.
-     * @param fgColor The foreground color to apply.
-     * @param fmt The format string.
-     * @param args The arguments for the format string.
-     */
-    template <typename... Args>
-    fn Print(const Color& fgColor, std::format_string<Args...> fmt, Args&&... args) -> void {
-      Print({ .emph = None, .fg_col = fgColor }, fmt, std::forward<Args>(args)...);
-    }
-
-    /**
-     * @brief Prints formatted text with the specified emphasis style.
-     * @tparam Args Parameter pack for format arguments.
-     * @param emph The emphasis style to apply.
-     * @param fmt The format string.
-     * @param args The arguments for the format string.
-     */
-    template <typename... Args>
-    fn Print(const Emphasis emph, std::format_string<Args...> fmt, Args&&... args) -> void {
-      Print({ .emph = emph, .fg_col = None }, fmt, std::forward<Args>(args)...);
-    }
-
-    /**
-     * @brief Prints formatted text with no specific style (default terminal style).
-     * @tparam Args Parameter pack for format arguments.
-     * @param fmt The format string.
-     * @param args The arguments for the format string.
-     */
-    template <typename... Args>
-    fn Print(std::format_string<Args...> fmt, Args&&... args) -> void {
-      // Directly use std::print for unstyled output
-      std::print(fmt, std::forward<Args>(args)...);
-    }
-  } // namespace term
+#ifndef NDEBUG
+    static constexpr CStr DEBUG_INFO_FORMAT = "{}{}{}\n";
+    static constexpr CStr FILE_LINE_FORMAT  = "{}:{}";
+    static constexpr CStr DEBUG_LINE_PREFIX = "           ╰── ";
+#endif
+  };
 
   /**
    * @enum LogLevel
    * @brief Represents different log levels.
    */
   enum class LogLevel : u8 { Debug, Info, Warn, Error };
+
+  /**
+   * @brief Directly applies ANSI color codes to text
+   * @param text The text to colorize
+   * @param color The FTXUI color
+   * @return Styled string with ANSI codes
+   */
+  inline fn Colorize(const String& text, const ftxui::Color::Palette16& color) -> String {
+    return String(LogLevelConst::COLOR_CODE_LITERALS[static_cast<int>(color)]) + text + LogLevelConst::RESET_CODE;
+  }
+
+  /**
+   * @brief Make text bold with ANSI codes
+   * @param text The text to make bold
+   * @return Bold text
+   */
+  inline fn Bold(const StringView text) -> String {
+    return String(LogLevelConst::BOLD_START) + String(text) + String(LogLevelConst::BOLD_END);
+  }
+
+  /**
+   * @brief Make text italic with ANSI codes
+   * @param text The text to make italic
+   * @return Italic text
+   */
+  inline fn Italic(const StringView text) -> String {
+    return String(LogLevelConst::ITALIC_START) + String(text) + String(LogLevelConst::ITALIC_END);
+  }
+
+  // Initialize at runtime using the constexpr static values
+  // This can't be constexpr itself due to the string operations
+  inline const Array<String, 4> LEVEL_INFO = {
+    Bold(Colorize(LogLevelConst::DEBUG_STR.data(), LogLevelConst::DEBUG_COLOR)),
+    Bold(Colorize(LogLevelConst::INFO_STR.data(), LogLevelConst::INFO_COLOR)),
+    Bold(Colorize(LogLevelConst::WARN_STR.data(), LogLevelConst::WARN_COLOR)),
+    Bold(Colorize(LogLevelConst::ERROR_STR.data(), LogLevelConst::ERROR_COLOR)),
+  };
+
+  /**
+   * @brief Returns FTXUI color representation for a log level
+   * @param level The log level
+   * @return FTXUI color code
+   */
+  constexpr fn GetLevelColor(const LogLevel level) -> ftxui::Color::Palette16 {
+    switch (level) {
+      case LogLevel::Debug: return LogLevelConst::DEBUG_COLOR;
+      case LogLevel::Info:  return LogLevelConst::INFO_COLOR;
+      case LogLevel::Warn:  return LogLevelConst::WARN_COLOR;
+      case LogLevel::Error: return LogLevelConst::ERROR_COLOR;
+      default:              std::unreachable();
+    }
+  }
+
+  /**
+   * @brief Returns string representation of a log level
+   * @param level The log level
+   * @return String representation
+   */
+  constexpr fn GetLevelString(const LogLevel level) -> String {
+    switch (level) {
+      case LogLevel::Debug: return LogLevelConst::DEBUG_STR.data();
+      case LogLevel::Info:  return LogLevelConst::INFO_STR.data();
+      case LogLevel::Warn:  return LogLevelConst::WARN_STR.data();
+      case LogLevel::Error: return LogLevelConst::ERROR_STR.data();
+      default:              std::unreachable();
+    }
+  }
 
   /**
    * @brief Logs a message with the specified log level, source location, and format string.
@@ -197,37 +143,45 @@ namespace util::logging {
   template <typename... Args>
   fn LogImpl(const LogLevel level, const std::source_location& loc, std::format_string<Args...> fmt, Args&&... args) {
     using namespace std::chrono;
-    using namespace term;
+    using std::filesystem::path;
 
-    const auto [color, levelStr] = [&] {
-      switch (level) {
-        case LogLevel::Debug: return std::make_pair(Color::Cyan, "DEBUG");
-        case LogLevel::Info:  return std::make_pair(Color::Green, "INFO ");
-        case LogLevel::Warn:  return std::make_pair(Color::Yellow, "WARN ");
-        case LogLevel::Error: return std::make_pair(Color::Red, "ERROR");
-        default:              std::unreachable();
-      }
-    }();
+    using Buffer = Array<char, 512>;
 
-    Print(Color::BrightWhite, "[{:%X}] ", std::chrono::floor<seconds>(system_clock::now()));
-    Print(Emphasis::Bold | color, "{} ", levelStr);
-    Print(fmt, std::forward<Args>(args)...);
+    // Dynamic parts (runtime)
+    const time_point<system_clock, duration<i64>> now = floor<seconds>(system_clock::now());
+
+    const String timestamp = std::format(LogLevelConst::TIMESTAMP_FORMAT, now);
+    const String message   = std::format(fmt, std::forward<Args>(args)...);
+
+    Buffer buffer {};
+
+    Buffer::iterator iter = std::format_to(
+      buffer.begin(),
+      LogLevelConst::LOG_FORMAT,
+      Colorize("[" + timestamp + "]", LogLevelConst::DEBUG_INFO_COLOR),
+      LEVEL_INFO[static_cast<usize>(level)],
+      message
+    );
 
 #ifndef NDEBUG
-    Print(Color::BrightWhite, "\n{:>14} ", "╰──");
-    Print(
-      Emphasis::Italic | Color::BrightWhite,
-      "{}:{}",
-      std::filesystem::path(loc.file_name()).lexically_normal().string(),
-      loc.line()
+    iter = std::format_to(
+      iter,
+      "\n{}",
+      Italic(Colorize(
+        LogLevelConst::DEBUG_LINE_PREFIX +
+          std::format("{}:{}", path(loc.file_name()).lexically_normal().string(), std::to_string(loc.line())),
+        LogLevelConst::DEBUG_INFO_COLOR
+      ))
     );
-#endif // !NDEBUG
+#endif
 
-    Print("\n");
+    const usize length = std::distance(buffer.begin(), iter);
+
+    std::println("{}", std::string_view(buffer.data(), length));
   }
 
   template <typename ErrorType>
-  fn LogAppError(const LogLevel level, const ErrorType& error_obj) {
+  fn LogError(const LogLevel level, const ErrorType& error_obj) {
     using DecayedErrorType = std::decay_t<ErrorType>;
 
     std::source_location logLocation;
@@ -254,7 +208,7 @@ namespace util::logging {
     ::util::logging::LogImpl(                                                                           \
       ::util::logging::LogLevel::Debug, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__ \
     )
-  #define debug_at(error_obj) ::util::logging::LogAppError(::util::logging::LogLevel::Debug, error_obj);
+  #define debug_at(error_obj) ::util::logging::LogError(::util::logging::LogLevel::Debug, error_obj);
 #else
   #define debug_log(...) ((void)0)
   #define debug_at(...)  ((void)0)
@@ -264,17 +218,17 @@ namespace util::logging {
   ::util::logging::LogImpl(                                                                          \
     ::util::logging::LogLevel::Info, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__ \
   )
-#define info_at(error_obj) ::util::logging::LogAppError(::util::logging::LogLevel::Info, error_obj);
+#define info_at(error_obj) ::util::logging::LogError(::util::logging::LogLevel::Info, error_obj);
 
 #define warn_log(fmt, ...)                                                                           \
   ::util::logging::LogImpl(                                                                          \
     ::util::logging::LogLevel::Warn, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__ \
   )
-#define warn_at(error_obj) ::util::logging::LogAppError(::util::logging::LogLevel::Warn, error_obj);
+#define warn_at(error_obj) ::util::logging::LogError(::util::logging::LogLevel::Warn, error_obj);
 
 #define error_log(fmt, ...)                                                                           \
   ::util::logging::LogImpl(                                                                           \
     ::util::logging::LogLevel::Error, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__ \
   )
-#define error_at(error_obj) ::util::logging::LogAppError(::util::logging::LogLevel::Error, error_obj);
+#define error_at(error_obj) ::util::logging::LogError(::util::logging::LogLevel::Error, error_obj);
 } // namespace util::logging

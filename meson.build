@@ -73,7 +73,7 @@ endif
 if cpp.get_id() in ['msvc', 'clang-cl']
   common_cpp_args = common_cpp_flags['msvc']
   if cpp.get_id() == 'clang-cl'
-    common_cpp_args += common_warning_flags + common_cpp_flags['common']
+    common_cpp_args += common_warning_flags + common_cpp_flags['common'] + ['-fcolor-diagnostics', '-fdiagnostics-format=clang']
   endif
 else
   common_cpp_args = common_warning_flags + common_cpp_flags['common'] + common_cpp_flags['unix_extra']

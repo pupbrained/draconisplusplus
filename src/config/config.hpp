@@ -16,7 +16,7 @@
 
 #include "src/core/util/defs.hpp"
 #include "src/core/util/error.hpp"
-#include "src/core/util/helpers.hpp"
+#include "src/core/util/logging.hpp"
 #include "src/core/util/types.hpp"
 
 #include "weather.hpp"
@@ -132,8 +132,10 @@ struct Weather {
           .lat = *location.as_table()->get("lat")->value<double>(),
           .lon = *location.as_table()->get("lon")->value<double>(),
         };
-      else
-        throw std::runtime_error("Invalid location type");
+      else {
+        error_log("Invalid location format in config.");
+        weather.enabled = false;
+      }
     }
 
     return weather;
@@ -159,22 +161,9 @@ struct Config {
   Weather    weather;     ///< Weather configuration settings.`
   NowPlaying now_playing; ///< Now Playing configuration settings.
 
-  /**
-   * @brief Parses a TOML table to create a Config instance.
-   * @param tbl The TOML table to parse, containing [general], [now_playing], and [weather].
-   * @return A Config instance with the parsed values, or defaults otherwise.
-   */
-  static fn fromToml(const toml::table& tbl) -> Config {
-    const toml::node_view genTbl = tbl["general"];
-    const toml::node_view npTbl  = tbl["now_playing"];
-    const toml::node_view wthTbl = tbl["weather"];
+  Config() = default;
 
-    return {
-      .general     = genTbl.is_table() ? General::fromToml(*genTbl.as_table()) : General {},
-      .weather     = wthTbl.is_table() ? Weather::fromToml(*wthTbl.as_table()) : Weather {},
-      .now_playing = npTbl.is_table() ? NowPlaying::fromToml(*npTbl.as_table()) : NowPlaying {},
-    };
-  }
+  explicit Config(const toml::table& tbl);
 
   /**
    * @brief Retrieves the path to the configuration file.
