@@ -473,6 +473,6 @@ fn os::GetDiskUsage() -> Result<DiskSpace, DraconisError> {
   };
 }
 
-fn os::GetPackageCount() -> Result<u64, DraconisError> { return linux::GetNixPackageCount(); }
+fn os::GetPackageCount() -> Result<u64, DraconisError> { return linux::GetTotalPackageCount(); }
 
 #endif // __linux__

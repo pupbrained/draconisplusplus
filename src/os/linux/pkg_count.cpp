@@ -2,10 +2,11 @@
 
 #include <SQLiteCpp/SQLiteCpp.h>
 #include <fstream>
+#include <glaze/beve/read.hpp>
+#include <glaze/beve/write.hpp>
 #include <glaze/core/common.hpp>
 #include <glaze/core/read.hpp>
 #include <glaze/core/reflect.hpp>
-#include <glaze/json/write.hpp>
 
 #include "src/core/util/logging.hpp"
 #include "src/core/util/types.hpp"
@@ -18,79 +19,80 @@ namespace {
   namespace fs = std::filesystem;
   using namespace std::chrono;
 
-  struct NixPkgCacheData {
-    u64                      count {};
-    system_clock::time_point timestamp;
+  struct PkgCountCacheData {
+    u64 count {};
+    i64 timestamp_epoch_seconds {};
 
-    // NOLINTBEGIN(readability-identifier-naming) - Needs to specifically use `glaze`
+    // NOLINTBEGIN(readability-identifier-naming)
     struct [[maybe_unused]] glaze {
-      using T                     = NixPkgCacheData;
-      static constexpr auto value = glz::object("count", &T::count, "timestamp", [](auto& self) -> auto& {
-        thread_local auto epoch_seconds = duration_cast<seconds>(self.timestamp.time_since_epoch()).count();
-        return epoch_seconds;
-      });
+      using T                     = PkgCountCacheData;
+      static constexpr auto value = glz::object("count", &T::count, "timestamp", &T::timestamp_epoch_seconds);
     };
     // NOLINTEND(readability-identifier-naming)
   };
 
-  fn GetPkgCountCachePath() -> Result<fs::path, DraconisError> {
+  fn GetPkgCountCachePath(const String& pm_id) -> Result<fs::path, DraconisError> {
     std::error_code errc;
     const fs::path  cacheDir = fs::temp_directory_path(errc);
-    if (errc) {
+
+    if (errc)
       return Err(DraconisError(DraconisErrorCode::IoError, "Failed to get temp directory: " + errc.message()));
-    }
-    return cacheDir / "nix_pkg_count_cache.json";
+
+    if (pm_id.empty() ||
+        pm_id.find_first_not_of("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-") != String::npos)
+      return Err(DraconisError(DraconisErrorCode::ParseError, "Invalid package manager ID for cache path: " + pm_id));
+
+    return cacheDir / (pm_id + "_pkg_count_cache.beve");
   }
 
-  fn ReadPkgCountCache() -> Result<NixPkgCacheData, DraconisError> {
-    auto cachePathResult = GetPkgCountCachePath();
-    if (!cachePathResult) {
+  fn ReadPkgCountCache(const String& pm_id) -> Result<PkgCountCacheData, DraconisError> {
+    Result<fs::path, DraconisError> cachePathResult = GetPkgCountCachePath(pm_id);
+
+    if (!cachePathResult)
       return Err(cachePathResult.error());
-    }
+
     const fs::path& cachePath = *cachePathResult;
 
-    if (!fs::exists(cachePath)) {
+    if (!fs::exists(cachePath))
       return Err(DraconisError(DraconisErrorCode::NotFound, "Cache file not found: " + cachePath.string()));
-    }
 
     std::ifstream ifs(cachePath, std::ios::binary);
-    if (!ifs.is_open()) {
+    if (!ifs.is_open())
       return Err(
         DraconisError(DraconisErrorCode::IoError, "Failed to open cache file for reading: " + cachePath.string())
       );
-    }
 
-    debug_log("Reading Nix package count from cache file: {}", cachePath.string());
+    // Update log message
+    debug_log("Reading {} package count from cache file: {}", pm_id, cachePath.string());
 
     try {
-      const String    content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
-      NixPkgCacheData result;
-      glz::context    ctx {};
+      // Read the entire binary content
+      // Using std::string buffer is fine, it can hold arbitrary binary data
+      const String content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+      ifs.close(); // Close the file stream after reading
 
-      if (auto glazeResult = glz::read<glz::opts { .error_on_unknown_keys = false }>(result, content, ctx);
-          glazeResult.ec != glz::error_code::none) {
+      if (content.empty()) {
+        return Err(DraconisError(DraconisErrorCode::ParseError, "BEVE cache file is empty: " + cachePath.string()));
+      }
+
+      PkgCountCacheData  result;
+      const glz::context ctx {};
+
+      if (auto glazeResult = glz::read_beve(result, content); glazeResult.ec != glz::error_code::none)
         return Err(DraconisError(
           DraconisErrorCode::ParseError,
-          std::format("JSON parse error reading cache: {}", glz::format_error(glazeResult, content))
+          std::format(
+            "BEVE parse error reading cache (code {}): {}", static_cast<int>(glazeResult.ec), cachePath.string()
+          )
         ));
-      }
 
-      if (size_t tsPos = content.find("\"timestamp\""); tsPos != String::npos) {
-        size_t colonPos = content.find(':', tsPos);
-        if (size_t valueStart = content.find_first_of("0123456789", colonPos); valueStart != String::npos) {
-          long long timestampSeconds = 0;
-          char*     endPtr           = nullptr;
-          timestampSeconds           = std::strtoll(content.c_str() + valueStart, &endPtr, 10);
-          result.timestamp           = system_clock::time_point(seconds(timestampSeconds));
-        } else {
-          return Err(DraconisError(DraconisErrorCode::ParseError, "Could not parse timestamp value from cache JSON."));
-        }
-      } else {
-        return Err(DraconisError(DraconisErrorCode::ParseError, "Timestamp field not found in cache JSON."));
-      }
-
-      debug_log("Successfully read package count from cache file.");
+      debug_log("Successfully read {} package count from BEVE cache file.", pm_id);
       return result;
+    } catch (const std::ios_base::failure& e) {
+      return Err(DraconisError(
+        DraconisErrorCode::IoError,
+        std::format("Filesystem error reading cache file {}: {}", cachePath.string(), e.what())
+      ));
     } catch (const Exception& e) {
       return Err(
         DraconisError(DraconisErrorCode::InternalError, std::format("Error reading package count cache: {}", e.what()))
@@ -98,120 +100,242 @@ namespace {
     }
   }
 
-  fn WritePkgCountCache(const NixPkgCacheData& data) -> Result<void, DraconisError> {
-    auto cachePathResult = GetPkgCountCachePath();
-    if (!cachePathResult) {
+  // Modified to take pm_id and PkgCountCacheData
+  fn WritePkgCountCache(const String& pm_id, const PkgCountCacheData& data) -> Result<void, DraconisError> {
+    using util::types::isize;
+
+    Result<fs::path, DraconisError> cachePathResult = GetPkgCountCachePath(pm_id);
+
+    if (!cachePathResult)
       return Err(cachePathResult.error());
-    }
+
     const fs::path& cachePath = *cachePathResult;
     fs::path        tempPath  = cachePath;
     tempPath += ".tmp";
 
-    debug_log("Writing Nix package count to cache file: {}", cachePath.string());
+    debug_log("Writing {} package count to BEVE cache file: {}", pm_id, cachePath.string());
 
     try {
+      String binaryBuffer;
+
+      PkgCountCacheData mutableData = data;
+
+      if (auto glazeErr = glz::write_beve(mutableData, binaryBuffer); glazeErr) {
+        return Err(DraconisError(
+          DraconisErrorCode::ParseError,
+          std::format("BEVE serialization error writing cache (code {})", static_cast<int>(glazeErr.ec))
+        ));
+      }
+
       {
         std::ofstream ofs(tempPath, std::ios::binary | std::ios::trunc);
         if (!ofs.is_open()) {
           return Err(DraconisError(DraconisErrorCode::IoError, "Failed to open temp cache file: " + tempPath.string()));
         }
 
-        String jsonStr;
+        ofs.write(binaryBuffer.data(), static_cast<isize>(binaryBuffer.size()));
 
-        NixPkgCacheData mutableData = data;
-
-        if (auto glazeErr = glz::write_json(mutableData, jsonStr); glazeErr.ec != glz::error_code::none) {
-          return Err(DraconisError(
-            DraconisErrorCode::ParseError,
-            std::format("JSON serialization error writing cache: {}", glz::format_error(glazeErr, jsonStr))
-          ));
-        }
-
-        ofs << jsonStr;
         if (!ofs) {
-          return Err(DraconisError(DraconisErrorCode::IoError, "Failed to write to temp cache file"));
+          std::error_code removeEc;
+          fs::remove(tempPath, removeEc);
+          return Err(
+            DraconisError(DraconisErrorCode::IoError, "Failed to write to temp cache file: " + tempPath.string())
+          );
         }
       }
 
+      // Atomically replace the old cache file with the new one
       std::error_code errc;
       fs::rename(tempPath, cachePath, errc);
       if (errc) {
-        fs::remove(tempPath);
+        fs::remove(tempPath, errc); // Clean up temp file on failure (ignore error)
         return Err(DraconisError(
           DraconisErrorCode::IoError,
           std::format("Failed to replace cache file '{}': {}", cachePath.string(), errc.message())
         ));
       }
 
-      debug_log("Successfully wrote package count to cache file.");
+      debug_log("Successfully wrote {} package count to BEVE cache file.", pm_id);
       return {};
-    } catch (const Exception& e) {
-      fs::remove(tempPath);
+    } catch (const std::ios_base::failure& e) {
+      std::error_code removeEc;
+      fs::remove(tempPath, removeEc);
       return Err(DraconisError(
-        DraconisErrorCode::InternalError, std::format("File operation error writing package count cache: {}", e.what())
+        DraconisErrorCode::IoError,
+        std::format("Filesystem error writing cache file {}: {}", tempPath.string(), e.what())
       ));
+    } catch (const Exception& e) {
+      std::error_code removeEc;
+      fs::remove(tempPath, removeEc);
+      return Err(
+        DraconisError(DraconisErrorCode::InternalError, std::format("Error writing package count cache: {}", e.what()))
+      );
+    } catch (...) {
+      std::error_code removeEc;
+      fs::remove(tempPath, removeEc);
+      return Err(
+        DraconisError(DraconisErrorCode::Other, std::format("Unknown error writing cache file: {}", tempPath.string()))
+      );
     }
   }
 
+  fn GetPackageCountInternal(const os::linux::PackageManagerInfo& pmInfo) -> Result<u64, DraconisError> {
+    // Use info from the struct
+    const fs::path& dbPath   = pmInfo.db_path;
+    const String&   pmId     = pmInfo.id;
+    const String&   queryStr = pmInfo.count_query;
+
+    // Try reading from cache using pm_id
+    if (Result<PkgCountCacheData, DraconisError> cachedDataResult = ReadPkgCountCache(pmId)) {
+      const auto& [count, timestamp] = *cachedDataResult;
+      std::error_code                       errc;
+      const std::filesystem::file_time_type dbModTime = fs::last_write_time(dbPath, errc);
+
+      if (errc) {
+        warn_log(
+          "Could not get modification time for '{}': {}. Invalidating {} cache.", dbPath.string(), errc.message(), pmId
+        );
+      } else {
+        if (const auto cacheTimePoint = system_clock::time_point(seconds(timestamp));
+            cacheTimePoint.time_since_epoch() >= dbModTime.time_since_epoch()) {
+          // Use cacheTimePoint for logging as well
+          debug_log(
+            "Using valid {} package count cache (DB file unchanged since {}). Count: {}",
+            pmId,
+            std::format("{:%F %T %Z}", floor<seconds>(cacheTimePoint)), // Format the time_point
+            count
+          );
+          return count;
+        }
+        debug_log("{} package count cache stale (DB file modified).", pmId);
+      }
+    } else {
+      if (cachedDataResult.error().code != DraconisErrorCode::NotFound)
+        debug_at(cachedDataResult.error());
+      debug_log("{} package count cache not found or unreadable.", pmId);
+    }
+
+    debug_log("Fetching fresh {} package count from database: {}", pmId, dbPath.string());
+    u64 count = 0;
+
+    try {
+      const SQLite::Database database(dbPath.string(), SQLite::OPEN_READONLY);
+      if (SQLite::Statement query(database, queryStr); query.executeStep()) {
+        const i64 countInt64 = query.getColumn(0).getInt64();
+        if (countInt64 < 0)
+          return Err(DraconisError(
+            DraconisErrorCode::ParseError, std::format("Negative count returned by {} DB COUNT query.", pmId)
+          ));
+        count = static_cast<u64>(countInt64);
+      } else {
+        return Err(
+          DraconisError(DraconisErrorCode::ParseError, std::format("No rows returned by {} DB COUNT query.", pmId))
+        );
+      }
+    } catch (const SQLite::Exception& e) {
+      return Err(DraconisError(
+        DraconisErrorCode::ApiUnavailable, std::format("SQLite error occurred accessing {} DB: {}", pmId, e.what())
+      ));
+    } catch (const Exception& e) {
+      return Err(DraconisError(DraconisErrorCode::InternalError, e.what()));
+    } catch (...) {
+      return Err(DraconisError(DraconisErrorCode::Other, std::format("Unknown error occurred accessing {} DB", pmId)));
+    }
+
+    const i64               nowEpochSeconds = duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
+    const PkgCountCacheData dataToCache     = { .count = count, .timestamp_epoch_seconds = nowEpochSeconds };
+
+    if (Result<void, DraconisError> writeResult = WritePkgCountCache(pmId, dataToCache); !writeResult) {
+      warn_at(writeResult.error());
+      warn_log("Failed to write {} package count to cache.", pmId);
+    }
+
+    debug_log("Fetched fresh {} package count: {}", pmId, count);
+    return count;
+  }
 } // namespace
 
-fn os::linux::GetNixPackageCount() -> Result<u64, DraconisError> {
-  const fs::path nixDbPath = "/nix/var/nix/db/db.sqlite";
+namespace os::linux {
+  fn GetMossPackageCount() -> Result<u64, DraconisError> {
+    debug_log("Attempting to get Moss package count.");
 
-  if (Result<NixPkgCacheData, DraconisError> cachedDataResult = ReadPkgCountCache()) {
-    const auto& [count, timestamp] = *cachedDataResult;
+    const PackageManagerInfo mossInfo = {
+      .id          = "moss",
+      .db_path     = "/.moss/db/install",
+      .count_query = "SELECT COUNT(*) FROM meta",
+    };
 
-    std::error_code                 errc;
-    std::filesystem::file_time_type dbModTime = fs::last_write_time(nixDbPath, errc);
-
-    if (errc) {
-      warn_log("Could not get modification time for '{}': {}. Invalidating cache.", nixDbPath.string(), errc.message());
-    } else {
-      if (timestamp.time_since_epoch() >= dbModTime.time_since_epoch()) {
-        debug_log(
-          "Using valid Nix package count cache (DB file unchanged since {}). Count: {}",
-          std::format("{:%F %T %Z}", floor<seconds>(timestamp)),
-          count
-        );
-        return count;
+    if (std::error_code errc; !fs::exists(mossInfo.db_path, errc)) {
+      if (errc) {
+        warn_log("Filesystem error checking for Moss DB at '{}': {}", mossInfo.db_path.string(), errc.message());
+        return Err(DraconisError(DraconisErrorCode::IoError, "Filesystem error checking Moss DB: " + errc.message()));
       }
-      debug_log("Nix package count cache stale (DB file modified).");
+
+      debug_log("Moss database not found at '{}'. Assuming 0 Moss packages.", mossInfo.db_path.string());
+
+      return Err(DraconisError(DraconisErrorCode::ApiUnavailable, "Moss db not found: " + mossInfo.db_path.string()));
     }
-  } else {
-    if (cachedDataResult.error().code != DraconisErrorCode::NotFound)
-      debug_at(cachedDataResult.error());
-    debug_log("Nix package count cache not found or unreadable.");
+
+    debug_log("Moss database found at '{}'. Proceeding with count.", mossInfo.db_path.string());
+
+    return GetPackageCountInternal(mossInfo);
   }
 
-  debug_log("Fetching fresh Nix package count from database: {}", nixDbPath.string());
-  u64 count = 0;
+  fn GetNixPackageCount() -> Result<u64, DraconisError> {
+    debug_log("Attempting to get Nix package count.");
+    const PackageManagerInfo nixInfo = {
+      .id          = "nix",
+      .db_path     = "/nix/var/nix/db/db.sqlite",
+      .count_query = "SELECT COUNT(path) FROM ValidPaths WHERE sigs IS NOT NULL",
+    };
 
-  try {
-    const SQLite::Database database("/nix/var/nix/db/db.sqlite", SQLite::OPEN_READONLY);
+    if (std::error_code errc; !fs::exists(nixInfo.db_path, errc)) {
+      if (errc) {
+        warn_log("Filesystem error checking for Nix DB at '{}': {}", nixInfo.db_path.string(), errc.message());
+        return Err(DraconisError(DraconisErrorCode::IoError, "Filesystem error checking Nix DB: " + errc.message()));
+      }
 
-    if (SQLite::Statement query(database, "SELECT COUNT(path) FROM ValidPaths WHERE sigs IS NOT NULL");
-        query.executeStep()) {
-      const i64 countInt64 = query.getColumn(0).getInt64();
-      if (countInt64 < 0)
-        return Err(DraconisError(DraconisErrorCode::ParseError, "Negative count returned by Nix DB COUNT(*) query."));
-      count = static_cast<u64>(countInt64);
+      debug_log("Nix database not found at '{}'. Assuming 0 Nix packages.", nixInfo.db_path.string());
+
+      return Err(DraconisError(DraconisErrorCode::ApiUnavailable, "Nix db not found: " + nixInfo.db_path.string()));
+    }
+
+    debug_log("Nix database found at '{}'. Proceeding with count.", nixInfo.db_path.string());
+
+    return GetPackageCountInternal(nixInfo);
+  }
+
+  fn GetTotalPackageCount() -> Result<u64, DraconisError> {
+    debug_log("Attempting to get total package count from all package managers.");
+
+    const PackageManagerInfo mossInfo = {
+      .id          = "moss",
+      .db_path     = "/.moss/db/install",
+      .count_query = "SELECT COUNT(*) FROM meta",
+    };
+
+    const PackageManagerInfo nixInfo = {
+      .id          = "nix",
+      .db_path     = "/nix/var/nix/db/db.sqlite",
+      .count_query = "SELECT COUNT(path) FROM ValidPaths WHERE sigs IS NOT NULL",
+    };
+
+    u64 totalCount = 0;
+
+    if (Result<u64, DraconisError> mossCountResult = GetMossPackageCount(); mossCountResult) {
+      // `moss list installed` returns 1 less than the db count,
+      // so we subtract 1 for consistency.
+      totalCount += (*mossCountResult - 1);
     } else {
-      return Err(DraconisError(DraconisErrorCode::ParseError, "No rows returned by Nix DB COUNT(*) query."));
+      debug_at(mossCountResult.error());
     }
-  } catch (const SQLite::Exception& e) {
-    return Err(DraconisError(
-      DraconisErrorCode::ApiUnavailable, std::format("SQLite error occurred accessing Nix DB: {}", e.what())
-    ));
-  } catch (const Exception& e) { return Err(DraconisError(DraconisErrorCode::InternalError, e.what())); } catch (...) {
-    return Err(DraconisError(DraconisErrorCode::Other, "Unknown error occurred accessing Nix DB"));
-  }
 
-  const NixPkgCacheData dataToCache = { .count = count, .timestamp = system_clock::now() };
-  if (Result<void, DraconisError> writeResult = WritePkgCountCache(dataToCache); !writeResult) {
-    warn_at(writeResult.error());
-    warn_log("Failed to write Nix package count to cache.");
-  }
+    if (Result<u64, DraconisError> nixCountResult = GetNixPackageCount(); nixCountResult) {
+      totalCount += *nixCountResult;
+    } else {
+      debug_at(nixCountResult.error());
+    }
 
-  debug_log("Fetched fresh Nix package count: {}", count);
-  return count;
-}
+    return totalCount;
+  }
+} // namespace os::linux

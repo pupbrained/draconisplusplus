@@ -1,5 +1,7 @@
 #pragma once
 
+#include <filesystem>
+
 #include "src/core/util/defs.hpp"
 #include "src/core/util/error.hpp"
 #include "src/core/util/types.hpp"
@@ -7,6 +9,12 @@
 namespace os::linux {
   using util::error::DraconisError;
   using util::types::Result, util::types::u64;
+
+  struct PackageManagerInfo {
+    util::types::String   id;
+    std::filesystem::path db_path;
+    util::types::String   count_query;
+  };
 
   // Get package count from dpkg (Debian/Ubuntu)
   fn GetDpkgPackageCount() -> Result<u64, DraconisError>;
@@ -25,6 +33,9 @@ namespace os::linux {
 
   // Get package count from apk (Alpine)
   fn GetApkPackageCount() -> Result<u64, DraconisError>;
+
+  // Get package count from moss (AerynOS)
+  fn GetMossPackageCount() -> Result<u64, DraconisError>;
 
   // Get package count from nix
   fn GetNixPackageCount() -> Result<u64, DraconisError>;
