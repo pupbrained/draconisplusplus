@@ -1,12 +1,8 @@
 #include "system_data.hpp"
 
 #include <chrono>    // std::chrono::{year_month_day, floor, days, system_clock}
-#include <exception> // std::exception (Exception)
-#include <future>    // std::{future, async, launch}
 #include <locale>    // std::locale
 #include <stdexcept> // std::runtime_error
-#include <tuple>     // std::{tuple, get, make_tuple}
-#include <utility>   // std::move
 
 #include "src/config/config.hpp"
 #include "src/os/os.hpp"
@@ -66,6 +62,8 @@ fn SystemData::fetchSystemData(const Config& config) -> SystemData {
     .window_manager      = time_execution("GetWindowManager", GetWindowManager),
     .disk_usage          = time_execution("GetDiskUsage", GetDiskUsage),
     .shell               = time_execution("GetShell", GetShell),
+    .now_playing         = None,
+    .weather_info        = None,
   };
 
   if (const Result<MediaInfo, DraconisError>& nowPlayingResult = time_execution("GetNowPlaying", os::GetNowPlaying)) {

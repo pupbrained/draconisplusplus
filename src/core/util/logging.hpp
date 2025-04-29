@@ -4,7 +4,6 @@
 #include <filesystem>             // std::filesystem::path
 #include <format>                 // std::format
 #include <ftxui/screen/color.hpp> // ftxui::Color
-#include <mutex>                  // std::mutex
 #include <print>                  // std::print
 #include <source_location>        // std::source_location
 #include <utility>                // std::forward
@@ -21,7 +20,7 @@ namespace util::logging {
   struct LogLevelConst {
     // ANSI color codes
     // clang-format off
-    static constexpr Array<const char*, 16> COLOR_CODE_LITERALS = {
+    static constexpr Array<StringView, 16> COLOR_CODE_LITERALS = {
       "\033[38;5;0m",  "\033[38;5;1m",  "\033[38;5;2m",  "\033[38;5;3m",
       "\033[38;5;4m",  "\033[38;5;5m",  "\033[38;5;6m",  "\033[38;5;7m",
       "\033[38;5;8m",  "\033[38;5;9m",  "\033[38;5;10m", "\033[38;5;11m",
@@ -71,8 +70,10 @@ namespace util::logging {
    * @param color The FTXUI color
    * @return Styled string with ANSI codes
    */
-  inline fn Colorize(const String& text, const ftxui::Color::Palette16& color) -> String {
-    return String(LogLevelConst::COLOR_CODE_LITERALS[static_cast<int>(color)]) + text + LogLevelConst::RESET_CODE;
+  inline fn Colorize(StringView text, const ftxui::Color::Palette16& color) -> String {
+    std::ostringstream oss;
+    oss << LogLevelConst::COLOR_CODE_LITERALS.at(static_cast<i32>(color)) << text << LogLevelConst::RESET_CODE;
+    return oss.str();
   }
 
   /**
@@ -93,14 +94,20 @@ namespace util::logging {
     return String(LogLevelConst::ITALIC_START) + String(text) + String(LogLevelConst::ITALIC_END);
   }
 
-  // Initialize at runtime using the constexpr static values
-  // This can't be constexpr itself due to the string operations
-  inline const Array<String, 4> LEVEL_INFO = {
-    Bold(Colorize(LogLevelConst::DEBUG_STR.data(), LogLevelConst::DEBUG_COLOR)),
-    Bold(Colorize(LogLevelConst::INFO_STR.data(), LogLevelConst::INFO_COLOR)),
-    Bold(Colorize(LogLevelConst::WARN_STR.data(), LogLevelConst::WARN_COLOR)),
-    Bold(Colorize(LogLevelConst::ERROR_STR.data(), LogLevelConst::ERROR_COLOR)),
-  };
+  /**
+   * @brief Returns the pre-formatted and styled log level strings.
+   * @note Uses function-local static for lazy initialization to avoid
+   * static initialization order issues and CERT-ERR58-CPP warnings.
+   */
+  inline fn GetLevelInfo() -> const Array<String, 4>& {
+    static const Array<String, 4> LEVEL_INFO_INSTANCE = {
+      Bold(Colorize(LogLevelConst::DEBUG_STR, LogLevelConst::DEBUG_COLOR)),
+      Bold(Colorize(LogLevelConst::INFO_STR, LogLevelConst::INFO_COLOR)),
+      Bold(Colorize(LogLevelConst::WARN_STR, LogLevelConst::WARN_COLOR)),
+      Bold(Colorize(LogLevelConst::ERROR_STR, LogLevelConst::ERROR_COLOR)),
+    };
+    return LEVEL_INFO_INSTANCE;
+  }
 
   /**
    * @brief Returns FTXUI color representation for a log level
@@ -122,12 +129,12 @@ namespace util::logging {
    * @param level The log level
    * @return String representation
    */
-  constexpr fn GetLevelString(const LogLevel level) -> String {
+  constexpr fn GetLevelString(const LogLevel level) -> StringView {
     switch (level) {
-      case LogLevel::Debug: return LogLevelConst::DEBUG_STR.data();
-      case LogLevel::Info:  return LogLevelConst::INFO_STR.data();
-      case LogLevel::Warn:  return LogLevelConst::WARN_STR.data();
-      case LogLevel::Error: return LogLevelConst::ERROR_STR.data();
+      case LogLevel::Debug: return LogLevelConst::DEBUG_STR;
+      case LogLevel::Info:  return LogLevelConst::INFO_STR;
+      case LogLevel::Warn:  return LogLevelConst::WARN_STR;
+      case LogLevel::Error: return LogLevelConst::ERROR_STR;
       default:              std::unreachable();
     }
   }
@@ -155,29 +162,24 @@ namespace util::logging {
 
     Buffer buffer {};
 
-    Buffer::iterator iter = std::format_to(
+    auto* iter = std::format_to(
       buffer.begin(),
       LogLevelConst::LOG_FORMAT,
       Colorize("[" + timestamp + "]", LogLevelConst::DEBUG_INFO_COLOR),
-      LEVEL_INFO[static_cast<usize>(level)],
+      GetLevelInfo().at(static_cast<usize>(level)),
       message
     );
 
 #ifndef NDEBUG
-    iter = std::format_to(
-      iter,
-      "\n{}",
-      Italic(Colorize(
-        LogLevelConst::DEBUG_LINE_PREFIX +
-          std::format("{}:{}", path(loc.file_name()).lexically_normal().string(), std::to_string(loc.line())),
-        LogLevelConst::DEBUG_INFO_COLOR
-      ))
-    );
+    const String fileLine      = std::format("{}:{}", path(loc.file_name()).lexically_normal().string(), loc.line());
+    const String fullDebugLine = std::format("{}{}", LogLevelConst::DEBUG_LINE_PREFIX, fileLine);
+
+    iter = std::format_to(iter, "\n{}", Italic(Colorize(fullDebugLine, LogLevelConst::DEBUG_INFO_COLOR)));
 #endif
 
     const usize length = std::distance(buffer.begin(), iter);
 
-    std::println("{}", std::string_view(buffer.data(), length));
+    std::println("{}", StringView(buffer.data(), length));
   }
 
   template <typename ErrorType>

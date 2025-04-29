@@ -1,18 +1,19 @@
 #pragma once
 
-#ifdef _WIN32
-  #include <windows.h> // GetUserNameA
-#else
-  #include <pwd.h>    // getpwuid, passwd
-  #include <unistd.h> // getuid
-#endif
-
-#include <stdexcept>                 // std::runtime_error
 #include <string>                    // std::string (String)
 #include <toml++/impl/node.hpp>      // toml::node
 #include <toml++/impl/node_view.hpp> // toml::node_view
 #include <toml++/impl/table.hpp>     // toml::table
 #include <variant>                   // std::variant
+//
+#ifdef _WIN32
+  #include <windows.h> // GetUserNameA
+#else
+  #include <pwd.h>    // getpwuid, passwd
+  #include <unistd.h> // getuid
+
+  #include "src/core/util/helpers.hpp"
+#endif
 
 #include "src/core/util/defs.hpp"
 #include "src/core/util/error.hpp"
@@ -50,16 +51,18 @@ struct General {
     DWORD            size = sizeof(username);
     return GetUserNameA(username.data(), &size) ? username.data() : "User";
 #else
+    using util::helpers::GetEnv;
+
     // Try to get the username using getpwuid
     if (const passwd* pwd = getpwuid(getuid()))
       return pwd->pw_name;
 
     // Try to get the username using environment variables
-    if (Result<String, DraconisError> envUser = util::helpers::GetEnv("USER"))
+    if (Result<String, DraconisError> envUser = GetEnv("USER"))
       return *envUser;
 
     // Finally, try to get the username using LOGNAME
-    if (Result<String, DraconisError> envLogname = util::helpers::GetEnv("LOGNAME"))
+    if (Result<String, DraconisError> envLogname = GetEnv("LOGNAME"))
       return *envLogname;
 
     // If all else fails, return a default name

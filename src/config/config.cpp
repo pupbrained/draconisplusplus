@@ -2,10 +2,8 @@
 
 #include <filesystem>             // std::filesystem::{path, operator/, exists, create_directories}
 #include <fstream>                // std::{ifstream, ofstream, operator<<}
-#include <stdexcept>              // std::runtime_error
 #include <system_error>           // std::error_code
 #include <toml++/impl/parser.hpp> // toml::{parse_file, parse_result}
-#include <utility>                // std::pair (Pair)
 
 #include "src/core/util/helpers.hpp"
 #include "src/core/util/logging.hpp"
@@ -128,8 +126,8 @@ location = "London"    # Your city name
       try {
         const std::string formattedConfig = std::format(defaultConfigTemplate, defaultName);
         file << formattedConfig;
-      } catch (const std::format_error& fmt_err) {
-        error_log("Failed to format default config string: {}. Using fallback name 'User'.", fmt_err.what());
+      } catch (const std::format_error& fmtErr) {
+        error_log("Failed to format default config string: {}. Using fallback name 'User'.", fmtErr.what());
 
         try {
           const std::string fallbackConfig = std::format(defaultConfigTemplate, "User");
@@ -147,8 +145,8 @@ location = "London"    # Your city name
 
       info_log("Created default config file at {}", configPath.string());
       return true;
-    } catch (const fs::filesystem_error& fs_err) {
-      error_log("Filesystem error during default config creation: {}", fs_err.what());
+    } catch (const fs::filesystem_error& fsErr) {
+      error_log("Filesystem error during default config creation: {}", fsErr.what());
       return false;
     } catch (const Exception& e) {
       error_log("Failed to create default config file: {}", e.what());
@@ -174,13 +172,13 @@ fn Config::getInstance() -> Config {
   try {
     const fs::path configPath = GetConfigPath();
 
-    std::error_code ec;
+    std::error_code errc;
 
-    const bool exists = fs::exists(configPath, ec);
+    const bool exists = fs::exists(configPath, errc);
 
-    if (ec)
+    if (errc)
       warn_log(
-        "Failed to check if config file exists at {}: {}. Assuming it doesn't.", configPath.string(), ec.message()
+        "Failed to check if config file exists at {}: {}. Assuming it doesn't.", configPath.string(), errc.message()
       );
 
     if (!exists) {

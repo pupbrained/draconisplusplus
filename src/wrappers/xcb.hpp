@@ -6,7 +6,7 @@
 #include "src/core/util/types.hpp"
 
 namespace xcb {
-  using util::types::u8, util::types::i32, util::types::CStr;
+  using util::types::u8, util::types::i32, util::types::CStr, util::types::None;
 
   using connection_t = xcb_connection_t;
   using setup_t      = xcb_setup_t;
