@@ -15,70 +15,88 @@
     ...
   }:
     utils.lib.eachDefaultSystem (
-      system: let
-        pkgs = import nixpkgs {inherit system;};
+      system:
+        if system == "x86_64-linux"
+        then let
+          hostPkgs = import nixpkgs {inherit system;};
+          muslPkgs = import nixpkgs {
+            system = "x86_64-linux-musl";
+            overlays = [
+              (self: super: {
+                mimalloc = super.mimalloc.overrideAttrs (oldAttrs: {
+                  cmakeFlags =
+                    (oldAttrs.cmakeFlags or [])
+                    ++ [(self.lib.cmakeBool "MI_LIBC_MUSL" true)];
 
-        llvmPackages = pkgs.llvmPackages_20;
+                  postPatch = ''
+                    sed -i '\|<linux/prctl.h>|s|^|// |' src/prim/unix/prim.c
+                  '';
+                });
+              })
+            ];
+          };
 
-        stdenv = with pkgs;
-          (
-            if hostPlatform.isLinux
-            then stdenvAdapters.useMoldLinker
-            else lib.id
-          )
-          llvmPackages.stdenv;
+          llvmPackages = muslPkgs.llvmPackages_20;
 
-        sources = import ./_sources/generated.nix {
-          inherit (pkgs) fetchFromGitHub fetchgit fetchurl dockerTools;
-        };
+          stdenv =
+            muslPkgs.stdenvAdapters.useMoldLinker
+            llvmPackages.libcxxStdenv;
 
-        dbus-cxx = stdenv.mkDerivation {
-          inherit (sources.dbus-cxx) pname version src;
-          nativeBuildInputs = with pkgs; [cmake pkg-config];
+          glaze = (muslPkgs.glaze.override {inherit stdenv;}).overrideAttrs (oldAttrs: {
+            cmakeFlags =
+              (oldAttrs.cmakeFlags or [])
+              ++ [
+                "-Dglaze_DEVELOPER_MODE=OFF"
+                "-Dglaze_BUILD_EXAMPLES=OFF"
+              ];
 
-          buildInputs = with pkgs.pkgsStatic; [libsigcxx30];
+            doCheck = false;
 
-          prePatch = ''
-            substituteInPlace CMakeLists.txt --replace "add_library( dbus-cxx SHARED" "add_library( dbus-cxx STATIC"
-          '';
-        };
+            enableAvx2 = stdenv.hostPlatform.isx86;
+          });
 
-        deps = with pkgs;
-          [
-            (glaze.override {enableAvx2 = hostPlatform.isx86;})
-          ]
-          ++ (with pkgsStatic; [
-            curl
-            ftxui
-            (tomlplusplus.overrideAttrs {
-              doCheck = false;
-            })
-          ])
-          ++ darwinPkgs
-          ++ linuxPkgs;
+          mkOverridden = buildSystem: pkg: ((pkg.override {inherit stdenv;}).overrideAttrs (oldAttrs: {
+            "${buildSystem}Flags" =
+              (oldAttrs."${buildSystem}Flags" or [])
+              ++ (
+                if buildSystem == "meson"
+                then ["-Ddefault_library=static"]
+                else if buildSystem == "cmake"
+                then [
+                  "-D${hostPkgs.lib.toUpper pkg.pname}_BUILD_EXAMPLES=OFF"
+                  "-D${hostPkgs.lib.toUpper pkg.pname}_BUILD_TESTS=OFF"
+                  "-DBUILD_SHARED_LIBS=OFF"
+                ]
+                else throw "Invalid build system: ${buildSystem}"
+              );
+          }));
 
-        darwinPkgs = nixpkgs.lib.optionals stdenv.isDarwin (with pkgs.pkgsStatic; [libiconv]);
-
-        linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs;
-          [
-            valgrind
-          ]
-          ++ (with pkgsStatic; [
-            dbus-cxx
-            libsigcxx30
-            sqlitecpp
-            xorg.libxcb
+          deps = with hostPkgs.pkgsStatic; [
+            curlMinimal
+            dbus
+            glaze
+            llvmPackages.libcxx
+            openssl
+            sqlite
             wayland
-          ]));
-      in
-        with pkgs; {
+            xorg.libXau
+            xorg.libXdmcp
+            xorg.libxcb
+
+            (mkOverridden "cmake" ftxui)
+            (mkOverridden "cmake" sqlitecpp)
+            (mkOverridden "meson" libsigcxx30)
+            (mkOverridden "meson" tomlplusplus)
+          ];
+        in {
           packages = rec {
             draconisplusplus = stdenv.mkDerivation {
               name = "draconis++";
               version = "0.1.0";
               src = self;
+              NIX_ENFORCE_NO_NATIVE = 0;
 
-              nativeBuildInputs = [
+              nativeBuildInputs = with muslPkgs; [
                 cmake
                 meson
                 ninja
@@ -90,58 +108,160 @@
               configurePhase = ''
                 meson setup build
               '';
-
               buildPhase = ''
                 meson compile -C build
               '';
-
               installPhase = ''
                 mkdir -p $out/bin
                 mv build/draconis++ $out/bin/draconis++
               '';
-            };
 
+              meta.staticExecutable = true;
+            };
             default = draconisplusplus;
           };
 
-          formatter = treefmt-nix.lib.mkWrapper pkgs {
+          devShell = muslPkgs.mkShell.override {inherit stdenv;} {
+            packages =
+              (with hostPkgs; [bear cmake])
+              ++ (with muslPkgs; [
+                llvmPackages_20.clang-tools
+                meson
+                ninja
+                pkg-config
+                (hostPkgs.writeScriptBin "build" "meson compile -C build")
+                (hostPkgs.writeScriptBin "clean" "meson setup build --wipe")
+                (hostPkgs.writeScriptBin "run" "meson compile -C build && build/draconis++")
+              ])
+              ++ deps;
+
+            NIX_ENFORCE_NO_NATIVE = 0;
+          };
+
+          formatter = treefmt-nix.lib.mkWrapper hostPkgs {
             projectRootFile = "flake.nix";
             programs = {
               alejandra.enable = true;
               deadnix.enable = true;
-
               clang-format = {
                 enable = true;
-                package = pkgs.llvmPackages.clang-tools;
+                package = hostPkgs.llvmPackages.clang-tools;
               };
             };
           };
-
-          devShell = mkShell.override {inherit stdenv;} {
-            packages =
-              [
-                alejandra
-                bear
-                llvmPackages.clang-tools
-                cmake
-                include-what-you-use
-                lldb
-                hyperfine
-                meson
-                ninja
-                nvfetcher
-                pkg-config
-                unzip
-
-                (writeScriptBin "build" "meson compile -C build")
-                (writeScriptBin "clean" "meson setup build --wipe")
-                (writeScriptBin "run" "meson compile -C build && build/draconis++")
-              ]
-              ++ deps;
-
-            LD_LIBRARY_PATH = "${lib.makeLibraryPath deps}";
-            NIX_ENFORCE_NO_NATIVE = 0;
-          };
         }
+        else let
+          pkgs = import nixpkgs {inherit system;};
+
+          llvmPackages = pkgs.llvmPackages_20;
+
+          stdenv = with pkgs;
+            (
+              if hostPlatform.isLinux
+              then stdenvAdapters.useMoldLinker
+              else lib.id
+            )
+            llvmPackages.stdenv;
+
+          deps = with pkgs;
+            [
+              (glaze.override {enableAvx2 = hostPlatform.isx86;})
+            ]
+            ++ (with pkgsStatic; [
+              curl
+              ftxui
+              (tomlplusplus.overrideAttrs {
+                doCheck = false;
+              })
+            ])
+            ++ darwinPkgs
+            ++ linuxPkgs;
+
+          darwinPkgs = nixpkgs.lib.optionals stdenv.isDarwin (with pkgs.pkgsStatic; [libiconv]);
+
+          linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs;
+            [
+              valgrind
+            ]
+            ++ (with pkgsStatic; [
+              dbus
+              libsigcxx30
+              sqlitecpp
+              xorg.libxcb
+              wayland
+            ]));
+        in
+          with pkgs; {
+            packages = rec {
+              draconisplusplus = stdenv.mkDerivation {
+                name = "draconis++";
+                version = "0.1.0";
+                src = self;
+
+                nativeBuildInputs = [
+                  cmake
+                  meson
+                  ninja
+                  pkg-config
+                ];
+
+                buildInputs = deps;
+
+                configurePhase = ''
+                  meson setup build
+                '';
+
+                buildPhase = ''
+                  meson compile -C build
+                '';
+
+                installPhase = ''
+                  mkdir -p $out/bin
+                  mv build/draconis++ $out/bin/draconis++
+                '';
+              };
+
+              default = draconisplusplus;
+            };
+
+            formatter = treefmt-nix.lib.mkWrapper pkgs {
+              projectRootFile = "flake.nix";
+              programs = {
+                alejandra.enable = true;
+                deadnix.enable = true;
+
+                clang-format = {
+                  enable = true;
+                  package = pkgs.llvmPackages.clang-tools;
+                };
+              };
+            };
+
+            devShell = mkShell.override {inherit stdenv;} {
+              packages =
+                [
+                  alejandra
+                  bear
+                  llvmPackages.clang-tools
+                  cmake
+                  include-what-you-use
+                  lldb
+                  hyperfine
+                  meson
+                  ninja
+                  nvfetcher
+                  pkg-config
+                  unzip
+
+                  (writeScriptBin "build" "meson compile -C build")
+                  (writeScriptBin "clean" "meson setup build --wipe")
+                  (writeScriptBin "run" "meson compile -C build && build/draconis++")
+                ]
+                ++ deps;
+
+              LD_LIBRARY_PATH = "${lib.makeLibraryPath deps}";
+              NIX_ENFORCE_NO_NATIVE = 0;
+            };
+          }
     );
 }

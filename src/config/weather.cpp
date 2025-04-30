@@ -6,11 +6,11 @@
 #include <filesystem>             // std::filesystem::{path, remove, rename}
 #include <format>                 // std::format
 #include <fstream>                // std::{ifstream, ofstream}
+#include <glaze/beve/read.hpp>    // glz::read_beve
+#include <glaze/beve/write.hpp>   // glz::write_beve
 #include <glaze/core/context.hpp> // glz::{error_ctx, error_code}
-#include <glaze/core/opts.hpp>    // glz::check_partial_read
-#include <glaze/core/read.hpp>    // glz::read
 #include <glaze/core/reflect.hpp> // glz::format_error
-#include <glaze/json/write.hpp>   // glz::write_json
+#include <glaze/json/read.hpp>    // glz::write_json
 #include <iterator>               // std::istreambuf_iterator
 #include <system_error>           // std::error_code
 #include <utility>                // std::move
@@ -18,17 +18,18 @@
 
 #include "src/core/util/defs.hpp"
 #include "src/core/util/logging.hpp"
+#include "src/core/util/types.hpp"
 
 #include "config.hpp"
 
 namespace fs = std::filesystem;
 
-using namespace weather;
-
-using util::types::i32, util::types::Err, util::types::Exception;
+using weather::Output;
 
 namespace {
-  using glz::opts, glz::error_ctx, glz::error_code, glz::write_json, glz::read, glz::format_error;
+  using glz::opts, glz::error_ctx, glz::error_code, glz::read, glz::read_beve, glz::write_beve, glz::format_error;
+  using util::types::usize, util::types::Err, util::types::Exception;
+  using weather::Coords;
 
   constexpr opts glaze_opts = { .error_on_unknown_keys = false };
 
@@ -39,7 +40,7 @@ namespace {
     if (errc)
       return Err("Failed to get temp directory: " + errc.message());
 
-    cachePath /= "weather_cache.json";
+    cachePath /= "weather_cache.beve";
     return cachePath;
   }
 
@@ -58,10 +59,19 @@ namespace {
 
     try {
       const String content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
-      Output       result;
+      ifs.close();
 
-      if (const error_ctx errc = read<glaze_opts>(result, content); errc.ec != error_code::none)
-        return Err(std::format("JSON parse error: {}", format_error(errc, content)));
+      if (content.empty())
+        return Err(std::format("BEVE cache file is empty: {}", cachePath->string()));
+
+      Output result;
+
+      if (const error_ctx glazeErr = read_beve(result, content); glazeErr.ec != error_code::none)
+        return Err(
+          std::format(
+            "BEVE parse error reading cache (code {}): {}", static_cast<int>(glazeErr.ec), cachePath->string()
+          )
+        );
 
       debug_log("Successfully read from cache file.");
       return result;
@@ -69,6 +79,8 @@ namespace {
   }
 
   fn WriteCacheToFile(const Output& data) -> Result<void, String> {
+    using util::types::isize;
+
     Result<fs::path, String> cachePath = GetCachePath();
 
     if (!cachePath)
@@ -79,19 +91,22 @@ namespace {
     tempPath += ".tmp";
 
     try {
+      String binaryBuffer;
+
+      if (const error_ctx glazeErr = write_beve(data, binaryBuffer); glazeErr)
+        return Err(std::format("BEVE serialization error writing cache (code {})", static_cast<int>(glazeErr.ec)));
+
       {
         std::ofstream ofs(tempPath, std::ios::binary | std::ios::trunc);
         if (!ofs.is_open())
           return Err("Failed to open temp file: " + tempPath.string());
 
-        String jsonStr;
-
-        if (const error_ctx errc = write_json(data, jsonStr); errc.ec != error_code::none)
-          return Err("JSON serialization error: " + format_error(errc, jsonStr));
-
-        ofs << jsonStr;
-        if (!ofs)
-          return Err("Failed to write to temp file");
+        ofs.write(binaryBuffer.data(), static_cast<isize>(binaryBuffer.size()));
+        if (!ofs) {
+          std::error_code removeEc;
+          fs::remove(tempPath, removeEc);
+          return Err("Failed to write to temp BEVE cache file");
+        }
       }
 
       std::error_code errc;
@@ -105,7 +120,19 @@ namespace {
 
       debug_log("Successfully wrote to cache file.");
       return {};
-    } catch (const Exception& e) { return Err(std::format("File operation error: {}", e.what())); }
+    } catch (const std::ios_base::failure& e) {
+      std::error_code removeEc;
+      fs::remove(tempPath, removeEc);
+      return Err(std::format("Filesystem error writing BEVE cache file {}: {}", tempPath.string(), e.what()));
+    } catch (const Exception& e) {
+      std::error_code removeEc;
+      fs::remove(tempPath, removeEc);
+      return Err(std::format("File operation error during BEVE cache write: {}", e.what()));
+    } catch (...) {
+      std::error_code removeEc;
+      fs::remove(tempPath, removeEc);
+      return Err(std::format("Unknown error writing BEVE cache file: {}", tempPath.string()));
+    }
   }
 
   fn WriteCallback(void* contents, const usize size, const usize nmemb, String* str) -> usize {
@@ -136,7 +163,7 @@ namespace {
 
     Output output;
 
-    if (const error_ctx errc = glz::read<glaze_opts>(output, responseBuffer); errc.ec != error_code::none)
+    if (const error_ctx errc = read<glaze_opts>(output, responseBuffer); errc.ec != error_code::none)
       return Err("API response parse error: " + format_error(errc, responseBuffer));
 
     return std::move(output);
@@ -145,6 +172,7 @@ namespace {
 
 fn Weather::getWeatherInfo() const -> Output {
   using namespace std::chrono;
+  using util::types::i32;
 
   if (Result<Output, String> data = ReadCacheFromFile()) {
     const Output& dataVal = *data;
@@ -173,8 +201,10 @@ fn Weather::getWeatherInfo() const -> Output {
   };
 
   if (std::holds_alternative<String>(location)) {
-    const auto& city    = std::get<String>(location);
-    char*       escaped = curl_easy_escape(nullptr, city.c_str(), static_cast<i32>(city.length()));
+    const auto& city = std::get<String>(location);
+
+    char* escaped = curl_easy_escape(nullptr, city.c_str(), static_cast<i32>(city.length()));
+
     debug_log("Requesting city: {}", escaped);
 
     const String apiUrl =
@@ -184,12 +214,22 @@ fn Weather::getWeatherInfo() const -> Output {
     return handleApiResult(MakeApiRequest(apiUrl));
   }
 
-  const auto& [lat, lon] = std::get<Coords>(location);
-  debug_log("Requesting coordinates: lat={:.3f}, lon={:.3f}", lat, lon);
+  if (std::holds_alternative<Coords>(location)) {
+    const auto& [lat, lon] = std::get<Coords>(location);
+    debug_log("Requesting coordinates: lat={:.3f}, lon={:.3f}", lat, lon);
+    const String apiUrl = std::format(
+      "https://api.openweathermap.org/data/2.5/weather?lat={:.3f}&lon={:.3f}&appid={}&units={}",
+      lat,
+      lon,
+      api_key,
+      units
+    );
+    return handleApiResult(MakeApiRequest(apiUrl));
+  }
+#ifdef __GLIBCXX__
+  printf("Invalid location type in configuration. Expected String or Coords.\n");
+#endif
 
-  const String apiUrl = std::format(
-    "https://api.openweathermap.org/data/2.5/weather?lat={:.3f}&lon={:.3f}&appid={}&units={}", lat, lon, api_key, units
-  );
-
-  return handleApiResult(MakeApiRequest(apiUrl));
+  error_log("Invalid location type in configuration. Expected String or Coords.");
+  return Output {};
 }

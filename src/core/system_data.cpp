@@ -15,12 +15,7 @@ namespace {
 
     const year_month_day ymd = year_month_day { floor<days>(system_clock::now()) };
 
-    try {
-      return std::format(std::locale(""), "{:%B %d}", ymd);
-    } catch (const std::runtime_error& e) {
-      warn_log("Could not retrieve or use system locale ({}). Falling back to default C locale.", e.what());
-      return std::format(std::locale::classic(), "{:%B %d}", ymd);
-    }
+    return std::format("{:%B %d}", ymd);
   }
 
   fn log_timing(const std::string& name, const std::chrono::steady_clock::duration& duration) -> void {

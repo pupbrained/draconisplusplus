@@ -1,13 +1,12 @@
 #pragma once
 
+#include <format>
 #include <source_location> // std::source_location
 #include <system_error>    // std::error_code
 
 #ifdef _WIN32
   #include <winerror.h>   // error values
   #include <winrt/base.h> // winrt::hresult_error
-#elifdef __linux__
-  #include <dbus-cxx/error.h> // DBus::Error
 #endif
 
 #include "src/core/util/types.hpp"
@@ -126,33 +125,6 @@ namespace util::error {
 
       return DraconisError { code, fullMsg, loc };
     }
-
-  #ifdef __linux__
-    static auto fromDBus(const DBus::Error& err, const std::source_location& loc = std::source_location::current())
-      -> DraconisError {
-      String            name     = err.name();
-      DraconisErrorCode codeHint = DraconisErrorCode::PlatformSpecific;
-      String            message;
-
-      using namespace std::string_view_literals;
-
-      if (name == "org.freedesktop.DBus.Error.ServiceUnknown"sv ||
-          name == "org.freedesktop.DBus.Error.NameHasNoOwner"sv) {
-        codeHint = DraconisErrorCode::NotFound;
-        message  = std::format("DBus service/name not found: {}", err.message());
-      } else if (name == "org.freedesktop.DBus.Error.NoReply"sv || name == "org.freedesktop.DBus.Error.Timeout"sv) {
-        codeHint = DraconisErrorCode::Timeout;
-        message  = std::format("DBus timeout/no reply: {}", err.message());
-      } else if (name == "org.freedesktop.DBus.Error.AccessDenied"sv) {
-        codeHint = DraconisErrorCode::PermissionDenied;
-        message  = std::format("DBus access denied: {}", err.message());
-      } else {
-        message = std::format("DBus error: {} - {}", name, err.message());
-      }
-
-      return DraconisError { codeHint, message, loc };
-    }
-  #endif
 #endif
   };
 } // namespace util::error

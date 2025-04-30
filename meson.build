@@ -30,6 +30,7 @@ common_warning_flags = [
   '-Wno-missing-prototypes',
   '-Wno-padded',
   '-Wno-pre-c++20-compat-pedantic',
+  '-Wno-unused-command-line-argument',
   '-Wunused-function',
 ]
 
@@ -49,10 +50,7 @@ common_cpp_flags = {
     '/external:anglebrackets',
     '/std:c++latest',
   ],
-  'unix_extra' : [
-    '-march=native',
-    '-nostdlib++',
-  ],
+  'unix_extra' : '-march=native',
   'windows_extra' : '-DCURL_STATICLIB',
 }
 
@@ -80,7 +78,6 @@ else
   if host_system == 'windows'
     common_cpp_args += common_cpp_flags['windows_extra']
   endif
-  common_cpp_args = cpp.get_supported_arguments(common_cpp_args)
 endif
 
 add_project_arguments(common_cpp_args, language : 'cpp')
@@ -91,7 +88,7 @@ add_project_arguments(common_cpp_args, language : 'cpp')
 base_sources = files('src/core/system_data.cpp', 'src/config/config.cpp', 'src/config/weather.cpp', 'src/main.cpp')
 
 platform_sources = {
-  'linux' : ['src/os/linux.cpp', 'src/os/linux/issetugid_stub.cpp', 'src/os/linux/pkg_count.cpp'],
+  'linux' : ['src/os/linux.cpp', 'src/os/linux/pkg_count.cpp'],
   'darwin' : ['src/os/macos.cpp', 'src/os/macos/bridge.mm'],
   'windows' : ['src/os/windows.cpp'],
 }
@@ -125,21 +122,13 @@ elif host_system == 'windows'
     cpp.find_library('windowsapp'),
   ]
 elif host_system == 'linux'
-  dbus_cxx_dep = dependency('dbus-cxx', include_type : 'system', required : false)
-
-  if not dbus_cxx_dep.found()
-    cmake = import('cmake')
-    dbus_cxx_proj = cmake.subproject('dbus_cxx')
-    dbus_cxx_dep = dbus_cxx_proj.dependency('dbus_cxx', include_type : 'system')
-  endif
   platform_deps += [
     dependency('SQLiteCpp'),
     dependency('xcb'),
     dependency('xau'),
     dependency('xdmcp'),
     dependency('wayland-client'),
-    dependency('sigc++-3.0', include_type : 'system'),
-    dbus_cxx_dep,
+    dependency('dbus-1', include_type: 'system'),
   ]
 endif
 
@@ -183,7 +172,7 @@ objc_args = []
 if host_system == 'darwin'
   objc_args += ['-fobjc-arc']
 elif cpp.get_id() == 'clang'
-  link_args += ['-static-libgcc', '-static-libstdc++']
+  link_args += ['-static']
 endif
 
 # ------------------- #

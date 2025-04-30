@@ -1,13 +1,10 @@
 #include <cmath>                   // std::lround
 #include <format>                  // std::format
-#include <ftxui/dom/elements.hpp>  // ftxui::{hbox, vbox, text, separator, filler}
-#include <ftxui/dom/node.hpp>      // ftxui::{Element, Render}
+#include <ftxui/dom/elements.hpp>  // ftxui::{Element, hbox, vbox, text, separator, filler, etc.}
+#include <ftxui/dom/node.hpp>      // ftxui::{Render}
 #include <ftxui/screen/color.hpp>  // ftxui::Color
 #include <ftxui/screen/screen.hpp> // ftxui::{Screen, Dimension::Full}
-#include <optional>                // std::optional (operator!=)
-#include <ranges>                  // std::ranges::{to, views}
-#include <string>                  // std::string (String)
-#include <string_view>             // std::string_view (StringView)
+#include <ranges>                  // std::ranges::{iota, to, transform}
 
 #include "src/config/weather.hpp"
 
@@ -274,7 +271,7 @@ fn main() -> i32 {
   else
     error_at(packageCount.error());
 
-  Element document = vbox({ hbox({ SystemInfoBox(config, data), filler() }), text("") });
+  Element document = vbox({ hbox({ SystemInfoBox(config, data), filler() }) });
 
   Screen screen = Screen::Create(Dimension::Full(), Dimension::Fit(document));
   Render(screen, document);

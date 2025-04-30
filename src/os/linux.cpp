@@ -2,22 +2,12 @@
 
 // clang-format off
 #include <cstring>                          // std::strlen
-#include <dbus-cxx/callmessage.h>           // DBus::CallMessage
-#include <dbus-cxx/connection.h>            // DBus::Connection
-#include <dbus-cxx/dispatcher.h>            // DBus::Dispatcher
-#include <dbus-cxx/enums.h>                 // DBus::{DataType, BusType}
-#include <dbus-cxx/error.h>                 // DBus::Error
-#include <dbus-cxx/messageappenditerator.h> // DBus::MessageAppendIterator
-#include <dbus-cxx/signature.h>             // DBus::Signature
-#include <dbus-cxx/standalonedispatcher.h>  // DBus::StandaloneDispatcher
-#include <dbus-cxx/variant.h>               // DBus::Variant
+#include <dbus/dbus.h>
 #include <expected>                         // std::{unexpected, expected}
 #include <format>                           // std::{format, format_to_n}
 #include <fstream>                          // std::ifstream
 #include <climits>                          // PATH_MAX
 #include <limits>                           // std::numeric_limits
-#include <map>                              // std::map (Map)
-#include <memory>                           // std::shared_ptr (SharedPointer)
 #include <string>                           // std::{getline, string (String)}
 #include <string_view>                      // std::string_view (StringView)
 #include <sys/socket.h>                     // ucred, getsockopt, SOL_SOCKET, SO_PEERCRED
@@ -25,10 +15,9 @@
 #include <sys/sysinfo.h>                    // sysinfo
 #include <sys/utsname.h>                    // utsname, uname
 #include <unistd.h>                         // readlink
-#include <utility>                          // std::move
 
-#include "src/core/util/logging.hpp"
 #include "src/core/util/helpers.hpp"
+#include "src/core/util/logging.hpp"
 
 #include "src/wrappers/wayland.hpp"
 #include "src/wrappers/xcb.hpp"
@@ -191,207 +180,328 @@ namespace {
     return String(compositorNameView);
   }
 
-  fn GetMprisPlayers(const SharedPointer<DBus::Connection>& connection) -> Result<String, DraconisError> {
-    using namespace std::string_view_literals;
+  #pragma clang diagnostic push
+  #pragma clang diagnostic ignored "-Wold-style-cast"
+  fn GetMprisPlayers(DBusConnection* connection) -> Vec<String> {
+    Vec<String> mprisPlayers;
+    DBusError   err;
+    dbus_error_init(&err);
 
-    try {
-      const SharedPointer<DBus::CallMessage> call =
-        DBus::CallMessage::create("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "ListNames");
+    // Create a method call to org.freedesktop.DBus.ListNames
+    DBusMessage* msg = dbus_message_new_method_call(
+      "org.freedesktop.DBus",  // target service
+      "/org/freedesktop/DBus", // object path
+      "org.freedesktop.DBus",  // interface name
+      "ListNames"              // method name
+    );
 
-      const SharedPointer<DBus::Message> reply = connection->send_with_reply_blocking(call, 5);
-
-      if (!reply || !reply->is_valid())
-        return Err(DraconisError(DraconisErrorCode::Timeout, "Failed to get reply from ListNames"));
-
-      Vec<String>           allNamesStd;
-      DBus::MessageIterator reader(*reply);
-      reader >> allNamesStd;
-
-      for (const String& name : allNamesStd)
-        if (StringView(name).contains("org.mpris.MediaPlayer2"sv))
-          return name;
-
-      return Err(DraconisError(DraconisErrorCode::NotFound, "No MPRIS players found"));
-    } catch (const DBus::Error& e) { return Err(DraconisError::fromDBus(e)); } catch (const Exception& e) {
-      return Err(DraconisError(DraconisErrorCode::InternalError, e.what()));
+    if (!msg) {
+      debug_log("Failed to create message for ListNames.");
+      return mprisPlayers;
     }
+
+    // Send the message and block until we get a reply.
+    DBusMessage* reply = dbus_connection_send_with_reply_and_block(connection, msg, -1, &err);
+    dbus_message_unref(msg);
+
+    if (dbus_error_is_set(&err)) {
+      debug_log("DBus error in ListNames: {}", err.message);
+      dbus_error_free(&err);
+      return mprisPlayers;
+    }
+
+    if (!reply) {
+      debug_log("No reply received for ListNames.");
+      return mprisPlayers;
+    }
+
+    // The expected reply signature is "as" (an array of strings)
+    DBusMessageIter iter;
+
+    if (!dbus_message_iter_init(reply, &iter)) {
+      debug_log("Reply has no arguments.");
+      dbus_message_unref(reply);
+      return mprisPlayers;
+    }
+
+    if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY) {
+      debug_log("Reply argument is not an array.");
+      dbus_message_unref(reply);
+      return mprisPlayers;
+    }
+
+    // Iterate over the array of strings
+    DBusMessageIter subIter;
+    dbus_message_iter_recurse(&iter, &subIter);
+
+    while (dbus_message_iter_get_arg_type(&subIter) != DBUS_TYPE_INVALID) {
+      if (dbus_message_iter_get_arg_type(&subIter) == DBUS_TYPE_STRING) {
+        const char* name = nullptr;
+        dbus_message_iter_get_basic(&subIter, static_cast<void*>(&name));
+        if (name && std::string_view(name).contains("org.mpris.MediaPlayer2"))
+          mprisPlayers.emplace_back(name);
+      }
+      dbus_message_iter_next(&subIter);
+    }
+
+    dbus_message_unref(reply);
+    return mprisPlayers;
   }
+  #pragma clang diagnostic pop
 
-  fn GetMediaPlayerMetadata(const SharedPointer<DBus::Connection>& connection, const String& playerBusName)
-    -> Result<MediaInfo, DraconisError> {
-    try {
-      const SharedPointer<DBus::CallMessage> metadataCall =
-        DBus::CallMessage::create(playerBusName, "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "Get");
-
-      *metadataCall << "org.mpris.MediaPlayer2.Player" << "Metadata";
-
-      const SharedPointer<DBus::Message> metadataReply = connection->send_with_reply_blocking(metadataCall, 1000);
-
-      if (!metadataReply || !metadataReply->is_valid()) {
-        return Err(
-          DraconisError(DraconisErrorCode::Timeout, "DBus Get Metadata call timed out or received invalid reply")
-        );
-      }
-
-      DBus::MessageIterator iter(*metadataReply);
-      DBus::Variant         metadataVariant;
-      iter >> metadataVariant; // Can throw
-
-      // MPRIS metadata is variant containing a dict a{sv}
-      if (metadataVariant.type() != DBus::DataType::DICT_ENTRY && metadataVariant.type() != DBus::DataType::ARRAY) {
-        return Err(DraconisError(
-          DraconisErrorCode::ParseError,
-          std::format(
-            "Inner metadata variant is not the expected type, expected dict/a{{sv}} but got '{}'",
-            metadataVariant.signature().str()
-          )
-        ));
-      }
-
-      Map<String, DBus::Variant> metadata = metadataVariant.to_map<String, DBus::Variant>(); // Can throw
-
-      Option<String> title  = None;
-      Option<String> artist = None;
-
-      if (const auto titleIter = metadata.find("xesam:title");
-          titleIter != metadata.end() && titleIter->second.type() == DBus::DataType::STRING)
-        title = titleIter->second.to_string();
-
-      if (const auto artistIter = metadata.find("xesam:artist"); artistIter != metadata.end()) {
-        if (artistIter->second.type() == DBus::DataType::ARRAY) {
-          if (Vec<String> artists = artistIter->second.to_vector<String>(); !artists.empty())
-            artist = artists[0];
-        } else if (artistIter->second.type() == DBus::DataType::STRING) {
-          artist = artistIter->second.to_string();
-        }
-      }
-
-      return MediaInfo(std::move(title), std::move(artist));
-    } catch (const DBus::Error& e) { return Err(DraconisError::fromDBus(e)); } catch (const Exception& e) {
-      return Err(DraconisError(
-        DraconisErrorCode::InternalError, std::format("Standard exception processing metadata: {}", e.what())
-      ));
-    }
+  fn GetActivePlayer(const Vec<String>& mprisPlayers) -> Option<String> {
+    if (!mprisPlayers.empty())
+      return mprisPlayers.front();
+    return None;
   }
 } // namespace
 
-fn os::GetOSVersion() -> Result<String, DraconisError> {
-  constexpr CStr path = "/etc/os-release";
+namespace os {
+  fn GetOSVersion() -> Result<String, DraconisError> {
+    constexpr CStr path = "/etc/os-release";
 
-  std::ifstream file(path);
+    std::ifstream file(path);
 
-  if (!file)
-    return Err(DraconisError(DraconisErrorCode::NotFound, std::format("Failed to open {}", path)));
+    if (!file)
+      return Err(DraconisError(DraconisErrorCode::NotFound, std::format("Failed to open {}", path)));
 
-  String               line;
-  constexpr StringView prefix = "PRETTY_NAME=";
+    String               line;
+    constexpr StringView prefix = "PRETTY_NAME=";
 
-  while (std::getline(file, line)) {
-    if (StringView(line).starts_with(prefix)) {
-      String value = line.substr(prefix.size());
+    while (std::getline(file, line)) {
+      if (StringView(line).starts_with(prefix)) {
+        String value = line.substr(prefix.size());
 
-      if ((value.length() >= 2 && value.front() == '"' && value.back() == '"') ||
-          (value.length() >= 2 && value.front() == '\'' && value.back() == '\''))
-        value = value.substr(1, value.length() - 2);
+        if ((value.length() >= 2 && value.front() == '"' && value.back() == '"') ||
+            (value.length() >= 2 && value.front() == '\'' && value.back() == '\''))
+          value = value.substr(1, value.length() - 2);
 
-      if (value.empty())
-        return Err(DraconisError(
-          DraconisErrorCode::ParseError, std::format("PRETTY_NAME value is empty or only quotes in {}", path)
-        ));
+        if (value.empty())
+          return Err(DraconisError(
+            DraconisErrorCode::ParseError, std::format("PRETTY_NAME value is empty or only quotes in {}", path)
+          ));
 
-      return value;
+        return value;
+      }
     }
+
+    return Err(DraconisError(DraconisErrorCode::NotFound, std::format("PRETTY_NAME line not found in {}", path)));
   }
 
-  return Err(DraconisError(DraconisErrorCode::NotFound, std::format("PRETTY_NAME line not found in {}", path)));
-}
+  fn GetMemInfo() -> Result<u64, DraconisError> {
+    struct sysinfo info;
 
-fn os::GetMemInfo() -> Result<u64, DraconisError> {
-  struct sysinfo info;
+    if (sysinfo(&info) != 0)
+      return Err(DraconisError::withErrno("sysinfo call failed"));
 
-  if (sysinfo(&info) != 0)
-    return Err(DraconisError::fromDBus("sysinfo call failed"));
+    const u64 totalRam = info.totalram;
+    const u64 memUnit  = info.mem_unit;
 
-  const u64 totalRam = info.totalram;
-  const u64 memUnit  = info.mem_unit;
+    if (memUnit == 0)
+      return Err(DraconisError(DraconisErrorCode::InternalError, "sysinfo returned mem_unit of zero"));
 
-  if (memUnit == 0)
-    return Err(DraconisError(DraconisErrorCode::InternalError, "sysinfo returned mem_unit of zero"));
+    if (totalRam > std::numeric_limits<u64>::max() / memUnit)
+      return Err(DraconisError(DraconisErrorCode::InternalError, "Potential overflow calculating total RAM"));
 
-  if (totalRam > std::numeric_limits<u64>::max() / memUnit)
-    return Err(DraconisError(DraconisErrorCode::InternalError, "Potential overflow calculating total RAM"));
+    return info.totalram * info.mem_unit;
+  }
 
-  return info.totalram * info.mem_unit;
-}
+  #pragma clang diagnostic push
+  #pragma clang diagnostic ignored "-Wold-style-cast"
+  fn GetNowPlaying() -> Result<MediaInfo, DraconisError> {
+    DBusError err;
+    dbus_error_init(&err);
 
-fn os::GetNowPlaying() -> Result<MediaInfo, DraconisError> {
-  // Dispatcher must outlive the try-block because 'connection' depends on it later.
-  // ReSharper disable once CppTooWideScope, CppJoinDeclarationAndAssignment
-  SharedPointer<DBus::Dispatcher> dispatcher;
-  SharedPointer<DBus::Connection> connection;
-
-  try {
-    dispatcher = DBus::StandaloneDispatcher::create();
-
-    if (!dispatcher)
-      return Err(DraconisError(DraconisErrorCode::ApiUnavailable, "Failed to create DBus dispatcher"));
-
-    connection = dispatcher->create_connection(DBus::BusType::SESSION);
+    // Connect to the session bus
+    DBusConnection* connection = dbus_bus_get(DBUS_BUS_SESSION, &err);
 
     if (!connection)
-      return Err(DraconisError(DraconisErrorCode::ApiUnavailable, "Failed to connect to DBus session bus"));
-  } catch (const DBus::Error& e) { return Err(DraconisError::fromDBus(e)); } catch (const Exception& e) {
-    return Err(DraconisError(DraconisErrorCode::InternalError, e.what()));
+      if (dbus_error_is_set(&err)) {
+        error_log("DBus connection error: {}", err.message);
+
+        DraconisError error = DraconisError(DraconisErrorCode::ApiUnavailable, err.message);
+        dbus_error_free(&err);
+
+        return Err(error);
+      }
+
+    Vec<String> mprisPlayers = GetMprisPlayers(connection);
+
+    if (mprisPlayers.empty()) {
+      dbus_connection_unref(connection);
+      return Err(DraconisError(DraconisErrorCode::NotFound, "No MPRIS players found"));
+    }
+
+    Option<String> activePlayer = GetActivePlayer(mprisPlayers);
+
+    if (!activePlayer.has_value()) {
+      dbus_connection_unref(connection);
+      return Err(DraconisError(DraconisErrorCode::NotFound, "No active MPRIS player found"));
+    }
+
+    // Prepare a call to the Properties.Get method to fetch "Metadata"
+    DBusMessage* msg = dbus_message_new_method_call(
+      activePlayer->c_str(),             // target service (active player)
+      "/org/mpris/MediaPlayer2",         // object path
+      "org.freedesktop.DBus.Properties", // interface
+      "Get"                              // method name
+    );
+
+    if (!msg) {
+      dbus_connection_unref(connection);
+      return Err(DraconisError(DraconisErrorCode::InternalError, "Failed to create DBus message"));
+    }
+
+    const char* interfaceName = "org.mpris.MediaPlayer2.Player";
+    const char* propertyName  = "Metadata";
+
+    if (!dbus_message_append_args(
+          msg, DBUS_TYPE_STRING, &interfaceName, DBUS_TYPE_STRING, &propertyName, DBUS_TYPE_INVALID
+        )) {
+      dbus_message_unref(msg);
+      dbus_connection_unref(connection);
+      return Err(DraconisError(DraconisErrorCode::InternalError, "Failed to append arguments to DBus message"));
+    }
+
+    // Call the method and block until reply is received.
+    DBusMessage* reply = dbus_connection_send_with_reply_and_block(connection, msg, -1, &err);
+    dbus_message_unref(msg);
+
+    if (dbus_error_is_set(&err)) {
+      error_log("DBus error in Properties.Get: {}", err.message);
+
+      DraconisError error = DraconisError(DraconisErrorCode::ApiUnavailable, err.message);
+      dbus_error_free(&err);
+      dbus_connection_unref(connection);
+
+      return Err(error);
+    }
+
+    if (!reply) {
+      dbus_connection_unref(connection);
+      return Err(DraconisError(DraconisErrorCode::ApiUnavailable, "No reply received for Properties.Get"));
+    }
+
+    // The reply should contain a variant holding a dictionary ("a{sv}")
+    DBusMessageIter iter;
+
+    if (!dbus_message_iter_init(reply, &iter)) {
+      dbus_message_unref(reply);
+      dbus_connection_unref(connection);
+      return Err(DraconisError(DraconisErrorCode::InternalError, "Reply has no arguments"));
+    }
+
+    if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT) {
+      dbus_message_unref(reply);
+      dbus_connection_unref(connection);
+      return Err(DraconisError(DraconisErrorCode::InternalError, "Reply argument is not a variant"));
+    }
+
+    // Recurse into the variant to get the dictionary
+    DBusMessageIter variantIter;
+    dbus_message_iter_recurse(&iter, &variantIter);
+
+    if (dbus_message_iter_get_arg_type(&variantIter) != DBUS_TYPE_ARRAY) {
+      dbus_message_unref(reply);
+      dbus_connection_unref(connection);
+      return Err(DraconisError(DraconisErrorCode::InternalError, "Variant argument is not an array"));
+    }
+
+    String          title;
+    String          artist;
+    DBusMessageIter arrayIter;
+    dbus_message_iter_recurse(&variantIter, &arrayIter);
+
+    // Iterate over each dictionary entry (each entry is of type dict entry)
+    while (dbus_message_iter_get_arg_type(&arrayIter) != DBUS_TYPE_INVALID) {
+      if (dbus_message_iter_get_arg_type(&arrayIter) == DBUS_TYPE_DICT_ENTRY) {
+        DBusMessageIter dictEntry;
+        dbus_message_iter_recurse(&arrayIter, &dictEntry);
+
+        // Get the key (a string)
+        const char* key = nullptr;
+
+        if (dbus_message_iter_get_arg_type(&dictEntry) == DBUS_TYPE_STRING)
+          dbus_message_iter_get_basic(&dictEntry, static_cast<void*>(&key));
+
+        // Move to the value (a variant)
+        dbus_message_iter_next(&dictEntry);
+
+        if (dbus_message_iter_get_arg_type(&dictEntry) == DBUS_TYPE_VARIANT) {
+          DBusMessageIter valueIter;
+          dbus_message_iter_recurse(&dictEntry, &valueIter);
+
+          if (key && std::string_view(key) == "xesam:title") {
+            if (dbus_message_iter_get_arg_type(&valueIter) == DBUS_TYPE_STRING) {
+              const char* val = nullptr;
+              dbus_message_iter_get_basic(&valueIter, static_cast<void*>(&val));
+
+              if (val)
+                title = val;
+            }
+          } else if (key && std::string_view(key) == "xesam:artist") {
+            // Expect an array of strings
+            if (dbus_message_iter_get_arg_type(&valueIter) == DBUS_TYPE_ARRAY) {
+              DBusMessageIter subIter;
+              dbus_message_iter_recurse(&valueIter, &subIter);
+
+              if (dbus_message_iter_get_arg_type(&subIter) == DBUS_TYPE_STRING) {
+                const char* val = nullptr;
+                dbus_message_iter_get_basic(&subIter, static_cast<void*>(&val));
+
+                if (val)
+                  artist = val;
+              }
+            }
+          }
+        }
+      }
+
+      dbus_message_iter_next(&arrayIter);
+    }
+
+    dbus_message_unref(reply);
+    dbus_connection_unref(connection);
+
+    return MediaInfo(artist, title);
+  }
+  #pragma clang diagnostic pop
+
+  fn GetWindowManager() -> Option<String> {
+    if (Result<String, DraconisError> waylandResult = GetWaylandCompositor())
+      return *waylandResult;
+    else
+      debug_log("Could not detect Wayland compositor: {}", waylandResult.error().message);
+
+    if (Result<String, DraconisError> x11Result = GetX11WindowManager())
+      return *x11Result;
+    else
+      debug_log("Could not detect X11 window manager: {}", x11Result.error().message);
+
+    return None;
   }
 
-  Result<String, DraconisError> playerBusName = GetMprisPlayers(connection);
+  fn GetDesktopEnvironment() -> Option<String> {
+    return util::helpers::GetEnv("XDG_CURRENT_DESKTOP")
+      .transform([](const String& xdgDesktop) -> String {
+        if (const usize colon = xdgDesktop.find(':'); colon != String::npos)
+          return xdgDesktop.substr(0, colon);
 
-  if (!playerBusName)
-    return Err(playerBusName.error());
+        return xdgDesktop;
+      })
+      .or_else([](const DraconisError&) -> Result<String, DraconisError> {
+        return util::helpers::GetEnv("DESKTOP_SESSION");
+      })
+      .transform([](const String& finalValue) -> Option<String> {
+        debug_log("Found desktop environment: {}", finalValue);
+        return finalValue;
+      })
+      .value_or(None);
+  }
 
-  Result<MediaInfo, DraconisError> metadataResult = GetMediaPlayerMetadata(connection, *playerBusName);
-
-  if (!metadataResult)
-    return Err(metadataResult.error());
-
-  return std::move(*metadataResult);
-}
-
-fn os::GetWindowManager() -> Option<String> {
-  if (Result<String, DraconisError> waylandResult = GetWaylandCompositor())
-    return *waylandResult;
-  else
-    debug_log("Could not detect Wayland compositor: {}", waylandResult.error().message);
-
-  if (Result<String, DraconisError> x11Result = GetX11WindowManager())
-    return *x11Result;
-  else
-    debug_log("Could not detect X11 window manager: {}", x11Result.error().message);
-
-  return None;
-}
-
-fn os::GetDesktopEnvironment() -> Option<String> {
-  return util::helpers::GetEnv("XDG_CURRENT_DESKTOP")
-    .transform([](const String& xdgDesktop) -> String {
-      if (const usize colon = xdgDesktop.find(':'); colon != String::npos)
-        return xdgDesktop.substr(0, colon);
-
-      return xdgDesktop;
-    })
-    .or_else([](const DraconisError&) -> Result<String, DraconisError> {
-      return util::helpers::GetEnv("DESKTOP_SESSION");
-    })
-    .transform([](const String& finalValue) -> Option<String> {
-      debug_log("Found desktop environment: {}", finalValue);
-      return finalValue;
-    })
-    .value_or(None);
-}
-
-fn os::GetShell() -> Option<String> {
-  if (const Result<String, DraconisError> shellPath = util::helpers::GetEnv("SHELL")) {
-    // clang-format off
+  fn GetShell() -> Option<String> {
+    if (const Result<String, DraconisError> shellPath = util::helpers::GetEnv("SHELL")) {
+      // clang-format off
     constexpr Array<Pair<StringView, StringView>, 5> shellMap {{
       { "bash",    "Bash" },
       {  "zsh",     "Zsh" },
@@ -399,80 +509,81 @@ fn os::GetShell() -> Option<String> {
       {   "nu", "Nushell" },
       {   "sh",      "SH" }, // sh last because other shells contain "sh"
     }};
-    // clang-format on
+      // clang-format on
 
-    for (const auto& [exe, name] : shellMap)
-      if (shellPath->contains(exe))
-        return String(name);
+      for (const auto& [exe, name] : shellMap)
+        if (shellPath->contains(exe))
+          return String(name);
 
-    return *shellPath; // fallback to the raw shell path
+      return *shellPath; // fallback to the raw shell path
+    }
+
+    return None;
   }
 
-  return None;
-}
+  fn GetHost() -> Result<String, DraconisError> {
+    constexpr CStr primaryPath  = "/sys/class/dmi/id/product_family";
+    constexpr CStr fallbackPath = "/sys/class/dmi/id/product_name";
 
-fn os::GetHost() -> Result<String, DraconisError> {
-  constexpr CStr primaryPath  = "/sys/class/dmi/id/product_family";
-  constexpr CStr fallbackPath = "/sys/class/dmi/id/product_name";
+    fn readFirstLine = [&](const String& path) -> Result<String, DraconisError> {
+      std::ifstream file(path);
+      String        line;
 
-  fn readFirstLine = [&](const String& path) -> Result<String, DraconisError> {
-    std::ifstream file(path);
-    String        line;
-
-    if (!file)
-      return Err(
-        DraconisError(DraconisErrorCode::NotFound, std::format("Failed to open DMI product identifier file '{}'", path))
-      );
-
-    if (!std::getline(file, line))
-      return Err(
-        DraconisError(DraconisErrorCode::ParseError, std::format("DMI product identifier file ('{}') is empty", path))
-      );
-
-    return line;
-  };
-
-  return readFirstLine(primaryPath).or_else([&](const DraconisError& primaryError) -> Result<String, DraconisError> {
-    return readFirstLine(fallbackPath)
-      .or_else([&](const DraconisError& fallbackError) -> Result<String, DraconisError> {
+      if (!file)
         return Err(DraconisError(
-          DraconisErrorCode::InternalError,
-          std::format(
-            "Failed to get host identifier. Primary ('{}'): {}. Fallback ('{}'): {}",
-            primaryPath,
-            primaryError.message,
-            fallbackPath,
-            fallbackError.message
-          )
+          DraconisErrorCode::NotFound, std::format("Failed to open DMI product identifier file '{}'", path)
         ));
-      });
-  });
-}
 
-fn os::GetKernelVersion() -> Result<String, DraconisError> {
-  utsname uts;
+      if (!std::getline(file, line))
+        return Err(
+          DraconisError(DraconisErrorCode::ParseError, std::format("DMI product identifier file ('{}') is empty", path))
+        );
 
-  if (uname(&uts) == -1)
-    return Err(DraconisError::withErrno("uname call failed"));
+      return line;
+    };
 
-  if (std::strlen(uts.release) == 0)
-    return Err(DraconisError(DraconisErrorCode::ParseError, "uname returned null kernel release"));
+    return readFirstLine(primaryPath).or_else([&](const DraconisError& primaryError) -> Result<String, DraconisError> {
+      return readFirstLine(fallbackPath)
+        .or_else([&](const DraconisError& fallbackError) -> Result<String, DraconisError> {
+          return Err(DraconisError(
+            DraconisErrorCode::InternalError,
+            std::format(
+              "Failed to get host identifier. Primary ('{}'): {}. Fallback ('{}'): {}",
+              primaryPath,
+              primaryError.message,
+              fallbackPath,
+              fallbackError.message
+            )
+          ));
+        });
+    });
+  }
 
-  return uts.release;
-}
+  fn GetKernelVersion() -> Result<String, DraconisError> {
+    utsname uts;
 
-fn os::GetDiskUsage() -> Result<DiskSpace, DraconisError> {
-  struct statvfs stat;
+    if (uname(&uts) == -1)
+      return Err(DraconisError::withErrno("uname call failed"));
 
-  if (statvfs("/", &stat) == -1)
-    return Err(DraconisError::withErrno(std::format("Failed to get filesystem stats for '/' (statvfs call failed)")));
+    if (std::strlen(uts.release) == 0)
+      return Err(DraconisError(DraconisErrorCode::ParseError, "uname returned null kernel release"));
 
-  return DiskSpace {
-    .used_bytes  = (stat.f_blocks * stat.f_frsize) - (stat.f_bfree * stat.f_frsize),
-    .total_bytes = stat.f_blocks * stat.f_frsize,
-  };
-}
+    return uts.release;
+  }
 
-fn os::GetPackageCount() -> Result<u64, DraconisError> { return linux::GetTotalPackageCount(); }
+  fn GetDiskUsage() -> Result<DiskSpace, DraconisError> {
+    struct statvfs stat;
+
+    if (statvfs("/", &stat) == -1)
+      return Err(DraconisError::withErrno(std::format("Failed to get filesystem stats for '/' (statvfs call failed)")));
+
+    return DiskSpace {
+      .used_bytes  = (stat.f_blocks * stat.f_frsize) - (stat.f_bfree * stat.f_frsize),
+      .total_bytes = stat.f_blocks * stat.f_frsize,
+    };
+  }
+
+  fn GetPackageCount() -> Result<u64, DraconisError> { return linux::GetTotalPackageCount(); }
+} // namespace os
 
 #endif // __linux__
