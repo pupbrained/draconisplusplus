@@ -1,10 +1,14 @@
 #pragma once
 
+#ifdef __linux__
+
+// clang-format off
 #include <filesystem>
 
 #include "src/core/util/defs.hpp"
 #include "src/core/util/error.hpp"
 #include "src/core/util/types.hpp"
+// clang-format on
 
 namespace os::linux {
   using util::error::DraconisError;
@@ -52,3 +56,5 @@ namespace os::linux {
   // Get total package count from all available package managers
   fn GetTotalPackageCount() -> Result<u64, DraconisError>;
 } // namespace os::linux
+
+#endif // __linux__

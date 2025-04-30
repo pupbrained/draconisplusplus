@@ -1,3 +1,6 @@
+#ifdef __linux__
+
+// clang-format off
 #include "src/os/linux/pkg_count.hpp"
 
 #include <SQLiteCpp/SQLiteCpp.h>
@@ -9,6 +12,7 @@
 
 #include "src/core/util/logging.hpp"
 #include "src/core/util/types.hpp"
+// clang-format on
 
 using util::error::DraconisError, util::error::DraconisErrorCode;
 using util::types::u64, util::types::i64, util::types::Result, util::types::Err, util::types::String,
@@ -199,10 +203,9 @@ namespace {
             cacheTimePoint.time_since_epoch() >= dbModTime.time_since_epoch()) {
           // Use cacheTimePoint for logging as well
           debug_log(
-            "Using valid {} package count cache (DB file unchanged since {}). Count: {}",
+            "Using valid {} package count cache (DB file unchanged since {}).",
             pmId,
-            std::format("{:%F %T %Z}", floor<seconds>(cacheTimePoint)), // Format the time_point
-            count
+            std::format("{:%F %T %Z}", floor<seconds>(cacheTimePoint))
           );
           return count;
         }
@@ -338,3 +341,5 @@ namespace os::linux {
     return totalCount;
   }
 } // namespace os::linux
+
+#endif // __linux__

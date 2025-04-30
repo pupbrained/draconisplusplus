@@ -1,9 +1,13 @@
 #pragma once
 
-#include <wayland-client.h>
+#ifdef __linux__
+
+// clang-format off
+#include <wayland-client.h> // Wayland client library
 
 #include "src/core/util/defs.hpp"
 #include "src/core/util/types.hpp"
+// clang-format on
 
 struct wl_display;
 
@@ -56,3 +60,5 @@ namespace wl {
     [[nodiscard]] fn fd() const -> util::types::i32 { return get_fd(m_Display); }
   };
 } // namespace wl
+
+#endif // __linux__

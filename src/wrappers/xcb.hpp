@@ -1,9 +1,13 @@
 #pragma once
 
-#include <xcb/xcb.h>
+#ifdef __linux__
+
+// clang-format off
+#include <xcb/xcb.h> // XCB library
 
 #include "src/core/util/defs.hpp"
 #include "src/core/util/types.hpp"
+// clang-format on
 
 namespace xcb {
   using util::types::u8, util::types::i32, util::types::CStr, util::types::None;
@@ -166,3 +170,5 @@ namespace xcb {
     [[nodiscard]] fn operator*() const->T& { return *m_Reply; }
   };
 } // namespace xcb
+
+#endif // __linux__

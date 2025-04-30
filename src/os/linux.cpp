@@ -1,29 +1,28 @@
 #ifdef __linux__
 
 // clang-format off
-#include <cstring>                          // std::strlen
-#include <dbus/dbus.h>
-#include <expected>                         // std::{unexpected, expected}
-#include <format>                           // std::{format, format_to_n}
-#include <fstream>                          // std::ifstream
-#include <climits>                          // PATH_MAX
-#include <limits>                           // std::numeric_limits
-#include <string>                           // std::{getline, string (String)}
-#include <string_view>                      // std::string_view (StringView)
-#include <sys/socket.h>                     // ucred, getsockopt, SOL_SOCKET, SO_PEERCRED
-#include <sys/statvfs.h>                    // statvfs
-#include <sys/sysinfo.h>                    // sysinfo
-#include <sys/utsname.h>                    // utsname, uname
-#include <unistd.h>                         // readlink
+#include <cstring>       // std::strlen
+#include <dbus/dbus.h>   // DBus::{DBusConnection, DBusMessage, DBusMessageIter, etc.}
+#include <expected>      // std::{unexpected, expected}
+#include <format>        // std::{format, format_to_n}
+#include <fstream>       // std::ifstream
+#include <limits>        // std::numeric_limits
+#include <string>        // std::{getline, string (String)}
+#include <string_view>   // std::string_view (StringView)
+#include <sys/socket.h>  // ucred, getsockopt, SOL_SOCKET, SO_PEERCRED
+#include <sys/statvfs.h> // statvfs
+#include <sys/sysinfo.h> // sysinfo
+#include <sys/utsname.h> // utsname, uname
+#include <unistd.h>      // readlink
 
 #include "src/core/util/helpers.hpp"
 #include "src/core/util/logging.hpp"
-
+#include "src/wrappers/dbus.hpp"
 #include "src/wrappers/wayland.hpp"
 #include "src/wrappers/xcb.hpp"
 
-#include "os.hpp"
 #include "linux/pkg_count.hpp"
+#include "os.hpp"
 // clang-format on
 
 using namespace util::types;
@@ -179,81 +178,6 @@ namespace {
 
     return String(compositorNameView);
   }
-
-  #pragma clang diagnostic push
-  #pragma clang diagnostic ignored "-Wold-style-cast"
-  fn GetMprisPlayers(DBusConnection* connection) -> Vec<String> {
-    Vec<String> mprisPlayers;
-    DBusError   err;
-    dbus_error_init(&err);
-
-    // Create a method call to org.freedesktop.DBus.ListNames
-    DBusMessage* msg = dbus_message_new_method_call(
-      "org.freedesktop.DBus",  // target service
-      "/org/freedesktop/DBus", // object path
-      "org.freedesktop.DBus",  // interface name
-      "ListNames"              // method name
-    );
-
-    if (!msg) {
-      debug_log("Failed to create message for ListNames.");
-      return mprisPlayers;
-    }
-
-    // Send the message and block until we get a reply.
-    DBusMessage* reply = dbus_connection_send_with_reply_and_block(connection, msg, -1, &err);
-    dbus_message_unref(msg);
-
-    if (dbus_error_is_set(&err)) {
-      debug_log("DBus error in ListNames: {}", err.message);
-      dbus_error_free(&err);
-      return mprisPlayers;
-    }
-
-    if (!reply) {
-      debug_log("No reply received for ListNames.");
-      return mprisPlayers;
-    }
-
-    // The expected reply signature is "as" (an array of strings)
-    DBusMessageIter iter;
-
-    if (!dbus_message_iter_init(reply, &iter)) {
-      debug_log("Reply has no arguments.");
-      dbus_message_unref(reply);
-      return mprisPlayers;
-    }
-
-    if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_ARRAY) {
-      debug_log("Reply argument is not an array.");
-      dbus_message_unref(reply);
-      return mprisPlayers;
-    }
-
-    // Iterate over the array of strings
-    DBusMessageIter subIter;
-    dbus_message_iter_recurse(&iter, &subIter);
-
-    while (dbus_message_iter_get_arg_type(&subIter) != DBUS_TYPE_INVALID) {
-      if (dbus_message_iter_get_arg_type(&subIter) == DBUS_TYPE_STRING) {
-        const char* name = nullptr;
-        dbus_message_iter_get_basic(&subIter, static_cast<void*>(&name));
-        if (name && std::string_view(name).contains("org.mpris.MediaPlayer2"))
-          mprisPlayers.emplace_back(name);
-      }
-      dbus_message_iter_next(&subIter);
-    }
-
-    dbus_message_unref(reply);
-    return mprisPlayers;
-  }
-  #pragma clang diagnostic pop
-
-  fn GetActivePlayer(const Vec<String>& mprisPlayers) -> Option<String> {
-    if (!mprisPlayers.empty())
-      return mprisPlayers.front();
-    return None;
-  }
 } // namespace
 
 namespace os {
@@ -306,166 +230,134 @@ namespace os {
     return info.totalram * info.mem_unit;
   }
 
-  #pragma clang diagnostic push
-  #pragma clang diagnostic ignored "-Wold-style-cast"
   fn GetNowPlaying() -> Result<MediaInfo, DraconisError> {
-    DBusError err;
-    dbus_error_init(&err);
+    Result<dbus::ConnectionGuard, DraconisError> connectionResult = dbus::BusGet(DBUS_BUS_SESSION);
 
-    // Connect to the session bus
-    DBusConnection* connection = dbus_bus_get(DBUS_BUS_SESSION, &err);
+    if (!connectionResult)
+      return Err(connectionResult.error());
 
-    if (!connection)
-      if (dbus_error_is_set(&err)) {
-        error_log("DBus connection error: {}", err.message);
+    dbus::ConnectionGuard& connection = *connectionResult;
 
-        DraconisError error = DraconisError(DraconisErrorCode::ApiUnavailable, err.message);
-        dbus_error_free(&err);
+    Option<String> activePlayer = None;
 
-        return Err(error);
+    {
+      Result<dbus::MessageGuard, DraconisError> listNamesResult = dbus::MessageNewMethodCall(
+        "org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "ListNames"
+      );
+      if (!listNamesResult)
+        return Err(listNamesResult.error());
+
+      dbus::MessageGuard& listNames = *listNamesResult;
+
+      Result<dbus::MessageGuard, DraconisError> listNamesReplyResult =
+        dbus::ConnectionSendWithReplyAndBlock(connection, listNames, 100);
+
+      if (!listNamesReplyResult)
+        return Err(listNamesReplyResult.error());
+
+      dbus::MessageGuard& listNamesReply = *listNamesReplyResult;
+
+      dbus::MessageIter iter;
+
+      if (dbus::MessageIterInit(listNamesReply, &iter) && dbus::MessageIterGetArgType(&iter) == DBUS_TYPE_ARRAY) {
+        dbus::MessageIter subIter;
+        dbus::MessageIterRecurse(&iter, &subIter);
+
+        while (dbus::MessageIterGetArgType(&subIter) != DBUS_TYPE_INVALID) {
+          if (Option<String> name = dbus::MessageIterGetString(&subIter))
+            if (name->find("org.mpris.MediaPlayer2") != String::npos) {
+              activePlayer = std::move(*name);
+              break;
+            }
+
+          dbus::MessageIterNext(&subIter);
+        }
+      } else {
+        return Err(DraconisError(DraconisErrorCode::ParseError, "Invalid DBus ListNames reply format"));
       }
-
-    Vec<String> mprisPlayers = GetMprisPlayers(connection);
-
-    if (mprisPlayers.empty()) {
-      dbus_connection_unref(connection);
-      return Err(DraconisError(DraconisErrorCode::NotFound, "No MPRIS players found"));
     }
 
-    Option<String> activePlayer = GetActivePlayer(mprisPlayers);
+    if (!activePlayer)
+      return Err(DraconisError(DraconisErrorCode::NotFound, "No active MPRIS players found"));
 
-    if (!activePlayer.has_value()) {
-      dbus_connection_unref(connection);
-      return Err(DraconisError(DraconisErrorCode::NotFound, "No active MPRIS player found"));
-    }
-
-    // Prepare a call to the Properties.Get method to fetch "Metadata"
-    DBusMessage* msg = dbus_message_new_method_call(
-      activePlayer->c_str(),             // target service (active player)
-      "/org/mpris/MediaPlayer2",         // object path
-      "org.freedesktop.DBus.Properties", // interface
-      "Get"                              // method name
+    Result<dbus::MessageGuard, DraconisError> msgResult = dbus::MessageNewMethodCall(
+      activePlayer->c_str(), "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "Get"
     );
 
-    if (!msg) {
-      dbus_connection_unref(connection);
-      return Err(DraconisError(DraconisErrorCode::InternalError, "Failed to create DBus message"));
-    }
+    if (!msgResult)
+      return Err(msgResult.error());
 
-    const char* interfaceName = "org.mpris.MediaPlayer2.Player";
-    const char* propertyName  = "Metadata";
+    dbus::MessageGuard& msg = *msgResult;
 
-    if (!dbus_message_append_args(
-          msg, DBUS_TYPE_STRING, &interfaceName, DBUS_TYPE_STRING, &propertyName, DBUS_TYPE_INVALID
-        )) {
-      dbus_message_unref(msg);
-      dbus_connection_unref(connection);
+    if (!dbus::MessageAppendArgs(
+          msg, DBUS_TYPE_STRING, "org.mpris.MediaPlayer2.Player", DBUS_TYPE_STRING, "Metadata", DBUS_TYPE_INVALID
+        ))
       return Err(DraconisError(DraconisErrorCode::InternalError, "Failed to append arguments to DBus message"));
-    }
 
-    // Call the method and block until reply is received.
-    DBusMessage* reply = dbus_connection_send_with_reply_and_block(connection, msg, -1, &err);
-    dbus_message_unref(msg);
+    Result<dbus::MessageGuard, DraconisError> replyResult =
+      dbus::ConnectionSendWithReplyAndBlock(connection, msg, 100);
 
-    if (dbus_error_is_set(&err)) {
-      error_log("DBus error in Properties.Get: {}", err.message);
+    if (!replyResult)
+      return Err(replyResult.error());
 
-      DraconisError error = DraconisError(DraconisErrorCode::ApiUnavailable, err.message);
-      dbus_error_free(&err);
-      dbus_connection_unref(connection);
+    dbus::MessageGuard& reply = *replyResult;
 
-      return Err(error);
-    }
+    Option<String> title  = None;
+    Option<String> artist = None;
 
-    if (!reply) {
-      dbus_connection_unref(connection);
-      return Err(DraconisError(DraconisErrorCode::ApiUnavailable, "No reply received for Properties.Get"));
-    }
+    dbus::MessageIter propIter;
+    if (!dbus::MessageIterInit(reply, &propIter))
+      return Err(DraconisError(DraconisErrorCode::ParseError, "Properties.Get reply has no arguments"));
 
-    // The reply should contain a variant holding a dictionary ("a{sv}")
-    DBusMessageIter iter;
+    if (dbus::MessageIterGetArgType(&propIter) != DBUS_TYPE_VARIANT)
+      return Err(DraconisError(DraconisErrorCode::ParseError, "Properties.Get reply argument is not a variant"));
 
-    if (!dbus_message_iter_init(reply, &iter)) {
-      dbus_message_unref(reply);
-      dbus_connection_unref(connection);
-      return Err(DraconisError(DraconisErrorCode::InternalError, "Reply has no arguments"));
-    }
+    dbus::MessageIter variantIter;
+    dbus::MessageIterRecurse(&propIter, &variantIter);
 
-    if (dbus_message_iter_get_arg_type(&iter) != DBUS_TYPE_VARIANT) {
-      dbus_message_unref(reply);
-      dbus_connection_unref(connection);
-      return Err(DraconisError(DraconisErrorCode::InternalError, "Reply argument is not a variant"));
-    }
+    if (dbus::MessageIterGetArgType(&variantIter) != DBUS_TYPE_ARRAY ||
+        dbus_message_iter_get_element_type(&variantIter) != DBUS_TYPE_DICT_ENTRY)
+      return Err(
+        DraconisError(DraconisErrorCode::ParseError, "Metadata variant content is not a dictionary array (a{sv})")
+      );
 
-    // Recurse into the variant to get the dictionary
-    DBusMessageIter variantIter;
-    dbus_message_iter_recurse(&iter, &variantIter);
+    dbus::MessageIter dictIter;
+    dbus::MessageIterRecurse(&variantIter, &dictIter);
 
-    if (dbus_message_iter_get_arg_type(&variantIter) != DBUS_TYPE_ARRAY) {
-      dbus_message_unref(reply);
-      dbus_connection_unref(connection);
-      return Err(DraconisError(DraconisErrorCode::InternalError, "Variant argument is not an array"));
-    }
+    while (dbus::MessageIterGetArgType(&dictIter) == DBUS_TYPE_DICT_ENTRY) {
+      dbus::MessageIter entryIter;
+      dbus::MessageIterRecurse(&dictIter, &entryIter);
 
-    String          title;
-    String          artist;
-    DBusMessageIter arrayIter;
-    dbus_message_iter_recurse(&variantIter, &arrayIter);
+      Option<String> key = dbus::MessageIterGetString(&entryIter);
 
-    // Iterate over each dictionary entry (each entry is of type dict entry)
-    while (dbus_message_iter_get_arg_type(&arrayIter) != DBUS_TYPE_INVALID) {
-      if (dbus_message_iter_get_arg_type(&arrayIter) == DBUS_TYPE_DICT_ENTRY) {
-        DBusMessageIter dictEntry;
-        dbus_message_iter_recurse(&arrayIter, &dictEntry);
-
-        // Get the key (a string)
-        const char* key = nullptr;
-
-        if (dbus_message_iter_get_arg_type(&dictEntry) == DBUS_TYPE_STRING)
-          dbus_message_iter_get_basic(&dictEntry, static_cast<void*>(&key));
-
-        // Move to the value (a variant)
-        dbus_message_iter_next(&dictEntry);
-
-        if (dbus_message_iter_get_arg_type(&dictEntry) == DBUS_TYPE_VARIANT) {
-          DBusMessageIter valueIter;
-          dbus_message_iter_recurse(&dictEntry, &valueIter);
-
-          if (key && std::string_view(key) == "xesam:title") {
-            if (dbus_message_iter_get_arg_type(&valueIter) == DBUS_TYPE_STRING) {
-              const char* val = nullptr;
-              dbus_message_iter_get_basic(&valueIter, static_cast<void*>(&val));
-
-              if (val)
-                title = val;
-            }
-          } else if (key && std::string_view(key) == "xesam:artist") {
-            // Expect an array of strings
-            if (dbus_message_iter_get_arg_type(&valueIter) == DBUS_TYPE_ARRAY) {
-              DBusMessageIter subIter;
-              dbus_message_iter_recurse(&valueIter, &subIter);
-
-              if (dbus_message_iter_get_arg_type(&subIter) == DBUS_TYPE_STRING) {
-                const char* val = nullptr;
-                dbus_message_iter_get_basic(&subIter, static_cast<void*>(&val));
-
-                if (val)
-                  artist = val;
-              }
-            }
-          }
-        }
+      if (!key) {
+        dbus::MessageIterNext(&dictIter);
+        continue;
       }
 
-      dbus_message_iter_next(&arrayIter);
+      if (!dbus::MessageIterNext(&entryIter) || dbus::MessageIterGetArgType(&entryIter) != DBUS_TYPE_VARIANT) {
+        dbus::MessageIterNext(&dictIter);
+        continue;
+      }
+
+      dbus::MessageIter valueVariantIter;
+      dbus::MessageIterRecurse(&entryIter, &valueVariantIter);
+
+      if (*key == "xesam:title")
+        title = dbus::MessageIterGetString(&valueVariantIter);
+      else if (*key == "xesam:artist")
+        if (dbus::MessageIterGetArgType(&valueVariantIter) == DBUS_TYPE_ARRAY &&
+            dbus_message_iter_get_element_type(&valueVariantIter) == DBUS_TYPE_STRING) {
+          dbus::MessageIter artistArrayIter;
+          dbus::MessageIterRecurse(&valueVariantIter, &artistArrayIter);
+          artist = dbus::MessageIterGetString(&artistArrayIter);
+        }
+
+      dbus::MessageIterNext(&dictIter);
     }
 
-    dbus_message_unref(reply);
-    dbus_connection_unref(connection);
-
-    return MediaInfo(artist, title);
+    return MediaInfo(std::move(title), std::move(artist));
   }
-  #pragma clang diagnostic pop
 
   fn GetWindowManager() -> Option<String> {
     if (Result<String, DraconisError> waylandResult = GetWaylandCompositor())
