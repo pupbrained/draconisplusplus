@@ -13,41 +13,46 @@
 // clang-format on
 
 using namespace util::types;
+using util::error::DracError, util::error::DracErrorCode;
 
-fn os::GetMemInfo() -> Result<u64, DraconisError> {
+fn os::GetMemInfo() -> Result<u64, DracError> {
   u64   mem  = 0;
   usize size = sizeof(mem);
 
   if (sysctlbyname("hw.memsize", &mem, &size, nullptr, 0) == -1)
-    return Err(DraconisError::withErrno("Failed to get memory info"));
+    return Err(DracError::withErrno("Failed to get memory info"));
 
   return mem;
 }
 
-fn os::GetNowPlaying() -> Result<MediaInfo, DraconisError> { return GetCurrentPlayingInfo(); }
+fn os::GetNowPlaying() -> Result<MediaInfo, DracError> { return GetCurrentPlayingInfo(); }
 
-fn os::GetOSVersion() -> Result<String, DraconisError> { return GetMacOSVersion(); }
+fn os::GetOSVersion() -> Result<String, DracError> { return GetMacOSVersion(); }
 
-fn os::GetDesktopEnvironment() -> Option<String> { return None; }
+fn os::GetDesktopEnvironment() -> Result<String, DracError> {
+  return Err(DracError(DracErrorCode::Other, "Not implemented on macOS"));
+}
 
-fn os::GetWindowManager() -> Option<String> { return None; }
+fn os::GetWindowManager() -> Result<String, DracError> {
+  return Err(DracError(DracErrorCode::Other, "Not implemented on macOS"));
+}
 
-fn os::GetKernelVersion() -> Result<String, DraconisError> {
+fn os::GetKernelVersion() -> Result<String, DracError> {
   std::array<char, 256> kernelVersion {};
   usize                 kernelVersionLen = sizeof(kernelVersion);
 
   if (sysctlbyname("kern.osrelease", kernelVersion.data(), &kernelVersionLen, nullptr, 0) == -1)
-    return Err(DraconisError::withErrno("Failed to get kernel version"));
+    return Err(DracError::withErrno("Failed to get kernel version"));
 
   return kernelVersion.data();
 }
 
-fn os::GetHost() -> Result<String, DraconisError> {
+fn os::GetHost() -> Result<String, DracError> {
   std::array<char, 256> hwModel {};
   size_t                hwModelLen = sizeof(hwModel);
 
   if (sysctlbyname("hw.model", hwModel.data(), &hwModelLen, nullptr, 0) == -1)
-    return Err(DraconisError::withErrno("Failed to get host info"));
+    return Err(DracError::withErrno("Failed to get host info"));
 
   // taken from https://github.com/fastfetch-cli/fastfetch/blob/dev/src/detection/host/host_mac.c
   // shortened a lot of the entries to remove unnecessary info
@@ -202,27 +207,25 @@ fn os::GetHost() -> Result<String, DraconisError> {
 
   const auto iter = modelNameByHwModel.find(hwModel.data());
   if (iter == modelNameByHwModel.end())
-    return Err(DraconisError::withErrno("Failed to get host info"));
+    return Err(DracError::withErrno("Failed to get host info"));
 
   return String(iter->second);
 }
 
-fn os::GetDiskUsage() -> Result<DiskSpace, DraconisError> {
+fn os::GetDiskUsage() -> Result<DiskSpace, DracError> {
   struct statvfs vfs;
 
   if (statvfs("/", &vfs) != 0)
-    return Err(DraconisError::withErrno("Failed to get disk usage"));
+    return Err(DracError::withErrno("Failed to get disk usage"));
 
   return DiskSpace { .used_bytes  = (vfs.f_blocks - vfs.f_bfree) * vfs.f_frsize,
                      .total_bytes = vfs.f_blocks * vfs.f_frsize };
 }
 
-fn os::GetPackageCount() -> Result<u64, DraconisError> {
-  using util::error::DraconisErrorCode;
+fn os::GetPackageCount() -> Result<u64, DracError> { return shared::GetPackageCount(); }
 
-  return Err(DraconisError(DraconisErrorCode::Other, "Not implemented on macOS"));
+fn os::GetShell() -> Result<String, DracError> {
+  return Err(DracError(DracErrorCode::Other, "Not implemented on macOS"));
 }
-
-fn os::GetShell() -> Option<String> { return None; }
 
 #endif

@@ -14,8 +14,8 @@
 #include "src/core/util/error.hpp"
 // clang-format on
 
-using util::error::DraconisErrorCode;
-using util::types::Err, util::types::Option;
+using util::error::DracErrorCode;
+using util::types::Err, util::types::Option, util::types::None;
 
 using MRMediaRemoteGetNowPlayingInfoFunction =
   void (*)(dispatch_queue_t queue, void (^handler)(NSDictionary* information));
@@ -66,7 +66,7 @@ using MRMediaRemoteGetNowPlayingInfoFunction =
   );
 }
 
-+ (Result<String, DraconisError>)macOSVersion {
++ (Result<String, DracError>)macOSVersion {
   NSProcessInfo*           processInfo = [NSProcessInfo processInfo];
   NSOperatingSystemVersion osVersion   = [processInfo operatingSystemVersion];
 
@@ -91,21 +91,21 @@ using MRMediaRemoteGetNowPlayingInfoFunction =
 
 extern "C++" {
   // NOLINTBEGIN(misc-use-internal-linkage)
-  fn GetCurrentPlayingInfo() -> Result<MediaInfo, DraconisError> {
-    __block Result<MediaInfo, DraconisError> result;
+  fn GetCurrentPlayingInfo() -> Result<MediaInfo, DracError> {
+    __block Result<MediaInfo, DracError> result;
 
     const dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
 
     [Bridge fetchCurrentPlayingMetadata:^(std::expected<NSDictionary*, const char*> metadataResult) {
       if (!metadataResult) {
-        result = Err(DraconisError(DraconisErrorCode::InternalError, metadataResult.error()));
+        result = Err(DracError(DracErrorCode::InternalError, metadataResult.error()));
         dispatch_semaphore_signal(semaphore);
         return;
       }
 
       const NSDictionary* const metadata = *metadataResult;
       if (!metadata) {
-        result = Err(DraconisError(DraconisErrorCode::InternalError, "No metadata"));
+        result = Err(DracError(DracErrorCode::InternalError, "No metadata"));
         dispatch_semaphore_signal(semaphore);
         return;
       }
@@ -124,7 +124,7 @@ extern "C++" {
     return result;
   }
 
-  fn GetMacOSVersion() -> Result<String, DraconisError> { return [Bridge macOSVersion]; }
+  fn GetMacOSVersion() -> Result<String, DracError> { return [Bridge macOSVersion]; }
   // NOLINTEND(misc-use-internal-linkage)
 }
 

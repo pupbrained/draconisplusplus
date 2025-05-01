@@ -7,7 +7,7 @@
 #include "src/core/util/error.hpp"
 #include "src/core/util/types.hpp"
 // clang-format on
-using util::error::DraconisError;
+using util::error::DracError;
 using util::types::MediaInfo, util::types::String, util::types::Result;
 
   #ifdef __OBJC__
@@ -15,12 +15,12 @@ using util::types::MediaInfo, util::types::String, util::types::Result;
 
 @interface Bridge : NSObject
 + (void)fetchCurrentPlayingMetadata:(void (^)(Result<NSDictionary*, const char*>))completion;
-+ (Result<String, DraconisError>)macOSVersion;
++ (Result<String, DracError>)macOSVersion;
 @end
   #else
 extern "C++" {
-  fn GetCurrentPlayingInfo() -> Result<MediaInfo, DraconisError>;
-  fn GetMacOSVersion() -> Result<String, DraconisError>;
+  fn GetCurrentPlayingInfo() -> Result<MediaInfo, DracError>;
+  fn GetMacOSVersion() -> Result<String, DracError>;
 }
   #endif
 #endif

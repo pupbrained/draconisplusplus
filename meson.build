@@ -1,4 +1,3 @@
-# ----------------------- #
 #  Project Configuration  #
 # ----------------------- #
 project(
@@ -110,6 +109,7 @@ platform_deps = []
 
 if host_system == 'darwin'
   platform_deps += [
+    dependency('SQLiteCpp'),
     dependency(
       'appleframeworks',
       modules : ['foundation', 'mediaplayer', 'systemconfiguration'],

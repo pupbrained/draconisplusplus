@@ -163,7 +163,7 @@
               then stdenvAdapters.useMoldLinker
               else lib.id
             )
-            llvmPackages.stdenv;
+            llvmPackages.libcxxStdenv;
 
           deps = with pkgs;
             [
@@ -172,6 +172,7 @@
             ++ (with pkgsStatic; [
               curl
               ftxui
+              sqlitecpp
               (tomlplusplus.overrideAttrs {
                 doCheck = false;
               })
@@ -187,7 +188,6 @@
             ]
             ++ (with pkgsStatic; [
               dbus
-              sqlitecpp
               xorg.libxcb
               wayland
             ]));
