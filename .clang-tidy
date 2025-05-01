@@ -29,24 +29,24 @@ Checks: >
   -readability-isolate-declaration,
   -readability-magic-numbers
 CheckOptions:
-  cppcoreguidelines-avoid-do-while.IgnoreMacros: "true"
+  cppcoreguidelines-avoid-do-while.IgnoreMacros: true
   readability-else-after-return.WarnOnUnfixable: false
   readability-identifier-naming.ClassCase: CamelCase
   readability-identifier-naming.EnumCase: CamelCase
   readability-identifier-naming.LocalConstantCase: camelBack
   readability-identifier-naming.LocalVariableCase: camelBack
   readability-identifier-naming.GlobalFunctionCase: CamelCase
-  readability-identifier-naming.MemberCase: lower_case
+  readability-identifier-naming.MemberCase: camelBack
   readability-identifier-naming.MethodCase: camelBack
   readability-identifier-naming.MethodIgnoredRegexp: ((to|from)_class)
   readability-identifier-naming.ParameterPackCase: lower_case
-  readability-identifier-naming.PrivateMemberCase: CamelCase
+  readability-identifier-naming.PrivateMemberCase: camelBack
   readability-identifier-naming.PrivateMemberPrefix: 'm_'
-  readability-identifier-naming.PrivateMethodCase: CamelCase
+  readability-identifier-naming.PrivateMethodCase: camelBack
   readability-identifier-naming.PrivateMethodPrefix: ''
   readability-identifier-naming.ProtectedMemberPrefix: 'm_'
   readability-identifier-naming.ProtectedMethodPrefix: ''
-  readability-identifier-naming.PublicMemberCase: lower_case
+  readability-identifier-naming.PublicMemberCase: camelBack
   readability-identifier-naming.StaticConstantCase: UPPER_CASE
   readability-identifier-naming.StaticVariableCase: CamelCase
   readability-identifier-naming.StructCase: CamelCase

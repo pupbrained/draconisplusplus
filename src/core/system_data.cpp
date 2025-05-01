@@ -1,77 +1,55 @@
 #include "system_data.hpp"
 
-#include <chrono>    // std::chrono::{year_month_day, floor, days, system_clock}
-#include <locale>    // std::locale
-#include <stdexcept> // std::runtime_error
+#include <chrono> // std::chrono::{year_month_day, days, floor, system_clock}
+#include <format> // std::format
+#include <future> // std::async
 
 #include "src/config/config.hpp"
+#include "src/config/weather.hpp"
+#include "src/core/util/error.hpp"
+#include "src/core/util/types.hpp"
 #include "src/os/os.hpp"
 
-#include "util/logging.hpp"
+namespace os {
+  SystemData::SystemData(const Config& config) {
+    // NOLINTNEXTLINE(misc-include-cleaner) - std::chrono::{days, floor} are inherited from <chrono>
+    using std::chrono::year_month_day, std::chrono::system_clock, std::chrono::floor, std::chrono::days;
+    using util::error::DracError, util::error::DracErrorCode;
+    using util::types::Result, util::types::Err, util::types::Option, util::types::None, util::types::Exception,
+      util::types::Future;
+    using weather::Output;
+    using enum std::launch;
 
-namespace {
-  fn GetDate() -> String {
-    using namespace std::chrono;
+    Future<Result<String, DracError>>    hostFut   = std::async(async, GetHost);
+    Future<Result<String, DracError>>    kernelFut = std::async(async, GetKernelVersion);
+    Future<Result<String, DracError>>    osFut     = std::async(async, GetOSVersion);
+    Future<Result<u64, DracError>>       memFut    = std::async(async, GetMemInfo);
+    Future<Result<String, DracError>>    deFut     = std::async(async, GetDesktopEnvironment);
+    Future<Result<String, DracError>>    wmFut     = std::async(async, GetWindowManager);
+    Future<Result<DiskSpace, DracError>> diskFut   = std::async(async, GetDiskUsage);
+    Future<Result<String, DracError>>    shellFut  = std::async(async, GetShell);
+    Future<Result<u64, DracError>>       pkgFut    = std::async(async, GetPackageCount);
+    Future<Result<MediaInfo, DracError>> npFut =
+      std::async(config.nowPlaying.enabled ? async : deferred, GetNowPlaying);
+    Future<Result<Output, DracError>> wthrFut =
+      std::async(config.weather.enabled ? async : deferred, [&config] -> Result<Output, DracError> {
+        return config.weather.getWeatherInfo();
+      });
 
-    const year_month_day ymd = year_month_day { floor<days>(system_clock::now()) };
-
-    return std::format("{:%B %d}", ymd);
+    this->date          = std::format("{:%B %d}", year_month_day { floor<days>(system_clock::now()) });
+    this->host          = hostFut.get();
+    this->kernelVersion = kernelFut.get();
+    this->osVersion     = osFut.get();
+    this->memInfo       = memFut.get();
+    this->desktopEnv    = deFut.get();
+    this->windowMgr     = wmFut.get();
+    this->diskUsage     = diskFut.get();
+    this->shell         = shellFut.get();
+    this->packageCount  = pkgFut.get();
+    this->weather =
+      config.weather.enabled ? wthrFut.get() : Err(DracError(DracErrorCode::ApiUnavailable, "Weather API disabled"));
+    this->nowPlaying = config.nowPlaying.enabled
+      ? npFut.get()
+      : Err(DracError(DracErrorCode::ApiUnavailable, "Now Playing API disabled"));
   }
-
-  fn log_timing(const std::string& name, const std::chrono::steady_clock::duration& duration) -> void {
-    const auto millis = std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(duration);
-    debug_log("{} took: {} ms", name, millis.count());
-  };
-
-  template <typename Func>
-  fn time_execution(const std::string& name, Func&& func) {
-    const auto start = std::chrono::steady_clock::now();
-    if constexpr (std::is_void_v<decltype(func())>) {
-      func();
-
-      const auto end = std::chrono::steady_clock::now();
-
-      log_timing(name, end - start);
-    } else {
-      auto result = func();
-
-      const auto end = std::chrono::steady_clock::now();
-      log_timing(name, end - start);
-
-      return result;
-    }
-  }
-} // namespace
-
-fn SystemData::fetchSystemData(const Config& config) -> SystemData {
-  using util::types::None, util::types::Exception;
-  using namespace os;
-
-  SystemData data {
-    .date                = time_execution("GetDate", GetDate),
-    .host                = time_execution("GetHost", GetHost),
-    .kernel_version      = time_execution("GetKernelVersion", GetKernelVersion),
-    .os_version          = time_execution("GetOSVersion", GetOSVersion),
-    .mem_info            = time_execution("GetMemInfo", GetMemInfo),
-    .desktop_environment = time_execution("GetDesktopEnvironment", GetDesktopEnvironment),
-    .window_manager      = time_execution("GetWindowManager", GetWindowManager),
-    .disk_usage          = time_execution("GetDiskUsage", GetDiskUsage),
-    .shell               = time_execution("GetShell", GetShell),
-    .now_playing         = None,
-    .weather_info        = None,
-  };
-
-  if (const Result<MediaInfo, DraconisError>& nowPlayingResult = time_execution("GetNowPlaying", os::GetNowPlaying)) {
-    data.now_playing = nowPlayingResult;
-  } else {
-    data.now_playing = None;
-  }
-
-  const auto start  = std::chrono::steady_clock::now();
-  data.weather_info = config.weather.getWeatherInfo();
-  const auto end    = std::chrono::steady_clock::now();
-
-  log_timing("config.weather.getWeatherInfo", end - start);
-
-  return data;
-}
+} // namespace os

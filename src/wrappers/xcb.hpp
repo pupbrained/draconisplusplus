@@ -89,17 +89,17 @@ namespace xcb {
    * Automatically handles resource acquisition and cleanup
    */
   class DisplayGuard {
-    connection_t* m_Connection = nullptr;
+    connection_t* m_connection = nullptr;
 
    public:
     /**
      * Opens an XCB connection
      * @param name Display name (nullptr for default)
      */
-    explicit DisplayGuard(const util::types::CStr name = nullptr) : m_Connection(connect(name, nullptr)) {}
+    explicit DisplayGuard(const util::types::CStr name = nullptr) : m_connection(connect(name, nullptr)) {}
     ~DisplayGuard() {
-      if (m_Connection)
-        disconnect(m_Connection);
+      if (m_connection)
+        disconnect(m_connection);
     }
 
     // Non-copyable
@@ -107,22 +107,22 @@ namespace xcb {
     fn operator=(const DisplayGuard&)->DisplayGuard& = delete;
 
     // Movable
-    DisplayGuard(DisplayGuard&& other) noexcept : m_Connection(std::exchange(other.m_Connection, nullptr)) {}
+    DisplayGuard(DisplayGuard&& other) noexcept : m_connection(std::exchange(other.m_connection, nullptr)) {}
     fn operator=(DisplayGuard&& other) noexcept -> DisplayGuard& {
       if (this != &other) {
-        if (m_Connection)
-          disconnect(m_Connection);
+        if (m_connection)
+          disconnect(m_connection);
 
-        m_Connection = std::exchange(other.m_Connection, nullptr);
+        m_connection = std::exchange(other.m_connection, nullptr);
       }
       return *this;
     }
 
-    [[nodiscard]] explicit operator bool() const { return m_Connection && !connection_has_error(m_Connection); }
+    [[nodiscard]] explicit operator bool() const { return m_connection && !connection_has_error(m_connection); }
 
-    [[nodiscard]] fn get() const -> connection_t* { return m_Connection; }
+    [[nodiscard]] fn get() const -> connection_t* { return m_connection; }
 
-    [[nodiscard]] fn setup() const -> const setup_t* { return m_Connection ? xcb_get_setup(m_Connection) : nullptr; }
+    [[nodiscard]] fn setup() const -> const setup_t* { return m_connection ? xcb_get_setup(m_connection) : nullptr; }
 
     [[nodiscard]] fn rootScreen() const -> screen_t* {
       const setup_t* setup = this->setup();
@@ -136,15 +136,15 @@ namespace xcb {
    */
   template <typename T>
   class ReplyGuard {
-    T* m_Reply = nullptr;
+    T* m_reply = nullptr;
 
    public:
     ReplyGuard() = default;
-    explicit ReplyGuard(T* reply) : m_Reply(reply) {}
+    explicit ReplyGuard(T* reply) : m_reply(reply) {}
 
     ~ReplyGuard() {
-      if (m_Reply)
-        free(m_Reply);
+      if (m_reply)
+        free(m_reply);
     }
 
     // Non-copyable
@@ -152,22 +152,22 @@ namespace xcb {
     fn operator=(const ReplyGuard&)->ReplyGuard& = delete;
 
     // Movable
-    ReplyGuard(ReplyGuard&& other) noexcept : m_Reply(std::exchange(other.m_Reply, nullptr)) {}
+    ReplyGuard(ReplyGuard&& other) noexcept : m_reply(std::exchange(other.m_reply, nullptr)) {}
     fn operator=(ReplyGuard&& other) noexcept -> ReplyGuard& {
       if (this != &other) {
-        if (m_Reply)
-          free(m_Reply);
+        if (m_reply)
+          free(m_reply);
 
-        m_Reply = std::exchange(other.m_Reply, nullptr);
+        m_reply = std::exchange(other.m_reply, nullptr);
       }
       return *this;
     }
 
-    [[nodiscard]] explicit operator bool() const { return m_Reply != nullptr; }
+    [[nodiscard]] explicit operator bool() const { return m_reply != nullptr; }
 
-    [[nodiscard]] fn get() const -> T* { return m_Reply; }
-    [[nodiscard]] fn operator->() const->T* { return m_Reply; }
-    [[nodiscard]] fn operator*() const->T& { return *m_Reply; }
+    [[nodiscard]] fn get() const -> T* { return m_reply; }
+    [[nodiscard]] fn operator->() const->T* { return m_reply; }
+    [[nodiscard]] fn operator*() const->T& { return *m_reply; }
   };
 } // namespace xcb
 

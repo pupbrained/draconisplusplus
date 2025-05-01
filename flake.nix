@@ -18,7 +18,7 @@
       system:
         if system == "x86_64-linux"
         then let
-          hostPkgs = import nixpkgs {inherit system;};
+          pkgs = import nixpkgs {inherit system;};
           muslPkgs = import nixpkgs {
             system = "x86_64-linux-musl";
             overlays = [
@@ -63,15 +63,15 @@
                 then ["-Ddefault_library=static"]
                 else if buildSystem == "cmake"
                 then [
-                  "-D${hostPkgs.lib.toUpper pkg.pname}_BUILD_EXAMPLES=OFF"
-                  "-D${hostPkgs.lib.toUpper pkg.pname}_BUILD_TESTS=OFF"
+                  "-D${pkgs.lib.toUpper pkg.pname}_BUILD_EXAMPLES=OFF"
+                  "-D${pkgs.lib.toUpper pkg.pname}_BUILD_TESTS=OFF"
                   "-DBUILD_SHARED_LIBS=OFF"
                 ]
                 else throw "Invalid build system: ${buildSystem}"
               );
           }));
 
-          deps = with hostPkgs.pkgsStatic; [
+          deps = with pkgs.pkgsStatic; [
             curlMinimal
             dbus
             glaze
@@ -85,7 +85,6 @@
 
             (mkOverridden "cmake" ftxui)
             (mkOverridden "cmake" sqlitecpp)
-            (mkOverridden "meson" libsigcxx30)
             (mkOverridden "meson" tomlplusplus)
           ];
         in {
@@ -94,7 +93,6 @@
               name = "draconis++";
               version = "0.1.0";
               src = self;
-              NIX_ENFORCE_NO_NATIVE = 0;
 
               nativeBuildInputs = with muslPkgs; [
                 cmake
@@ -123,29 +121,29 @@
 
           devShell = muslPkgs.mkShell.override {inherit stdenv;} {
             packages =
-              (with hostPkgs; [bear cmake])
+              (with pkgs; [bear cmake])
               ++ (with muslPkgs; [
                 llvmPackages_20.clang-tools
                 meson
                 ninja
                 pkg-config
-                (hostPkgs.writeScriptBin "build" "meson compile -C build")
-                (hostPkgs.writeScriptBin "clean" "meson setup build --wipe")
-                (hostPkgs.writeScriptBin "run" "meson compile -C build && build/draconis++")
+                (pkgs.writeScriptBin "build" "meson compile -C build")
+                (pkgs.writeScriptBin "clean" "meson setup build --wipe")
+                (pkgs.writeScriptBin "run" "meson compile -C build && build/draconis++")
               ])
               ++ deps;
 
             NIX_ENFORCE_NO_NATIVE = 0;
           };
 
-          formatter = treefmt-nix.lib.mkWrapper hostPkgs {
+          formatter = treefmt-nix.lib.mkWrapper pkgs {
             projectRootFile = "flake.nix";
             programs = {
               alejandra.enable = true;
               deadnix.enable = true;
               clang-format = {
                 enable = true;
-                package = hostPkgs.llvmPackages.clang-tools;
+                package = pkgs.llvmPackages.clang-tools;
               };
             };
           };
@@ -185,7 +183,6 @@
             ]
             ++ (with pkgsStatic; [
               dbus
-              libsigcxx30
               sqlitecpp
               xorg.libxcb
               wayland

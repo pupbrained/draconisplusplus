@@ -1,7 +1,8 @@
 #include "weather.hpp"
 
 #include <chrono>                 // std::chrono::{duration, operator-}
-#include <curl/curl.h>            // curl_easy_init, curl_easy_setopt, curl_easy_perform, curl_easy_cleanup
+#include <curl/curl.h>            // curl_easy_setopt
+#include <curl/easy.h>            // curl_easy_init, curl_easy_perform, curl_easy_cleanup
 #include <expected>               // std::{expected (Result), unexpected (Err)}
 #include <filesystem>             // std::filesystem::{path, remove, rename}
 #include <format>                 // std::format
@@ -9,14 +10,17 @@
 #include <glaze/beve/read.hpp>    // glz::read_beve
 #include <glaze/beve/write.hpp>   // glz::write_beve
 #include <glaze/core/context.hpp> // glz::{error_ctx, error_code}
+#include <glaze/core/opts.hpp>    // glz::opts
 #include <glaze/core/reflect.hpp> // glz::format_error
-#include <glaze/json/read.hpp>    // glz::write_json
-#include <iterator>               // std::istreambuf_iterator
-#include <system_error>           // std::error_code
-#include <utility>                // std::move
-#include <variant>                // std::{get, holds_alternative}
+#include <glaze/json/read.hpp> // NOLINT(misc-include-cleaner) - glaze/json/read.hpp is needed for glz::read<glz::opts>
+#include <ios>                 // std::ios::{binary, trunc}
+#include <iterator>            // std::istreambuf_iterator
+#include <system_error>        // std::error_code
+#include <utility>             // std::move
+#include <variant>             // std::{get, holds_alternative}
 
 #include "src/core/util/defs.hpp"
+#include "src/core/util/error.hpp"
 #include "src/core/util/logging.hpp"
 #include "src/core/util/types.hpp"
 
@@ -28,6 +32,7 @@ using weather::Output;
 
 namespace {
   using glz::opts, glz::error_ctx, glz::error_code, glz::read, glz::read_beve, glz::write_beve, glz::format_error;
+  using util::error::DracError, util::error::DracErrorCode;
   using util::types::usize, util::types::Err, util::types::Exception;
   using weather::Coords;
 
@@ -67,11 +72,9 @@ namespace {
       Output result;
 
       if (const error_ctx glazeErr = read_beve(result, content); glazeErr.ec != error_code::none)
-        return Err(
-          std::format(
-            "BEVE parse error reading cache (code {}): {}", static_cast<int>(glazeErr.ec), cachePath->string()
-          )
-        );
+        return Err(std::format(
+          "BEVE parse error reading cache (code {}): {}", static_cast<int>(glazeErr.ec), cachePath->string()
+        ));
 
       debug_log("Successfully read from cache file.");
       return result;
@@ -170,7 +173,7 @@ namespace {
   }
 } // namespace
 
-fn Weather::getWeatherInfo() const -> Output {
+fn Weather::getWeatherInfo() const -> Result<Output, DracError> {
   using namespace std::chrono;
   using util::types::i32;
 
@@ -178,7 +181,7 @@ fn Weather::getWeatherInfo() const -> Output {
     const Output& dataVal = *data;
 
     if (const duration<double> cacheAge = system_clock::now() - system_clock::time_point(seconds(dataVal.dt));
-        cacheAge < 10min) {
+        cacheAge < 60min) { // NOLINT(misc-include-cleaner) - inherited from <chrono>
       debug_log("Using valid cache");
       return dataVal;
     }
@@ -188,11 +191,9 @@ fn Weather::getWeatherInfo() const -> Output {
     debug_log("Cache error: {}", data.error());
   }
 
-  fn handleApiResult = [](const Result<Output, String>& result) -> Output {
-    if (!result) {
-      error_log("API request failed: {}", result.error());
-      return Output {};
-    }
+  fn handleApiResult = [](const Result<Output, String>& result) -> Result<Output, DracError> {
+    if (!result)
+      return Err(DracError(DracErrorCode::ApiUnavailable, result.error()));
 
     if (Result<void, String> writeResult = WriteCacheToFile(*result); !writeResult)
       error_log("Failed to write cache: {}", writeResult.error());
@@ -208,28 +209,23 @@ fn Weather::getWeatherInfo() const -> Output {
     debug_log("Requesting city: {}", escaped);
 
     const String apiUrl =
-      std::format("https://api.openweathermap.org/data/2.5/weather?q={}&appid={}&units={}", escaped, api_key, units);
+      std::format("https://api.openweathermap.org/data/2.5/weather?q={}&appid={}&units={}", escaped, apiKey, units);
 
     curl_free(escaped);
+
     return handleApiResult(MakeApiRequest(apiUrl));
   }
 
   if (std::holds_alternative<Coords>(location)) {
     const auto& [lat, lon] = std::get<Coords>(location);
     debug_log("Requesting coordinates: lat={:.3f}, lon={:.3f}", lat, lon);
+
     const String apiUrl = std::format(
-      "https://api.openweathermap.org/data/2.5/weather?lat={:.3f}&lon={:.3f}&appid={}&units={}",
-      lat,
-      lon,
-      api_key,
-      units
+      "https://api.openweathermap.org/data/2.5/weather?lat={:.3f}&lon={:.3f}&appid={}&units={}", lat, lon, apiKey, units
     );
+
     return handleApiResult(MakeApiRequest(apiUrl));
   }
-#ifdef __GLIBCXX__
-  printf("Invalid location type in configuration. Expected String or Coords.\n");
-#endif
 
-  error_log("Invalid location type in configuration. Expected String or Coords.");
-  return Output {};
+  return Err(DracError(DracErrorCode::ParseError, "Invalid location type in configuration."));
 }

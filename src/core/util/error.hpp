@@ -15,53 +15,47 @@ namespace util::error {
   using types::u8, types::i32, types::String, types::StringView, types::Exception;
 
   /**
-   * @enum DraconisErrorCode
+   * @enum DracErrorCode
    * @brief Error codes for general OS-level operations.
    */
-  enum class DraconisErrorCode : u8 {
-    IoError,          ///< General I/O error (filesystem, pipes, etc.).
-    PermissionDenied, ///< Insufficient permissions to perform the operation.
-    NotFound,         ///< A required resource (file, registry key, device, API endpoint) was not found.
-    ParseError,       ///< Failed to parse data obtained from the OS (e.g., file content, API output).
+  enum class DracErrorCode : u8 {
     ApiUnavailable,   ///< A required OS service/API is unavailable or failed unexpectedly at runtime.
-    NotSupported,     ///< The requested operation is not supported on this platform, version, or configuration.
-    Timeout,          ///< An operation timed out (e.g., waiting for IPC reply).
-    BufferTooSmall,   ///< Optional: Keep if using fixed C-style buffers, otherwise remove.
     InternalError,    ///< An error occurred within the application's OS abstraction code logic.
+    InvalidArgument,  ///< An invalid argument was passed to a function or method.
+    IoError,          ///< General I/O error (filesystem, pipes, etc.).
     NetworkError,     ///< A network-related error occurred (e.g., DNS resolution, connection failure).
-    PlatformSpecific, ///< An unmapped error specific to the underlying OS platform occurred (check message).
+    NotFound,         ///< A required resource (file, registry key, device, API endpoint) was not found.
+    NotSupported,     ///< The requested operation is not supported on this platform, version, or configuration.
     Other,            ///< A generic or unclassified error originating from the OS or an external library.
+    OutOfMemory,      ///< The system ran out of memory or resources to complete the operation.
+    ParseError,       ///< Failed to parse data obtained from the OS (e.g., file content, API output).
+    PermissionDenied, ///< Insufficient permissions to perform the operation.
+    PlatformSpecific, ///< An unmapped error specific to the underlying OS platform occurred (check message).
+    Timeout,          ///< An operation timed out (e.g., waiting for IPC reply).
   };
 
   /**
-   * @struct DraconisError
+   * @struct DracError
    * @brief Holds structured information about an OS-level error.
    *
    * Used as the error type in Result for many os:: functions.
    */
-  struct DraconisError {
+  struct DracError {
     // ReSharper disable CppDFANotInitializedField
     String               message;  ///< A descriptive error message, potentially including platform details.
-    DraconisErrorCode    code;     ///< The general category of the error.
+    DracErrorCode        code;     ///< The general category of the error.
     std::source_location location; ///< The source location where the error occurred (file, line, function).
     // ReSharper restore CppDFANotInitializedField
 
-    DraconisError(
-      const DraconisErrorCode     errc,
-      String                      msg,
-      const std::source_location& loc = std::source_location::current()
-    )
+    DracError(const DracErrorCode errc, String msg, const std::source_location& loc = std::source_location::current())
       : message(std::move(msg)), code(errc), location(loc) {}
 
-    explicit DraconisError(const Exception& exc, const std::source_location& loc = std::source_location::current())
-      : message(exc.what()), code(DraconisErrorCode::InternalError), location(loc) {}
+    explicit DracError(const Exception& exc, const std::source_location& loc = std::source_location::current())
+      : message(exc.what()), code(DracErrorCode::InternalError), location(loc) {}
 
-    explicit DraconisError(
-      const std::error_code&      errc,
-      const std::source_location& loc = std::source_location::current()
-    )
+    explicit DracError(const std::error_code& errc, const std::source_location& loc = std::source_location::current())
       : message(errc.message()), location(loc) {
-      using enum DraconisErrorCode;
+      using enum DracErrorCode;
       using enum std::errc;
 
       switch (static_cast<std::errc>(errc.value())) {
@@ -90,9 +84,9 @@ namespace util::error {
       }
     }
 #else
-    DraconisError(const DraconisErrorCode code_hint, const int errno_val)
+    DracError(const DracErrorCode code_hint, const int errno_val)
       : message(std::system_category().message(errno_val)), code(code_hint) {
-      using enum DraconisErrorCode;
+      using enum DracErrorCode;
 
       switch (errno_val) {
         case EACCES:    code = PermissionDenied; break;
@@ -104,26 +98,27 @@ namespace util::error {
     }
 
     static auto withErrno(const String& context, const std::source_location& loc = std::source_location::current())
-      -> DraconisError {
+      -> DracError {
       const i32    errNo   = errno;
       const String msg     = std::system_category().message(errNo);
       const String fullMsg = std::format("{}: {}", context, msg);
 
-      DraconisErrorCode code = DraconisErrorCode::PlatformSpecific;
-      switch (errNo) {
-        case EACCES:
-        case EPERM:        code = DraconisErrorCode::PermissionDenied; break;
-        case ENOENT:       code = DraconisErrorCode::NotFound; break;
-        case ETIMEDOUT:    code = DraconisErrorCode::Timeout; break;
-        case ENOTSUP:      code = DraconisErrorCode::NotSupported; break;
-        case EIO:          code = DraconisErrorCode::IoError; break;
-        case ECONNREFUSED:
-        case ENETDOWN:
-        case ENETUNREACH:  code = DraconisErrorCode::NetworkError; break;
-        default:           code = DraconisErrorCode::PlatformSpecific; break;
-      }
+      const DracErrorCode code = [&errNo] {
+        switch (errNo) {
+          case EACCES:
+          case EPERM:        return DracErrorCode::PermissionDenied;
+          case ENOENT:       return DracErrorCode::NotFound;
+          case ETIMEDOUT:    return DracErrorCode::Timeout;
+          case ENOTSUP:      return DracErrorCode::NotSupported;
+          case EIO:          return DracErrorCode::IoError;
+          case ECONNREFUSED:
+          case ENETDOWN:
+          case ENETUNREACH:  return DracErrorCode::NetworkError;
+          default:           return DracErrorCode::PlatformSpecific;
+        }
+      }();
 
-      return DraconisError { code, fullMsg, loc };
+      return DracError { code, fullMsg, loc };
     }
 #endif
   };

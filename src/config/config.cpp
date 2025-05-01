@@ -1,12 +1,19 @@
 #include "config.hpp"
 
-#include <filesystem>             // std::filesystem::{path, operator/, exists, create_directories}
-#include <fstream>                // std::{ifstream, ofstream, operator<<}
-#include <system_error>           // std::error_code
-#include <toml++/impl/parser.hpp> // toml::{parse_file, parse_result}
+#include <filesystem>                // std::filesystem::{path, operator/, exists, create_directories}
+#include <format>                    // std::{format, format_error}
+#include <fstream>                   // std::{ifstream, ofstream, operator<<}
+#include <pwd.h>                     // passwd, getpwuid
+#include <system_error>              // std::error_code
+#include <toml++/impl/node_view.hpp> // toml::node_view
+#include <toml++/impl/parser.hpp>    // toml::{parse_file, parse_result}
+#include <toml++/impl/table.hpp>     // toml::table
+#include <unistd.h>                  // getuid
 
+#include "src/core/util/defs.hpp"
 #include "src/core/util/helpers.hpp"
 #include "src/core/util/logging.hpp"
+#include "src/core/util/types.hpp"
 
 namespace fs = std::filesystem;
 
@@ -42,21 +49,21 @@ location = "London"    # Your city name
     Vec<fs::path> possiblePaths;
 
 #ifdef _WIN32
-    if (auto result = GetEnv("LOCALAPPDATA"))
+    if (Result<String, DracError> result = GetEnv("LOCALAPPDATA"))
       possiblePaths.push_back(fs::path(*result) / "draconis++" / "config.toml");
 
-    if (auto result = GetEnv("USERPROFILE")) {
+    if (Result<String, DracError> result = GetEnv("USERPROFILE")) {
       possiblePaths.push_back(fs::path(*result) / ".config" / "draconis++" / "config.toml");
       possiblePaths.push_back(fs::path(*result) / "AppData" / "Local" / "draconis++" / "config.toml");
     }
 
-    if (auto result = GetEnv("APPDATA"))
+    if (Result<String, DracError> result = GetEnv("APPDATA"))
       possiblePaths.push_back(fs::path(*result) / "draconis++" / "config.toml");
 #else
-    if (Result<String, DraconisError> result = GetEnv("XDG_CONFIG_HOME"))
+    if (Result<String, DracError> result = GetEnv("XDG_CONFIG_HOME"))
       possiblePaths.emplace_back(fs::path(*result) / "draconis++" / "config.toml");
 
-    if (Result<String, DraconisError> result = GetEnv("HOME")) {
+    if (Result<String, DracError> result = GetEnv("HOME")) {
       possiblePaths.emplace_back(fs::path(*result) / ".config" / "draconis++" / "config.toml");
       possiblePaths.emplace_back(fs::path(*result) / ".draconis++" / "config.toml");
     }
@@ -111,8 +118,8 @@ location = "London"    # Your city name
       const passwd* pwd     = getpwuid(getuid());
       CStr          pwdName = pwd ? pwd->pw_name : nullptr;
 
-      const Result<String, DraconisError> envUser    = util::helpers::GetEnv("USER");
-      const Result<String, DraconisError> envLogname = util::helpers::GetEnv("LOGNAME");
+      const Result<String, DracError> envUser    = util::helpers::GetEnv("USER");
+      const Result<String, DracError> envLogname = util::helpers::GetEnv("LOGNAME");
 
       defaultName = pwdName ? pwdName : envUser ? *envUser : envLogname ? *envLogname : "User";
 #endif
@@ -124,13 +131,13 @@ location = "London"    # Your city name
       }
 
       try {
-        const std::string formattedConfig = std::format(defaultConfigTemplate, defaultName);
+        const String formattedConfig = std::format(defaultConfigTemplate, defaultName);
         file << formattedConfig;
       } catch (const std::format_error& fmtErr) {
         error_log("Failed to format default config string: {}. Using fallback name 'User'.", fmtErr.what());
 
         try {
-          const std::string fallbackConfig = std::format(defaultConfigTemplate, "User");
+          const String fallbackConfig = std::format(defaultConfigTemplate, "User");
           file << fallbackConfig;
         } catch (...) {
           error_log("Failed to format default config even with fallback name.");
@@ -163,9 +170,9 @@ Config::Config(const toml::table& tbl) {
   const toml::node_view npTbl  = tbl["now_playing"];
   const toml::node_view wthTbl = tbl["weather"];
 
-  this->general     = genTbl.is_table() ? General::fromToml(*genTbl.as_table()) : General {};
-  this->now_playing = npTbl.is_table() ? NowPlaying::fromToml(*npTbl.as_table()) : NowPlaying {};
-  this->weather     = wthTbl.is_table() ? Weather::fromToml(*wthTbl.as_table()) : Weather {};
+  this->general    = genTbl.is_table() ? General::fromToml(*genTbl.as_table()) : General {};
+  this->nowPlaying = npTbl.is_table() ? NowPlaying::fromToml(*npTbl.as_table()) : NowPlaying {};
+  this->weather    = wthTbl.is_table() ? Weather::fromToml(*wthTbl.as_table()) : Weather {};
 }
 
 fn Config::getInstance() -> Config {

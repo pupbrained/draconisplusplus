@@ -1,0 +1,5 @@
+[wrap-file]
+source_url = https://github.com/stephenberry/glaze/archive/refs/tags/v5.1.1.tar.gz
+source_filename = glaze-5.1.1.tar.gz
+source_hash = 7fed59aae4c09b27761c6c94e1e450ed30ddc4d7303ddc70591ec268d90512f5
+directory = glaze

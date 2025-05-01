@@ -148,7 +148,14 @@ namespace util::logging {
    * @param args The arguments for the format string.
    */
   template <typename... Args>
-  fn LogImpl(const LogLevel level, const std::source_location& loc, std::format_string<Args...> fmt, Args&&... args) {
+  fn LogImpl(
+    const LogLevel level,
+#ifndef NDEBUG
+    const std::source_location& loc,
+#endif
+    std::format_string<Args...> fmt,
+    Args&&... args
+  ) {
     using namespace std::chrono;
     using std::filesystem::path;
 
@@ -186,14 +193,21 @@ namespace util::logging {
   fn LogError(const LogLevel level, const ErrorType& error_obj) {
     using DecayedErrorType = std::decay_t<ErrorType>;
 
+#ifndef NDEBUG
     std::source_location logLocation;
-    String               errorMessagePart;
+#endif
 
-    if constexpr (std::is_same_v<DecayedErrorType, error::DraconisError>) {
-      logLocation      = error_obj.location;
+    String errorMessagePart;
+
+    if constexpr (std::is_same_v<DecayedErrorType, error::DracError>) {
+#ifndef NDEBUG
+      logLocation = error_obj.location;
+#endif
       errorMessagePart = error_obj.message;
     } else {
+#ifndef NDEBUG
       logLocation = std::source_location::current();
+#endif
       if constexpr (std::is_base_of_v<std::exception, DecayedErrorType>)
         errorMessagePart = error_obj.what();
       else if constexpr (requires { error_obj.message; })
@@ -202,7 +216,11 @@ namespace util::logging {
         errorMessagePart = "Unknown error type logged";
     }
 
+#ifndef NDEBUG
     LogImpl(level, logLocation, "{}", errorMessagePart);
+#else
+    LogImpl(level, "{}", errorMessagePart);
+#endif
   }
 
 #ifndef NDEBUG
@@ -216,21 +234,28 @@ namespace util::logging {
   #define debug_at(...)  ((void)0)
 #endif
 
-#define info_log(fmt, ...)                                                                           \
-  ::util::logging::LogImpl(                                                                          \
-    ::util::logging::LogLevel::Info, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__ \
-  )
-#define info_at(error_obj) ::util::logging::LogError(::util::logging::LogLevel::Info, error_obj);
-
-#define warn_log(fmt, ...)                                                                           \
-  ::util::logging::LogImpl(                                                                          \
-    ::util::logging::LogLevel::Warn, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__ \
-  )
-#define warn_at(error_obj) ::util::logging::LogError(::util::logging::LogLevel::Warn, error_obj);
-
-#define error_log(fmt, ...)                                                                           \
-  ::util::logging::LogImpl(                                                                           \
-    ::util::logging::LogLevel::Error, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__ \
-  )
+#define info_at(error_obj)  ::util::logging::LogError(::util::logging::LogLevel::Info, error_obj);
+#define warn_at(error_obj)  ::util::logging::LogError(::util::logging::LogLevel::Warn, error_obj);
 #define error_at(error_obj) ::util::logging::LogError(::util::logging::LogLevel::Error, error_obj);
+
+#ifdef NDEBUG
+  #define info_log(fmt, ...)  ::util::logging::LogImpl(::util::logging::LogLevel::Info, fmt __VA_OPT__(, ) __VA_ARGS__)
+  #define warn_log(fmt, ...)  ::util::logging::LogImpl(::util::logging::LogLevel::Warn, fmt __VA_OPT__(, ) __VA_ARGS__)
+  #define error_log(fmt, ...) ::util::logging::LogImpl(::util::logging::LogLevel::Error, fmt __VA_OPT__(, ) __VA_ARGS__)
+#else
+  #define info_log(fmt, ...)                                                                           \
+    ::util::logging::LogImpl(                                                                          \
+      ::util::logging::LogLevel::Info, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__ \
+    )
+
+  #define warn_log(fmt, ...)                                                                           \
+    ::util::logging::LogImpl(                                                                          \
+      ::util::logging::LogLevel::Warn, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__ \
+    )
+
+  #define error_log(fmt, ...)                                                                           \
+    ::util::logging::LogImpl(                                                                           \
+      ::util::logging::LogLevel::Error, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__ \
+    )
+#endif
 } // namespace util::logging

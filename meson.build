@@ -7,9 +7,10 @@ project(
   version : '0.1.0',
   default_options : [
     'default_library=static',
-    'buildtype=debugoptimized',
+    'buildtype=release',
     'b_vscrt=mt',
     'b_lto=true',
+    'b_ndebug=if-release',
     'warning_level=3',
   ],
 )
@@ -85,7 +86,7 @@ add_project_arguments(common_cpp_args, language : 'cpp')
 # ------- #
 #  Files  #
 # ------- #
-base_sources = files('src/core/system_data.cpp', 'src/config/config.cpp', 'src/config/weather.cpp', 'src/main.cpp')
+base_sources = files('src/core/system_data.cpp', 'src/os/shared.cpp', 'src/config/config.cpp', 'src/config/weather.cpp', 'src/main.cpp')
 
 platform_sources = {
   'linux' : ['src/os/linux.cpp', 'src/os/linux/pkg_count.cpp'],
@@ -128,7 +129,7 @@ elif host_system == 'linux'
     dependency('xau'),
     dependency('xdmcp'),
     dependency('wayland-client'),
-    dependency('dbus-1', include_type: 'system'),
+    dependency('dbus-1', include_type : 'system'),
   ]
 endif
 

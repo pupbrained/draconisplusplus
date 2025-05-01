@@ -2,6 +2,7 @@
 
 #include <array>       // std::array (Array)
 #include <expected>    // std::expected (Result)
+#include <future>      // std::future (Future)
 #include <map>         // std::map (Map)
 #include <memory>      // std::shared_ptr and std::unique_ptr (SharedPointer, UniquePointer)
 #include <optional>    // std::optional (Option)
@@ -114,6 +115,14 @@ namespace util::types {
   using UniquePointer = std::unique_ptr<Tp, Dp>;
 
   /**
+   * @typedef Future
+   * @brief Alias for std::future<Tp>. Represents a value that will be available in the future.
+   * @tparam Tp The type of the value.
+   */
+  template <typename Tp>
+  using Future = std::future<Tp>;
+
+  /**
    * @struct DiskSpace
    * @brief Represents disk usage information.
    *
@@ -132,16 +141,11 @@ namespace util::types {
    * Using Option<> for fields that might not always be available.
    */
   struct MediaInfo {
-    Option<String> title;    ///< Track title.
-    Option<String> artist;   ///< Track artist(s).
-    Option<String> album;    ///< Album name.
-    Option<String> app_name; ///< Name of the media player application (e.g., "Spotify", "Firefox").
+    Option<String> title;  ///< Track title.
+    Option<String> artist; ///< Track artist(s).
 
     MediaInfo() = default;
 
     MediaInfo(Option<String> title, Option<String> artist) : title(std::move(title)), artist(std::move(artist)) {}
-
-    MediaInfo(Option<String> title, Option<String> artist, Option<String> album, Option<String> app)
-      : title(std::move(title)), artist(std::move(artist)), album(std::move(album)), app_name(std::move(app)) {}
   };
 } // namespace util::types

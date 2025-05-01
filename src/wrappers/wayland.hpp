@@ -25,16 +25,16 @@ namespace wl {
    * Automatically handles resource acquisition and cleanup
    */
   class DisplayGuard {
-    display* m_Display;
+    display* m_display;
 
    public:
     /**
      * Opens a Wayland display connection
      */
-    DisplayGuard() : m_Display(connect(nullptr)) {}
+    DisplayGuard() : m_display(connect(nullptr)) {}
     ~DisplayGuard() {
-      if (m_Display)
-        disconnect(m_Display);
+      if (m_display)
+        disconnect(m_display);
     }
 
     // Non-copyable
@@ -42,22 +42,22 @@ namespace wl {
     fn operator=(const DisplayGuard&)->DisplayGuard& = delete;
 
     // Movable
-    DisplayGuard(DisplayGuard&& other) noexcept : m_Display(std::exchange(other.m_Display, nullptr)) {}
+    DisplayGuard(DisplayGuard&& other) noexcept : m_display(std::exchange(other.m_display, nullptr)) {}
     fn operator=(DisplayGuard&& other) noexcept -> DisplayGuard& {
       if (this != &other) {
-        if (m_Display)
-          disconnect(m_Display);
+        if (m_display)
+          disconnect(m_display);
 
-        m_Display = std::exchange(other.m_Display, nullptr);
+        m_display = std::exchange(other.m_display, nullptr);
       }
 
       return *this;
     }
 
-    [[nodiscard]] explicit operator bool() const { return m_Display != nullptr; }
+    [[nodiscard]] explicit operator bool() const { return m_display != nullptr; }
 
-    [[nodiscard]] fn get() const -> display* { return m_Display; }
-    [[nodiscard]] fn fd() const -> util::types::i32 { return get_fd(m_Display); }
+    [[nodiscard]] fn get() const -> display* { return m_display; }
+    [[nodiscard]] fn fd() const -> util::types::i32 { return get_fd(m_display); }
   };
 } // namespace wl
 

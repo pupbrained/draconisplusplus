@@ -22,7 +22,7 @@
 
 #include "weather.hpp"
 
-using util::error::DraconisError;
+using util::error::DracError;
 using util::types::String, util::types::Array, util::types::Option, util::types::Result;
 
 /// Alias for the location type used in Weather config, can be a city name (String) or coordinates (Coords).
@@ -58,11 +58,11 @@ struct General {
       return pwd->pw_name;
 
     // Try to get the username using environment variables
-    if (Result<String, DraconisError> envUser = GetEnv("USER"))
+    if (Result<String, DracError> envUser = GetEnv("USER"))
       return *envUser;
 
     // Finally, try to get the username using LOGNAME
-    if (Result<String, DraconisError> envLogname = GetEnv("LOGNAME"))
+    if (Result<String, DracError> envLogname = GetEnv("LOGNAME"))
       return *envLogname;
 
     // If all else fails, return a default name
@@ -102,11 +102,11 @@ struct NowPlaying {
  */
 struct Weather {
   Location location; ///< Location for weather data, can be a city name or coordinates.
-  String   api_key;  ///< API key for the weather service.
+  String   apiKey;   ///< API key for the weather service.
   String   units;    ///< Units for temperature, either "metric" or "imperial".
 
-  bool enabled        = false; ///< Flag to enable or disable the Weather feature.
-  bool show_town_name = false; ///< Flag to show the town name in the output.
+  bool enabled      = false; ///< Flag to enable or disable the Weather feature.
+  bool showTownName = false; ///< Flag to show the town name in the output.
 
   /**
    * @brief Parses a TOML table to create a Weather instance.
@@ -123,9 +123,9 @@ struct Weather {
     if (!weather.enabled)
       return weather;
 
-    weather.api_key        = *apiKey;
-    weather.show_town_name = tbl["show_town_name"].value_or(false);
-    weather.units          = tbl["units"].value_or("metric");
+    weather.apiKey       = *apiKey;
+    weather.showTownName = tbl["show_town_name"].value_or(false);
+    weather.units        = tbl["units"].value_or("metric");
 
     if (const toml::node_view<const toml::node> location = tbl["location"]) {
       if (location.is_string())
@@ -152,7 +152,7 @@ struct Weather {
    * API key, and units. It returns a WeatherOutput object containing the
    * retrieved weather data.
    */
-  [[nodiscard]] fn getWeatherInfo() const -> weather::Output;
+  [[nodiscard]] fn getWeatherInfo() const -> Result<weather::Output, DracError>;
 };
 
 /**
@@ -160,9 +160,9 @@ struct Weather {
  * @brief Holds the application configuration settings.
  */
 struct Config {
-  General    general;     ///< General configuration settings.
-  Weather    weather;     ///< Weather configuration settings.`
-  NowPlaying now_playing; ///< Now Playing configuration settings.
+  General    general;    ///< General configuration settings.
+  Weather    weather;    ///< Weather configuration settings.`
+  NowPlaying nowPlaying; ///< Now Playing configuration settings.
 
   Config() = default;
 

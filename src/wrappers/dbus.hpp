@@ -1,12 +1,13 @@
 #pragma once
 
+#include <cstring>
 #ifdef __linux__
 
 // clang-format off
 #include <dbus/dbus.h> // DBus Library
-#include <utility>     // std::exchange
+#include <utility>     // std::exchange, std::forward
 #include <format>      // std::format
-#include <cstdarg>     // va_list, va_start, va_end
+#include <type_traits> // std::is_convertible_v
 
 #include "src/core/util/defs.hpp"
 #include "src/core/util/error.hpp"
@@ -14,269 +15,375 @@
 // clang-format on
 
 namespace dbus {
-  using util::error::DraconisError, util::error::DraconisErrorCode;
+  using util::error::DracError, util::error::DracErrorCode;
   using util::types::Option, util::types::Result, util::types::Err, util::types::String, util::types::i32,
-    util::types::None;
+    util::types::u32, util::types::None;
 
   /**
    * @brief RAII wrapper for DBusError. Automatically initializes and frees.
    */
-  class ErrorGuard {
-    DBusError m_Err {};
-    bool      m_IsInitialized = false;
+  class Error {
+    DBusError m_err {};
+    bool      m_isInitialized = false;
 
    public:
-    ErrorGuard() : m_IsInitialized(true) { dbus_error_init(&m_Err); }
+    Error() : m_isInitialized(true) { dbus_error_init(&m_err); }
 
-    ~ErrorGuard() {
-      if (m_IsInitialized)
-        dbus_error_free(&m_Err);
+    ~Error() {
+      if (m_isInitialized)
+        dbus_error_free(&m_err);
     }
 
-    ErrorGuard(const ErrorGuard&)                = delete;
-    fn operator=(const ErrorGuard&)->ErrorGuard& = delete;
+    Error(const Error&)                = delete;
+    fn operator=(const Error&)->Error& = delete;
 
-    ErrorGuard(ErrorGuard&& other) noexcept : m_Err(other.m_Err), m_IsInitialized(other.m_IsInitialized) {
-      other.m_IsInitialized = false;
-      dbus_error_init(&other.m_Err);
+    Error(Error&& other) noexcept : m_err(other.m_err), m_isInitialized(other.m_isInitialized) {
+      other.m_isInitialized = false;
+      dbus_error_init(&other.m_err);
     }
 
-    fn operator=(ErrorGuard&& other) noexcept -> ErrorGuard& {
+    fn operator=(Error&& other) noexcept -> Error& {
       if (this != &other) {
-        if (m_IsInitialized) {
-          dbus_error_free(&m_Err);
-        }
-        m_Err           = other.m_Err;
-        m_IsInitialized = other.m_IsInitialized;
+        if (m_isInitialized)
+          dbus_error_free(&m_err);
 
-        other.m_IsInitialized = false;
-        dbus_error_init(&other.m_Err);
+        m_err           = other.m_err;
+        m_isInitialized = other.m_isInitialized;
+
+        other.m_isInitialized = false;
+        dbus_error_init(&other.m_err);
       }
       return *this;
     }
 
-    [[nodiscard]] fn isSet() const -> bool { return m_IsInitialized && dbus_error_is_set(&m_Err); }
+    /**
+     * @brief Checks if the D-Bus error is set.
+     * @return True if an error is set, false otherwise.
+     */
+    [[nodiscard]] fn isSet() const -> bool { return m_isInitialized && dbus_error_is_set(&m_err); }
 
-    [[nodiscard]] fn message() const -> const char* { return isSet() ? m_Err.message : ""; }
+    /**
+     * @brief Gets the error message.
+     * @return The error message string, or "" if not set or not initialized.
+     */
+    [[nodiscard]] fn message() const -> const char* { return isSet() ? m_err.message : ""; }
 
-    [[nodiscard]] fn name() const -> const char* { return isSet() ? m_Err.name : ""; }
+    /**
+     * @brief Gets the error name.
+     * @return The error name string (e.g., "org.freedesktop.DBus.Error.Failed"), or "" if not set or not initialized.
+     */
+    [[nodiscard]] fn name() const -> const char* { return isSet() ? m_err.name : ""; }
 
-    [[nodiscard]] fn get() -> DBusError* { return &m_Err; }
-    [[nodiscard]] fn get() const -> const DBusError* { return &m_Err; }
+    /**
+     * @brief Gets a pointer to the underlying DBusError. Use with caution.
+     * @return Pointer to the DBusError struct.
+     */
+    [[nodiscard]] fn get() -> DBusError* { return &m_err; }
+    /**
+     * @brief Gets a const pointer to the underlying DBusError.
+     * @return Const pointer to the DBusError struct.
+     */
+    [[nodiscard]] fn get() const -> const DBusError* { return &m_err; }
 
-    [[nodiscard]] fn toDraconisError(const DraconisErrorCode code = DraconisErrorCode::PlatformSpecific) const
-      -> DraconisError {
+    /**
+     * @brief Converts the D-Bus error to a DraconisError.
+     * @param code The DraconisError code to use if the D-Bus error is set.
+     * @return A DraconisError representing the D-Bus error, or an internal error if called when no D-Bus error is set.
+     */
+    [[nodiscard]] fn toDraconisError(const DracErrorCode code = DracErrorCode::PlatformSpecific) const -> DracError {
       if (isSet())
         return { code, std::format("D-Bus Error: {} ({})", message(), name()) };
 
-      return { DraconisErrorCode::InternalError, "Attempted to convert non-set DBusErrorGuard" };
+      return { DracErrorCode::InternalError, "Attempted to convert non-set ErrorGuard" };
+    }
+  };
+
+  /**
+   * @brief RAII wrapper for DBusMessageIter. Encapsulates iterator operations.
+   * Note: This wrapper does *not* own the message, only the iterator state.
+   * It's designed to be used within the scope where the MessageGuard is valid.
+   */
+  class MessageIter {
+    DBusMessageIter m_iter {};
+    bool            m_isValid = false;
+
+    explicit MessageIter(const DBusMessageIter& iter, const bool isValid) : m_iter(iter), m_isValid(isValid) {}
+
+    friend class Message;
+
+    /**
+     * @brief Gets the value of a basic-typed argument.
+     * Unsafe: Caller must ensure 'value' points to memory suitable for the actual argument type.
+     * @param value Pointer to store the retrieved value.
+     */
+    fn getBasic(void* value) -> void {
+      if (m_isValid)
+        dbus_message_iter_get_basic(&m_iter, value);
+    }
+
+   public:
+    MessageIter(const MessageIter&)                = delete;
+    fn operator=(const MessageIter&)->MessageIter& = delete;
+    MessageIter(MessageIter&&)                     = delete;
+    fn operator=(MessageIter&&)->MessageIter&      = delete;
+    ~MessageIter()                                 = default;
+
+    /**
+     * @brief Checks if the iterator is validly initialized.
+     */
+    [[nodiscard]] fn isValid() const -> bool { return m_isValid; }
+
+    /**
+     * @brief Gets the D-Bus type code of the current argument.
+     * @return The D-Bus type code, or DBUS_TYPE_INVALID otherwise.
+     */
+    [[nodiscard]] fn getArgType() -> int {
+      return m_isValid ? dbus_message_iter_get_arg_type(&m_iter) : DBUS_TYPE_INVALID;
+    }
+
+    /**
+     * @brief Gets the element type of the container pointed to by the iterator.
+     * Only valid if the iterator points to an ARRAY or VARIANT.
+     * @return The D-Bus type code of the elements, or DBUS_TYPE_INVALID otherwise.
+     */
+    [[nodiscard]] fn getElementType() -> int {
+      return m_isValid ? dbus_message_iter_get_element_type(&m_iter) : DBUS_TYPE_INVALID;
+    }
+
+    /**
+     * @brief Advances the iterator to the next argument.
+     * @return True if successful (moved to a next element), false if at the end or iterator is invalid.
+     */
+    fn next() -> bool { return m_isValid && dbus_message_iter_next(&m_iter); }
+
+    /**
+     * @brief Recurses into a container-type argument (e.g., array, struct, variant).
+     * @return A new MessageIterGuard for the sub-container. The returned iterator might be invalid
+     * if the current element is not a container or the main iterator is invalid.
+     */
+    [[nodiscard]] fn recurse() -> MessageIter {
+      if (!m_isValid)
+        return MessageIter({}, false);
+
+      DBusMessageIter subIter;
+      dbus_message_iter_recurse(&m_iter, &subIter);
+
+      return MessageIter(subIter, true);
+    }
+
+    /**
+     * @brief Helper to safely get a string argument from the iterator.
+     * @return An Option containing the string value if the current arg is a valid string, or None otherwise.
+     */
+    [[nodiscard]] fn getString() -> Option<String> {
+      if (m_isValid && getArgType() == DBUS_TYPE_STRING) {
+        const char* strPtr = nullptr;
+
+        // ReSharper disable once CppRedundantCastExpression
+        getBasic(static_cast<void*>(&strPtr));
+
+        if (strPtr)
+          return String(strPtr);
+      }
+
+      return None;
+    }
+  };
+
+  /**
+   * @brief RAII wrapper for DBusMessage. Automatically unrefs.
+   */
+  class Message {
+    DBusMessage* m_msg = nullptr;
+
+   public:
+    explicit Message(DBusMessage* msg = nullptr) : m_msg(msg) {}
+
+    ~Message() {
+      if (m_msg)
+        dbus_message_unref(m_msg);
+    }
+
+    Message(const Message&)                = delete;
+    fn operator=(const Message&)->Message& = delete;
+
+    Message(Message&& other) noexcept : m_msg(std::exchange(other.m_msg, nullptr)) {}
+
+    fn operator=(Message&& other) noexcept -> Message& {
+      if (this != &other) {
+        if (m_msg)
+          dbus_message_unref(m_msg);
+        m_msg = std::exchange(other.m_msg, nullptr);
+      }
+      return *this;
+    }
+
+    /**
+     * @brief Gets the underlying DBusMessage pointer. Use with caution.
+     * @return The raw DBusMessage pointer, or nullptr if not holding a message.
+     */
+    [[nodiscard]] fn get() const -> DBusMessage* { return m_msg; }
+
+    /**
+     * @brief Initializes a message iterator for reading arguments from this message.
+     * @return A MessageIterGuard. Check iter.isValid() before use.
+     */
+    [[nodiscard]] fn iterInit() const -> MessageIter {
+      if (!m_msg)
+        return MessageIter({}, false);
+
+      DBusMessageIter iter;
+      const bool      isValid = dbus_message_iter_init(m_msg, &iter);
+      return MessageIter(iter, isValid);
+    }
+
+    /**
+     * @brief Appends arguments of basic types to the message.
+     * @tparam Args Types of the arguments to append.
+     * @param args The arguments to append.
+     * @return True if all arguments were appended successfully, false otherwise (e.g., allocation error).
+     */
+    template <typename... Args>
+    [[nodiscard]] fn appendArgs(Args&&... args) -> bool {
+      if (!m_msg)
+        return false;
+
+      DBusMessageIter iter;
+      dbus_message_iter_init_append(m_msg, &iter);
+
+      bool success = true;
+      ((success = success && appendArgInternal(iter, std::forward<Args>(args))), ...); // NOLINT
+      return success;
+    }
+
+    /**
+     * @brief Creates a new D-Bus method call message.
+     * @param destination Service name (e.g., "org.freedesktop.Notifications"). Can be null.
+     * @param path Object path (e.g., "/org/freedesktop/Notifications"). Must not be null.
+     * @param interface Interface name (e.g., "org.freedesktop.Notifications"). Can be null.
+     * @param method Method name (e.g., "Notify"). Must not be null.
+     * @return Result containing a MessageGuard on success, or DraconisError on failure.
+     */
+    static fn newMethodCall(const char* destination, const char* path, const char* interface, const char* method)
+      -> Result<Message, DracError> {
+      DBusMessage* rawMsg = dbus_message_new_method_call(destination, path, interface, method);
+
+      if (!rawMsg)
+        return Err(DracError(DracErrorCode::OutOfMemory, "dbus_message_new_method_call failed (allocation failed?)"));
+
+      return Message(rawMsg);
+    }
+
+   private:
+    template <typename T>
+    fn appendArgInternal(DBusMessageIter& iter, T&& arg) -> bool {
+      using DecayedT = std::decay_t<T>;
+
+      if constexpr (std::is_convertible_v<DecayedT, const char*>) {
+        const char* valuePtr = static_cast<const char*>(arg);
+        return dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &valuePtr);
+      } else {
+        static_assert(!sizeof(T*), "Unsupported type passed to appendArgs");
+        return false;
+      }
     }
   };
 
   /**
    * @brief RAII wrapper for DBusConnection. Automatically unrefs.
    */
-  class ConnectionGuard {
-    DBusConnection* m_Conn = nullptr;
+  class Connection {
+    DBusConnection* m_conn = nullptr;
 
    public:
-    explicit ConnectionGuard(DBusConnection* conn = nullptr) : m_Conn(conn) {}
+    explicit Connection(DBusConnection* conn = nullptr) : m_conn(conn) {}
 
-    ~ConnectionGuard() {
-      if (m_Conn)
-        dbus_connection_unref(m_Conn);
+    ~Connection() {
+      if (m_conn)
+        dbus_connection_unref(m_conn);
     }
 
-    ConnectionGuard(const ConnectionGuard&)                = delete;
-    fn operator=(const ConnectionGuard&)->ConnectionGuard& = delete;
+    Connection(const Connection&)                = delete;
+    fn operator=(const Connection&)->Connection& = delete;
 
-    ConnectionGuard(ConnectionGuard&& other) noexcept : m_Conn(std::exchange(other.m_Conn, nullptr)) {}
-    fn operator=(ConnectionGuard&& other) noexcept -> ConnectionGuard& {
+    Connection(Connection&& other) noexcept : m_conn(std::exchange(other.m_conn, nullptr)) {}
+
+    fn operator=(Connection&& other) noexcept -> Connection& {
       if (this != &other) {
-        if (m_Conn)
-          dbus_connection_unref(m_Conn);
-        m_Conn = std::exchange(other.m_Conn, nullptr);
-      }
+        if (m_conn)
+          dbus_connection_unref(m_conn);
 
+        m_conn = std::exchange(other.m_conn, nullptr);
+      }
       return *this;
     }
 
-    [[nodiscard]] fn get() const -> DBusConnection* { return m_Conn; }
-    explicit         operator bool() const { return m_Conn != nullptr; }
+    /**
+     * @brief Gets the underlying DBusConnection pointer. Use with caution.
+     * @return The raw DBusConnection pointer, or nullptr if not holding a connection.
+     */
+    [[nodiscard]] fn get() const -> DBusConnection* { return m_conn; }
 
-    [[nodiscard]] fn release() -> DBusConnection* { return std::exchange(m_Conn, nullptr); }
-  };
+    /**
+     * @brief Sends a message and waits for a reply, blocking execution.
+     * @param message The D-Bus message guard to send.
+     * @param timeout_milliseconds Timeout duration in milliseconds.
+     * @return Result containing the reply MessageGuard on success, or DraconisError on failure.
+     */
+    [[nodiscard]] fn sendWithReplyAndBlock(const Message& message, const i32 timeout_milliseconds = 1000) const
+      -> Result<Message, DracError> {
+      if (!m_conn || !message.get())
+        return Err(
+          DracError(DracErrorCode::InvalidArgument, "Invalid connection or message provided to sendWithReplyAndBlock")
+        );
 
-  /**
-   * @brief RAII wrapper for DBusMessage. Automatically unrefs.
-   */
-  class MessageGuard {
-    DBusMessage* m_Msg = nullptr;
+      Error        err;
+      DBusMessage* rawReply =
+        dbus_connection_send_with_reply_and_block(m_conn, message.get(), timeout_milliseconds, err.get());
 
-   public:
-    explicit MessageGuard(DBusMessage* msg = nullptr) : m_Msg(msg) {}
+      if (err.isSet()) {
+        if (const char* errName = err.name()) {
+          if (strcmp(errName, DBUS_ERROR_TIMEOUT) == 0 || strcmp(errName, DBUS_ERROR_NO_REPLY) == 0)
+            return Err(err.toDraconisError(DracErrorCode::Timeout));
 
-    ~MessageGuard() {
-      if (m_Msg)
-        dbus_message_unref(m_Msg);
-    }
+          if (strcmp(errName, DBUS_ERROR_SERVICE_UNKNOWN) == 0)
+            return Err(err.toDraconisError(DracErrorCode::NotFound));
 
-    MessageGuard(const MessageGuard&)                = delete;
-    fn operator=(const MessageGuard&)->MessageGuard& = delete;
+          if (strcmp(errName, DBUS_ERROR_ACCESS_DENIED) == 0)
+            return Err(err.toDraconisError(DracErrorCode::PermissionDenied));
+        }
 
-    MessageGuard(MessageGuard&& other) noexcept : m_Msg(std::exchange(other.m_Msg, nullptr)) {}
-    fn operator=(MessageGuard&& other) noexcept -> MessageGuard& {
-      if (this != &other) {
-        if (m_Msg)
-          dbus_message_unref(m_Msg);
-        m_Msg = std::exchange(other.m_Msg, nullptr);
+        return Err(err.toDraconisError(DracErrorCode::PlatformSpecific));
       }
 
-      return *this;
+      if (!rawReply)
+        return Err(DracError(
+          DracErrorCode::ApiUnavailable,
+          "dbus_connection_send_with_reply_and_block returned null without setting error (likely timeout or "
+          "disconnected)"
+        ));
+
+      return Message(rawReply);
     }
 
-    [[nodiscard]] fn get() const -> DBusMessage* { return m_Msg; }
-    explicit         operator bool() const { return m_Msg != nullptr; }
+    /**
+     * @brief Connects to a D-Bus bus type (Session or System).
+     * @param bus_type The type of bus (DBUS_BUS_SESSION or DBUS_BUS_SYSTEM).
+     * @return Result containing a ConnectionGuard on success, or DraconisError on failure.
+     */
+    static fn busGet(const DBusBusType bus_type) -> Result<Connection, DracError> {
+      Error           err;
+      DBusConnection* rawConn = dbus_bus_get(bus_type, err.get());
 
-    [[nodiscard]] fn release() -> DBusMessage* { return std::exchange(m_Msg, nullptr); }
+      if (err.isSet())
+        return Err(err.toDraconisError(DracErrorCode::ApiUnavailable));
+
+      if (!rawConn)
+        return Err(DracError(DracErrorCode::ApiUnavailable, "dbus_bus_get returned null without setting error"));
+
+      return Connection(rawConn);
+    }
   };
-
-  /**
-   * @brief Connects to a D-Bus bus type.
-   * @param bus_type The type of bus (e.g., DBUS_BUS_SESSION, DBUS_BUS_SYSTEM).
-   * @return Result containing a DBusConnectionGuard on success, or DraconisError on failure.
-   */
-  inline fn BusGet(const DBusBusType bus_type) -> Result<ConnectionGuard, DraconisError> {
-    ErrorGuard      err;
-    DBusConnection* rawConn = dbus_bus_get(bus_type, err.get());
-
-    if (err.isSet())
-      return Err(err.toDraconisError(DraconisErrorCode::ApiUnavailable));
-
-    if (!rawConn)
-      return Err(DraconisError(DraconisErrorCode::ApiUnavailable, "dbus_bus_get returned null without setting error"));
-
-    return ConnectionGuard(rawConn);
-  }
-
-  /**
-   * @brief Creates a new D-Bus method call message.
-   * @param destination Service name (e.g., "org.freedesktop.Notifications").
-   * @param path Object path (e.g., "/org/freedesktop/Notifications").
-   * @param interface Interface name (e.g., "org.freedesktop.Notifications").
-   * @param method Method name (e.g., "Notify").
-   * @return Result containing a DBusMessageGuard on success, or DraconisError on failure.
-   */
-  inline fn MessageNewMethodCall(const char* destination, const char* path, const char* interface, const char* method)
-    -> Result<MessageGuard, DraconisError> {
-    DBusMessage* rawMsg = dbus_message_new_method_call(destination, path, interface, method);
-    if (!rawMsg)
-      return Err(DraconisError(DraconisErrorCode::InternalError, "dbus_message_new_method_call failed (allocation?)"));
-
-    return MessageGuard(rawMsg);
-  }
-
-  /**
-   * @brief Sends a message and waits for a reply.
-   * @param connection The D-Bus connection guard.
-   * @param message The D-Bus message guard to send.
-   * @param timeout_milliseconds Timeout duration.
-   * @return Result containing the reply DBusMessageGuard on success, or DraconisError on failure.
-   */
-  inline fn ConnectionSendWithReplyAndBlock(
-    const ConnectionGuard& connection,
-    const MessageGuard&    message,
-    const i32              timeout_milliseconds = 100
-  ) -> Result<MessageGuard, DraconisError> {
-    ErrorGuard   err;
-    DBusMessage* rawReply =
-      dbus_connection_send_with_reply_and_block(connection.get(), message.get(), timeout_milliseconds, err.get());
-
-    if (err.isSet())
-      return Err(err.toDraconisError(DraconisErrorCode::ApiUnavailable));
-
-    if (!rawReply)
-      return Err(DraconisError(
-        DraconisErrorCode::ApiUnavailable,
-        "dbus_connection_send_with_reply_and_block returned null without setting error"
-      ));
-
-    return MessageGuard(rawReply);
-  }
-
-  /**
-   * @brief Appends arguments to a D-Bus message using varargs.
-   * @param message The message guard.
-   * @param first_arg_type The D-Bus type code of the first argument.
-   * @param ... Subsequent arguments (type code, value pointer, type code, value pointer...).
-   * End with DBUS_TYPE_INVALID.
-   * @return True on success, false on failure (e.g., allocation error).
-   */
-  inline fn MessageAppendArgs(const MessageGuard& message, const int first_arg_type, ...) -> bool {
-    va_list args;
-    va_start(args, first_arg_type);
-    const bool result = dbus_message_append_args_valist(message.get(), first_arg_type, args);
-    va_end(args);
-    return result;
-  }
-
-  using MessageIter = DBusMessageIter;
-
-  /**
-   * @brief Initializes a message iterator.
-   * @param message The message guard.
-   * @param iter Pointer to the iterator to initialize.
-   * @return True if iterator is valid, false otherwise.
-   */
-  inline fn MessageIterInit(const MessageGuard& message, MessageIter* iter) -> bool {
-    return dbus_message_iter_init(message.get(), iter);
-  }
-
-  /**
-   * @brief Recurses into a container-type argument.
-   * @param iter The current iterator.
-   * @param sub_iter Pointer to the sub-iterator to initialize.
-   */
-  inline fn MessageIterRecurse(MessageIter* iter, MessageIter* sub_iter) -> void {
-    dbus_message_iter_recurse(iter, sub_iter);
-  }
-
-  /**
-   * @brief Gets the D-Bus type code of the current argument.
-   * @param iter The iterator.
-   * @return The type code (e.g., DBUS_TYPE_STRING, DBUS_TYPE_INVALID).
-   */
-  inline fn MessageIterGetArgType(MessageIter* iter) -> int { return dbus_message_iter_get_arg_type(iter); }
-
-  /**
-   * @brief Gets the value of a basic-typed argument.
-   * @param iter The iterator.
-   * @param value Pointer to store the retrieved value. Must match the argument type.
-   */
-  inline fn MessageIterGetBasic(MessageIter* iter, void* value) -> void { dbus_message_iter_get_basic(iter, value); }
-
-  /**
-   * @brief Advances the iterator to the next argument.
-   * @param iter The iterator.
-   * @return True if successful, false if at the end.
-   */
-  inline fn MessageIterNext(MessageIter* iter) -> bool { return dbus_message_iter_next(iter); }
-
-  /**
-   * @brief Helper to safely get a string argument from an iterator.
-   * @param iter The iterator positioned at a DBUS_TYPE_STRING argument.
-   * @return An Option containing the string value, or None if the type is wrong or value is null.
-   */
-  inline fn MessageIterGetString(MessageIter* iter) -> Option<String> {
-    if (MessageIterGetArgType(iter) == DBUS_TYPE_STRING) {
-      const char* strPtr = nullptr;
-      MessageIterGetBasic(iter, static_cast<void*>(&strPtr));
-      if (strPtr)
-        return String(strPtr);
-    }
-
-    return None;
-  }
 } // namespace dbus
 
 #endif // __linux__
