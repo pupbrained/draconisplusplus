@@ -114,8 +114,12 @@
                 mv build/draconis++ $out/bin/draconis++
               '';
 
+              NIX_ENFORCE_NO_NATIVE = 0;
               meta.staticExecutable = true;
             };
+
+            draconisplusplus-generic = draconisplusplus.overrideAttrs {NIX_ENFORCE_NO_NATIVE = 1;};
+
             default = draconisplusplus;
           };
 
