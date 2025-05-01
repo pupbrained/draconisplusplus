@@ -5,8 +5,8 @@
 // clang-format off
 #include <xcb/xcb.h> // XCB library
 
-#include "src/core/util/defs.hpp"
-#include "src/core/util/types.hpp"
+#include "src/util/defs.hpp"
+#include "src/util/types.hpp"
 // clang-format on
 
 namespace xcb {

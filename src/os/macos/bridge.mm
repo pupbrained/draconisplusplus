@@ -11,7 +11,7 @@
 #include <string>
 #include <utility>
 
-#include "src/core/util/error.hpp"
+#include "src/util/error.hpp"
 // clang-format on
 
 using util::error::DracErrorCode;

@@ -10,10 +10,10 @@
 #include <toml++/impl/table.hpp>     // toml::table
 #include <unistd.h>                  // getuid
 
-#include "src/core/util/defs.hpp"
-#include "src/core/util/helpers.hpp"
-#include "src/core/util/logging.hpp"
-#include "src/core/util/types.hpp"
+#include "src/util/defs.hpp"
+#include "src/util/helpers.hpp"
+#include "src/util/logging.hpp"
+#include "src/util/types.hpp"
 
 namespace fs = std::filesystem;
 

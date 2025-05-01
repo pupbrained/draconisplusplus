@@ -7,9 +7,9 @@
 #include <glaze/core/common.hpp> // glz::object
 #include <glaze/core/meta.hpp>   // glz::detail::Object
 
-#include "src/core/util/defs.hpp"
-#include "src/core/util/error.hpp"
-#include "src/core/util/types.hpp"
+#include "src/util/defs.hpp"
+#include "src/util/error.hpp"
+#include "src/util/types.hpp"
 // clang-format on
 
 namespace os::linux {

@@ -15,13 +15,13 @@
 #include <iterator>               // std::istreambuf_iterator
 #include <glaze/beve/read.hpp>    // glz::read_beve
 #include <glaze/beve/write.hpp>   // glz::write_beve
-#include <glaze/core/context.hpp> // glz::{context, error_code, error_ctx}
 #include <system_error>           // std::error_code
 
-#include "src/core/util/defs.hpp"
-#include "src/core/util/error.hpp"
-#include "src/core/util/logging.hpp"
-#include "src/core/util/types.hpp"
+#include "src/util/cache.hpp"
+#include "src/util/defs.hpp"
+#include "src/util/error.hpp"
+#include "src/util/logging.hpp"
+#include "src/util/types.hpp"
 // clang-format on
 
 using util::error::DracError, util::error::DracErrorCode;
@@ -31,6 +31,7 @@ using util::types::u64, util::types::i64, util::types::Result, util::types::Err,
 namespace {
   namespace fs = std::filesystem;
   using namespace std::chrono;
+  using namespace util::cache;
   using os::linux::PkgCountCacheData, os::linux::PackageManagerInfo;
 
   fn GetPackageCountInternalDir(
@@ -111,6 +112,68 @@ namespace {
 
     return count;
   }
+
+  fn GetPackageCountInternalDb(const PackageManagerInfo& pmInfo) -> Result<u64, DracError> {
+    const auto& [pmId, dbPath, countQuery] = pmInfo;
+
+    if (Result<PkgCountCacheData, DracError> cachedDataResult = ReadCache<PkgCountCacheData>(pmId)) {
+      const auto& [count, timestamp] = *cachedDataResult;
+      std::error_code                       errc;
+      const std::filesystem::file_time_type dbModTime = fs::last_write_time(dbPath, errc);
+
+      if (errc) {
+        warn_log(
+          "Could not get modification time for '{}': {}. Invalidating {} cache.", dbPath.string(), errc.message(), pmId
+        );
+      } else {
+        if (const system_clock::time_point cacheTimePoint = system_clock::time_point(seconds(timestamp));
+            cacheTimePoint.time_since_epoch() >= dbModTime.time_since_epoch()) {
+          debug_log(
+            "Using valid {} package count cache (DB file unchanged since {}).",
+            pmId,
+            std::format("{:%F %T %Z}", floor<seconds>(cacheTimePoint))
+          );
+          return count;
+        }
+        debug_log("{} package count cache stale (DB file modified).", pmId);
+      }
+    } else {
+      if (cachedDataResult.error().code != DracErrorCode::NotFound)
+        debug_at(cachedDataResult.error());
+      debug_log("{} package count cache not found or unreadable.", pmId);
+    }
+
+    debug_log("Fetching fresh {} package count from database: {}", pmId, dbPath.string());
+    u64 count = 0;
+
+    try {
+      const SQLite::Database database(dbPath.string(), SQLite::OPEN_READONLY);
+      if (SQLite::Statement query(database, countQuery); query.executeStep()) {
+        const i64 countInt64 = query.getColumn(0).getInt64();
+        if (countInt64 < 0)
+          return Err(
+            DracError(DracErrorCode::ParseError, std::format("Negative count returned by {} DB COUNT query.", pmId))
+          );
+        count = static_cast<u64>(countInt64);
+      } else {
+        return Err(DracError(DracErrorCode::ParseError, std::format("No rows returned by {} DB COUNT query.", pmId)));
+      }
+    } catch (const SQLite::Exception& e) {
+      return Err(DracError(
+        DracErrorCode::ApiUnavailable, std::format("SQLite error occurred accessing {} DB: {}", pmId, e.what())
+      ));
+    } catch (const Exception& e) { return Err(DracError(DracErrorCode::InternalError, e.what())); } catch (...) {
+      return Err(DracError(DracErrorCode::Other, std::format("Unknown error occurred accessing {} DB", pmId)));
+    }
+
+    const i64               nowEpochSeconds = duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
+    const PkgCountCacheData dataToCache     = { .count = count, .timestampEpochSeconds = nowEpochSeconds };
+
+    if (Result<void, DracError> writeResult = WriteCache(pmId, dataToCache); !writeResult)
+      error_at(writeResult.error());
+
+    return count;
+  }
 } // namespace
 
 namespace os::linux {
@@ -159,10 +222,9 @@ namespace os::linux {
   fn GetTotalPackageCount() -> Result<u64, DracError> {
     using util::types::Array, util::types::Future;
 
-    Array<Future<Result<u64, DracError>>, 4> futures = {
+    Array<Future<Result<u64, DracError>>, 3> futures = {
       std::async(std::launch::async, GetDpkgPackageCount),
       std::async(std::launch::async, GetMossPackageCount),
-      std::async(std::launch::async, GetNixPackageCount),
       std::async(std::launch::async, GetPacmanPackageCount),
     };
 

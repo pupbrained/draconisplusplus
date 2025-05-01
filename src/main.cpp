@@ -10,9 +10,9 @@
 #include "src/config/config.hpp"
 #include "src/config/weather.hpp"
 #include "src/core/system_data.hpp"
-#include "src/core/util/defs.hpp"
-#include "src/core/util/logging.hpp"
-#include "src/core/util/types.hpp"
+#include "src/util/defs.hpp"
+#include "src/util/logging.hpp"
+#include "src/util/types.hpp"
 
 namespace ui {
   using ftxui::Color;

@@ -1,9 +1,8 @@
 #pragma once
 
-#include <chrono>     // std::chrono::{days, floor, seconds, system_clock}
-#include <ctime>      // For time_t, tm, localtime_s, localtime_r, strftime (needed for cross-platform local time)
-#include <filesystem> // std::filesystem::path
-#include <format>     // std::format
+#include <chrono>                 // std::chrono::{days, floor, seconds, system_clock}
+#include <filesystem>             // std::filesystem::path
+#include <format>                 // std::format
 #include <ftxui/screen/color.hpp> // ftxui::Color
 #include <print>                  // std::print
 #include <utility>                // std::forward
@@ -12,9 +11,9 @@
   #include <source_location> // std::source_location
 #endif
 
-#include "src/core/util/defs.hpp"
-#include "src/core/util/error.hpp"
-#include "src/core/util/types.hpp"
+#include "src/util/defs.hpp"
+#include "src/util/error.hpp"
+#include "src/util/types.hpp"
 
 namespace util::logging {
   using types::usize, types::u8, types::i32, types::i64, types::CStr, types::String, types::StringView, types::Array,
@@ -74,10 +73,8 @@ namespace util::logging {
    * @param color The FTXUI color
    * @return Styled string with ANSI codes
    */
-  inline fn Colorize(StringView text, const ftxui::Color::Palette16& color) -> String {
-    std::ostringstream oss;
-    oss << LogLevelConst::COLOR_CODE_LITERALS.at(static_cast<i32>(color)) << text << LogLevelConst::RESET_CODE;
-    return oss.str();
+  inline fn Colorize(const StringView text, const ftxui::Color::Palette16& color) -> String {
+    return std::format("{}{}{}", LogLevelConst::COLOR_CODE_LITERALS.at(color), text, LogLevelConst::RESET_CODE);
   }
 
   /**
@@ -86,7 +83,7 @@ namespace util::logging {
    * @return Bold text
    */
   inline fn Bold(const StringView text) -> String {
-    return String(LogLevelConst::BOLD_START) + String(text) + String(LogLevelConst::BOLD_END);
+    return std::format("{}{}{}", LogLevelConst::BOLD_START, text, LogLevelConst::BOLD_END);
   }
 
   /**
@@ -95,7 +92,7 @@ namespace util::logging {
    * @return Italic text
    */
   inline fn Italic(const StringView text) -> String {
-    return String(LogLevelConst::ITALIC_START) + String(text) + String(LogLevelConst::ITALIC_END);
+    return std::format("{}{}{}", LogLevelConst::ITALIC_START, text, LogLevelConst::ITALIC_END);
   }
 
   /**
@@ -143,11 +140,14 @@ namespace util::logging {
     }
   }
 
+  // ReSharper disable once CppDoxygenUnresolvedReference
   /**
    * @brief Logs a message with the specified log level, source location, and format string.
    * @tparam Args Parameter pack for format arguments.
    * @param level The log level (DEBUG, INFO, WARN, ERROR).
+   * \ifnot NDEBUG
    * @param loc The source location of the log message (only in Debug builds).
+   * \endif
    * @param fmt The format string.
    * @param args The arguments for the format string.
    */
@@ -163,8 +163,6 @@ namespace util::logging {
     using namespace std::chrono;
     using std::filesystem::path;
 
-    using Buffer = Array<char, 512>;
-
     const auto        nowTp = system_clock::now();
     const std::time_t nowTt = system_clock::to_time_t(nowTp);
     std::tm           localTm;
@@ -176,7 +174,7 @@ namespace util::logging {
 #else
     if (localtime_r(&nowTt, &localTm) != nullptr) {
 #endif
-      Array<char, 64> timeBuffer;
+      Array<char, 64> timeBuffer {};
 
       if (std::strftime(timeBuffer.data(), sizeof(timeBuffer), LogLevelConst::TIMESTAMP_FORMAT, &localTm) > 0)
         timestamp = timeBuffer.data();
@@ -187,7 +185,7 @@ namespace util::logging {
 
     const String message = std::format(fmt, std::forward<Args>(args)...);
 
-    Buffer buffer {};
+    Array<char, 128> buffer {};
 
     // Use the locally formatted timestamp string here
     auto* iter = std::format_to(

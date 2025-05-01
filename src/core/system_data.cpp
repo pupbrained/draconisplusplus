@@ -7,10 +7,10 @@
 
 #include "src/config/config.hpp"
 #include "src/config/weather.hpp"
-#include "src/core/util/defs.hpp"
-#include "src/core/util/error.hpp"
-#include "src/core/util/types.hpp"
 #include "src/os/os.hpp"
+#include "src/util/defs.hpp"
+#include "src/util/error.hpp"
+#include "src/util/types.hpp"
 
 using util::error::DracError, util::error::DracErrorCode;
 

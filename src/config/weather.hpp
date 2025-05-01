@@ -3,7 +3,7 @@
 #include <glaze/core/common.hpp> // object
 #include <glaze/core/meta.hpp>   // Object
 
-#include "src/core/util/types.hpp"
+#include "src/util/types.hpp"
 
 namespace weather {
   using glz::detail::Object, glz::object;

@@ -18,11 +18,11 @@
 #include <unistd.h>             // readlink
 #include <utility>              // std::move
 
-#include "src/core/util/defs.hpp"
-#include "src/core/util/error.hpp"
-#include "src/core/util/helpers.hpp"
-#include "src/core/util/logging.hpp"
-#include "src/core/util/types.hpp"
+#include "src/util/defs.hpp"
+#include "src/util/error.hpp"
+#include "src/util/helpers.hpp"
+#include "src/util/logging.hpp"
+#include "src/util/types.hpp"
 #include "src/wrappers/dbus.hpp"
 #include "src/wrappers/wayland.hpp"
 #include "src/wrappers/xcb.hpp"

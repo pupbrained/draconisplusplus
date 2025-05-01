@@ -4,9 +4,8 @@
 
 #include "src/config/config.hpp"  // Config
 #include "src/config/weather.hpp" // weather::Output
-
-#include "util/defs.hpp"
-#include "util/types.hpp"
+#include "src/util/defs.hpp"
+#include "src/util/types.hpp"
 
 struct Config;
 

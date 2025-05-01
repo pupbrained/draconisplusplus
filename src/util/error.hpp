@@ -9,7 +9,7 @@
   #include <winrt/base.h> // winrt::hresult_error
 #endif
 
-#include "src/core/util/types.hpp"
+#include "src/util/types.hpp"
 
 namespace util::error {
   using types::u8, types::i32, types::String, types::StringView, types::Exception;

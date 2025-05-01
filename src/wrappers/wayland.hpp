@@ -5,8 +5,8 @@
 // clang-format off
 #include <wayland-client.h> // Wayland client library
 
-#include "src/core/util/defs.hpp"
-#include "src/core/util/types.hpp"
+#include "src/util/defs.hpp"
+#include "src/util/types.hpp"
 // clang-format on
 
 struct wl_display;

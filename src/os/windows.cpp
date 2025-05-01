@@ -16,10 +16,10 @@
 #include <winrt/base.h>
 #include <winrt/impl/Windows.Media.Control.2.h>
 
-#include "src/core/util/error.hpp"
-#include "src/core/util/helpers.hpp"
-#include "src/core/util/logging.hpp"
-#include "src/core/util/types.hpp"
+#include "src/util/error.hpp"
+#include "src/util/helpers.hpp"
+#include "src/util/logging.hpp"
+#include "src/util/types.hpp"
 
 #include "os.hpp"
 // clang-format on
