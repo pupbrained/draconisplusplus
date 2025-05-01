@@ -424,7 +424,7 @@ namespace os {
           DracError(DracErrorCode::NotFound, std::format("Failed to open DMI product identifier file '{}'", path))
         );
 
-      if (!std::getline(file, line))
+      if (!std::getline(file, line) || line.empty())
         return Err(
           DracError(DracErrorCode::ParseError, std::format("DMI product identifier file ('{}') is empty", path))
         );
@@ -478,12 +478,12 @@ namespace os {
     if (Result<u64, DracError> linuxCount = linux::GetTotalPackageCount())
       count += *linuxCount;
     else
-      return Err(linuxCount.error());
+      debug_at(linuxCount.error());
 
     if (Result<u64, DracError> sharedCount = shared::GetPackageCount())
       count += *sharedCount;
     else
-      return Err(sharedCount.error());
+      debug_at(sharedCount.error());
 
     return count;
   }

@@ -196,7 +196,7 @@ namespace {
 
     content.push_back(separator() | color(ui::DEFAULT_THEME.border));
 
-    if (data.host)
+    if (data.host && !data.host->empty())
       content.push_back(createRow(hostIcon, "Host", *data.host));
     else
       error_at(data.host.error());

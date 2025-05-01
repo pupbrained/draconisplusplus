@@ -36,6 +36,7 @@ namespace os {
         return config.weather.getWeatherInfo();
       });
 
+    // TODO: make this use the user's timezone
     this->date          = std::format("{:%B %d}", year_month_day { floor<days>(system_clock::now()) });
     this->host          = hostFut.get();
     this->kernelVersion = kernelFut.get();
