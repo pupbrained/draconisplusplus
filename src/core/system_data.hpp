@@ -67,18 +67,18 @@ namespace os {
    * in order to display it at all at once during runtime.
    */
   struct SystemData {
-    String                             date; ///< Current date (e.g., "April 26"). Always expected to succeed.
-    Result<String, DracError>          host; ///< Host/product family (e.g., "MacBook Air") or OS util::erroror.
-    Result<String, DracError>          kernelVersion; ///< OS kernel version (e.g., "6.14.4") or OS error.
-    Result<String, DracError>          osVersion;     ///< OS pretty name (e.g., "Ubuntu 24.04.2 LTS") or OS error.
-    Result<u64, DracError>             memInfo;       ///< Total physical RAM in bytes or OS error.
-    Result<String, DracError>          desktopEnv;    ///< Desktop environment (e.g., "KDE") or None if not detected.
-    Result<String, DracError>          windowMgr;     ///< Window manager (e.g., "KWin") or None if not detected.
-    Result<DiskSpace, DracError>       diskUsage;     ///< Used/Total disk space for root filesystem or OS error.
-    Result<String, DracError>          shell; ///< Name of the current user shell (e.g., "zsh"). None if not detected.
-    Result<u64, DracError>             packageCount; ///< Total number of packages installed or OS error.
-    Result<MediaInfo, DracError>       nowPlaying;   ///< Result of fetching media info.
-    Result<weather::Output, DracError> weather;      ///< Result of fetching weather info.
+    Result<String, DracError>          date;          ///< Current date (e.g., "April 26th").
+    Result<String, DracError>          host;          ///< Host/product family (e.g., "MacBook Air").
+    Result<String, DracError>          kernelVersion; ///< OS kernel version (e.g., "6.14.4").
+    Result<String, DracError>          osVersion;     ///< OS pretty name (e.g., "Ubuntu 24.04.2 LTS").
+    Result<u64, DracError>             memInfo;       ///< Total physical RAM in bytes.
+    Result<String, DracError>          desktopEnv;    ///< Desktop environment (e.g., "KDE").
+    Result<String, DracError>          windowMgr;     ///< Window manager (e.g., "KWin").
+    Result<DiskSpace, DracError>       diskUsage;     ///< Used/Total disk space for root filesystem.
+    Result<String, DracError>          shell;         ///< Name of the current user shell (e.g., "zsh").
+    Result<u64, DracError>             packageCount;  ///< Total number of packages installed.
+    Result<MediaInfo, DracError>       nowPlaying;    ///< Result of fetching media info.
+    Result<weather::Output, DracError> weather;       ///< Result of fetching weather info.
 
     /**
      * @brief Constructs a SystemData object and initializes its members.

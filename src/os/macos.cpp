@@ -13,7 +13,7 @@
 // clang-format on
 
 using namespace util::types;
-using util::error::DracError, util::error::DracErrorCode;
+using util::error::DracError;
 
 fn os::GetMemInfo() -> Result<u64, DracError> {
   u64   mem  = 0;
@@ -30,16 +30,16 @@ fn os::GetNowPlaying() -> Result<MediaInfo, DracError> { return GetCurrentPlayin
 fn os::GetOSVersion() -> Result<String, DracError> { return GetMacOSVersion(); }
 
 fn os::GetDesktopEnvironment() -> Result<String, DracError> {
-  return Err(DracError(DracErrorCode::Other, "Not implemented on macOS"));
+  return "Aqua"; // TODO: Implement
 }
 
 fn os::GetWindowManager() -> Result<String, DracError> {
-  return Err(DracError(DracErrorCode::Other, "Not implemented on macOS"));
+  return "Yabai"; // TODO: Implement
 }
 
 fn os::GetKernelVersion() -> Result<String, DracError> {
-  std::array<char, 256> kernelVersion {};
-  usize                 kernelVersionLen = sizeof(kernelVersion);
+  Array<char, 256> kernelVersion {};
+  usize            kernelVersionLen = sizeof(kernelVersion);
 
   if (sysctlbyname("kern.osrelease", kernelVersion.data(), &kernelVersionLen, nullptr, 0) == -1)
     return Err(DracError::withErrno("Failed to get kernel version"));
@@ -48,15 +48,15 @@ fn os::GetKernelVersion() -> Result<String, DracError> {
 }
 
 fn os::GetHost() -> Result<String, DracError> {
-  std::array<char, 256> hwModel {};
-  size_t                hwModelLen = sizeof(hwModel);
+  Array<char, 256> hwModel {};
+  usize            hwModelLen = sizeof(hwModel);
 
   if (sysctlbyname("hw.model", hwModel.data(), &hwModelLen, nullptr, 0) == -1)
     return Err(DracError::withErrno("Failed to get host info"));
 
   // taken from https://github.com/fastfetch-cli/fastfetch/blob/dev/src/detection/host/host_mac.c
   // shortened a lot of the entries to remove unnecessary info
-  std::flat_map<std::string_view, std::string_view> modelNameByHwModel = {
+  std::flat_map<StringView, StringView> modelNameByHwModel = {
     // MacBook Pro
     { "MacBookPro18,3",      "MacBook Pro (14-inch, 2021)" },
     { "MacBookPro18,4",      "MacBook Pro (14-inch, 2021)" },
@@ -225,7 +225,7 @@ fn os::GetDiskUsage() -> Result<DiskSpace, DracError> {
 fn os::GetPackageCount() -> Result<u64, DracError> { return shared::GetPackageCount(); }
 
 fn os::GetShell() -> Result<String, DracError> {
-  return Err(DracError(DracErrorCode::Other, "Not implemented on macOS"));
+  return "Fish"; // TODO: Implement
 }
 
 #endif

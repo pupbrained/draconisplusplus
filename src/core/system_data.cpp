@@ -1,24 +1,73 @@
 #include "system_data.hpp"
 
-#include <chrono> // std::chrono::{year_month_day, days, floor, system_clock}
+#include <chrono> // std::chrono::system_clock
+#include <ctime>  // localtime_r/s, strftime, time_t, tm
 #include <format> // std::format
-#include <future> // std::async
+#include <future> // std::{async, launch}
 
 #include "src/config/config.hpp"
 #include "src/config/weather.hpp"
+#include "src/core/util/defs.hpp"
 #include "src/core/util/error.hpp"
 #include "src/core/util/types.hpp"
 #include "src/os/os.hpp"
 
+using util::error::DracError, util::error::DracErrorCode;
+
+namespace {
+  using util::types::i32, util::types::CStr;
+
+  fn getOrdinalSuffix(i32 day) -> CStr {
+    if (day >= 11 && day <= 13)
+      return "th";
+
+    switch (day % 10) {
+      case 1:  return "st";
+      case 2:  return "nd";
+      case 3:  return "rd";
+      default: return "th";
+    }
+  }
+
+  fn getDate() -> Result<String, DracError> {
+    using std::chrono::system_clock;
+    using util::types::String, util::types::usize, util::types::Err;
+
+    const system_clock::time_point nowTp = system_clock::now();
+    const std::time_t              nowTt = system_clock::to_time_t(nowTp);
+
+    std::tm nowTm;
+
+#ifdef _WIN32
+    if (localtime_s(&nowTm, &nowTt) == 0) {
+#else
+    if (localtime_r(&nowTt, &nowTm) != nullptr) {
+#endif
+      i32 day = nowTm.tm_mday;
+
+      String      monthBuffer(32, '\0');
+      const usize monthLen = std::strftime(monthBuffer.data(), monthBuffer.size(), "%B", &nowTm);
+
+      if (monthLen > 0) {
+        monthBuffer.resize(monthLen);
+
+        CStr suffix = getOrdinalSuffix(day);
+
+        try {
+          return std::format("{} {}{}", monthBuffer, day, suffix);
+        } catch (const std::format_error& e) { return Err(DracError(DracErrorCode::ParseError, e.what())); }
+      } else
+        return Err(DracError(DracErrorCode::ParseError, "Failed to format date"));
+    } else
+      return Err(DracError(DracErrorCode::ParseError, "Failed to get local time"));
+  }
+} // namespace
+
 namespace os {
   SystemData::SystemData(const Config& config) {
-    // NOLINTNEXTLINE(misc-include-cleaner) - std::chrono::{days, floor} are inherited from <chrono>
-    using std::chrono::year_month_day, std::chrono::system_clock, std::chrono::floor, std::chrono::days;
-    using util::error::DracError, util::error::DracErrorCode;
-    using util::types::Result, util::types::Err, util::types::Option, util::types::None, util::types::Exception,
-      util::types::Future;
-    using weather::Output;
     using enum std::launch;
+    using util::types::Future, util::types::Err;
+    using weather::Output;
 
     Future<Result<String, DracError>>    hostFut   = std::async(async, GetHost);
     Future<Result<String, DracError>>    kernelFut = std::async(async, GetKernelVersion);
@@ -36,8 +85,7 @@ namespace os {
         return config.weather.getWeatherInfo();
       });
 
-    // TODO: make this use the user's timezone
-    this->date          = std::format("{:%B %d}", year_month_day { floor<days>(system_clock::now()) });
+    this->date          = getDate();
     this->host          = hostFut.get();
     this->kernelVersion = kernelFut.get();
     this->osVersion     = osFut.get();

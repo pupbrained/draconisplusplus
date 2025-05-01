@@ -4,6 +4,7 @@
 #include <ftxui/dom/node.hpp>      // ftxui::{Render}
 #include <ftxui/screen/color.hpp>  // ftxui::Color
 #include <ftxui/screen/screen.hpp> // ftxui::{Screen, Dimension::Full}
+#include <print>                   // std::println
 #include <ranges>                  // std::ranges::{iota, to, transform}
 
 #include "src/config/config.hpp"
@@ -151,7 +152,10 @@ namespace {
     };
 
     // System info rows
-    content.push_back(createRow(calendarIcon, "Date", data.date));
+    if (data.date)
+      content.push_back(createRow(calendarIcon, "Date", *data.date));
+    else
+      error_at(data.date.error());
 
     // Weather row
     if (weather.enabled && data.weather) {

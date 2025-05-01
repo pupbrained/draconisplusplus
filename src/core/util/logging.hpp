@@ -1,12 +1,16 @@
 #pragma once
 
-#include <chrono>                 // std::chrono::{days, floor, seconds, system_clock}
-#include <filesystem>             // std::filesystem::path
-#include <format>                 // std::format
+#include <chrono>     // std::chrono::{days, floor, seconds, system_clock}
+#include <ctime>      // For time_t, tm, localtime_s, localtime_r, strftime (needed for cross-platform local time)
+#include <filesystem> // std::filesystem::path
+#include <format>     // std::format
 #include <ftxui/screen/color.hpp> // ftxui::Color
 #include <print>                  // std::print
-#include <source_location>        // std::source_location
 #include <utility>                // std::forward
+
+#ifndef NDEBUG
+  #include <source_location> // std::source_location
+#endif
 
 #include "src/core/util/defs.hpp"
 #include "src/core/util/error.hpp"
@@ -48,7 +52,7 @@ namespace util::logging {
     static constexpr ftxui::Color::Palette16 ERROR_COLOR      = ftxui::Color::Palette16::Red;
     static constexpr ftxui::Color::Palette16 DEBUG_INFO_COLOR = ftxui::Color::Palette16::GrayLight;
 
-    static constexpr CStr TIMESTAMP_FORMAT = "{:%X}";
+    static constexpr CStr TIMESTAMP_FORMAT = "%X";
     static constexpr CStr LOG_FORMAT       = "{} {} {}";
 
 #ifndef NDEBUG
@@ -143,7 +147,7 @@ namespace util::logging {
    * @brief Logs a message with the specified log level, source location, and format string.
    * @tparam Args Parameter pack for format arguments.
    * @param level The log level (DEBUG, INFO, WARN, ERROR).
-   * @param loc The source location of the log message.
+   * @param loc The source location of the log message (only in Debug builds).
    * @param fmt The format string.
    * @param args The arguments for the format string.
    */
@@ -161,17 +165,34 @@ namespace util::logging {
 
     using Buffer = Array<char, 512>;
 
-    // Dynamic parts (runtime)
-    const time_point<system_clock, duration<i64>> now = floor<seconds>(system_clock::now());
+    const auto        nowTp = system_clock::now();
+    const std::time_t nowTt = system_clock::to_time_t(nowTp);
+    std::tm           localTm;
 
-    const String timestamp = std::format(LogLevelConst::TIMESTAMP_FORMAT, now);
-    const String message   = std::format(fmt, std::forward<Args>(args)...);
+    String timestamp;
+
+#ifdef _WIN32
+    if (localtime_s(&local_tm, &now_tt) == 0) {
+#else
+    if (localtime_r(&nowTt, &localTm) != nullptr) {
+#endif
+      Array<char, 64> timeBuffer;
+
+      if (std::strftime(timeBuffer.data(), sizeof(timeBuffer), LogLevelConst::TIMESTAMP_FORMAT, &localTm) > 0)
+        timestamp = timeBuffer.data();
+      else
+        timestamp = "??:??:?? (strf_err)";
+    } else
+      timestamp = "??:??:?? (conv_err)";
+
+    const String message = std::format(fmt, std::forward<Args>(args)...);
 
     Buffer buffer {};
 
+    // Use the locally formatted timestamp string here
     auto* iter = std::format_to(
       buffer.begin(),
-      LogLevelConst::LOG_FORMAT,
+      LogLevelConst::LOG_FORMAT, // "{timestamp} {level} {message}"
       Colorize("[" + timestamp + "]", LogLevelConst::DEBUG_INFO_COLOR),
       GetLevelInfo().at(static_cast<usize>(level)),
       message

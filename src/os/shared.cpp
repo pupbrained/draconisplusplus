@@ -3,6 +3,7 @@
 #include <SQLiteCpp/Statement.h>  // SQLite::Statement
 #include <chrono>                 // std::chrono
 #include <filesystem>             // std::filesystem
+#include <format>                 // std::format
 #include <fstream>                // std::{ifstream, ofstream}
 #include <glaze/beve/read.hpp>    // glz::read_beve
 #include <glaze/beve/write.hpp>   // glz::write_beve
@@ -11,6 +12,7 @@
 #include <glaze/core/meta.hpp>    // glz::detail::Object
 #include <ios>                    // std::ios::{binary, trunc}, std::ios_base
 #include <iterator>               // std::istreambuf_iterator
+#include <system_error>           // std::error_code
 
 #include "src/core/util/defs.hpp"
 #include "src/core/util/error.hpp"
