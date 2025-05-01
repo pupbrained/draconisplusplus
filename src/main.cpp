@@ -129,21 +129,25 @@ namespace {
 
     content.push_back(text(String(userIcon) + "Hello " + name + "! ") | bold | color(Color::Cyan));
     content.push_back(separator() | color(ui::DEFAULT_THEME.border));
-    content.push_back(hbox({
-      text(String(paletteIcon)) | color(ui::DEFAULT_THEME.icon),
-      CreateColorCircles(),
-    }));
+    content.push_back(hbox(
+      {
+        text(String(paletteIcon)) | color(ui::DEFAULT_THEME.icon),
+        CreateColorCircles(),
+      }
+    ));
     content.push_back(separator() | color(ui::DEFAULT_THEME.border));
 
     // Helper function for aligned rows
     fn createRow = [&](const StringView& icon, const StringView& label, const StringView& value) { // NEW
-      return hbox({
-        text(String(icon)) | color(ui::DEFAULT_THEME.icon),
-        text(String(label)) | color(ui::DEFAULT_THEME.label),
-        filler(),
-        text(String(value)) | color(ui::DEFAULT_THEME.value),
-        text(" "),
-      });
+      return hbox(
+        {
+          text(String(icon)) | color(ui::DEFAULT_THEME.icon),
+          text(String(label)) | color(ui::DEFAULT_THEME.label),
+          filler(),
+          text(String(value)) | color(ui::DEFAULT_THEME.value),
+          text(" "),
+        }
+      );
     };
 
     // System info rows
@@ -154,31 +158,39 @@ namespace {
       const weather::Output& weatherInfo = *data.weather;
 
       if (weather.showTownName)
-        content.push_back(hbox({
-          text(String(weatherIcon)) | color(ui::DEFAULT_THEME.icon),
-          text("Weather") | color(ui::DEFAULT_THEME.label),
-          filler(),
+        content.push_back(hbox(
+          {
+            text(String(weatherIcon)) | color(ui::DEFAULT_THEME.icon),
+            text("Weather") | color(ui::DEFAULT_THEME.label),
+            filler(),
 
-          hbox({
-            text(std::format("{}°F ", std::lround(weatherInfo.main.temp))),
-            text("in "),
-            text(weatherInfo.name),
-            text(" "),
-          }) |
-            color(ui::DEFAULT_THEME.value),
-        }));
+            hbox(
+              {
+                text(std::format("{}°F ", std::lround(weatherInfo.main.temp))),
+                text("in "),
+                text(weatherInfo.name),
+                text(" "),
+              }
+            ) |
+              color(ui::DEFAULT_THEME.value),
+          }
+        ));
       else
-        content.push_back(hbox({
-          text(String(weatherIcon)) | color(ui::DEFAULT_THEME.icon),
-          text("Weather") | color(ui::DEFAULT_THEME.label),
-          filler(),
+        content.push_back(hbox(
+          {
+            text(String(weatherIcon)) | color(ui::DEFAULT_THEME.icon),
+            text("Weather") | color(ui::DEFAULT_THEME.label),
+            filler(),
 
-          hbox({
-            text(std::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description)),
-            text(" "),
-          }) |
-            color(ui::DEFAULT_THEME.value),
-        }));
+            hbox(
+              {
+                text(std::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description)),
+                text(" "),
+              }
+            ) |
+              color(ui::DEFAULT_THEME.value),
+          }
+        ));
     } else if (weather.enabled)
       error_at(data.weather.error());
 
@@ -239,14 +251,16 @@ namespace {
       const String npText = artist + " - " + title;
 
       content.push_back(separator() | color(ui::DEFAULT_THEME.border));
-      content.push_back(hbox({
-        text(String(musicIcon)) | color(ui::DEFAULT_THEME.icon),
-        text("Playing") | color(ui::DEFAULT_THEME.label),
-        text(" "),
-        filler(),
-        paragraph(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, ui::MAX_PARAGRAPH_LENGTH),
-        text(" "),
-      }));
+      content.push_back(hbox(
+        {
+          text(String(musicIcon)) | color(ui::DEFAULT_THEME.icon),
+          text("Playing") | color(ui::DEFAULT_THEME.label),
+          text(" "),
+          filler(),
+          paragraph(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, ui::MAX_PARAGRAPH_LENGTH),
+          text(" "),
+        }
+      ));
     }
 
     return vbox(content) | borderRounded | color(Color::White);
@@ -268,6 +282,8 @@ fn main() -> i32 {
   Screen screen = Screen::Create(Dimension::Full(), Dimension::Fit(document));
   Render(screen, document);
   screen.Print();
+
+  std::println();
 
   return 0;
 }
