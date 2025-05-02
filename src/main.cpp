@@ -244,8 +244,8 @@ namespace {
     usize requiredWidthSystemW  = iconActualWidth + maxLabelWidthSystem;
     usize requiredWidthEnvW     = iconActualWidth + maxLabelWidthEnv;
 
-    fn calculateRowVisualWidth = [&](const RowInfo& row, usize requiredLabelVisualWidth) -> usize {
-      return requiredLabelVisualWidth + get_visual_width(row.value) + get_visual_width_sv(" "); // Use visual width
+    fn calculateRowVisualWidth = [&](const RowInfo& row, const usize requiredLabelVisualWidth) -> usize {
+      return requiredLabelVisualWidth + get_visual_width(row.value) + get_visual_width_sv(" ");
     };
 
     for (const RowInfo& row : initialRows)
@@ -278,7 +278,7 @@ namespace {
       paragraphLimit = std::max(1, availableForParagraph);
     }
 
-    fn createStandardRow = [&](const RowInfo& row, usize sectionRequiredVisualWidth) {
+    fn createStandardRow = [&](const RowInfo& row, const usize sectionRequiredVisualWidth) {
       return hbox(
         {
           hbox(

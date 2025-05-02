@@ -27,10 +27,10 @@ namespace util::helpers {
     const UniquePointer<char, decltype(&free)> ptrManager(rawPtr, free);
 
     if (err != 0)
-      return Err(DraconisError(DraconisErrorCode::PermissionDenied, "Failed to retrieve environment variable"));
+      return Err(DracError(DracErrorCode::PermissionDenied, "Failed to retrieve environment variable"));
 
     if (!ptrManager)
-      return Err(DraconisError(DraconisErrorCode::NotFound, "Environment variable not found"));
+      return Err(DracError(DracErrorCode::NotFound, "Environment variable not found"));
 
     return ptrManager.get();
 #else

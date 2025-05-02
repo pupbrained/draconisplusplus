@@ -17,7 +17,7 @@ using util::error::DracError, util::error::DracErrorCode;
 namespace {
   using util::types::i32, util::types::CStr;
 
-  fn getOrdinalSuffix(i32 day) -> CStr {
+  fn getOrdinalSuffix(const i32 day) -> CStr {
     if (day >= 11 && day <= 13)
       return "th";
 
@@ -45,10 +45,9 @@ namespace {
 #endif
       i32 day = nowTm.tm_mday;
 
-      String      monthBuffer(32, '\0');
-      const usize monthLen = std::strftime(monthBuffer.data(), monthBuffer.size(), "%B", &nowTm);
+      String monthBuffer(32, '\0');
 
-      if (monthLen > 0) {
+      if (const usize monthLen = std::strftime(monthBuffer.data(), monthBuffer.size(), "%B", &nowTm); monthLen > 0) {
         monthBuffer.resize(monthLen);
 
         CStr suffix = getOrdinalSuffix(day);
@@ -56,10 +55,12 @@ namespace {
         try {
           return std::format("{} {}{}", monthBuffer, day, suffix);
         } catch (const std::format_error& e) { return Err(DracError(DracErrorCode::ParseError, e.what())); }
-      } else
-        return Err(DracError(DracErrorCode::ParseError, "Failed to format date"));
-    } else
-      return Err(DracError(DracErrorCode::ParseError, "Failed to get local time"));
+      }
+
+      return Err(DracError(DracErrorCode::ParseError, "Failed to format date"));
+    }
+
+    return Err(DracError(DracErrorCode::ParseError, "Failed to get local time"));
   }
 } // namespace
 
@@ -81,9 +82,7 @@ namespace os {
     Future<Result<MediaInfo, DracError>> npFut =
       std::async(config.nowPlaying.enabled ? async : deferred, GetNowPlaying);
     Future<Result<Output, DracError>> wthrFut =
-      std::async(config.weather.enabled ? async : deferred, [&config] -> Result<Output, DracError> {
-        return config.weather.getWeatherInfo();
-      });
+      std::async(config.weather.enabled ? async : deferred, [&config] { return config.weather.getWeatherInfo(); });
 
     this->date          = getDate();
     this->host          = hostFut.get();

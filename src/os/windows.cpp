@@ -27,7 +27,7 @@
 using RtlGetVersionPtr = NTSTATUS(WINAPI*)(PRTL_OSVERSIONINFOW);
 
 namespace {
-  using util::error::DraconisError, util::error::DraconisErrorCode;
+  using util::error::DracError, util::error::DracErrorCode;
   using namespace util::types;
 
   struct ProcessData {
@@ -165,7 +165,7 @@ namespace {
 } // namespace
 
 namespace os {
-  fn GetMemInfo() -> Result<u64, DraconisError> {
+  fn GetMemInfo() -> Result<u64, DracError> {
     MEMORYSTATUSEX memInfo;
     memInfo.dwLength = sizeof(MEMORYSTATUSEX);
 
@@ -173,12 +173,12 @@ namespace os {
       return memInfo.ullTotalPhys;
 
     DWORD lastError = GetLastError();
-    return Err(DraconisError(
-      DraconisErrorCode::PlatformSpecific, std::format("GlobalMemoryStatusEx failed with error code {}", lastError)
+    return Err(DracError(
+      DracErrorCode::PlatformSpecific, std::format("GlobalMemoryStatusEx failed with error code {}", lastError)
     ));
   }
 
-  fn GetNowPlaying() -> Result<MediaInfo, DraconisError> {
+  fn GetNowPlaying() -> Result<MediaInfo, DracError> {
     using namespace winrt::Windows::Media::Control;
     using namespace winrt::Windows::Foundation;
 
@@ -193,16 +193,14 @@ namespace os {
       if (const Session currentSession = sessionManager.GetCurrentSession()) {
         const MediaProperties mediaProperties = currentSession.TryGetMediaPropertiesAsync().get();
 
-        return MediaInfo(
-          winrt::to_string(mediaProperties.Title()), winrt::to_string(mediaProperties.Artist()), None, None
-        );
+        return MediaInfo(winrt::to_string(mediaProperties.Title()), winrt::to_string(mediaProperties.Artist()));
       }
 
-      return Err(DraconisError(DraconisErrorCode::NotFound, "No media session found"));
-    } catch (const winrt::hresult_error& e) { return Err(DraconisError(e)); }
+      return Err(DracError(DracErrorCode::NotFound, "No media session found"));
+    } catch (const winrt::hresult_error& e) { return Err(DracError(e)); }
   }
 
-  fn GetOSVersion() -> Result<String, DraconisError> {
+  fn GetOSVersion() -> Result<String, DracError> {
     try {
       const String regSubKey = R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)";
 
@@ -210,7 +208,7 @@ namespace os {
       const String displayVersion = GetRegistryValue(HKEY_LOCAL_MACHINE, regSubKey, "DisplayVersion");
 
       if (productName.empty())
-        return Err(DraconisError(DraconisErrorCode::NotFound, "ProductName not found in registry"));
+        return Err(DracError(DracErrorCode::NotFound, "ProductName not found in registry"));
 
       if (const Option<u64> buildNumberOpt = GetBuildNumber()) {
         if (const u64 buildNumber = *buildNumberOpt; buildNumber >= 22000) {
@@ -229,14 +227,14 @@ namespace os {
       }
 
       return displayVersion.empty() ? productName : productName + " " + displayVersion;
-    } catch (const std::exception& e) { return Err(DraconisError(e)); }
+    } catch (const std::exception& e) { return Err(DracError(e)); }
   }
 
-  fn GetHost() -> Result<String, DraconisError> {
+  fn GetHost() -> Result<String, DracError> {
     return GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SYSTEM\HardwareConfig\Current)", "SystemFamily");
   }
 
-  fn GetKernelVersion() -> Result<String, DraconisError> {
+  fn GetKernelVersion() -> Result<String, DracError> {
     if (const HMODULE ntdllHandle = GetModuleHandleW(L"ntdll.dll")) {
       if (const auto rtlGetVersion = std::bit_cast<RtlGetVersionPtr>(GetProcAddress(ntdllHandle, "RtlGetVersion"))) {
         RTL_OSVERSIONINFOW osInfo  = {};
@@ -249,28 +247,24 @@ namespace os {
       }
     }
 
-    return Err(DraconisError(DraconisErrorCode::NotFound, "Could not determine kernel version using RtlGetVersion"));
+    return Err(DracError(DracErrorCode::NotFound, "Could not determine kernel version using RtlGetVersion"));
   }
 
-  fn GetWindowManager() -> Option<String> {
+  fn GetWindowManager() -> Result<String, DracError> {
     BOOL compositionEnabled = FALSE;
-    if (SUCCEEDED(DwmIsCompositionEnabled(&compositionEnabled))) {
+
+    if (SUCCEEDED(DwmIsCompositionEnabled(&compositionEnabled)))
       return compositionEnabled ? "DWM" : "Windows Manager (Basic)";
-    }
 
-    error_log("GetWindowManager: DwmIsCompositionEnabled failed");
-
-    return None;
+    return Err(DracError(DracErrorCode::NotFound, "Failed to get window manager (DwmIsCompositionEnabled failed"));
   }
 
-  fn GetDesktopEnvironment() -> Option<String> {
+  fn GetDesktopEnvironment() -> Result<String, DracError> {
     const String buildStr =
       GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", "CurrentBuildNumber");
 
-    if (buildStr.empty()) {
-      debug_log("Failed to get CurrentBuildNumber from registry");
-      return None;
-    }
+    if (buildStr.empty())
+      return Err(DracError(DracErrorCode::InternalError, "Failed to get CurrentBuildNumber from registry"));
 
     try {
       const i32 build = stoi(buildStr);
@@ -304,22 +298,18 @@ namespace os {
 
       // Pre-Win7
       return "Classic";
-    } catch (...) {
-      debug_log("Failed to parse CurrentBuildNumber");
-      return None;
-    }
+    } catch (...) { return Err(DracError(DracErrorCode::ParseError, "Failed to parse CurrentBuildNumber")); }
   }
 
-  fn GetShell() -> Option<String> {
+  fn GetShell() -> Result<String, DracError> {
     using util::helpers::GetEnv;
 
-    if (const Result<String, DraconisError> msystemResult = GetEnv("MSYSTEM");
-        msystemResult && !msystemResult->empty()) {
+    if (const Result<String, DracError> msystemResult = GetEnv("MSYSTEM"); msystemResult && !msystemResult->empty()) {
       String shellPath;
 
-      if (const Result<String, DraconisError> shellResult = GetEnv("SHELL"); shellResult && !shellResult->empty()) {
+      if (const Result<String, DracError> shellResult = GetEnv("SHELL"); shellResult && !shellResult->empty()) {
         shellPath = *shellResult;
-      } else if (const Result<String, DraconisError> loginShellResult = GetEnv("LOGINSHELL");
+      } else if (const Result<String, DracError> loginShellResult = GetEnv("LOGINSHELL");
                  loginShellResult && !loginShellResult->empty()) {
         shellPath = *loginShellResult;
       }
@@ -339,31 +329,31 @@ namespace os {
 
       const DWORD currentPid = GetCurrentProcessId();
       if (const Option<String> msysShell = FindShellInProcessTree(currentPid, msysShellMap))
-        return msysShell;
+        return *msysShell;
 
       return "MSYS2 Environment";
     }
 
     const DWORD currentPid = GetCurrentProcessId();
     if (const Option<String> windowsShell = FindShellInProcessTree(currentPid, windowsShellMap))
-      return windowsShell;
+      return *windowsShell;
 
-    return None;
+    return Err(DracError(DracErrorCode::NotFound, "Shell not found"));
   }
 
-  fn GetDiskUsage() -> Result<DiskSpace, DraconisError> {
+  fn GetDiskUsage() -> Result<DiskSpace, DracError> {
     ULARGE_INTEGER freeBytes, totalBytes;
 
     if (GetDiskFreeSpaceExW(L"C:\\", nullptr, &totalBytes, &freeBytes))
       return DiskSpace { .used_bytes = totalBytes.QuadPart - freeBytes.QuadPart, .total_bytes = totalBytes.QuadPart };
 
-    return Err(DraconisError(util::error::DraconisErrorCode::NotFound, "Failed to get disk usage"));
+    return Err(DracError(util::error::DracErrorCode::NotFound, "Failed to get disk usage"));
   }
 
-  fn GetPackageCount() -> Result<u64, DraconisError> {
+  fn GetPackageCount() -> Result<u64, DracError> {
     try {
       return std::ranges::distance(winrt::Windows::Management::Deployment::PackageManager().FindPackagesForUser(L""));
-    } catch (const winrt::hresult_error& e) { return Err(DraconisError(e)); }
+    } catch (const winrt::hresult_error& e) { return Err(DracError(e)); }
   }
 } // namespace os
 

@@ -1,15 +1,16 @@
-#include <SQLiteCpp/Database.h>  // SQLite::{Database, OPEN_READONLY}
-#include <SQLiteCpp/Exception.h> // SQLite::Exception
-#include <SQLiteCpp/Statement.h> // SQLite::Statement
+#ifndef _WIN32
+  #include <SQLiteCpp/Database.h>  // SQLite::{Database, OPEN_READONLY}
+  #include <SQLiteCpp/Exception.h> // SQLite::Exception
+  #include <SQLiteCpp/Statement.h> // SQLite::Statement
+#endif
+
 #include <chrono>                // std::chrono
 #include <filesystem>            // std::filesystem
 #include <format>                // std::format
 #include <fstream>               // std::{ifstream, ofstream}
-#include <glaze/beve/read.hpp>   // glz::read_beve
 #include <glaze/beve/write.hpp>  // glz::write_beve
 #include <glaze/core/common.hpp> // glz::object
 #include <glaze/core/meta.hpp>   // glz::detail::Object
-#include <ios>                   // std::ios::{binary, trunc}, std::ios_base
 #include <iterator>              // std::istreambuf_iterator
 #include <system_error>          // std::error_code
 
@@ -32,11 +33,13 @@ namespace {
   using namespace std::chrono;
   using namespace util::cache;
 
+#ifndef _WIN32
   struct PackageManagerInfo {
     String   id;
     fs::path dbPath;
     String   countQuery;
   };
+#endif
 
   struct PkgCountCacheData {
     u64 count {};
@@ -52,6 +55,7 @@ namespace {
     // NOLINTEND(readability-identifier-naming)
   };
 
+#ifndef _WIN32
   fn GetPackageCountInternalDb(const PackageManagerInfo& pmInfo) -> Result<u64, DracError> {
     const auto& [pmId, dbPath, countQuery] = pmInfo;
 
@@ -113,6 +117,7 @@ namespace {
 
     return count;
   }
+#endif
 
 #ifndef _WIN32
   fn GetNixPackageCount() -> Result<u64, DracError> {
@@ -142,9 +147,9 @@ namespace {
 
     fs::path cargoPath {};
 
-    if (Result<String, DracError> cargoHome = GetEnv("CARGO_HOME"))
+    if (const Result<String, DracError> cargoHome = GetEnv("CARGO_HOME"))
       cargoPath = fs::path(*cargoHome) / "bin";
-    else if (Result<String, DracError> homeDir = GetEnv("HOME"))
+    else if (const Result<String, DracError> homeDir = GetEnv("HOME"))
       cargoPath = fs::path(*homeDir) / ".cargo" / "bin";
 
     if (cargoPath.empty() || !fs::exists(cargoPath))

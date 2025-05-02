@@ -71,16 +71,16 @@ namespace util::error {
       }
     }
 #ifdef _WIN32
-    explicit DraconisError(const winrt::hresult_error& e) : message(winrt::to_string(e.message())) {
+    explicit DracError(const winrt::hresult_error& e) : message(winrt::to_string(e.message())) {
       switch (e.code()) {
-        case E_ACCESSDENIED:                              code = DraconisErrorCode::PermissionDenied; break;
+        case E_ACCESSDENIED:                              code = DracErrorCode::PermissionDenied; break;
         case HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND):
         case HRESULT_FROM_WIN32(ERROR_PATH_NOT_FOUND):
-        case HRESULT_FROM_WIN32(ERROR_SERVICE_NOT_FOUND): code = DraconisErrorCode::NotFound; break;
+        case HRESULT_FROM_WIN32(ERROR_SERVICE_NOT_FOUND): code = DracErrorCode::NotFound; break;
         case HRESULT_FROM_WIN32(ERROR_TIMEOUT):
-        case HRESULT_FROM_WIN32(ERROR_SEM_TIMEOUT):       code = DraconisErrorCode::Timeout; break;
-        case HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED):     code = DraconisErrorCode::NotSupported; break;
-        default:                                          code = DraconisErrorCode::PlatformSpecific; break;
+        case HRESULT_FROM_WIN32(ERROR_SEM_TIMEOUT):       code = DracErrorCode::Timeout; break;
+        case HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED):     code = DracErrorCode::NotSupported; break;
+        default:                                          code = DracErrorCode::PlatformSpecific; break;
       }
     }
 #else

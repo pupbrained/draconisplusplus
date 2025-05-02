@@ -2,8 +2,8 @@
 
 #include <format> // std::{formatter, format_to}
 
-#include "src/config/config.hpp"  // Config
-#include "src/config/weather.hpp" // weather::Output
+#include "src/config/config.hpp"
+#include "src/config/weather.hpp"
 #include "src/util/defs.hpp"
 #include "src/util/types.hpp"
 

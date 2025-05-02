@@ -156,6 +156,7 @@ namespace util::logging {
   fn LogImpl(
     const LogLevel level,
 #ifndef NDEBUG
+    // ReSharper disable once CppDoxygenUndocumentedParameter
     const std::source_location& loc,
 #endif
     std::format_string<Args...> fmt,
@@ -173,7 +174,7 @@ namespace util::logging {
     String timestamp;
 
 #ifdef _WIN32
-    if (localtime_s(&local_tm, &now_tt) == 0) {
+    if (localtime_s(&localTm, &nowTt) == 0) {
 #else
     if (localtime_r(&nowTt, &localTm) != nullptr) {
 #endif

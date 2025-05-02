@@ -3,12 +3,15 @@
 #include <filesystem>                // std::filesystem::{path, operator/, exists, create_directories}
 #include <format>                    // std::{format, format_error}
 #include <fstream>                   // std::{ifstream, ofstream, operator<<}
-#include <pwd.h>                     // passwd, getpwuid
 #include <system_error>              // std::error_code
 #include <toml++/impl/node_view.hpp> // toml::node_view
 #include <toml++/impl/parser.hpp>    // toml::{parse_file, parse_result}
 #include <toml++/impl/table.hpp>     // toml::table
-#include <unistd.h>                  // getuid
+
+#ifndef _WIN32
+  #include <pwd.h>    // passwd, getpwuid
+  #include <unistd.h> // getuid
+#endif
 
 #include "src/util/defs.hpp"
 #include "src/util/helpers.hpp"

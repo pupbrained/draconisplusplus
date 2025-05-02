@@ -4,14 +4,12 @@
 #include <future>                // std::future
 #include <glaze/core/common.hpp> // glz::object
 #include <glaze/core/meta.hpp>   // glz::detail::Object
-#include <vector>                // std::vector
 
 #include "src/util/defs.hpp"
 #include "src/util/error.hpp"
 #include "src/util/types.hpp"
 
 namespace packages {
-
   namespace fs = std::filesystem;
   using util::error::DracError;
   using util::types::Result, util::types::u64, util::types::i64, util::types::String, util::types::Vec,
