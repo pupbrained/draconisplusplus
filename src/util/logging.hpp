@@ -4,6 +4,7 @@
 #include <filesystem>             // std::filesystem::path
 #include <format>                 // std::format
 #include <ftxui/screen/color.hpp> // ftxui::Color
+#include <mutex>                  // std::{mutex, lock_guard}
 #include <print>                  // std::print
 #include <utility>                // std::forward
 
@@ -17,11 +18,14 @@
 
 namespace util::logging {
   using types::usize, types::u8, types::i32, types::i64, types::CStr, types::String, types::StringView, types::Array,
-    types::Option, types::None;
+    types::Option, types::None, types::Mutex, types::LockGuard;
 
-  // Store all compile-time constants in a struct
+  inline fn GetLogMutex() -> Mutex& {
+    static Mutex LogMutexInstance;
+    return LogMutexInstance;
+  }
+
   struct LogLevelConst {
-    // ANSI color codes
     // clang-format off
     static constexpr Array<StringView, 16> COLOR_CODE_LITERALS = {
       "\033[38;5;0m",  "\033[38;5;1m",  "\033[38;5;2m",  "\033[38;5;3m",
@@ -31,20 +35,17 @@ namespace util::logging {
     };
     // clang-format on
 
-    // ANSI formatting constants
     static constexpr const char* RESET_CODE   = "\033[0m";
     static constexpr const char* BOLD_START   = "\033[1m";
     static constexpr const char* BOLD_END     = "\033[22m";
     static constexpr const char* ITALIC_START = "\033[3m";
     static constexpr const char* ITALIC_END   = "\033[23m";
 
-    // Log level text constants
     static constexpr StringView DEBUG_STR = "DEBUG";
     static constexpr StringView INFO_STR  = "INFO ";
     static constexpr StringView WARN_STR  = "WARN ";
     static constexpr StringView ERROR_STR = "ERROR";
 
-    // Log level color constants
     static constexpr ftxui::Color::Palette16 DEBUG_COLOR      = ftxui::Color::Palette16::Cyan;
     static constexpr ftxui::Color::Palette16 INFO_COLOR       = ftxui::Color::Palette16::Green;
     static constexpr ftxui::Color::Palette16 WARN_COLOR       = ftxui::Color::Palette16::Yellow;
@@ -162,6 +163,8 @@ namespace util::logging {
   ) {
     using namespace std::chrono;
     using std::filesystem::path;
+
+    const LockGuard lock(GetLogMutex());
 
     const auto        nowTp = system_clock::now();
     const std::time_t nowTt = system_clock::to_time_t(nowTp);

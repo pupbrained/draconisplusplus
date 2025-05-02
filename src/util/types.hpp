@@ -5,6 +5,7 @@
 #include <future>      // std::future (Future)
 #include <map>         // std::map (Map)
 #include <memory>      // std::shared_ptr and std::unique_ptr (SharedPointer, UniquePointer)
+#include <mutex>       // std::mutex and std::lock_guard (Mutex, LockGuard)
 #include <optional>    // std::optional (Option)
 #include <string>      // std::string (String, StringView)
 #include <string_view> // std::string_view (StringView)
@@ -33,6 +34,9 @@ namespace util::types {
   using CStr       = const char*;      ///< Pointer to a null-terminated C-style string.
 
   using Exception = std::exception; ///< Standard exception type.
+
+  using Mutex     = std::mutex;             ///< Mutex type for synchronization.
+  using LockGuard = std::lock_guard<Mutex>; ///< RAII-style lock guard for mutexes.
 
   inline constexpr std::nullopt_t None = std::nullopt; ///< Represents an empty optional value.
 
