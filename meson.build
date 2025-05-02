@@ -89,6 +89,7 @@ base_sources = files('src/core/system_data.cpp', 'src/os/shared.cpp', 'src/confi
 
 platform_sources = {
   'linux' : ['src/os/linux.cpp', 'src/os/linux/pkg_count.cpp'],
+  'freebsd' : ['src/os/freebsd.cpp'],
   'darwin' : ['src/os/macos.cpp', 'src/os/macos/bridge.mm'],
   'windows' : ['src/os/windows.cpp'],
 }
@@ -122,14 +123,14 @@ elif host_system == 'windows'
     cpp.find_library('dwmapi'),
     cpp.find_library('windowsapp'),
   ]
-elif host_system == 'linux'
+else
   platform_deps += [
     dependency('SQLiteCpp'),
     dependency('xcb'),
     dependency('xau'),
     dependency('xdmcp'),
     dependency('wayland-client'),
-    dependency('dbus-1', include_type : 'system'),
+    dependency('dbus-1'),
   ]
 endif
 
@@ -172,7 +173,7 @@ objc_args = []
 
 if host_system == 'darwin'
   objc_args += ['-fobjc-arc']
-elif cpp.get_id() == 'clang'
+elif host_system == 'linux'
   link_args += ['-static']
 endif
 

@@ -1,7 +1,5 @@
 #pragma once
 
-#ifdef __linux__
-
 // clang-format off
 #include <xcb/xcb.h> // XCB library
 
@@ -170,5 +168,3 @@ namespace xcb {
     [[nodiscard]] fn operator*() const->T& { return *m_reply; }
   };
 } // namespace xcb
-
-#endif // __linux__

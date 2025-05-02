@@ -110,158 +110,225 @@ namespace {
   using namespace util::logging;
   using namespace ftxui;
 
+  // Helper struct to hold row data before calculating max width
+  struct RowInfo {
+    StringView icon;
+    StringView label;
+    String     value; // Store the final formatted value as String
+  };
+
   fn CreateColorCircles() -> Element {
     return hbox(
-      std::views::iota(0, 16) | std::views::transform([](i32 colorIndex) {
+      std::views::iota(0, 16) | std::views::transform([](ui::i32 colorIndex) {
         return hbox({ text("◯") | bold | color(static_cast<Color::Palette256>(colorIndex)), text(" ") });
       }) |
       std::ranges::to<Elements>()
     );
   }
 
+  fn find_max_label_len(const std::vector<RowInfo>& rows) -> usize {
+    usize max_len = 0;
+    for (const auto& row : rows) { max_len = std::max(max_len, row.label.length()); }
+    return max_len;
+  };
+
   fn SystemInfoBox(const Config& config, const os::SystemData& data) -> Element {
-    const String& name    = config.general.name;
-    const Weather weather = config.weather;
+    const String&  name    = config.general.name;
+    const Weather& weather = config.weather;
 
     const auto& [userIcon, paletteIcon, calendarIcon, hostIcon, kernelIcon, osIcon, memoryIcon, weatherIcon, musicIcon, diskIcon, shellIcon, packageIcon, deIcon, wmIcon] =
       ui::ICON_TYPE;
 
-    Elements content;
+    // --- Stage 1: Collect data for rows into logical sections ---
+    std::vector<RowInfo> initial_rows;     // Date, Weather
+    std::vector<RowInfo> system_info_rows; // Host, Kernel, OS, RAM, Disk, Shell, Packages
+    std::vector<RowInfo> env_info_rows;    // DE, WM
 
-    content.push_back(text(String(userIcon) + "Hello " + name + "! ") | bold | color(Color::Cyan));
-    content.push_back(separator() | color(ui::DEFAULT_THEME.border));
-    content.push_back(hbox(
-      {
-        text(String(paletteIcon)) | color(ui::DEFAULT_THEME.icon),
-        CreateColorCircles(),
+    // --- Section 1: Date and Weather ---
+    if (data.date) {
+      initial_rows.push_back({ calendarIcon, "Date", *data.date });
+    } else {
+      debug_at(data.date.error());
+    }
+    if (weather.enabled && data.weather) {
+      const weather::Output& weatherInfo  = *data.weather;
+      String                 weatherValue = weather.showTownName
+                        ? std::format("{}°F in {}", std::lround(weatherInfo.main.temp), weatherInfo.name)
+                        : std::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description);
+      initial_rows.push_back({ weatherIcon, "Weather", std::move(weatherValue) });
+    } else if (weather.enabled) {
+      debug_at(data.weather.error());
+    }
+
+    // --- Section 2: Core System Info ---
+    if (data.host && !data.host->empty()) {
+      system_info_rows.push_back({ hostIcon, "Host", *data.host });
+    } else {
+      debug_at(data.host.error());
+    }
+    if (data.kernelVersion) {
+      system_info_rows.push_back({ kernelIcon, "Kernel", *data.kernelVersion });
+    } else {
+      debug_at(data.kernelVersion.error());
+    }
+    if (data.osVersion) {
+      system_info_rows.push_back({ osIcon, "OS", *data.osVersion });
+    } else {
+      debug_at(data.osVersion.error());
+    }
+    if (data.memInfo) {
+      system_info_rows.push_back({ memoryIcon, "RAM", std::format("{}", BytesToGiB { *data.memInfo }) });
+    } else {
+      debug_at(data.memInfo.error());
+    }
+    if (data.diskUsage) {
+      system_info_rows.push_back(
+        { diskIcon,
+          "Disk",
+          std::format("{}/{}", BytesToGiB { data.diskUsage->used_bytes }, BytesToGiB { data.diskUsage->total_bytes }) }
+      );
+    } else {
+      debug_at(data.diskUsage.error());
+    }
+    if (data.shell) {
+      system_info_rows.push_back({ shellIcon, "Shell", *data.shell });
+    } else {
+      debug_at(data.shell.error());
+    }
+    if (data.packageCount) {
+      if (*data.packageCount > 0) {
+        system_info_rows.push_back({ packageIcon, "Packages", std::format("{}", *data.packageCount) });
+      } else {
+        debug_log("Package count is 0, skipping");
       }
-    ));
-    content.push_back(separator() | color(ui::DEFAULT_THEME.border));
+    } else {
+      debug_at(data.packageCount.error());
+    }
 
-    // Helper function for aligned rows
-    fn createRow = [&](const StringView& icon, const StringView& label, const StringView& value) { // NEW
+    // --- Section 3: Desktop Env / Window Manager ---
+    bool added_de = false;
+    if (data.desktopEnv && (!data.windowMgr || *data.desktopEnv != *data.windowMgr)) {
+      env_info_rows.push_back({ deIcon, "DE", *data.desktopEnv });
+      added_de = true;
+    } else if (!data.desktopEnv) { /* Optional debug */
+    }
+    if (data.windowMgr) {
+      if (!added_de || (data.desktopEnv && *data.desktopEnv != *data.windowMgr)) {
+        env_info_rows.push_back({ wmIcon, "WM", *data.windowMgr });
+      }
+    } else {
+      debug_at(data.windowMgr.error());
+    }
+
+    // --- Section 4: Now Playing (Handled separately) ---
+    bool   now_playing_active = false;
+    String np_text;
+    if (config.nowPlaying.enabled && data.nowPlaying) {
+      const String title  = data.nowPlaying->title.value_or("Unknown Title");
+      const String artist = data.nowPlaying->artist.value_or("Unknown Artist");
+      np_text             = artist + " - " + title;
+      now_playing_active  = true;
+    } else if (config.nowPlaying.enabled) { /* Optional debug */
+    }
+
+    // --- Stage 2: Calculate max width needed for Icon + Label across relevant sections ---
+    usize maxActualLabelLen = 0;
+    auto  find_max_label    = [&](const std::vector<RowInfo>& rows) {
+      usize max_len = 0;
+      for (const auto& row : rows) { max_len = std::max(max_len, row.label.length()); }
+      return max_len;
+    };
+
+    maxActualLabelLen =
+      std::max({ find_max_label(initial_rows), find_max_label(system_info_rows), find_max_label(env_info_rows) });
+    // Note: We don't include "Playing" from Now Playing in this calculation
+    // as it's handled differently, but we could if we wanted perfect alignment.
+
+    // --- Stage 2: Calculate max width needed PER SECTION ---
+    // Assume consistent icon width for simplicity (adjust if icons vary significantly)
+    usize iconLen = ui::ICON_TYPE.user.length() - 1;
+    // Optionally refine iconLen based on actual icons used, if needed
+
+    usize maxLabelLen_initial = find_max_label_len(initial_rows);
+    usize maxLabelLen_system  = find_max_label_len(system_info_rows);
+    usize maxLabelLen_env     = find_max_label_len(env_info_rows);
+
+    usize requiredWidth_initial = iconLen + maxLabelLen_initial;
+    usize requiredWidth_system  = iconLen + maxLabelLen_system;
+    usize requiredWidth_env     = iconLen + maxLabelLen_env;
+
+    // --- Stage 3: Define the row creation function ---
+    auto createStandardRow = [&](const RowInfo& row, usize sectionRequiredWidth) {
+      Element leftPart = hbox(
+        {
+          text(String(row.icon)) | color(ui::DEFAULT_THEME.icon),
+          text(String(row.label)) | color(ui::DEFAULT_THEME.label),
+        }
+      );
       return hbox(
         {
-          text(String(icon)) | color(ui::DEFAULT_THEME.icon),
-          text(String(label)) | color(ui::DEFAULT_THEME.label),
+          leftPart | size(WIDTH, EQUAL, static_cast<int>(sectionRequiredWidth)),
           filler(),
-          text(String(value)) | color(ui::DEFAULT_THEME.value),
+          text(row.value) | color(ui::DEFAULT_THEME.value),
           text(" "),
         }
       );
     };
 
-    // System info rows
-    if (data.date)
-      content.push_back(createRow(calendarIcon, "Date", *data.date));
-    else
-      error_at(data.date.error());
+    // --- Stage 4: Build the final Elements list with explicit separators and section-specific widths ---
+    Elements content;
 
-    // Weather row
-    if (weather.enabled && data.weather) {
-      const weather::Output& weatherInfo = *data.weather;
+    // Greeting and Palette
+    content.push_back(text(String(userIcon) + "Hello " + name + "! ") | bold | color(Color::Cyan));
+    content.push_back(separator() | color(ui::DEFAULT_THEME.border)); // Separator after greeting
+    content.push_back(hbox({ text(String(paletteIcon)) | color(ui::DEFAULT_THEME.icon), CreateColorCircles() }));
+    content.push_back(separator() | color(ui::DEFAULT_THEME.border)); // Separator after palette
 
-      if (weather.showTownName)
-        content.push_back(hbox(
-          {
-            text(String(weatherIcon)) | color(ui::DEFAULT_THEME.icon),
-            text("Weather") | color(ui::DEFAULT_THEME.label),
-            filler(),
+    // Determine section presence
+    bool section1_present = !initial_rows.empty();
+    bool section2_present = !system_info_rows.empty();
+    bool section3_present = !env_info_rows.empty();
+    bool section4_present = now_playing_active;
 
-            hbox(
-              {
-                text(std::format("{}°F ", std::lround(weatherInfo.main.temp))),
-                text("in "),
-                text(weatherInfo.name),
-                text(" "),
-              }
-            ) |
-              color(ui::DEFAULT_THEME.value),
-          }
-        ));
-      else
-        content.push_back(hbox(
-          {
-            text(String(weatherIcon)) | color(ui::DEFAULT_THEME.icon),
-            text("Weather") | color(ui::DEFAULT_THEME.label),
-            filler(),
+    // Add Section 1 (Date/Weather) - Use initial width
+    for (const auto& row : initial_rows) { content.push_back(createStandardRow(row, requiredWidth_initial)); }
 
-            hbox(
-              {
-                text(std::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description)),
-                text(" "),
-              }
-            ) |
-              color(ui::DEFAULT_THEME.value),
-          }
-        ));
-    } else if (weather.enabled)
-      error_at(data.weather.error());
-
-    content.push_back(separator() | color(ui::DEFAULT_THEME.border));
-
-    if (data.host && !data.host->empty())
-      content.push_back(createRow(hostIcon, "Host", *data.host));
-    else
-      error_at(data.host.error());
-
-    if (data.kernelVersion)
-      content.push_back(createRow(kernelIcon, "Kernel", *data.kernelVersion));
-    else
-      error_at(data.kernelVersion.error());
-
-    if (data.osVersion)
-      content.push_back(createRow(String(osIcon), "OS", *data.osVersion));
-    else
-      error_at(data.osVersion.error());
-
-    if (data.memInfo)
-      content.push_back(createRow(memoryIcon, "RAM", std::format("{}", BytesToGiB { *data.memInfo })));
-    else
-      error_at(data.memInfo.error());
-
-    if (data.diskUsage)
-      content.push_back(createRow(
-        diskIcon,
-        "Disk",
-        std::format("{}/{}", BytesToGiB { data.diskUsage->used_bytes }, BytesToGiB { data.diskUsage->total_bytes })
-      ));
-    else
-      error_at(data.diskUsage.error());
-
-    if (data.shell)
-      content.push_back(createRow(shellIcon, "Shell", *data.shell));
-    else
-      error_at(data.shell.error());
-
-    if (data.packageCount)
-      content.push_back(createRow(packageIcon, "Packages", std::format("{}", *data.packageCount)));
-    else
-      error_at(data.packageCount.error());
-
-    content.push_back(separator() | color(ui::DEFAULT_THEME.border));
-
-    if (data.desktopEnv && *data.desktopEnv != data.windowMgr)
-      content.push_back(createRow(deIcon, "DE", *data.desktopEnv));
-
-    if (data.windowMgr)
-      content.push_back(createRow(wmIcon, "WM", *data.windowMgr));
-    else
-      error_at(data.windowMgr.error());
-
-    if (config.nowPlaying.enabled && data.nowPlaying) {
-      const String title  = data.nowPlaying->title.value_or("Unknown Title");
-      const String artist = data.nowPlaying->artist.value_or("Unknown Artist");
-      const String npText = artist + " - " + title;
-
+    // Separator before Section 2?
+    if (section1_present && (section2_present || section3_present || section4_present)) {
       content.push_back(separator() | color(ui::DEFAULT_THEME.border));
+    }
+
+    // Add Section 2 (System Info) - Use system width
+    for (const auto& row : system_info_rows) { content.push_back(createStandardRow(row, requiredWidth_system)); }
+
+    // Separator before Section 3?
+    if (section2_present && (section3_present || section4_present)) {
+      content.push_back(separator() | color(ui::DEFAULT_THEME.border));
+    }
+
+    // Add Section 3 (DE/WM) - Use env width
+    for (const auto& row : env_info_rows) { content.push_back(createStandardRow(row, requiredWidth_env)); }
+
+    // Separator before Section 4?
+    if (section3_present && section4_present) {
+      content.push_back(separator() | color(ui::DEFAULT_THEME.border));
+    } else if (!section3_present && (section1_present || section2_present) && section4_present) {
+      content.push_back(separator() | color(ui::DEFAULT_THEME.border));
+    }
+
+    // Add Section 4 (Now Playing)
+    if (section4_present) {
+      // Pad "Playing" label based on the max label length of the preceding section (Env)
+      usize playingLabelPadding = maxLabelLen_env;
       content.push_back(hbox(
         {
           text(String(musicIcon)) | color(ui::DEFAULT_THEME.icon),
-          text("Playing") | color(ui::DEFAULT_THEME.label),
-          text(" "),
+          // Pad only the label part
+          hbox({ text("Playing") | color(ui::DEFAULT_THEME.label) }) |
+            size(WIDTH, EQUAL, static_cast<int>(playingLabelPadding)),
+          text(" "), // Space after label
           filler(),
-          paragraph(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, ui::MAX_PARAGRAPH_LENGTH),
+          paragraph(np_text) | color(Color::Magenta) | size(WIDTH, LESS_THAN, ui::MAX_PARAGRAPH_LENGTH),
           text(" "),
         }
       ));

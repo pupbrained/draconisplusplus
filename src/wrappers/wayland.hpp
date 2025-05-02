@@ -1,13 +1,10 @@
 #pragma once
 
-#ifdef __linux__
-
-// clang-format off
 #include <wayland-client.h> // Wayland client library
 
 #include "src/util/defs.hpp"
+#include "src/util/logging.hpp"
 #include "src/util/types.hpp"
-// clang-format on
 
 struct wl_display;
 
@@ -31,7 +28,41 @@ namespace wl {
     /**
      * Opens a Wayland display connection
      */
-    DisplayGuard() : m_display(connect(nullptr)) {}
+    DisplayGuard() {
+      wl_log_set_handler_client([](const char* fmt, va_list args) -> void {
+        using util::types::i32, util::types::StringView;
+
+        va_list argsCopy;
+        va_copy(argsCopy, args);
+        i32 size = std::vsnprintf(nullptr, 0, fmt, argsCopy);
+        va_end(argsCopy);
+
+        if (size < 0) {
+          error_log("Wayland: Internal log formatting error (vsnprintf size check failed).");
+          return;
+        }
+
+        std::vector<char> buffer(static_cast<size_t>(size) + 1);
+
+        i32 writeSize = std::vsnprintf(buffer.data(), buffer.size(), fmt, args);
+
+        if (writeSize < 0 || writeSize >= static_cast<int>(buffer.size())) {
+          error_log("Wayland: Internal log formatting error (vsnprintf write failed).");
+          return;
+        }
+
+        StringView msgView(buffer.data(), static_cast<size_t>(writeSize));
+
+        if (!msgView.empty() && msgView.back() == '\n')
+          msgView.remove_suffix(1);
+
+        debug_log("Wayland {}", msgView);
+      });
+
+      // NOLINTNEXTLINE(cppcoreguidelines-prefer-member-initializer) - needs to come after wl_log_set_handler_client
+      m_display = connect(nullptr);
+    }
+
     ~DisplayGuard() {
       if (m_display)
         disconnect(m_display);
@@ -60,5 +91,3 @@ namespace wl {
     [[nodiscard]] fn fd() const -> util::types::i32 { return get_fd(m_display); }
   };
 } // namespace wl
-
-#endif // __linux__

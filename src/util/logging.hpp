@@ -185,27 +185,24 @@ namespace util::logging {
 
     const String message = std::format(fmt, std::forward<Args>(args)...);
 
-    Array<char, 128> buffer {};
-
-    // Use the locally formatted timestamp string here
-    auto* iter = std::format_to(
-      buffer.begin(),
-      LogLevelConst::LOG_FORMAT, // "{timestamp} {level} {message}"
+    const String mainLogLine = std::format(
+      LogLevelConst::LOG_FORMAT,
       Colorize("[" + timestamp + "]", LogLevelConst::DEBUG_INFO_COLOR),
       GetLevelInfo().at(static_cast<usize>(level)),
       message
     );
 
+    std::print("{}", mainLogLine);
+
 #ifndef NDEBUG
-    const String fileLine      = std::format("{}:{}", path(loc.file_name()).lexically_normal().string(), loc.line());
+    const String fileLine =
+      std::format(LogLevelConst::FILE_LINE_FORMAT, path(loc.file_name()).lexically_normal().string(), loc.line());
     const String fullDebugLine = std::format("{}{}", LogLevelConst::DEBUG_LINE_PREFIX, fileLine);
 
-    iter = std::format_to(iter, "\n{}", Italic(Colorize(fullDebugLine, LogLevelConst::DEBUG_INFO_COLOR)));
+    std::print("\n{}", Italic(Colorize(fullDebugLine, LogLevelConst::DEBUG_INFO_COLOR)));
 #endif
 
-    const usize length = std::distance(buffer.begin(), iter);
-
-    std::println("{}", StringView(buffer.data(), length));
+    std::println("{}", LogLevelConst::RESET_CODE);
   }
 
   template <typename ErrorType>

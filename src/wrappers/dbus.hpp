@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstring>
-#ifdef __linux__
 
 // clang-format off
 #include <dbus/dbus.h> // DBus Library
@@ -385,5 +384,3 @@ namespace dbus {
     }
   };
 } // namespace dbus
-
-#endif // __linux__
