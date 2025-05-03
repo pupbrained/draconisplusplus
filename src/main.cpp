@@ -164,15 +164,15 @@ namespace {
     else
       debug_at(data.host.error());
 
-    if (data.kernelVersion)
-      systemInfoRows.push_back({ kernelIcon, "Kernel", *data.kernelVersion });
-    else
-      debug_at(data.kernelVersion.error());
-
     if (data.osVersion)
       systemInfoRows.push_back({ osIcon, "OS", *data.osVersion });
     else
       debug_at(data.osVersion.error());
+
+    if (data.kernelVersion)
+      systemInfoRows.push_back({ kernelIcon, "Kernel", *data.kernelVersion });
+    else
+      debug_at(data.kernelVersion.error());
 
     if (data.memInfo)
       systemInfoRows.push_back({ memoryIcon, "RAM", std::format("{}", BytesToGiB { *data.memInfo }) });
