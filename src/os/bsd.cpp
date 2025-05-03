@@ -32,6 +32,7 @@ using namespace util::types;
 using util::error::DracError, util::error::DracErrorCode;
 
 namespace {
+  #ifdef __FreeBSD__
   fn GetPathByPid(pid_t pid) -> Result<String, DracError> {
     Array<char, PATH_MAX> exePathBuf;
     usize                 size = exePathBuf.size();
@@ -54,6 +55,7 @@ namespace {
 
     return String(exePathBuf.data());
   }
+  #endif
 
   fn GetX11WindowManager() -> Result<String, DracError> {
     using namespace xcb;
