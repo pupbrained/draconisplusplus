@@ -34,29 +34,26 @@ using util::error::DracError, util::error::DracErrorCode;
 
 namespace {
   fn GetPathByPid(pid_t pid) -> Result<String, DracError> {
-      Array<char, PATH_MAX> exePathBuf;
-      usize                 size = exePathBuf.size();
-      int                   mib[4];
+    Array<char, PATH_MAX> exePathBuf;
+    usize                 size = exePathBuf.size();
+    int                   mib[4];
 
-      mib[0] = CTL_KERN;
-      mib[1] = KERN_PROC_ARGS; // Use KERN_PROC_ARGS which includes path
-      mib[2] = pid;
-      mib[3] = KERN_PROC_PATHNAME; // The specific subcommand
+    mib[0] = CTL_KERN;
+    mib[1] = KERN_PROC_ARGS; // Use KERN_PROC_ARGS which includes path
+    mib[2] = pid;
+    mib[3] = KERN_PROC_PATHNAME; // The specific subcommand
 
-      if (sysctl(mib, 4, exePathBuf.data(), &size, nullptr, 0) == -1) {
-        // Fallback for older systems or if KERN_PROC_PATHNAME is restricted/unavailable
-        // Note: KERN_PROC_ARGS might give args too, need parsing.
-        // For simplicity, we'll just report the error for now.
-        return Err(DracError::withErrno(std::format("sysctl KERN_PROC_PATHNAME failed for pid {}", pid)));
-      }
+    if (sysctl(mib, 4, exePathBuf.data(), &size, nullptr, 0) == -1)
+      return Err(DracError::withErrno(std::format("sysctl KERN_PROC_PATHNAME failed for pid {}", pid)));
 
-      if (size == 0 || exePathBuf[0] == '\0') {
-        return Err(DracError(DracErrorCode::NotFound, std::format("sysctl KERN_PROC_PATHNAME returned empty path for pid {}", pid)));
-      }
+    if (size == 0 || exePathBuf[0] == '\0')
+      return Err(
+        DracError(DracErrorCode::NotFound, std::format("sysctl KERN_PROC_PATHNAME returned empty path for pid {}", pid))
+      );
 
-      exePathBuf[std::min(size, exePathBuf.size() - 1)] = '\0';
+    exePathBuf[std::min(size, exePathBuf.size() - 1)] = '\0';
 
-      return String(exePathBuf.data());
+    return String(exePathBuf.data());
   }
 
   fn GetX11WindowManager() -> Result<String, DracError> {
@@ -150,62 +147,58 @@ namespace {
 
     pid_t peer_pid = -1; // Initialize PID
 
-#if defined(__FreeBSD__) || defined(__DragonFly__)
-    struct xucred cred; // Use xucred on FreeBSD/DragonFly
-    socklen_t len = sizeof(cred);
-    if (getsockopt(fileDescriptor, SOL_SOCKET, LOCAL_PEERCRED, &cred, &len) == -1) {
-        return Err(DracError::withErrno("Failed to get socket credentials (LOCAL_PEERCRED)"));
-    }
-    if (len != sizeof(cred) || cred.cr_version != XUCRED_VERSION) {
-         return Err(DracError(DracErrorCode::PlatformSpecific, "Invalid xucred structure received"));
-    }
-    peer_pid = cred.cr_pid; // <<< Get PID from xucred
+  #if defined(__FreeBSD__) || defined(__DragonFly__)
+    struct xucred cred;
 
-#elif defined(__NetBSD__)
+    socklen_t len = sizeof(cred);
+
+    if (getsockopt(fileDescriptor, SOL_SOCKET, LOCAL_PEERCRED, &cred, &len) == -1)
+      return Err(DracError::withErrno("Failed to get socket credentials (LOCAL_PEERCRED)"));
+
+    if (len != sizeof(cred) || cred.cr_version != XUCRED_VERSION)
+      return Err(DracError(DracErrorCode::PlatformSpecific, "Invalid xucred structure received"));
+
+    peer_pid = cred.cr_pid;
+  #elif defined(__NetBSD__)
     uid_t euid;
     gid_t egid;
-    if (getpeereid(fileDescriptor, &euid, &egid) == -1) {
-        return Err(DracError::withErrno("getpeereid failed on Wayland socket"));
-    }
+
+    if (getpeereid(fileDescriptor, &euid, &egid) == -1)
+      return Err(DracError::withErrno("getpeereid failed on Wayland socket"));
 
     return "Wayland Compositor (Unknown Path)";
-#endif
+  #endif
 
-    if (peer_pid <= 0) {
-         return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to obtain a valid peer PID"));
-    }
+    if (peer_pid <= 0)
+      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to obtain a valid peer PID"));
 
-    // --- Use the helper function to get the path ---
     Result<String, DracError> exePathResult = GetPathByPid(peer_pid);
+
     if (!exePathResult) {
-        // Forward the error from GetPathByPid
-        return Err(std::move(exePathResult).error());
+      return Err(std::move(exePathResult).error());
     }
 
     const String& exeRealPath = *exePathResult;
 
-    // --- Extract filename from path (OS-independent) ---
     StringView compositorNameView;
-    if (const usize lastSlash = exeRealPath.rfind('/'); lastSlash != String::npos) {
-        compositorNameView = StringView(exeRealPath).substr(lastSlash + 1);
-    } else {
-        compositorNameView = exeRealPath; // Path is just the filename
-    }
+
+    if (const usize lastSlash = exeRealPath.rfind('/'); lastSlash != String::npos)
+      compositorNameView = StringView(exeRealPath).substr(lastSlash + 1);
+    else
+      compositorNameView = exeRealPath;
 
     if (compositorNameView.empty() || compositorNameView == "." || compositorNameView == "/")
-        return Err(DracError(DracErrorCode::NotFound, "Failed to get compositor name from path"));
+      return Err(DracError(DracErrorCode::NotFound, "Failed to get compositor name from path"));
 
-
-    // --- Heuristic cleanup (OS-independent) ---
     if (constexpr StringView wrappedSuffix = "-wrapped"; compositorNameView.length() > 1 + wrappedSuffix.length() &&
         compositorNameView[0] == '.' && compositorNameView.ends_with(wrappedSuffix)) {
-        const StringView cleanedView =
-            compositorNameView.substr(1, compositorNameView.length() - 1 - wrappedSuffix.length());
+      const StringView cleanedView =
+        compositorNameView.substr(1, compositorNameView.length() - 1 - wrappedSuffix.length());
 
-        if (cleanedView.empty())
-            return Err(DracError(DracErrorCode::NotFound, "Compositor name invalid after heuristic"));
+      if (cleanedView.empty())
+        return Err(DracError(DracErrorCode::NotFound, "Compositor name invalid after heuristic"));
 
-        return String(cleanedView);
+      return String(cleanedView);
     }
 
     return String(compositorNameView);
@@ -238,13 +231,14 @@ namespace os {
     }
 
     utsname uts;
+
     if (uname(&uts) == -1)
-        return Err(DracError::withErrno(std::format("Failed to open {} and uname() call also failed", path)));
+      return Err(DracError::withErrno(std::format("Failed to open {} and uname() call also failed", path)));
 
     String osName = uts.sysname;
 
     if (osName.empty())
-        return Err(DracError(DracErrorCode::ParseError,"uname() returned empty sysname or release"));
+      return Err(DracError(DracErrorCode::ParseError, "uname() returned empty sysname or release"));
 
     return osName;
   }
@@ -253,11 +247,11 @@ namespace os {
     u64   mem  = 0;
     usize size = sizeof(mem);
 
-#ifdef __NetBSD__
+  #ifdef __NetBSD__
     sysctlbyname("hw.physmem64", &mem, &size, nullptr, 0);
-#else
+  #else
     sysctlbyname("hw.physmem", &mem, &size, nullptr, 0);
-#endif
+  #endif
 
     return mem;
   }
@@ -443,43 +437,36 @@ namespace os {
   }
 
   fn GetHost() -> Result<String, DracError> {
-          Array<char, 256> buffer {};
-        usize            size = buffer.size();
+    Array<char, 256> buffer {};
+    usize            size = buffer.size();
 
-#if defined(__FreeBSD__) || defined(__DragonFly__)
-        // Use kenv on FreeBSD / DragonFly
-        int result = kenv(KENV_GET, "smbios.system.product", buffer.data(), buffer.size() -1); // Ensure space for null
-         if (result == -1) {
-            // Fallback: Maybe try hw.model?
-            if (sysctlbyname("hw.model", buffer.data(), &size, nullptr, 0) == -1) {
-                return Err(DracError::withErrno("kenv smbios.system.product failed and sysctl hw.model also failed"));
-            }
-             buffer[std::min(size, buffer.size() - 1)] = '\0'; // Null terminate sysctl result
-             return String(buffer.data());
-         }
-         // kenv should null-terminate, but let's be safe if result > 0 (bytes written)
-          if (result > 0) buffer[result] = '\0';
-          else buffer[0] = '\0'; // Ensure null if result was 0 (empty string?)
+  #if defined(__FreeBSD__) || defined(__DragonFly__)
+    int result = kenv(KENV_GET, "smbios.system.product", buffer.data(), buffer.size() - 1); // Ensure space for null
 
-#elif defined(__NetBSD__)
-        // Use sysctl on NetBSD
-        constexpr const char* netbsd_mib = "machdep.dmi.system-product";
-        if (sysctlbyname(netbsd_mib, buffer.data(), &size, nullptr, 0) == -1) {
-             // Fallback: Try hw.model on NetBSD too
-             size = buffer.size(); // reset size for next attempt
-             if (sysctlbyname("hw.model", buffer.data(), &size, nullptr, 0) == -1) {
-                return Err(DracError::withErrno(std::format("sysctlbyname failed for both {} and hw.model", netbsd_mib)));
-             }
-        }
-         // Ensure null termination for sysctl results
-         buffer[std::min(size, buffer.size() - 1)] = '\0';
-#endif
-        // Ensure the buffer isn't empty before returning
-        if(buffer[0] == '\0') {
-             return Err(DracError(DracErrorCode::NotFound, "Failed to get host product information (empty result)"));
-        }
+    if (result == -1) {
+      if (sysctlbyname("hw.model", buffer.data(), &size, nullptr, 0) == -1)
+        return Err(DracError::withErrno("kenv smbios.system.product failed and sysctl hw.model also failed"));
 
-        return String(buffer.data());}
+      buffer[std::min(size, buffer.size() - 1)] = '\0';
+      return String(buffer.data());
+    }
+
+    if (result > 0)
+      buffer[result] = '\0';
+    else
+      buffer[0] = '\0';
+
+  #elif defined(__NetBSD__)
+    if (sysctlbyname("machdep.dmi.system-product", buffer.data(), &size, nullptr, 0) == -1)
+      return Err(DracError::withErrno(std::format("sysctlbyname failed for")));
+
+    buffer[std::min(size, buffer.size() - 1)] = '\0';
+  #endif
+    if (buffer[0] == '\0')
+      return Err(DracError(DracErrorCode::NotFound, "Failed to get host product information (empty result)"));
+
+    return String(buffer.data());
+  }
 
   fn GetKernelVersion() -> Result<String, DracError> {
     utsname uts;
@@ -508,4 +495,4 @@ namespace os {
   fn GetPackageCount() -> Result<u64, DracError> { return shared::GetPackageCount(); }
 } // namespace os
 
-#endif // __FreeBSD__ || __DragonFly__
+#endif // __FreeBSD__ || __DragonFly__ || __NetBSD__
