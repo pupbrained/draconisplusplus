@@ -5,7 +5,7 @@
 #include <format>                 // std::format
 #include <ftxui/screen/color.hpp> // ftxui::Color
 #include <mutex>                  // std::{mutex, lock_guard}
-#include <print>                  // std::print
+#include <iostream>               // std::cout
 #include <utility>                // std::forward
 
 #ifndef NDEBUG
@@ -196,17 +196,17 @@ namespace util::logging {
       message
     );
 
-    std::print("{}", mainLogLine);
+    std::cout << mainLogLine;
 
 #ifndef NDEBUG
     const String fileLine =
       std::format(LogLevelConst::FILE_LINE_FORMAT, path(loc.file_name()).lexically_normal().string(), loc.line());
     const String fullDebugLine = std::format("{}{}", LogLevelConst::DEBUG_LINE_PREFIX, fileLine);
 
-    std::print("\n{}", Italic(Colorize(fullDebugLine, LogLevelConst::DEBUG_INFO_COLOR)));
+    std::cout << '\n' << Italic(Colorize(fullDebugLine, LogLevelConst::DEBUG_INFO_COLOR));
 #endif
 
-    std::println("{}", LogLevelConst::RESET_CODE);
+    std::cout << LogLevelConst::RESET_CODE << '\n';
   }
 
   template <typename ErrorType>

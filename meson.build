@@ -1,3 +1,4 @@
+# ----------------------- #
 #  Project Configuration  #
 # ----------------------- #
 project(
@@ -9,7 +10,7 @@ project(
     'buildtype=release',
     'b_vscrt=mt',
     'b_lto=true',
-    'b_ndebug=if-release',
+    'b_ndebug=false',
     'warning_level=3',
   ],
 )
@@ -92,6 +93,7 @@ platform_sources = {
   'freebsd' : ['src/os/bsd.cpp'],
   'netbsd' : ['src/os/bsd.cpp'],
   'dragonfly' : ['src/os/bsd.cpp'],
+  'haiku' : ['src/os/haiku.cpp'],
   'darwin' : ['src/os/macos.cpp', 'src/os/macos/bridge.mm'],
   'windows' : ['src/os/windows.cpp'],
 }
@@ -177,6 +179,8 @@ if host_system == 'darwin'
   objc_args += ['-fobjc-arc']
 elif host_system == 'linux'
   link_args += ['-static']
+elif host_system == 'haiku'
+  link_args += ['-lpackage', '-lbe']
 endif
 
 # ------------------- #

@@ -5,7 +5,7 @@
 #include <ftxui/screen/color.hpp>  // ftxui::Color
 #include <ftxui/screen/screen.hpp> // ftxui::{Screen, Dimension::Full}
 #include <ftxui/screen/string.hpp> // ftxui::string_width
-#include <print>                   // std::println
+#include <iostream>
 #include <ranges>                  // std::ranges::{iota, to, transform}
 
 #include "src/config/config.hpp"
@@ -116,12 +116,14 @@ namespace {
   };
 
   fn CreateColorCircles() -> Element {
-    return hbox(
-      std::views::iota(0, 16) | std::views::transform([](i32 colorIndex) {
-        return hbox({ text("◯") | bold | color(static_cast<Color::Palette256>(colorIndex)), text(" ") });
-      }) |
-      std::ranges::to<Elements>()
-    );
+    fn color_view = std::views::iota(0, 16) | std::views::transform([](i32 colorIndex) {
+      return ftxui::hbox({ ftxui::text("◯") | ftxui::bold | ftxui::color(static_cast<ftxui::Color::Palette256>(colorIndex)),
+                         ftxui::text(" ") });
+    });
+
+    Elements elements_container(std::ranges::begin(color_view), std::ranges::end(color_view));
+
+    return hbox(elements_container);
   }
 
   fn get_visual_width(const String& str) -> usize { return ftxui::string_width(str); }
@@ -354,7 +356,7 @@ fn main() -> i32 {
   Render(screen, document);
   screen.Print();
 
-  std::println();
+  std::cout << '\n';
 
   return 0;
 }

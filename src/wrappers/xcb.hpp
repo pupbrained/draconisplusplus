@@ -1,6 +1,6 @@
 #pragma once
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__) || defined(__HAIKU__)
 
 // clang-format off
 #include <xcb/xcb.h> // XCB library
@@ -171,4 +171,4 @@ namespace xcb {
   };
 } // namespace xcb
 
-#endif // __linux__ || __FreeBSD__ || __DragonFly__ || __NetBSD__
+#endif // __linux__ || __FreeBSD__ || __DragonFly__ || __NetBSD__ || __HAIKU__
