@@ -135,6 +135,9 @@ namespace {
   }
 
   fn GetWaylandCompositor() -> Result<String, DracError> {
+  #ifndef __FreeBSD__
+    return "Wayland Compositor";
+  #else
     const wl::DisplayGuard display;
 
     if (!display)
@@ -146,7 +149,6 @@ namespace {
 
     pid_t peerPid = -1; // Initialize PID
 
-  #if defined(__FreeBSD__) || defined(__DragonFly__)
     struct xucred cred;
 
     socklen_t len = sizeof(cred);
@@ -155,15 +157,6 @@ namespace {
       return Err(DracError::withErrno("Failed to get socket credentials (LOCAL_PEERCRED)"));
 
     peerPid = cred.cr_pid;
-  #elif defined(__NetBSD__)
-    uid_t euid;
-    gid_t egid;
-
-    if (getpeereid(fileDescriptor, &euid, &egid) == -1)
-      return Err(DracError::withErrno("getpeereid failed on Wayland socket"));
-
-    return "Wayland Compositor (Unknown Path)";
-  #endif
 
     if (peerPid <= 0)
       return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to obtain a valid peer PID"));
@@ -198,6 +191,7 @@ namespace {
     }
 
     return String(compositorNameView);
+  #endif
   }
 } // namespace
 
@@ -452,7 +446,7 @@ namespace os {
     else
       buffer.at(0) = '\0';
 
-  #elif defined(__NetBSD__)
+  #elifdef __NetBSD__
     if (sysctlbyname("machdep.dmi.system-product", buffer.data(), &size, nullptr, 0) == -1)
       return Err(DracError::withErrno(std::format("sysctlbyname failed for")));
 
