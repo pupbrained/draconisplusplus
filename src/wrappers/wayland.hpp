@@ -1,6 +1,6 @@
 #pragma once
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__) || defined(__HAIKU__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__)
 
 // clang-format off
 #include <wayland-client.h> // Wayland client library
@@ -96,4 +96,4 @@ namespace wl {
   };
 } // namespace wl
 
-#endif // __linux__ || __FreeBSD__ || __DragonFly__ || __NetBSD__ || __HAIKU__
+#endif // __linux__ || __FreeBSD__ || __DragonFly__ || __NetBSD__
