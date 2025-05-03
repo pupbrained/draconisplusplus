@@ -1,8 +1,9 @@
 #pragma once
 
-#include <cstring>
+#if defined(__linux__) || defined(__FreeBSD__)
 
 // clang-format off
+#include <cstring>
 #include <dbus/dbus.h> // DBus Library
 #include <utility>     // std::exchange, std::forward
 #include <format>      // std::format
@@ -384,3 +385,5 @@ namespace dbus {
     }
   };
 } // namespace dbus
+
+#endif // __linux__ || __FreeBSD__

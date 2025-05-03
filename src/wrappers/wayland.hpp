@@ -1,10 +1,14 @@
 #pragma once
 
+#if defined(__linux__) || defined(__FreeBSD__)
+
+// clang-format off
 #include <wayland-client.h> // Wayland client library
 
 #include "src/util/defs.hpp"
 #include "src/util/logging.hpp"
 #include "src/util/types.hpp"
+// clang-format on
 
 struct wl_display;
 
@@ -91,3 +95,5 @@ namespace wl {
     [[nodiscard]] fn fd() const -> util::types::i32 { return get_fd(m_display); }
   };
 } // namespace wl
+
+#endif // __linux__ || __FreeBSD__

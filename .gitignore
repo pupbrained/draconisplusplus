@@ -26,3 +26,4 @@ result
 /include/
 subprojects/*
 !subprojects/*.wrap
+subprojects/sqlite3.wrap

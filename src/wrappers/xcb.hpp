@@ -1,5 +1,7 @@
 #pragma once
 
+#if defined(__linux__) || defined(__FreeBSD__)
+
 // clang-format off
 #include <xcb/xcb.h> // XCB library
 
@@ -31,7 +33,7 @@ namespace xcb {
     ReqLenExceed    = XCB_CONN_CLOSED_REQ_LEN_EXCEED,
     ParseErr        = XCB_CONN_CLOSED_PARSE_ERR,
     InvalidScreen   = XCB_CONN_CLOSED_INVALID_SCREEN,
-    FdPassingFailed = XCB_CONN_CLOSED_FDPASSING_FAILED
+    FdPassingFailed = XCB_CONN_CLOSED_FDPASSING_FAILED,
   };
 
   // NOLINTBEGIN(readability-identifier-naming)
@@ -168,3 +170,5 @@ namespace xcb {
     [[nodiscard]] fn operator*() const->T& { return *m_reply; }
   };
 } // namespace xcb
+
+#endif // __linux__ || __FreeBSD__

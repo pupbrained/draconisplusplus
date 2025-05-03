@@ -7,10 +7,9 @@
 #include <sys/socket.h>         // ucred, getsockopt, SOL_SOCKET, SO_PEERCRED
 #include <sys/statvfs.h>        // statvfs
 #include <sys/sysctl.h>         // sysctlbyname
-#include <sys/types.h>
-#include <sys/un.h>
-#include <sys/utsname.h> // utsname, uname
-#include <unistd.h>
+#include <sys/un.h>							// LOCAL_PEERCRED
+#include <sys/utsname.h> 				// uname, utsname
+#include <unistd.h>							// readlink
 
 #if defined(__FreeBSD__) || defined(__DragonFly__)
 #include <kenv.h>      // kenv
@@ -36,14 +35,14 @@ namespace {
   fn GetPathByPid(pid_t pid) -> Result<String, DracError> {
     Array<char, PATH_MAX> exePathBuf;
     usize                 size = exePathBuf.size();
-    int                   mib[4];
+    Array<i32, 4>         mib;
 
-    mib[0] = CTL_KERN;
-    mib[1] = KERN_PROC_ARGS; // Use KERN_PROC_ARGS which includes path
-    mib[2] = pid;
-    mib[3] = KERN_PROC_PATHNAME; // The specific subcommand
+    mib.at(0) = CTL_KERN;
+    mib.at(1) = KERN_PROC_ARGS;
+    mib.at(2) = pid;
+    mib.at(3) = KERN_PROC_PATHNAME;
 
-    if (sysctl(mib, 4, exePathBuf.data(), &size, nullptr, 0) == -1)
+    if (sysctl(mib.data(), 4, exePathBuf.data(), &size, nullptr, 0) == -1)
       return Err(DracError::withErrno(std::format("sysctl KERN_PROC_PATHNAME failed for pid {}", pid)));
 
     if (size == 0 || exePathBuf[0] == '\0')
@@ -51,7 +50,7 @@ namespace {
         DracError(DracErrorCode::NotFound, std::format("sysctl KERN_PROC_PATHNAME returned empty path for pid {}", pid))
       );
 
-    exePathBuf[std::min(size, exePathBuf.size() - 1)] = '\0';
+    exePathBuf.at(std::min(size, exePathBuf.size() - 1)) = '\0';
 
     return String(exePathBuf.data());
   }
@@ -145,7 +144,7 @@ namespace {
     if (fileDescriptor < 0)
       return Err(DracError(DracErrorCode::ApiUnavailable, "Failed to get Wayland file descriptor"));
 
-    pid_t peer_pid = -1; // Initialize PID
+    pid_t peerPid = -1; // Initialize PID
 
   #if defined(__FreeBSD__) || defined(__DragonFly__)
     struct xucred cred;
@@ -155,10 +154,7 @@ namespace {
     if (getsockopt(fileDescriptor, SOL_SOCKET, LOCAL_PEERCRED, &cred, &len) == -1)
       return Err(DracError::withErrno("Failed to get socket credentials (LOCAL_PEERCRED)"));
 
-    if (len != sizeof(cred) || cred.cr_version != XUCRED_VERSION)
-      return Err(DracError(DracErrorCode::PlatformSpecific, "Invalid xucred structure received"));
-
-    peer_pid = cred.cr_pid;
+    peerPid = cred.cr_pid;
   #elif defined(__NetBSD__)
     uid_t euid;
     gid_t egid;
@@ -169,10 +165,10 @@ namespace {
     return "Wayland Compositor (Unknown Path)";
   #endif
 
-    if (peer_pid <= 0)
+    if (peerPid <= 0)
       return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to obtain a valid peer PID"));
 
-    Result<String, DracError> exePathResult = GetPathByPid(peer_pid);
+    Result<String, DracError> exePathResult = GetPathByPid(peerPid);
 
     if (!exePathResult) {
       return Err(std::move(exePathResult).error());
@@ -447,14 +443,14 @@ namespace os {
       if (sysctlbyname("hw.model", buffer.data(), &size, nullptr, 0) == -1)
         return Err(DracError::withErrno("kenv smbios.system.product failed and sysctl hw.model also failed"));
 
-      buffer[std::min(size, buffer.size() - 1)] = '\0';
+      buffer.at(std::min(size, buffer.size() - 1)) = '\0';
       return String(buffer.data());
     }
 
     if (result > 0)
-      buffer[result] = '\0';
+      buffer.at(result) = '\0';
     else
-      buffer[0] = '\0';
+      buffer.at(0) = '\0';
 
   #elif defined(__NetBSD__)
     if (sysctlbyname("machdep.dmi.system-product", buffer.data(), &size, nullptr, 0) == -1)
