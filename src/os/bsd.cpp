@@ -1,3 +1,6 @@
+#if defined(__FreeBSD__) || defined(__DragonFly__)
+
+// clang-format off
 #include <dbus/dbus-protocol.h> // DBUS_TYPE_*
 #include <dbus/dbus-shared.h>   // DBUS_BUS_SESSION
 #include <fstream>              // ifstream
@@ -21,6 +24,7 @@
 #include "src/wrappers/xcb.hpp"
 
 #include "os.hpp"
+// clang-format on
 
 using namespace util::types;
 using util::error::DracError, util::error::DracErrorCode;
@@ -442,3 +446,5 @@ namespace os {
 
   fn GetPackageCount() -> Result<u64, DracError> { return shared::GetPackageCount(); }
 } // namespace os
+
+#endif // __FreeBSD__ || __DragonFly__
