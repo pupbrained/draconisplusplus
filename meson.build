@@ -90,6 +90,7 @@ base_sources = files('src/core/system_data.cpp', 'src/os/shared.cpp', 'src/confi
 platform_sources = {
   'linux' : ['src/os/linux.cpp', 'src/os/linux/pkg_count.cpp'],
   'freebsd' : ['src/os/bsd.cpp'],
+  'netbsd' : ['src/os/bsd.cpp'],
   'dragonfly' : ['src/os/bsd.cpp'],
   'darwin' : ['src/os/macos.cpp', 'src/os/macos/bridge.mm'],
   'windows' : ['src/os/windows.cpp'],
