@@ -116,7 +116,7 @@ namespace {
   };
 
   fn CreateColorCircles() -> Element {
-    fn color_view =
+    fn colorView =
       std::views::iota(0, 16) | std::views::transform([](i32 colorIndex) {
         return ftxui::hbox(
           { ftxui::text("◯") | ftxui::bold | ftxui::color(static_cast<ftxui::Color::Palette256>(colorIndex)),
@@ -124,9 +124,9 @@ namespace {
         );
       });
 
-    Elements elements_container(std::ranges::begin(color_view), std::ranges::end(color_view));
+    Elements elementsContainer(std::ranges::begin(colorView), std::ranges::end(colorView));
 
-    return hbox(elements_container);
+    return hbox(elementsContainer);
   }
 
   fn get_visual_width(const String& str) -> usize { return ftxui::string_width(str); }

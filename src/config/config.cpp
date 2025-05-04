@@ -26,11 +26,11 @@ namespace {
 
 # General settings
 [general]
-name = "{}"  # Your display name
+name = "{}" # Your display name
 
 # Now Playing integration
 [now_playing]
-enabled = false  # Set to true to enable media integration
+enabled = false # Set to true to enable media integration
 
 # Weather settings
 [weather]

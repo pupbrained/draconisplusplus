@@ -1,11 +1,10 @@
 #pragma once
 
-#include <string>                    // std::string (String)
 #include <toml++/impl/node.hpp>      // toml::node
 #include <toml++/impl/node_view.hpp> // toml::node_view
 #include <toml++/impl/table.hpp>     // toml::table
 #include <variant>                   // std::variant
-//
+
 #ifdef _WIN32
   #include <windows.h> // GetUserNameA
 #else

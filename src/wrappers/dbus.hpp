@@ -1,6 +1,6 @@
 #pragma once
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__) || defined(__HAIKU__)
+#if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__)
 
 // clang-format off
 #include <cstring>
@@ -280,8 +280,8 @@ namespace dbus {
       using DecayedT = std::decay_t<T>;
 
       if constexpr (std::is_convertible_v<DecayedT, const char*>) {
-        const char* valuePtr = static_cast<const char*>(arg);
-        return dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &valuePtr);
+        const char* valuePtr = static_cast<const char*>(std::forward<T>(arg));
+        return dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, static_cast<const void*>(&valuePtr));
       } else {
         static_assert(!sizeof(T*), "Unsupported type passed to appendArgs");
         return false;
@@ -386,4 +386,4 @@ namespace dbus {
   };
 } // namespace dbus
 
-#endif // __linux__ || __FreeBSD__ || __DragonFly__ || __NetBSD__ || __HAIKU__
+#endif // __linux__ || __FreeBSD__ || __DragonFly__ || __NetBSD__

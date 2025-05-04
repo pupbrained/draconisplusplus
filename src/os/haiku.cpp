@@ -1,9 +1,9 @@
 #ifdef __HAIKU__
 
 // clang-format off
-#include <File.h>                      // For BFile
 #include <AppFileInfo.h>               // For BAppFileInfo and version_info
 #include <Errors.h>                    // B_OK, strerror, status_t
+#include <File.h>                      // For BFile
 #include <OS.h>                        // get_system_info, system_info
 #include <climits>                     // PATH_MAX
 #include <cstring>                     // std::strlen
@@ -16,12 +16,12 @@
 #include <sys/statvfs.h>               // statvfs
 #include <utility>                     // std::move
 
+#include "src/core/package.hpp"
 #include "src/util/defs.hpp"
 #include "src/util/error.hpp"
 #include "src/util/helpers.hpp"
 #include "src/util/logging.hpp"
 #include "src/util/types.hpp"
-#include "src/wrappers/dbus.hpp"
 
 #include "os.hpp"
 // clang-format on
@@ -69,134 +69,7 @@ namespace os {
   }
 
   fn GetNowPlaying() -> Result<MediaInfo, DracError> {
-    using namespace dbus;
-
-    Result<Connection, DracError> connectionResult = Connection::busGet(DBUS_BUS_SESSION);
-    if (!connectionResult)
-      return Err(connectionResult.error());
-
-    const Connection& connection = *connectionResult;
-
-    Option<String> activePlayer = None;
-
-    {
-      Result<Message, DracError> listNamesResult =
-        Message::newMethodCall("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "ListNames");
-      if (!listNamesResult)
-        return Err(listNamesResult.error());
-
-      Result<Message, DracError> listNamesReplyResult = connection.sendWithReplyAndBlock(*listNamesResult, 100);
-      if (!listNamesReplyResult)
-        return Err(listNamesReplyResult.error());
-
-      MessageIter iter = listNamesReplyResult->iterInit();
-      if (!iter.isValid() || iter.getArgType() != DBUS_TYPE_ARRAY)
-        return Err(DracError(DracErrorCode::ParseError, "Invalid DBus ListNames reply format: Expected array"));
-
-      MessageIter subIter = iter.recurse();
-      if (!subIter.isValid())
-        return Err(
-          DracError(DracErrorCode::ParseError, "Invalid DBus ListNames reply format: Could not recurse into array")
-        );
-
-      while (subIter.getArgType() != DBUS_TYPE_INVALID) {
-        if (Option<String> name = subIter.getString())
-          if (name->starts_with("org.mpris.MediaPlayer2.")) {
-            activePlayer = std::move(*name);
-            break;
-          }
-        if (!subIter.next())
-          break;
-      }
-    }
-
-    if (!activePlayer)
-      return Err(DracError(DracErrorCode::NotFound, "No active MPRIS players found"));
-
-    Result<Message, DracError> msgResult = Message::newMethodCall(
-      activePlayer->c_str(), "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "Get"
-    );
-
-    if (!msgResult)
-      return Err(msgResult.error());
-
-    Message& msg = *msgResult;
-
-    if (!msg.appendArgs("org.mpris.MediaPlayer2.Player", "Metadata"))
-      return Err(DracError(DracErrorCode::InternalError, "Failed to append arguments to Properties.Get message"));
-
-    Result<Message, DracError> replyResult = connection.sendWithReplyAndBlock(msg, 100);
-
-    if (!replyResult)
-      return Err(replyResult.error());
-
-    Option<String> title  = None;
-    Option<String> artist = None;
-
-    MessageIter propIter = replyResult->iterInit();
-    if (!propIter.isValid())
-      return Err(DracError(DracErrorCode::ParseError, "Properties.Get reply has no arguments or invalid iterator"));
-
-    if (propIter.getArgType() != DBUS_TYPE_VARIANT)
-      return Err(DracError(DracErrorCode::ParseError, "Properties.Get reply argument is not a variant"));
-
-    MessageIter variantIter = propIter.recurse();
-    if (!variantIter.isValid())
-      return Err(DracError(DracErrorCode::ParseError, "Could not recurse into variant"));
-
-    if (variantIter.getArgType() != DBUS_TYPE_ARRAY || variantIter.getElementType() != DBUS_TYPE_DICT_ENTRY)
-      return Err(DracError(DracErrorCode::ParseError, "Metadata variant content is not a dictionary array (a{sv})"));
-
-    MessageIter dictIter = variantIter.recurse();
-    if (!dictIter.isValid())
-      return Err(DracError(DracErrorCode::ParseError, "Could not recurse into metadata dictionary array"));
-
-    while (dictIter.getArgType() == DBUS_TYPE_DICT_ENTRY) {
-      MessageIter entryIter = dictIter.recurse();
-      if (!entryIter.isValid()) {
-        debug_log("Warning: Could not recurse into dict entry, skipping.");
-        if (!dictIter.next())
-          break;
-        continue;
-      }
-
-      Option<String> key = entryIter.getString();
-      if (!key) {
-        debug_log("Warning: Could not get key string from dict entry, skipping.");
-        if (!dictIter.next())
-          break;
-        continue;
-      }
-
-      if (!entryIter.next() || entryIter.getArgType() != DBUS_TYPE_VARIANT) {
-        if (!dictIter.next())
-          break;
-        continue;
-      }
-
-      MessageIter valueVariantIter = entryIter.recurse();
-      if (!valueVariantIter.isValid()) {
-        if (!dictIter.next())
-          break;
-        continue;
-      }
-
-      if (*key == "xesam:title") {
-        title = valueVariantIter.getString();
-      } else if (*key == "xesam:artist") {
-        if (valueVariantIter.getArgType() == DBUS_TYPE_ARRAY && valueVariantIter.getElementType() == DBUS_TYPE_STRING) {
-          if (MessageIter artistArrayIter = valueVariantIter.recurse(); artistArrayIter.isValid())
-            artist = artistArrayIter.getString();
-        } else {
-          debug_log("Warning: Artist value was not an array of strings as expected.");
-        }
-      }
-
-      if (!dictIter.next())
-        break;
-    }
-
-    return MediaInfo(std::move(title), std::move(artist));
+    return Err(DracError(DracErrorCode::NotSupported, "Now playing is not supported on Haiku"));
   }
 
   fn GetWindowManager() -> Result<String, DracError> { return "app_server"; }
@@ -260,5 +133,19 @@ namespace os {
     };
   }
 } // namespace os
+
+namespace package {
+  fn GetHaikuCount() -> Result<u64, DracError> {
+    BPackageKit::BPackageRoster  roster;
+    BPackageKit::BPackageInfoSet packageList;
+
+    const status_t status = roster.GetActivePackages(BPackageKit::B_PACKAGE_INSTALLATION_LOCATION_SYSTEM, packageList);
+
+    if (status != B_OK)
+      return Err(DracError(DracErrorCode::ApiUnavailable, "Failed to get active package list"));
+
+    return static_cast<u64>(packageList.CountInfos());
+  }
+} // namespace package
 
 #endif // __HAIKU__

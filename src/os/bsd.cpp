@@ -7,15 +7,15 @@
 #include <sys/socket.h>         // ucred, getsockopt, SOL_SOCKET, SO_PEERCRED
 #include <sys/statvfs.h>        // statvfs
 #include <sys/sysctl.h>         // sysctlbyname
-#include <sys/un.h>							// LOCAL_PEERCRED
-#include <sys/utsname.h> 				// uname, utsname
-#include <unistd.h>							// readlink
+#include <sys/un.h>             // LOCAL_PEERCRED
+#include <sys/utsname.h>        // uname, utsname
 
-#if defined(__FreeBSD__) || defined(__DragonFly__)
-#include <kenv.h>      // kenv
-#include <sys/ucred.h> // xucred
+#ifndef __NetBSD__
+	#include <kenv.h>      // kenv
+	#include <sys/ucred.h> // xucred
 #endif
 
+#include "src/core/package.hpp"
 #include "src/util/defs.hpp"
 #include "src/util/error.hpp"
 #include "src/util/helpers.hpp"
@@ -165,9 +165,8 @@ namespace {
 
     Result<String, DracError> exePathResult = GetPathByPid(peerPid);
 
-    if (!exePathResult) {
+    if (!exePathResult)
       return Err(std::move(exePathResult).error());
-    }
 
     const String& exeRealPath = *exePathResult;
 
@@ -484,5 +483,23 @@ namespace os {
     };
   }
 } // namespace os
+
+namespace package {
+  #ifdef __NetBSD__
+  fn GetPkgSrcCount() -> Result<u64, DracError> {
+    return GetCountFromDirectory("pkgsrc", fs::current_path().root_path() / "usr" / "pkg" / "pkgdb", true);
+  }
+  #else
+  fn GetPkgNgCount() -> Result<u64, DracError> {
+    const PackageManagerInfo pkgInfo = {
+      .id         = "pkgng",
+      .dbPath     = "/var/db/pkg/local.sqlite",
+      .countQuery = "SELECT COUNT(*) FROM packages",
+    };
+
+    return GetCountFromDb(pkgInfo);
+  }
+  #endif
+} // namespace package
 
 #endif // __FreeBSD__ || __DragonFly__ || __NetBSD__

@@ -16,7 +16,9 @@
 #include <sys/types.h>            // uid_t
 #include <sys/utsname.h>          // utsname, uname
 #include <unistd.h>               // getuid, gethostname
+#include <unordered_set>					// std::unordered_set
 
+#include "src/core/package.hpp"
 #include "src/util/defs.hpp"
 #include "src/util/error.hpp"
 #include "src/util/helpers.hpp"
@@ -47,6 +49,22 @@ namespace {
     };
     // NOLINTEND(readability-identifier-naming)
   };
+
+  fn CountUniquePackages(const String& dbPath) -> Result<u64, DracError> {
+    std::ifstream dbFile(dbPath);
+
+    if (!dbFile.is_open())
+      return Err(DracError(DracErrorCode::NotFound, std::format("Failed to open file: {}", dbPath)));
+
+    std::unordered_set<String> uniquePackages;
+    String                     line;
+
+    while (std::getline(dbFile, line))
+      if (line.starts_with("manual ") || line.starts_with("auto "))
+        uniquePackages.insert(line);
+
+    return uniquePackages.size();
+  }
 } // namespace
 
 namespace os {
@@ -146,5 +164,9 @@ namespace os {
     return DiskSpace { .used_bytes = used_bytes, .total_bytes = total_bytes };
   }
 } // namespace os
+
+namespace package {
+  fn GetSerenityCount() -> Result<u64, DracError> { return CountUniquePackages("/usr/Ports/installed.db"); }
+} // namespace package
 
 #endif // __serenity__
