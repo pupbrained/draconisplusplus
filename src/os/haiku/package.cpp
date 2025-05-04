@@ -14,7 +14,7 @@ namespace package {
   using util::error::DracError, util::error::DracErrorCode;
   using util::types::Err;
 
-  fn GetPackageCount() -> Result<u64, DracError> {
+  fn GetHaikuCount() -> Result<u64, DracError> {
     BPackageKit::BPackageRoster  roster;
     BPackageKit::BPackageInfoSet packageList;
 
