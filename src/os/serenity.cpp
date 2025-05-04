@@ -1,23 +1,20 @@
 #ifdef __serenity__
 
 // clang-format off
-#include <cerrno>  // For errno
-#include <cstring> // For strerror
-#include <filesystem>
-#include <format>
-#include <fstream>
+#include <format>                 // std::format
+#include <fstream>                // std::ifstream
 #include <glaze/core/common.hpp>  // glz::object
 #include <glaze/core/context.hpp> // glz::error_ctx, glz::error_code
 #include <glaze/core/meta.hpp>    // glz::detail::Object
-#include <glaze/json/read.hpp>    // glz::read_json
-#include <iostream>
-#include <pwd.h> // For getpwuid(), struct passwd
-#include <string>
-#include <string_view>
-#include <sys/statvfs.h>
-#include <sys/types.h> // For uid_t
-#include <sys/utsname.h>
-#include <unistd.h>
+#include <glaze/core/read.hpp>    // glz::read
+#include <iterator>               // std::istreambuf_iterator
+#include <pwd.h>                  // getpwuid, struct passwd
+#include <string>                 // std::string (String)
+#include <string_view>            // std::string_view (StringView)
+#include <sys/statvfs.h>          // statvfs
+#include <sys/types.h>            // uid_t
+#include <sys/utsname.h>          // utsname, uname
+#include <unistd.h>               // getuid, gethostname
 
 #include "src/util/defs.hpp"
 #include "src/util/error.hpp"
@@ -99,9 +96,8 @@ namespace os {
   fn GetDesktopEnvironment() -> Result<String, DracError> { return "SerenityOS Desktop"; }
 
   fn GetShell() -> Result<String, DracError> {
-    uid_t userId      = getuid();
-    errno             = 0;
-    struct passwd* pw = getpwuid(userId);
+    uid_t          userId = getuid();
+    struct passwd* pw     = getpwuid(userId);
 
     if (pw == nullptr)
       return Err(DracError(DracErrorCode::NotFound, std::format("User ID {} not found in /etc/passwd", userId)));
