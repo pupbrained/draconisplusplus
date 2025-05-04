@@ -127,7 +127,7 @@ elif host_system == 'windows'
     cpp.find_library('dwmapi'),
     cpp.find_library('windowsapp'),
   ]
-else
+elif host_system == 'linux' or host_system == 'freebsd' or host_system == 'netbsd' or host_system == 'dragonfly' or host_system == 'haiku'
   platform_deps += [
     dependency('SQLiteCpp'),
     dependency('xcb'),
