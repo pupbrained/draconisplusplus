@@ -4,7 +4,12 @@
 #include "src/core/package.hpp"
 
 #include "src/util/defs.hpp"
+#include "src/util/error.hpp"
+#include "src/util/types.hpp"
 // clang-format on
+
+using util::error::DracError, util::error::DracErrorCode;
+using util::types::u64, util::types::String, util::types::Result;
 
 namespace {
   fn CountUniquePackages(const String& dbPath) -> Result<u64, DracError> {
