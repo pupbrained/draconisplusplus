@@ -33,7 +33,7 @@ namespace {
 } // namespace
 
 namespace package {
-  fn GetSerenityCount() -> Result<u64, DracError> { return CountUniquePackages("/usr/ports/installed.db"); }
+  fn GetSerenityCount() -> Result<u64, DracError> { return CountUniquePackages("/usr/Ports/installed.db"); }
 } // namespace package
 
 #endif // __serenity__
