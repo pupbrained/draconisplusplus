@@ -1,13 +1,16 @@
 #include "package.hpp"
 
-#include <SQLiteCpp/Database.h>  // SQLite::{Database, OPEN_READONLY}
-#include <SQLiteCpp/Exception.h> // SQLite::Exception
-#include <SQLiteCpp/Statement.h> // SQLite::Statement
-#include <chrono>                // std::chrono
-#include <filesystem>            // std::filesystem
-#include <format>                // std::format
-#include <future>                // std::{async, future, launch}
-#include <system_error>          // std::error_code
+#ifndef __serenity__
+  #include <SQLiteCpp/Database.h>  // SQLite::{Database, OPEN_READONLY}
+  #include <SQLiteCpp/Exception.h> // SQLite::Exception
+  #include <SQLiteCpp/Statement.h> // SQLite::Statement
+#endif                             // __serenity__
+
+#include <chrono>       // std::chrono
+#include <filesystem>   // std::filesystem
+#include <format>       // std::format
+#include <future>       // std::{async, future, launch}
+#include <system_error> // std::error_code
 
 #include "src/util/cache.hpp"
 #include "src/util/error.hpp"
@@ -137,6 +140,7 @@ namespace package {
     return GetCountFromDirectoryImpl(pmId, dirPath, noFilter, false);
   }
 
+#ifndef __serenity__
   fn GetCountFromDb(const PackageManagerInfo& pmInfo) -> Result<u64, DracError> {
     const auto& [pmId, dbPath, countQuery] = pmInfo;
     const String cacheKey                  = "pkg_count_" + pmId; // More specific cache key
@@ -226,6 +230,7 @@ namespace package {
 
     return count;
   }
+#endif // __serenity__
 
 #if defined(__linux__) || defined(__APPLE__)
   fn GetNixCount() -> Result<u64, DracError> {
@@ -246,7 +251,7 @@ namespace package {
 
     return GetCountFromDb(nixInfo);
   }
-#endif
+#endif // __linux__ || __APPLE__
 
   fn GetCargoCount() -> Result<u64, DracError> {
     using util::helpers::GetEnv;
@@ -302,7 +307,7 @@ namespace package {
 
 #if defined(__linux__) || defined(__APPLE__)
     futures.push_back(std::async(std::launch::async, GetNixCount));
-#endif
+#endif // __linux__ || __APPLE__
     futures.push_back(std::async(std::launch::async, GetCargoCount));
 
     u64  totalCount   = 0;
