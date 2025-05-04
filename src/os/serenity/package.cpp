@@ -3,20 +3,23 @@
 // clang-format off
 #include "src/core/package.hpp"
 
+#include <fstream>
+#include <unordered_set>
+
 #include "src/util/defs.hpp"
 #include "src/util/error.hpp"
 #include "src/util/types.hpp"
 // clang-format on
 
 using util::error::DracError, util::error::DracErrorCode;
-using util::types::u64, util::types::String, util::types::Result;
+using util::types::u64, util::types::String, util::types::Result, util::types::Err;
 
 namespace {
   fn CountUniquePackages(const String& dbPath) -> Result<u64, DracError> {
     std::ifstream dbFile(dbPath);
 
     if (!dbFile.is_open())
-      return Err(DracError(DracErrorCode::NotFound, std::format("Failed to open file: {}", dbPath.string())));
+      return Err(DracError(DracErrorCode::NotFound, std::format("Failed to open file: {}", dbPath)));
 
     std::unordered_set<String> uniquePackages;
     String                     line;
