@@ -15,7 +15,6 @@
 #include <glaze/json/read.hpp> // NOLINT(misc-include-cleaner) - glaze/json/read.hpp is needed for glz::read<glz::opts>
 #include <ios>                 // std::ios::{binary, trunc}
 #include <iterator>            // std::istreambuf_iterator
-#include <utility>             // std::move
 #include <variant>             // std::{get, holds_alternative}
 
 #include "src/util/cache.hpp"
@@ -70,7 +69,7 @@ namespace {
     if (const error_ctx errc = read<glaze_opts>(output, responseBuffer); errc.ec != error_code::none)
       return Err("API response parse error: " + format_error(errc, responseBuffer));
 
-    return std::move(output);
+    return output;
   }
 } // namespace
 

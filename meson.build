@@ -7,10 +7,10 @@ project(
   version : '0.1.0',
   default_options : [
     'default_library=static',
-    'buildtype=release',
+    'buildtype=debugoptimized',
     'b_vscrt=mt',
     'b_lto=true',
-    'b_ndebug=false',
+    'b_ndebug=if-release',
     'warning_level=3',
   ],
 )
@@ -75,9 +75,11 @@ if cpp.get_id() in ['msvc', 'clang-cl']
     common_cpp_args += common_warning_flags + common_cpp_flags['common'] + ['-fcolor-diagnostics', '-fdiagnostics-format=clang']
   endif
 else
-  common_cpp_args = common_warning_flags + common_cpp_flags['common'] + common_cpp_flags['unix_extra']
+  common_cpp_args = common_warning_flags + common_cpp_flags['common']
   if host_system == 'windows'
     common_cpp_args += common_cpp_flags['windows_extra']
+  elif host_system != 'serenity'
+    common_cpp_args += common_cpp_flags['unix_extra']
   endif
 endif
 
@@ -95,6 +97,7 @@ platform_sources = {
   'dragonfly' : ['src/os/bsd.cpp'],
   'haiku' : ['src/os/haiku.cpp'],
   'darwin' : ['src/os/macos.cpp', 'src/os/macos/bridge.mm'],
+  'serenity' : ['src/os/serenity.cpp'],
   'windows' : ['src/os/windows.cpp'],
 }
 
@@ -127,15 +130,15 @@ elif host_system == 'windows'
     cpp.find_library('dwmapi'),
     cpp.find_library('windowsapp'),
   ]
-# elif host_system == 'linux' or host_system == 'freebsd' or host_system == 'netbsd' or host_system == 'dragonfly' or host_system == 'haiku'
-#   platform_deps += [
-#     dependency('SQLiteCpp'),
-#     dependency('xcb'),
-#     dependency('xau'),
-#     dependency('xdmcp'),
-#     dependency('wayland-client'),
-#     dependency('dbus-1'),
-#   ]
+elif host_system != 'serenity'
+  platform_deps += [
+    dependency('SQLiteCpp'),
+    dependency('xcb'),
+    dependency('xau'),
+    dependency('xdmcp'),
+    dependency('wayland-client'),
+    dependency('dbus-1'),
+  ]
 endif
 
 # FTXUI configuration

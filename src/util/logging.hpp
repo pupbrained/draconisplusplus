@@ -1,11 +1,12 @@
 #pragma once
 
 #include <chrono>                 // std::chrono::{days, floor, seconds, system_clock}
+#include <ctime>                  // localtime_r/s, strftime, time_t, tm
 #include <filesystem>             // std::filesystem::path
 #include <format>                 // std::format
 #include <ftxui/screen/color.hpp> // ftxui::Color
-#include <mutex>                  // std::{mutex, lock_guard}
 #include <iostream>               // std::cout
+#include <mutex>                  // std::{mutex, lock_guard}
 #include <utility>                // std::forward
 
 #ifndef NDEBUG
@@ -169,7 +170,7 @@ namespace util::logging {
 
     const auto        nowTp = system_clock::now();
     const std::time_t nowTt = system_clock::to_time_t(nowTp);
-    std::tm           localTm;
+    std::tm           localTm {};
 
     String timestamp;
 
@@ -179,13 +180,19 @@ namespace util::logging {
     if (localtime_r(&nowTt, &localTm) != nullptr) {
 #endif
       Array<char, 64> timeBuffer {};
+      auto            formattedTime =
+        std::strftime(timeBuffer.data(), sizeof(timeBuffer), LogLevelConst::TIMESTAMP_FORMAT, &localTm);
 
-      if (std::strftime(timeBuffer.data(), sizeof(timeBuffer), LogLevelConst::TIMESTAMP_FORMAT, &localTm) > 0)
+      if (formattedTime > 0) {
         timestamp = timeBuffer.data();
-      else
-        timestamp = "??:??:?? (strf_err)";
-    } else
+      } else {
+        try {
+          timestamp = std::format("{:%X}", nowTp);
+        } catch (const std::format_error& fmt_err) { timestamp = "??:??:?? (fmt_err)"; }
+      }
+    } else {
       timestamp = "??:??:?? (conv_err)";
+    }
 
     const String message = std::format(fmt, std::forward<Args>(args)...);
 
@@ -202,7 +209,6 @@ namespace util::logging {
     const String fileLine =
       std::format(LogLevelConst::FILE_LINE_FORMAT, path(loc.file_name()).lexically_normal().string(), loc.line());
     const String fullDebugLine = std::format("{}{}", LogLevelConst::DEBUG_LINE_PREFIX, fileLine);
-
     std::cout << '\n' << Italic(Colorize(fullDebugLine, LogLevelConst::DEBUG_INFO_COLOR));
 #endif
 

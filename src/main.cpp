@@ -5,7 +5,7 @@
 #include <ftxui/screen/color.hpp>  // ftxui::Color
 #include <ftxui/screen/screen.hpp> // ftxui::{Screen, Dimension::Full}
 #include <ftxui/screen/string.hpp> // ftxui::string_width
-#include <iostream>
+#include <iostream>                // std::cout
 #include <ranges>                  // std::ranges::{iota, to, transform}
 
 #include "src/config/config.hpp"
@@ -116,10 +116,13 @@ namespace {
   };
 
   fn CreateColorCircles() -> Element {
-    fn color_view = std::views::iota(0, 16) | std::views::transform([](i32 colorIndex) {
-      return ftxui::hbox({ ftxui::text("◯") | ftxui::bold | ftxui::color(static_cast<ftxui::Color::Palette256>(colorIndex)),
-                         ftxui::text(" ") });
-    });
+    fn color_view =
+      std::views::iota(0, 16) | std::views::transform([](i32 colorIndex) {
+        return ftxui::hbox(
+          { ftxui::text("◯") | ftxui::bold | ftxui::color(static_cast<ftxui::Color::Palette256>(colorIndex)),
+            ftxui::text(" ") }
+        );
+      });
 
     Elements elements_container(std::ranges::begin(color_view), std::ranges::end(color_view));
 
@@ -149,8 +152,6 @@ namespace {
 
     if (data.date)
       initialRows.push_back({ calendarIcon, "Date", *data.date });
-    else
-      debug_at(data.date.error());
 
     if (weather.enabled && data.weather) {
       const weather::Output& weatherInfo  = *data.weather;
@@ -158,27 +159,20 @@ namespace {
                         ? std::format("{}°F in {}", std::lround(weatherInfo.main.temp), weatherInfo.name)
                         : std::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description);
       initialRows.push_back({ weatherIcon, "Weather", std::move(weatherValue) });
-    } else if (weather.enabled)
-      debug_at(data.weather.error());
+    }
 
     if (data.host && !data.host->empty())
       systemInfoRows.push_back({ hostIcon, "Host", *data.host });
-    else
-      debug_at(data.host.error());
 
     if (data.osVersion)
       systemInfoRows.push_back({ osIcon, "OS", *data.osVersion });
-    else
-      debug_at(data.osVersion.error());
 
     if (data.kernelVersion)
       systemInfoRows.push_back({ kernelIcon, "Kernel", *data.kernelVersion });
-    else
-      debug_at(data.kernelVersion.error());
 
     if (data.memInfo)
       systemInfoRows.push_back({ memoryIcon, "RAM", std::format("{}", BytesToGiB { *data.memInfo }) });
-    else
+    else if (!data.memInfo.has_value())
       debug_at(data.memInfo.error());
 
     if (data.diskUsage)
@@ -187,34 +181,27 @@ namespace {
           "Disk",
           std::format("{}/{}", BytesToGiB { data.diskUsage->used_bytes }, BytesToGiB { data.diskUsage->total_bytes }) }
       );
-    else
-      debug_at(data.diskUsage.error());
 
     if (data.shell)
       systemInfoRows.push_back({ shellIcon, "Shell", *data.shell });
-    else
-      debug_at(data.shell.error());
 
     if (data.packageCount) {
       if (*data.packageCount > 0)
         systemInfoRows.push_back({ packageIcon, "Packages", std::format("{}", *data.packageCount) });
       else
         debug_log("Package count is 0, skipping");
-    } else
-      debug_at(data.packageCount.error());
+    }
 
     bool addedDe = false;
     if (data.desktopEnv && (!data.windowMgr || *data.desktopEnv != *data.windowMgr)) {
       envInfoRows.push_back({ deIcon, "DE", *data.desktopEnv });
       addedDe = true;
-    } else if (!data.desktopEnv)
-      debug_at(data.desktopEnv.error());
+    }
 
     if (data.windowMgr) {
       if (!addedDe || (data.desktopEnv && *data.desktopEnv != *data.windowMgr))
         envInfoRows.push_back({ wmIcon, "WM", *data.windowMgr });
-    } else
-      debug_at(data.windowMgr.error());
+    }
 
     bool   nowPlayingActive = false;
     String npText;
@@ -224,8 +211,7 @@ namespace {
       const String artist = data.nowPlaying->artist.value_or("Unknown Artist");
       npText              = artist + " - " + title;
       nowPlayingActive    = true;
-    } else if (config.nowPlaying.enabled)
-      debug_at(data.nowPlaying.error());
+    }
 
     usize maxContentWidth = 0;
 

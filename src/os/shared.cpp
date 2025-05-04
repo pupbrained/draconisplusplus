@@ -1,3 +1,6 @@
+#ifndef __serenity__
+
+// clang-format off
 #ifndef _WIN32
   #include <SQLiteCpp/Database.h>  // SQLite::{Database, OPEN_READONLY}
   #include <SQLiteCpp/Exception.h> // SQLite::Exception
@@ -22,6 +25,7 @@
 #include "src/util/types.hpp"
 
 #include "os.hpp"
+// clang-format on
 
 using util::error::DracError, util::error::DracErrorCode;
 using util::types::u64, util::types::i64, util::types::String, util::types::StringView, util::types::Result,
@@ -33,13 +37,13 @@ namespace {
   using namespace std::chrono;
   using namespace util::cache;
 
-#ifndef _WIN32
+  #ifndef _WIN32
   struct PackageManagerInfo {
     String   id;
     fs::path dbPath;
     String   countQuery;
   };
-#endif
+  #endif
 
   struct PkgCountCacheData {
     u64 count {};
@@ -55,7 +59,7 @@ namespace {
     // NOLINTEND(readability-identifier-naming)
   };
 
-#ifndef _WIN32
+  #ifndef _WIN32
   fn GetPackageCountInternalDb(const PackageManagerInfo& pmInfo) -> Result<u64, DracError> {
     const auto& [pmId, dbPath, countQuery] = pmInfo;
 
@@ -117,9 +121,9 @@ namespace {
 
     return count;
   }
-#endif
+  #endif
 
-#ifndef _WIN32
+  #ifndef _WIN32
   fn GetNixPackageCount() -> Result<u64, DracError> {
     debug_log("Attempting to get Nix package count.");
 
@@ -140,7 +144,7 @@ namespace {
 
     return GetPackageCountInternalDb(nixInfo);
   }
-#endif
+  #endif
 
   fn GetCargoPackageCount() -> Result<u64, DracError> {
     using util::helpers::GetEnv;
@@ -171,12 +175,12 @@ namespace os::shared {
   fn GetPackageCount() -> Result<u64, DracError> {
     u64 count = 0;
 
-#ifndef _WIN32
+  #ifndef _WIN32
     if (const Result<u64, DracError> pkgCount = GetNixPackageCount())
       count += *pkgCount;
     else
       debug_at(pkgCount.error());
-#endif
+  #endif
 
     if (const Result<u64, DracError> pkgCount = GetCargoPackageCount())
       count += *pkgCount;
@@ -186,3 +190,5 @@ namespace os::shared {
     return count;
   }
 } // namespace os::shared
+
+#endif // !__serenity__
