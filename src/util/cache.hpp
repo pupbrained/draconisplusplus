@@ -61,10 +61,10 @@ namespace util::cache {
 
     const fs::path& cachePath = *cachePathResult;
 
-    if (std::error_code exists_ec; !fs::exists(cachePath, exists_ec) || exists_ec) {
-      if (exists_ec) {
+    if (std::error_code existsEc; !fs::exists(cachePath, existsEc) || existsEc) {
+      if (existsEc) {
         // Log if there was an error checking existence, but still return NotFound
-        warn_log("Error checking existence of cache file '{}': {}", cachePath.string(), exists_ec.message());
+        warn_log("Error checking existence of cache file '{}': {}", cachePath.string(), existsEc.message());
       }
       return Err(DracError(DracErrorCode::NotFound, "Cache file not found: " + cachePath.string()));
     }
@@ -174,9 +174,9 @@ namespace util::cache {
       }
 
       // Attempt to atomically replace the old cache file
-      std::error_code rename_ec;
-      fs::rename(tempPath, cachePath, rename_ec);
-      if (rename_ec) {
+      std::error_code renameEc;
+      fs::rename(tempPath, cachePath, renameEc);
+      if (renameEc) {
         // If rename failed, attempt to clean up the temp file
         std::error_code removeEc;
         fs::remove(tempPath, removeEc); // Ignore error on cleanup attempt
@@ -186,7 +186,7 @@ namespace util::cache {
             "Failed to replace cache file '{}' with temporary file '{}': {}",
             cachePath.string(),
             tempPath.string(),
-            rename_ec.message()
+            renameEc.message()
           )
         ));
       }

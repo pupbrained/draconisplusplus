@@ -88,15 +88,15 @@ add_project_arguments(common_cpp_args, language : 'cpp')
 # ------- #
 #  Files  #
 # ------- #
-base_sources = files('src/core/system_data.cpp', 'src/os/shared.cpp', 'src/config/config.cpp', 'src/config/weather.cpp', 'src/main.cpp')
+base_sources = files('src/core/system_data.cpp', 'src/config/config.cpp', 'src/config/weather.cpp', 'src/main.cpp')
 
 platform_sources = {
-  'linux' : ['src/os/linux.cpp', 'src/os/linux/pkg_count.cpp'],
-  'freebsd' : ['src/os/bsd.cpp'],
-  'netbsd' : ['src/os/bsd.cpp'],
-  'dragonfly' : ['src/os/bsd.cpp'],
-  'haiku' : ['src/os/haiku.cpp'],
   'darwin' : ['src/os/macos.cpp', 'src/os/macos/bridge.mm'],
+  'dragonfly' : ['src/os/bsd.cpp', 'src/os/bsd/pkg_count.cpp'],
+  'freebsd' : ['src/os/bsd.cpp', 'src/os/bsd/pkg_count.cpp'],
+  'haiku' : ['src/os/haiku.cpp'],
+  'linux' : ['src/os/linux.cpp', 'src/os/linux/pkg_count.cpp'],
+  'netbsd' : ['src/os/bsd.cpp', 'src/os/bsd/pkg_count.cpp'],
   'serenity' : ['src/os/serenity.cpp'],
   'windows' : ['src/os/windows.cpp'],
 }

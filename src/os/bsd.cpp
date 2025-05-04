@@ -483,8 +483,6 @@ namespace os {
       .total_bytes = stat.f_blocks * stat.f_frsize,
     };
   }
-
-  fn GetPackageCount() -> Result<u64, DracError> { return shared::GetPackageCount(); }
 } // namespace os
 
 #endif // __FreeBSD__ || __DragonFly__ || __NetBSD__

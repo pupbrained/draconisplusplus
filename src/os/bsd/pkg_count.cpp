@@ -1,65 +1,93 @@
-#ifndef __serenity__
+#if defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__)
 
 // clang-format off
-#ifndef _WIN32
-  #include <SQLiteCpp/Database.h>  // SQLite::{Database, OPEN_READONLY}
-  #include <SQLiteCpp/Exception.h> // SQLite::Exception
-  #include <SQLiteCpp/Statement.h> // SQLite::Statement
-#endif
+#include <SQLiteCpp/Database.h>  // SQLite::{Database, OPEN_READONLY}
+#include <SQLiteCpp/Exception.h> // SQLite::Exception
+#include <SQLiteCpp/Statement.h> // SQLite::Statement
 
 #include <chrono>                // std::chrono
 #include <filesystem>            // std::filesystem
 #include <format>                // std::format
-#include <fstream>               // std::{ifstream, ofstream}
 #include <glaze/beve/write.hpp>  // glz::write_beve
 #include <glaze/core/common.hpp> // glz::object
 #include <glaze/core/meta.hpp>   // glz::detail::Object
-#include <iterator>              // std::istreambuf_iterator
 #include <system_error>          // std::error_code
 
+#include "src/os/bsd/pkg_count.hpp"
+#include "src/os/os.hpp"
 #include "src/util/cache.hpp"
 #include "src/util/defs.hpp"
 #include "src/util/error.hpp"
-#include "src/util/helpers.hpp"
 #include "src/util/logging.hpp"
 #include "src/util/types.hpp"
-
-#include "os.hpp"
 // clang-format on
 
 using util::error::DracError, util::error::DracErrorCode;
-using util::types::u64, util::types::i64, util::types::String, util::types::StringView, util::types::Result,
-  util::types::Err, util::types::Exception;
-
-namespace fs = std::filesystem;
+using util::types::u64, util::types::i64, util::types::Result, util::types::Err, util::types::String,
+  util::types::StringView, util::types::Exception;
 
 namespace {
   using namespace std::chrono;
   using namespace util::cache;
 
-  #ifndef _WIN32
-  struct PackageManagerInfo {
-    String   id;
-    fs::path dbPath;
-    String   countQuery;
-  };
-  #endif
+  using os::bsd::PackageManagerInfo, os::bsd::PkgCountCacheData;
 
-  struct PkgCountCacheData {
-    u64 count {};
-    i64 timestampEpochSeconds {};
+  #ifdef __NetBSD__
+  fn GetPackageCountInternalDir(const String& pmId, const fs::path& dirPath) -> Result<u64, DracError> {
+    debug_log("Attempting to get {} package count.", pmId);
 
-    // NOLINTBEGIN(readability-identifier-naming)
-    struct [[maybe_unused]] glaze {
-      using T = PkgCountCacheData;
+    std::error_code errc;
+    if (!fs::exists(dirPath, errc)) {
+      if (errc)
+        return Err(DracError(
+          DracErrorCode::IoError, std::format("Filesystem error checking {} directory: {}", pmId, errc.message())
+        ));
 
-      static constexpr glz::detail::Object value =
-        glz::object("count", &T::count, "timestamp", &T::timestampEpochSeconds);
-    };
-    // NOLINTEND(readability-identifier-naming)
-  };
+      return Err(
+        DracError(DracErrorCode::ApiUnavailable, std::format("{} directory not found: {}", pmId, dirPath.string()))
+      );
+    }
 
-  #ifndef _WIN32
+    if (!fs::is_directory(dirPath, errc)) {
+      if (errc)
+        return Err(DracError(
+          DracErrorCode::IoError, std::format("Filesystem error checking {} path type: {}", pmId, errc.message())
+        ));
+
+      warn_log("Expected {} directory at '{}', but it's not a directory.", pmId, dirPath.string());
+      return Err(
+        DracError(DracErrorCode::IoError, std::format("{} path is not a directory: {}", pmId, dirPath.string()))
+      );
+    }
+
+    u64 count = 0;
+
+    try {
+      const fs::directory_iterator dirIter(dirPath, fs::directory_options::skip_permission_denied, errc);
+
+      if (errc)
+        return Err(
+          DracError(DracErrorCode::IoError, std::format("Failed to iterate {} directory: {}", pmId, errc.message()))
+        );
+
+      for (const fs::directory_entry& entry : dirIter) { count++; }
+    } catch (const fs::filesystem_error& e) {
+      return Err(DracError(
+        DracErrorCode::IoError,
+        std::format("Filesystem error iterating {} directory '{}': {}", pmId, dirPath.string(), e.what())
+      ));
+    } catch (...) {
+      return Err(DracError(
+        DracErrorCode::Other, std::format("Unknown error iterating {} directory '{}'", pmId, dirPath.string())
+      ));
+    }
+
+    if (count > 0)
+      count--;
+
+    return count;
+  }
+  #else
   fn GetPackageCountInternalDb(const PackageManagerInfo& pmInfo) -> Result<u64, DracError> {
     const auto& [pmId, dbPath, countQuery] = pmInfo;
 
@@ -122,73 +150,31 @@ namespace {
     return count;
   }
   #endif
+} // namespace
 
-  #ifndef _WIN32
-  fn GetNixPackageCount() -> Result<u64, DracError> {
-    debug_log("Attempting to get Nix package count.");
-
-    const PackageManagerInfo nixInfo = {
-      .id         = "nix",
-      .dbPath     = "/nix/var/nix/db/db.sqlite",
-      .countQuery = "SELECT COUNT(path) FROM ValidPaths WHERE sigs IS NOT NULL",
+namespace os {
+  fn GetPackageCount() -> Result<u64, DracError> {
+  #ifdef __NetBSD__
+    return GetPackageCountInternalDir("PkgSrc", fs::current_path().root_path() / "usr" / "pkg" / "pkgdb");
+  #else
+    const PackageManagerInfo pkgInfo = {
+      .id         = "pkg_count",
+      .dbPath     = "/var/db/pkg/local.sqlite",
+      .countQuery = "SELECT COUNT(*) FROM packages",
     };
 
-    if (std::error_code errc; !fs::exists(nixInfo.dbPath, errc)) {
+    if (std::error_code errc; !fs::exists(pkgInfo.dbPath, errc)) {
       if (errc) {
-        warn_log("Filesystem error checking for Nix DB at '{}': {}", nixInfo.dbPath.string(), errc.message());
+        warn_log("Filesystem error checking for pkg DB at '{}': {}", pkgInfo.dbPath.string(), errc.message());
         return Err(DracError(DracErrorCode::IoError, "Filesystem error checking Nix DB: " + errc.message()));
       }
 
-      return Err(DracError(DracErrorCode::ApiUnavailable, "Nix db not found: " + nixInfo.dbPath.string()));
+      return Err(DracError(DracErrorCode::ApiUnavailable, "pkg db not found: " + pkgInfo.dbPath.string()));
     }
 
-    return GetPackageCountInternalDb(nixInfo);
-  }
+    return GetPackageCountInternalDb(pkgInfo);
   #endif
-
-  fn GetCargoPackageCount() -> Result<u64, DracError> {
-    using util::helpers::GetEnv;
-
-    fs::path cargoPath {};
-
-    if (const Result<String, DracError> cargoHome = GetEnv("CARGO_HOME"))
-      cargoPath = fs::path(*cargoHome) / "bin";
-    else if (const Result<String, DracError> homeDir = GetEnv("HOME"))
-      cargoPath = fs::path(*homeDir) / ".cargo" / "bin";
-
-    if (cargoPath.empty() || !fs::exists(cargoPath))
-      return Err(DracError(DracErrorCode::NotFound, "Could not find cargo directory"));
-
-    u64 count = 0;
-
-    for (const fs::directory_entry& entry : fs::directory_iterator(cargoPath))
-      if (entry.is_regular_file())
-        ++count;
-
-    debug_log("Found {} packages in cargo directory: {}", count, cargoPath.string());
-
-    return count;
   }
-} // namespace
+} // namespace os
 
-namespace os::shared {
-  fn GetPackageCount() -> Result<u64, DracError> {
-    u64 count = 0;
-
-  #ifndef _WIN32
-    if (const Result<u64, DracError> pkgCount = GetNixPackageCount())
-      count += *pkgCount;
-    else
-      debug_at(pkgCount.error());
-  #endif
-
-    if (const Result<u64, DracError> pkgCount = GetCargoPackageCount())
-      count += *pkgCount;
-    else
-      debug_at(pkgCount.error());
-
-    return count;
-  }
-} // namespace os::shared
-
-#endif // !__serenity__
+#endif // __FreeBSD__ || __DragonFly__ || __NetBSD__
