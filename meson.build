@@ -97,7 +97,7 @@ platform_sources = {
   'haiku' : ['src/os/haiku.cpp', 'src/os/haiku/package.cpp'],
   'linux' : ['src/os/linux.cpp', 'src/os/linux/package.cpp'],
   'netbsd' : ['src/os/bsd.cpp', 'src/os/bsd/package.cpp'],
-  'serenity' : ['src/os/serenity.cpp'],
+  'serenity' : ['src/os/serenity.cpp', 'src/os/serenity/package.cpp'],
   'windows' : ['src/os/windows.cpp'],
 }
 
