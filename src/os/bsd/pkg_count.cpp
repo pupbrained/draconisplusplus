@@ -5,26 +5,13 @@
 #include <SQLiteCpp/Exception.h> // SQLite::Exception
 #include <SQLiteCpp/Statement.h> // SQLite::Statement
 
-#include <chrono>                // std::chrono
-#include <filesystem>            // std::filesystem
-#include <format>                // std::format
 #include <glaze/beve/write.hpp>  // glz::write_beve
 #include <glaze/core/common.hpp> // glz::object
 #include <glaze/core/meta.hpp>   // glz::detail::Object
-#include <system_error>          // std::error_code
 
-#include "src/os/bsd/pkg_count.hpp"
-#include "src/os/os.hpp"
-#include "src/util/cache.hpp"
+#include "src/core/package.hpp"
 #include "src/util/defs.hpp"
-#include "src/util/error.hpp"
-#include "src/util/logging.hpp"
-#include "src/util/types.hpp"
 // clang-format on
-
-using util::error::DracError, util::error::DracErrorCode;
-using util::types::u64, util::types::i64, util::types::Result, util::types::Err, util::types::String,
-  util::types::StringView, util::types::Exception;
 
 namespace package {
   #if defined(__FreeBSD__) || defined(__DragonFly__)
