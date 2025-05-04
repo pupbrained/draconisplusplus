@@ -1,15 +1,15 @@
 #if defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__)
 
 // clang-format off
+#include "src/core/package.hpp"
+
 #include <SQLiteCpp/Database.h>  // SQLite::{Database, OPEN_READONLY}
 #include <SQLiteCpp/Exception.h> // SQLite::Exception
 #include <SQLiteCpp/Statement.h> // SQLite::Statement
-
 #include <glaze/beve/write.hpp>  // glz::write_beve
 #include <glaze/core/common.hpp> // glz::object
 #include <glaze/core/meta.hpp>   // glz::detail::Object
 
-#include "src/core/package.hpp"
 #include "src/util/defs.hpp"
 // clang-format on
 

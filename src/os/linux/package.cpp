@@ -11,13 +11,8 @@
 #include <glaze/beve/write.hpp>   // glz::write_beve
 
 #include "src/util/defs.hpp"
-#include "src/util/error.hpp"
-#include "src/util/types.hpp"
 // clang-format on
 
-using util::error::DracError;
-using util::types::u64, util::types::i64, util::types::Result, util::types::Err, util::types::String,
-  util::types::StringView, util::types::Exception;
 using namespace std::string_literals;
 
 namespace package {

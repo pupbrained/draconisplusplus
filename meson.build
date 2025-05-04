@@ -92,11 +92,11 @@ base_sources = files('src/core/system_data.cpp', 'src/core/package.cpp', 'src/co
 
 platform_sources = {
   'darwin' : ['src/os/macos.cpp', 'src/os/macos/bridge.mm'],
-  'dragonfly' : ['src/os/bsd.cpp', 'src/os/bsd/pkg_count.cpp'],
-  'freebsd' : ['src/os/bsd.cpp', 'src/os/bsd/pkg_count.cpp'],
-  'haiku' : ['src/os/haiku.cpp'],
-  'linux' : ['src/os/linux.cpp', 'src/os/linux/pkg_count.cpp'],
-  'netbsd' : ['src/os/bsd.cpp', 'src/os/bsd/pkg_count.cpp'],
+  'dragonfly' : ['src/os/bsd.cpp', 'src/os/bsd/package.cpp'],
+  'freebsd' : ['src/os/bsd.cpp', 'src/os/bsd/package.cpp'],
+  'haiku' : ['src/os/haiku.cpp', 'src/os/haiku/package.cpp'],
+  'linux' : ['src/os/linux.cpp', 'src/os/linux/package.cpp'],
+  'netbsd' : ['src/os/bsd.cpp', 'src/os/bsd/package.cpp'],
   'serenity' : ['src/os/serenity.cpp'],
   'windows' : ['src/os/windows.cpp'],
 }
