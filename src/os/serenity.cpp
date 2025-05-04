@@ -145,10 +145,6 @@ namespace os {
 
     return DiskSpace { .used_bytes = used_bytes, .total_bytes = total_bytes };
   }
-
-  fn GetPackageCount() -> Result<u64, DracError> {
-    return Err(DracError(DracErrorCode::NotSupported, "Package count is not supported on SerenityOS"));
-  }
 } // namespace os
 
 #endif // __serenity__
