@@ -85,15 +85,6 @@ namespace os {
   fn GetKernelVersion() -> Result<String, DracError>;
 
   /**
-   * @brief Gets the number of installed packages (Platform-specific).
-   * @details On Linux, sums counts from various package managers. On other platforms, behavior may vary.
-   * @return A Result containing the package count (u64) on success,
-   * or a DracError on failure (e.g., permission errors, command not found)
-   * or if not supported (DracErrorCode::NotSupported).
-   */
-  fn GetPackageCount() -> Result<u64, DracError>;
-
-  /**
    * @brief Gets the disk usage for the primary/root filesystem.
    * @details Uses statvfs on Linux/macOS, GetDiskFreeSpaceExW on Windows.
    * @return A Result containing the DiskSpace struct (used/total bytes) on success,

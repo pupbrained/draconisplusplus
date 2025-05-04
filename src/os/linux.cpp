@@ -27,7 +27,6 @@
 #include "src/wrappers/wayland.hpp"
 #include "src/wrappers/xcb.hpp"
 
-#include "linux/pkg_count.hpp"
 #include "os.hpp"
 // clang-format on
 
@@ -470,17 +469,6 @@ namespace os {
       .used_bytes  = (stat.f_blocks * stat.f_frsize) - (stat.f_bfree * stat.f_frsize),
       .total_bytes = stat.f_blocks * stat.f_frsize,
     };
-  }
-
-  fn GetPackageCount() -> Result<u64, DracError> {
-    u64 count = 0;
-
-    if (Result<u64, DracError> linuxCount = linux::GetTotalPackageCount())
-      count += *linuxCount;
-    else
-      debug_at(linuxCount.error());
-
-    return count;
   }
 } // namespace os
 

@@ -7,6 +7,7 @@
 
 #include "src/config/config.hpp"
 #include "src/config/weather.hpp"
+#include "src/core/package.hpp"
 #include "src/os/os.hpp"
 #include "src/util/defs.hpp"
 #include "src/util/error.hpp"
@@ -78,7 +79,7 @@ namespace os {
     Future<Result<String, DracError>>    wmFut     = std::async(async, GetWindowManager);
     Future<Result<DiskSpace, DracError>> diskFut   = std::async(async, GetDiskUsage);
     Future<Result<String, DracError>>    shellFut  = std::async(async, GetShell);
-    Future<Result<u64, DracError>>       pkgFut    = std::async(async, GetPackageCount);
+    Future<Result<u64, DracError>>       pkgFut    = std::async(async, package::GetTotalCount);
     Future<Result<MediaInfo, DracError>> npFut =
       std::async(config.nowPlaying.enabled ? async : deferred, GetNowPlaying);
     Future<Result<Output, DracError>> wthrFut =

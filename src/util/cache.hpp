@@ -6,7 +6,6 @@
 #include <glaze/beve/write.hpp>   // glz::write_beve
 #include <glaze/core/context.hpp> // glz::{context, error_code, error_ctx}
 #include <iterator>               // std::istreambuf_iterator
-#include <string>                 // std::string
 #include <system_error>           // std::error_code
 #include <type_traits>            // std::decay_t
 
