@@ -100,14 +100,4 @@ namespace os {
    * or a DracError on failure (e.g., filesystem not found, permission error).
    */
   fn GetDiskUsage() -> Result<DiskSpace, DracError>;
-
-  namespace shared {
-    /**
-     * @brief Gets the number of installed packages from OS-agnostic package managers.
-     * @details Currently only supports Cargo package manager.
-     * @return A Result containing the package count (u64) on success,
-     * or a DracError on failure (e.g., permission errors, command not found).
-     */
-    fn GetPackageCount() -> Result<u64, DracError>;
-  } // namespace shared
 } // namespace os

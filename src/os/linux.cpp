@@ -480,11 +480,6 @@ namespace os {
     else
       debug_at(linuxCount.error());
 
-    if (Result<u64, DracError> sharedCount = shared::GetPackageCount())
-      count += *sharedCount;
-    else
-      debug_at(sharedCount.error());
-
     return count;
   }
 } // namespace os

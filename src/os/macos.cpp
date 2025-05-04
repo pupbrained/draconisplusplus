@@ -222,7 +222,9 @@ fn os::GetDiskUsage() -> Result<DiskSpace, DracError> {
                      .total_bytes = vfs.f_blocks * vfs.f_frsize };
 }
 
-fn os::GetPackageCount() -> Result<u64, DracError> { return shared::GetPackageCount(); }
+fn os::GetPackageCount() -> Result<u64, DracError> {
+  return Err(DracError(DracErrorCode::NotSupported, "Package count is not supported on macOS")); // TODO: Implement
+}
 
 fn os::GetShell() -> Result<String, DracError> {
   return "Fish"; // TODO: Implement

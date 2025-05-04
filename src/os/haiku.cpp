@@ -261,8 +261,6 @@ namespace os {
   }
 
   fn GetPackageCount() -> Result<u64, DracError> {
-    u64 count = 0;
-
     BPackageKit::BPackageRoster  roster;
     BPackageKit::BPackageInfoSet packageList;
 
@@ -271,14 +269,7 @@ namespace os {
     if (status != B_OK)
       return Err(DracError(DracErrorCode::ApiUnavailable, "Failed to get active package list"));
 
-    count += static_cast<u64>(packageList.CountInfos());
-
-    if (Result<u64, DracError> sharedCount = shared::GetPackageCount())
-      count += *sharedCount;
-    else
-      debug_at(sharedCount.error());
-
-    return count;
+    return static_cast<u64>(packageList.CountInfos());
   }
 } // namespace os
 
