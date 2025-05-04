@@ -127,15 +127,15 @@ elif host_system == 'windows'
     cpp.find_library('dwmapi'),
     cpp.find_library('windowsapp'),
   ]
-elif host_system == 'linux' or host_system == 'freebsd' or host_system == 'netbsd' or host_system == 'dragonfly' or host_system == 'haiku'
-  platform_deps += [
-    dependency('SQLiteCpp'),
-    dependency('xcb'),
-    dependency('xau'),
-    dependency('xdmcp'),
-    dependency('wayland-client'),
-    dependency('dbus-1'),
-  ]
+# elif host_system == 'linux' or host_system == 'freebsd' or host_system == 'netbsd' or host_system == 'dragonfly' or host_system == 'haiku'
+#   platform_deps += [
+#     dependency('SQLiteCpp'),
+#     dependency('xcb'),
+#     dependency('xau'),
+#     dependency('xdmcp'),
+#     dependency('wayland-client'),
+#     dependency('dbus-1'),
+#   ]
 endif
 
 # FTXUI configuration
