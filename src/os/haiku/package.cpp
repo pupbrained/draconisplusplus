@@ -1,5 +1,4 @@
 #ifdef __HAIKU__
-
 // clang-format off
 #include "src/core/package.hpp"
 
@@ -8,9 +7,13 @@
 #include <os/package/PackageRoster.h>  // BPackageKit::BPackageRoster
 
 #include "src/util/defs.hpp"
+#include "src/util/error.hpp"
 // clang-format on
 
 namespace package {
+  using util::error::DracError, util::error::DracErrorCode;
+  using util::types::Err;
+
   fn GetPackageCount() -> Result<u64, DracError> {
     BPackageKit::BPackageRoster  roster;
     BPackageKit::BPackageInfoSet packageList;
