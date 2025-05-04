@@ -104,11 +104,13 @@
               buildInputs = deps;
 
               configurePhase = ''
-                meson setup build
+                meson setup build --buildtype release
               '';
+
               buildPhase = ''
                 meson compile -C build
               '';
+
               installPhase = ''
                 mkdir -p $out/bin
                 mv build/draconis++ $out/bin/draconis++
@@ -209,7 +211,7 @@
                 buildInputs = deps;
 
                 configurePhase = ''
-                  meson setup build
+                  meson setup build --buildtype release
                 '';
 
                 buildPhase = ''
