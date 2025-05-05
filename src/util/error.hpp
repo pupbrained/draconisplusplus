@@ -1,6 +1,7 @@
 #pragma once
 
 #include <expected>        // std::{unexpected, expected}
+#include <format>          // std::format
 #include <source_location> // std::source_location
 #include <system_error>    // std::error_code
 
@@ -94,41 +95,19 @@ namespace util {
         );
       }
 #else
-      DracError(const DracErrorCode code_hint, const int errno_val)
-        : message(std::system_category().message(errno_val)), code(code_hint) {
+      DracError(const String& context, const std::source_location& loc = std::source_location::current())
+        : message(std::format("{}: {}", context, std::system_category().message(errno))), location(loc) {
+        using namespace matchit;
         using enum DracErrorCode;
-
-        switch (errno_val) {
-          case EACCES:    code = PermissionDenied; break;
-          case ENOENT:    code = NotFound; break;
-          case ETIMEDOUT: code = Timeout; break;
-          case ENOTSUP:   code = NotSupported; break;
-          default:        code = PlatformSpecific; break;
-        }
-      }
-
-      static auto withErrno(const String& context, const std::source_location& loc = std::source_location::current())
-        -> DracError {
-        const i32    errNo   = errno;
-        const String msg     = std::system_category().message(errNo);
-        const String fullMsg = std::format("{}: {}", context, msg);
-
-        const DracErrorCode code = [&errNo] {
-          switch (errNo) {
-            case EACCES:
-            case EPERM:        return DracErrorCode::PermissionDenied;
-            case ENOENT:       return DracErrorCode::NotFound;
-            case ETIMEDOUT:    return DracErrorCode::Timeout;
-            case ENOTSUP:      return DracErrorCode::NotSupported;
-            case EIO:          return DracErrorCode::IoError;
-            case ECONNREFUSED:
-            case ENETDOWN:
-            case ENETUNREACH:  return DracErrorCode::NetworkError;
-            default:           return DracErrorCode::PlatformSpecific;
-          }
-        }();
-
-        return DracError { code, fullMsg, loc };
+        code = match(errno)(
+          is | EACCES                                   = PermissionDenied,
+          is | ENOENT                                   = NotFound,
+          is | ETIMEDOUT                                = Timeout,
+          is | ENOTSUP                                  = NotSupported,
+          is | EIO                                      = IoError,
+          is | or_(ECONNREFUSED, ENETDOWN, ENETUNREACH) = NetworkError,
+          is | _                                        = PlatformSpecific
+        );
       }
 #endif
     };

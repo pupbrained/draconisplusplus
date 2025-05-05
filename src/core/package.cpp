@@ -79,15 +79,17 @@ namespace {
     fsErrCode.clear();
 
     if (!fs::is_directory(dirPath, fsErrCode)) {
-      if (fsErrCode)
+      if (fsErrCode && fsErrCode != std::errc::no_such_file_or_directory)
         return Err(DracError(
           DracErrorCode::IoError,
           std::format("Filesystem error checking if '{}' is a directory: {}", dirPath.string(), fsErrCode.message())
         ));
+
       return Err(
-        DracError(DracErrorCode::IoError, std::format("{} path is not a directory: {}", pmId, dirPath.string()))
+        DracError(DracErrorCode::NotFound, std::format("{} path is not a directory: {}", pmId, dirPath.string()))
       );
     }
+
     fsErrCode.clear();
 
     u64 count = 0;
@@ -146,7 +148,7 @@ namespace {
     const PkgCountCacheData dataToCache     = { .count = count, .timestampEpochSeconds = nowEpochSeconds };
 
     if (Result writeResult = WriteCache(pmId, dataToCache); !writeResult)
-      error_at(writeResult.error());
+      debug_at(writeResult.error());
 
     return count;
   }
@@ -253,7 +255,7 @@ namespace package {
     const PkgCountCacheData dataToCache     = { .count = count, .timestampEpochSeconds = nowEpochSeconds };
 
     if (Result writeResult = WriteCache(cacheKey, dataToCache); !writeResult)
-      error_at(writeResult.error());
+      debug_at(writeResult.error());
 
     return count;
   }

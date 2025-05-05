@@ -135,7 +135,7 @@ namespace {
     socklen_t len = sizeof(cred);
 
     if (getsockopt(fileDescriptor, SOL_SOCKET, SO_PEERCRED, &cred, &len) == -1)
-      return Err(DracError::withErrno("Failed to get socket credentials (SO_PEERCRED)"));
+      return Err(DracError("Failed to get socket credentials (SO_PEERCRED)"));
 
     Array<char, 128> exeLinkPathBuf;
 
@@ -153,7 +153,7 @@ namespace {
     const isize bytesRead = readlink(exeLinkPath, exeRealPathBuf.data(), exeRealPathBuf.size() - 1);
 
     if (bytesRead == -1)
-      return Err(DracError::withErrno(std::format("Failed to read link '{}'", exeLinkPath)));
+      return Err(DracError(std::format("Failed to read link '{}'", exeLinkPath)));
 
     exeRealPathBuf.at(bytesRead) = '\0';
 
@@ -229,7 +229,7 @@ namespace os {
     struct sysinfo info;
 
     if (sysinfo(&info) != 0)
-      return Err(DracError::withErrno("sysinfo call failed"));
+      return Err(DracError("sysinfo call failed"));
 
     const u64 totalRam = info.totalram;
     const u64 memUnit  = info.mem_unit;
@@ -458,7 +458,7 @@ namespace os {
     utsname uts;
 
     if (uname(&uts) == -1)
-      return Err(DracError::withErrno("uname call failed"));
+      return Err(DracError("uname call failed"));
 
     if (std::strlen(uts.release) == 0)
       return Err(DracError(DracErrorCode::ParseError, "uname returned null kernel release"));
@@ -470,11 +470,11 @@ namespace os {
     struct statvfs stat;
 
     if (statvfs("/", &stat) == -1)
-      return Err(DracError::withErrno(std::format("Failed to get filesystem stats for '/' (statvfs call failed)")));
+      return Err(DracError("Failed to get filesystem stats for '/' (statvfs call failed)"));
 
     return DiskSpace {
-      .used_bytes  = (stat.f_blocks * stat.f_frsize) - (stat.f_bfree * stat.f_frsize),
-      .total_bytes = stat.f_blocks * stat.f_frsize,
+      .usedBytes  = (stat.f_blocks * stat.f_frsize) - (stat.f_bfree * stat.f_frsize),
+      .totalBytes = stat.f_blocks * stat.f_frsize,
     };
   }
 } // namespace os
