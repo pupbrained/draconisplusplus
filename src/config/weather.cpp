@@ -4,16 +4,13 @@
 #include <curl/curl.h>            // curl_easy_setopt
 #include <curl/easy.h>            // curl_easy_init, curl_easy_perform, curl_easy_cleanup
 #include <expected>               // std::{expected (Result), unexpected (Err)}
-#include <filesystem>             // std::filesystem::{path, remove, rename}
 #include <format>                 // std::format
-#include <fstream>                // std::{ifstream, ofstream}
 #include <glaze/beve/read.hpp>    // glz::read_beve
 #include <glaze/beve/write.hpp>   // glz::write_beve
 #include <glaze/core/context.hpp> // glz::{error_ctx, error_code}
 #include <glaze/core/opts.hpp>    // glz::opts
 #include <glaze/core/reflect.hpp> // glz::format_error
 #include <glaze/json/read.hpp> // NOLINT(misc-include-cleaner) - glaze/json/read.hpp is needed for glz::read<glz::opts>
-#include <iterator>            // std::istreambuf_iterator
 #include <variant>             // std::{get, holds_alternative}
 
 #include "src/util/cache.hpp"
@@ -24,12 +21,10 @@
 
 #include "config.hpp"
 
-namespace fs = std::filesystem;
-
 using weather::Output;
 
 namespace {
-  using glz::opts, glz::error_ctx, glz::error_code, glz::read, glz::read_beve, glz::write_beve, glz::format_error;
+  using glz::opts, glz::error_ctx, glz::error_code, glz::read, glz::format_error;
   using util::error::DracError, util::error::DracErrorCode;
   using util::types::usize, util::types::Err, util::types::Exception;
   using weather::Coords;
@@ -86,6 +81,8 @@ fn Weather::getWeatherInfo() const -> Result<Output> {
       return dataVal;
 
     debug_log("Cache expired");
+  } else if (data.error().code == DracErrorCode::NotFound) {
+    debug_at(data.error());
   } else
     error_at(data.error());
 
