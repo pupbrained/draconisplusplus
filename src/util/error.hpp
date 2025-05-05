@@ -99,6 +99,7 @@ namespace util {
         : message(std::format("{}: {}", context, std::system_category().message(errno))), location(loc) {
         using namespace matchit;
         using enum DracErrorCode;
+
         code = match(errno)(
           is | EACCES                                   = PermissionDenied,
           is | ENOENT                                   = NotFound,

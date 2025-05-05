@@ -295,15 +295,7 @@ namespace package {
     if (cargoPath.empty() || !fs::exists(cargoPath))
       return Err(DracError(DracErrorCode::NotFound, "Could not find cargo directory"));
 
-    u64 count = 0;
-
-    for (const fs::directory_entry& entry : fs::directory_iterator(cargoPath))
-      if (entry.is_regular_file())
-        ++count;
-
-    debug_log("Found {} packages in cargo directory: {}", count, cargoPath.string());
-
-    return count;
+    return GetCountFromDirectory("cargo", cargoPath);
   }
 
   fn GetTotalCount() -> Result<u64> {
