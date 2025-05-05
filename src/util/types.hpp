@@ -11,8 +11,6 @@
 #include <utility>     // std::pair (Pair)
 #include <vector>      // std::vector (Vec)
 
-#include "include/matchit.h"
-
 namespace util::types {
   using u8  = std::uint8_t;  ///< 8-bit unsigned integer.
   using u16 = std::uint16_t; ///< 16-bit unsigned integer.
