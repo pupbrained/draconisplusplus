@@ -20,12 +20,9 @@ using util::error::DracError, util::error::DracErrorCode;
 using util::helpers::GetEnv;
 
 namespace {
-  fn StrEqualsIgnoreCase(std::string_view strA, std::string_view strB) -> bool {
-    if (strA.length() != strB.length())
-      return false;
-
-    return std::equal(strA.begin(), strA.end(), strB.begin(), [](char aChar, char bChar) {
-      return std::tolower(static_cast<unsigned char>(aChar)) == std::tolower(static_cast<unsigned char>(bChar));
+  fn StrEqualsIgnoreCase(StringView strA, StringView strB) -> bool {
+    return std::ranges::equal(strA, strB, [](char aChar, char bChar) {
+      return std::tolower(static_cast<u8>(aChar)) == std::tolower(static_cast<u8>(bChar));
     });
   }
 
@@ -34,7 +31,7 @@ namespace {
       return None;
 
     String result(sview);
-    result[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(result[0])));
+    result.front() = static_cast<char>(std::toupper(static_cast<u8>(result.front())));
 
     return result;
   }
@@ -58,7 +55,7 @@ namespace os {
   fn GetDesktopEnvironment() -> Result<String> { return "Aqua"; }
 
   fn GetWindowManager() -> Result<String> {
-    constexpr std::array<std::string_view, 6> knownWms = {
+    constexpr Array<StringView, 6> knownWms = {
       "yabai", "kwm", "chunkwm", "amethyst", "spectacle", "rectangle",
     };
 
