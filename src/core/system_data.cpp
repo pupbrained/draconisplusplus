@@ -30,7 +30,7 @@ namespace {
     }
   }
 
-  fn getDate() -> Result<String, DracError> {
+  fn getDate() -> Result<String> {
     using std::chrono::system_clock;
     using util::types::String, util::types::usize, util::types::Err;
 
@@ -68,21 +68,20 @@ namespace {
 namespace os {
   SystemData::SystemData(const Config& config) {
     using enum std::launch;
+    using package::GetTotalCount;
     using util::types::Future, util::types::Err;
-    using weather::Output;
 
-    Future<Result<String, DracError>>    hostFut   = std::async(async, GetHost);
-    Future<Result<String, DracError>>    kernelFut = std::async(async, GetKernelVersion);
-    Future<Result<String, DracError>>    osFut     = std::async(async, GetOSVersion);
-    Future<Result<u64, DracError>>       memFut    = std::async(async, GetMemInfo);
-    Future<Result<String, DracError>>    deFut     = std::async(async, GetDesktopEnvironment);
-    Future<Result<String, DracError>>    wmFut     = std::async(async, GetWindowManager);
-    Future<Result<DiskSpace, DracError>> diskFut   = std::async(async, GetDiskUsage);
-    Future<Result<String, DracError>>    shellFut  = std::async(async, GetShell);
-    Future<Result<u64, DracError>>       pkgFut    = std::async(async, package::GetTotalCount);
-    Future<Result<MediaInfo, DracError>> npFut =
-      std::async(config.nowPlaying.enabled ? async : deferred, GetNowPlaying);
-    Future<Result<Output, DracError>> wthrFut =
+    Future<Result<String>>          hostFut   = std::async(async, GetHost);
+    Future<Result<String>>          kernelFut = std::async(async, GetKernelVersion);
+    Future<Result<String>>          osFut     = std::async(async, GetOSVersion);
+    Future<Result<u64>>             memFut    = std::async(async, GetMemInfo);
+    Future<Result<String>>          deFut     = std::async(async, GetDesktopEnvironment);
+    Future<Result<String>>          wmFut     = std::async(async, GetWindowManager);
+    Future<Result<DiskSpace>>       diskFut   = std::async(async, GetDiskUsage);
+    Future<Result<String>>          shellFut  = std::async(async, GetShell);
+    Future<Result<u64>>             pkgFut    = std::async(async, GetTotalCount);
+    Future<Result<MediaInfo>>       npFut     = std::async(config.nowPlaying.enabled ? async : deferred, GetNowPlaying);
+    Future<Result<weather::Output>> wthrFut =
       std::async(config.weather.enabled ? async : deferred, [&config] { return config.weather.getWeatherInfo(); });
 
     this->date          = getDate();

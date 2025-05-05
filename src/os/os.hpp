@@ -23,21 +23,21 @@ namespace os {
    * @return A Result containing the total RAM in bytes (u64) on success,
    * or a DracError on failure.
    */
-  fn GetMemInfo() -> Result<u64, DracError>;
+  fn GetMemInfo() -> Result<u64>;
 
   /**
    * @brief Gets structured metadata about the currently playing media.
    * @return A Result containing the media information (MediaInfo struct) on success,
    * or a NowPlayingError (indicating player state or system error) on failure.
    */
-  fn GetNowPlaying() -> Result<MediaInfo, DracError>;
+  fn GetNowPlaying() -> Result<MediaInfo>;
 
   /**
    * @brief Gets the "pretty" name of the operating system.
    * @details Examples: "Ubuntu 24.04.2 LTS", "Windows 11 Pro 24H2", "macOS 15 Sequoia".
    * @return A Result containing the OS version String on success, or a DracError on failure.
    */
-  fn GetOSVersion() -> Result<String, DracError>;
+  fn GetOSVersion() -> Result<String>;
 
   /**
    * @brief Attempts to retrieve the desktop environment name.
@@ -46,7 +46,7 @@ namespace os {
    * @return A Result containing the DE name String on success,
    * or a DracError on failure (e.g., permission error, API error).
    */
-  fn GetDesktopEnvironment() -> Result<String, DracError>;
+  fn GetDesktopEnvironment() -> Result<String>;
 
   /**
    * @brief Attempts to retrieve the window manager name.
@@ -55,7 +55,7 @@ namespace os {
    * @return A Result containing the detected WM name String on success,
    * or a DracError on failure (e.g., permission error, API error).
    */
-  fn GetWindowManager() -> Result<String, DracError>;
+  fn GetWindowManager() -> Result<String>;
 
   /**
    * @brief Attempts to detect the current user shell name.
@@ -64,7 +64,7 @@ namespace os {
    * @return A Result containing the shell name String on success,
    * or a DracError on failure (e.g., permission error, API error).
    */
-  fn GetShell() -> Result<String, DracError>;
+  fn GetShell() -> Result<String>;
 
   /**
    * @brief Gets a system identifier, often the hardware model or product family.
@@ -73,7 +73,7 @@ namespace os {
    * @return A Result containing the host/product identifier String on success,
    * or a DracError on failure (e.g., permission reading DMI/registry, API error).
    */
-  fn GetHost() -> Result<String, DracError>;
+  fn GetHost() -> Result<String>;
 
   /**
    * @brief Gets the operating system's kernel version string.
@@ -82,7 +82,7 @@ namespace os {
    * @return A Result containing the kernel version String on success,
    * or a DracError on failure.
    */
-  fn GetKernelVersion() -> Result<String, DracError>;
+  fn GetKernelVersion() -> Result<String>;
 
   /**
    * @brief Gets the disk usage for the primary/root filesystem.
@@ -90,5 +90,5 @@ namespace os {
    * @return A Result containing the DiskSpace struct (used/total bytes) on success,
    * or a DracError on failure (e.g., filesystem not found, permission error).
    */
-  fn GetDiskUsage() -> Result<DiskSpace, DracError>;
+  fn GetDiskUsage() -> Result<DiskSpace>;
 } // namespace os

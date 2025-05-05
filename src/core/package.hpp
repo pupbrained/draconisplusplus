@@ -4,10 +4,9 @@
 #include <glaze/core/common.hpp> // glz::object
 #include <glaze/core/meta.hpp>   // glz::detail::Object
 
-// Include necessary type headers used in declarations
 #include "src/util/defs.hpp"
 #include "src/util/error.hpp"
-#include "src/util/types.hpp" // Brings in Result, u64, etc.
+#include "src/util/types.hpp"
 
 namespace package {
   namespace fs = std::filesystem;
@@ -51,14 +50,14 @@ namespace package {
    * @return Result containing the total package count (u64) on success,
    * or a DracError if aggregation fails (individual errors logged).
    */
-  fn GetTotalCount() -> Result<u64, DracError>;
+  fn GetTotalCount() -> Result<u64>;
 
   /**
    * @brief Gets package count from a database using SQLite.
    * @param pmInfo Information about the package manager database.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn GetCountFromDb(const PackageManagerInfo& pmInfo) -> Result<u64, DracError>;
+  fn GetCountFromDb(const PackageManagerInfo& pmInfo) -> Result<u64>;
 
   /**
    * @brief Gets package count by iterating entries in a directory, optionally filtering and subtracting.
@@ -73,7 +72,7 @@ namespace package {
     const fs::path& dirPath,
     const String&   fileExtensionFilter,
     bool            subtractOne
-  ) -> Result<u64, DracError>;
+  ) -> Result<u64>;
 
   /**
    * @brief Gets package count by iterating entries in a directory, filtering by extension.
@@ -83,7 +82,7 @@ namespace package {
    * @return Result containing the count (u64) or a DracError. Defaults subtractOne to false.
    */
   fn GetCountFromDirectory(const String& pmId, const fs::path& dirPath, const String& fileExtensionFilter)
-    -> Result<u64, DracError>;
+    -> Result<u64>;
 
   /**
    * @brief Gets package count by iterating entries in a directory, optionally subtracting one.
@@ -92,7 +91,7 @@ namespace package {
    * @param subtractOne Subtract one from the final count.
    * @return Result containing the count (u64) or a DracError. Defaults fileExtensionFilter to "".
    */
-  fn GetCountFromDirectory(const String& pmId, const fs::path& dirPath, bool subtractOne) -> Result<u64, DracError>;
+  fn GetCountFromDirectory(const String& pmId, const fs::path& dirPath, bool subtractOne) -> Result<u64>;
 
   /**
    * @brief Gets package count by iterating all entries in a directory.
@@ -100,36 +99,36 @@ namespace package {
    * @param dirPath Path to the directory to iterate.
    * @return Result containing the count (u64) or a DracError. Defaults filter to "" and subtractOne to false.
    */
-  fn GetCountFromDirectory(const String& pmId, const fs::path& dirPath) -> Result<u64, DracError>;
+  fn GetCountFromDirectory(const String& pmId, const fs::path& dirPath) -> Result<u64>;
 
 #ifdef __linux__
-  fn GetDpkgCount() -> Result<u64, DracError>;
-  fn GetPacmanCount() -> Result<u64, DracError>;
-  fn GetMossCount() -> Result<u64, DracError>;
-  fn GetRpmCount() -> Result<u64, DracError>;
-  fn GetZypperCount() -> Result<u64, DracError>;
-  fn GetPortageCount() -> Result<u64, DracError>;
-  fn GetApkCount() -> Result<u64, DracError>;
+  fn GetDpkgCount() -> Result<u64>;
+  fn GetPacmanCount() -> Result<u64>;
+  fn GetMossCount() -> Result<u64>;
+  fn GetRpmCount() -> Result<u64>;
+  fn GetZypperCount() -> Result<u64>;
+  fn GetPortageCount() -> Result<u64>;
+  fn GetApkCount() -> Result<u64>;
 #elifdef __APPLE__
-  fn GetHomebrewCount() -> Result<u64, DracError>;
-  fn GetMacPortsCount() -> Result<u64, DracError>;
+  fn GetHomebrewCount() -> Result<u64>;
+  fn GetMacPortsCount() -> Result<u64>;
 #elifdef _WIN32
-  fn GetWinRTCount() -> Result<u64, DracError>;
-  fn GetChocolateyCount() -> Result<u64, DracError>;
-  fn GetScoopCount() -> Result<u64, DracError>;
+  fn CountWinGet() -> Result<u64>;
+  fn CountChocolatey() -> Result<u64>;
+  fn CountScoop() -> Result<u64>;
 #elif defined(__FreeBSD__) || defined(__DragonFly__)
-  fn GetPkgNgCount() -> Result<u64, DracError>;
+  fn GetPkgNgCount() -> Result<u64>;
 #elifdef __NetBSD__
-  fn GetPkgSrcCount() -> Result<u64, DracError>;
+  fn GetPkgSrcCount() -> Result<u64>;
 #elifdef __HAIKU__
-  fn GetHaikuCount() -> Result<u64, DracError>;
+  fn GetHaikuCount() -> Result<u64>;
 #elifdef __serenity__
-  fn GetSerenityCount() -> Result<u64, DracError>;
+  fn GetSerenityCount() -> Result<u64>;
 #endif
 
   // Common (potentially cross-platform)
 #ifndef _WIN32
-  fn GetNixCount() -> Result<u64, DracError>;
+  fn GetNixCount() -> Result<u64>;
 #endif
-  fn GetCargoCount() -> Result<u64, DracError>;
+  fn CountCargo() -> Result<u64>;
 } // namespace package

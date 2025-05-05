@@ -14,7 +14,7 @@ namespace util::helpers {
    * @return A Result containing the value of the environment variable as a String,
    * or an EnvError if an error occurred.
    */
-  [[nodiscard]] inline fn GetEnv(CStr name) -> Result<String, DracError> {
+  [[nodiscard]] inline fn GetEnv(CStr name) -> Result<String> {
 #ifdef _WIN32
     using types::i32, types::usize, types::UniquePointer;
 

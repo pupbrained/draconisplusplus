@@ -1,12 +1,16 @@
-#include <cmath>                   // std::lround
 #include <format>                  // std::format
 #include <ftxui/dom/elements.hpp>  // ftxui::{Element, hbox, vbox, text, separator, filler, etc.}
 #include <ftxui/dom/node.hpp>      // ftxui::{Render}
 #include <ftxui/screen/color.hpp>  // ftxui::Color
 #include <ftxui/screen/screen.hpp> // ftxui::{Screen, Dimension::Full}
 #include <ftxui/screen/string.hpp> // ftxui::string_width
-#include <iostream>                // std::cout
 #include <ranges>                  // std::ranges::{iota, to, transform}
+
+#ifdef __cpp_lib_print
+  #include <print> // std::print
+#else
+  #include <iostream> // std::cout
+#endif
 
 #include "src/config/config.hpp"
 #include "src/config/weather.hpp"
@@ -116,7 +120,7 @@ namespace {
   };
 
   fn CreateColorCircles() -> Element {
-    fn colorView =
+    auto colorView =
       std::views::iota(0, 16) | std::views::transform([](i32 colorIndex) {
         return ftxui::hbox(
           { ftxui::text("◯") | ftxui::bold | ftxui::color(static_cast<ftxui::Color::Palette256>(colorIndex)),
@@ -124,9 +128,7 @@ namespace {
         );
       });
 
-    Elements elementsContainer(std::ranges::begin(colorView), std::ranges::end(colorView));
-
-    return hbox(elementsContainer);
+    return hbox(Elements(std::ranges::begin(colorView), std::ranges::end(colorView)));
   }
 
   fn get_visual_width(const String& str) -> usize { return ftxui::string_width(str); }
@@ -151,56 +153,64 @@ namespace {
     std::vector<RowInfo> envInfoRows;    // DE, WM
 
     if (data.date)
-      initialRows.push_back({ calendarIcon, "Date", *data.date });
+      initialRows.push_back({ .icon = calendarIcon, .label = "Date", .value = *data.date });
 
     if (weather.enabled && data.weather) {
       const weather::Output& weatherInfo  = *data.weather;
       String                 weatherValue = weather.showTownName
                         ? std::format("{}°F in {}", std::lround(weatherInfo.main.temp), weatherInfo.name)
                         : std::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description);
-      initialRows.push_back({ weatherIcon, "Weather", std::move(weatherValue) });
-    }
+      initialRows.push_back({ .icon = weatherIcon, .label = "Weather", .value = std::move(weatherValue) });
+    } else if (weather.enabled && !data.weather.has_value())
+      debug_at(data.weather.error());
 
     if (data.host && !data.host->empty())
-      systemInfoRows.push_back({ hostIcon, "Host", *data.host });
+      systemInfoRows.push_back({ .icon = hostIcon, .label = "Host", .value = *data.host });
 
     if (data.osVersion)
-      systemInfoRows.push_back({ osIcon, "OS", *data.osVersion });
+      systemInfoRows.push_back({ .icon = osIcon, .label = "OS", .value = *data.osVersion });
 
     if (data.kernelVersion)
-      systemInfoRows.push_back({ kernelIcon, "Kernel", *data.kernelVersion });
+      systemInfoRows.push_back({ .icon = kernelIcon, .label = "Kernel", .value = *data.kernelVersion });
 
     if (data.memInfo)
-      systemInfoRows.push_back({ memoryIcon, "RAM", std::format("{}", BytesToGiB { *data.memInfo }) });
+      systemInfoRows.push_back(
+        { .icon = memoryIcon, .label = "RAM", .value = std::format("{}", BytesToGiB { *data.memInfo }) }
+      );
     else if (!data.memInfo.has_value())
       debug_at(data.memInfo.error());
 
     if (data.diskUsage)
       systemInfoRows.push_back(
-        { diskIcon,
-          "Disk",
-          std::format("{}/{}", BytesToGiB { data.diskUsage->used_bytes }, BytesToGiB { data.diskUsage->total_bytes }) }
+        {
+          .icon  = diskIcon,
+          .label = "Disk",
+          .value =
+            std::format("{}/{}", BytesToGiB { data.diskUsage->usedBytes }, BytesToGiB { data.diskUsage->totalBytes }),
+        }
       );
 
     if (data.shell)
-      systemInfoRows.push_back({ shellIcon, "Shell", *data.shell });
+      systemInfoRows.push_back({ .icon = shellIcon, .label = "Shell", .value = *data.shell });
 
     if (data.packageCount) {
       if (*data.packageCount > 0)
-        systemInfoRows.push_back({ packageIcon, "Packages", std::format("{}", *data.packageCount) });
+        systemInfoRows.push_back(
+          { .icon = packageIcon, .label = "Packages", .value = std::format("{}", *data.packageCount) }
+        );
       else
         debug_log("Package count is 0, skipping");
     }
 
     bool addedDe = false;
     if (data.desktopEnv && (!data.windowMgr || *data.desktopEnv != *data.windowMgr)) {
-      envInfoRows.push_back({ deIcon, "DE", *data.desktopEnv });
+      envInfoRows.push_back({ .icon = deIcon, .label = "DE", .value = *data.desktopEnv });
       addedDe = true;
     }
 
     if (data.windowMgr) {
       if (!addedDe || (data.desktopEnv && *data.desktopEnv != *data.windowMgr))
-        envInfoRows.push_back({ wmIcon, "WM", *data.windowMgr });
+        envInfoRows.push_back({ .icon = wmIcon, .label = "WM", .value = *data.windowMgr });
     }
 
     bool   nowPlayingActive = false;
@@ -215,22 +225,23 @@ namespace {
 
     usize maxContentWidth = 0;
 
-    usize greetingWidth = get_visual_width_sv(userIcon) + get_visual_width_sv("Hello ") + get_visual_width(name) +
+    const usize greetingWidth = get_visual_width_sv(userIcon) + get_visual_width_sv("Hello ") + get_visual_width(name) +
       get_visual_width_sv("! ");
     maxContentWidth = std::max(maxContentWidth, greetingWidth);
 
-    usize paletteWidth = get_visual_width_sv(userIcon) + (16 * (get_visual_width_sv("◯") + get_visual_width_sv(" ")));
-    maxContentWidth    = std::max(maxContentWidth, paletteWidth);
+    const usize paletteWidth =
+      get_visual_width_sv(userIcon) + (16 * (get_visual_width_sv("◯") + get_visual_width_sv(" ")));
+    maxContentWidth = std::max(maxContentWidth, paletteWidth);
 
-    usize iconActualWidth = get_visual_width_sv(userIcon);
+    const usize iconActualWidth = get_visual_width_sv(userIcon);
 
-    usize maxLabelWidthInitial = find_max_label_len(initialRows);
-    usize maxLabelWidthSystem  = find_max_label_len(systemInfoRows);
-    usize maxLabelWidthEnv     = find_max_label_len(envInfoRows);
+    const usize maxLabelWidthInitial = find_max_label_len(initialRows);
+    const usize maxLabelWidthSystem  = find_max_label_len(systemInfoRows);
+    const usize maxLabelWidthEnv     = find_max_label_len(envInfoRows);
 
-    usize requiredWidthInitialW = iconActualWidth + maxLabelWidthInitial;
-    usize requiredWidthSystemW  = iconActualWidth + maxLabelWidthSystem;
-    usize requiredWidthEnvW     = iconActualWidth + maxLabelWidthEnv;
+    const usize requiredWidthInitialW = iconActualWidth + maxLabelWidthInitial;
+    const usize requiredWidthSystemW  = iconActualWidth + maxLabelWidthSystem;
+    const usize requiredWidthEnvW     = iconActualWidth + maxLabelWidthEnv;
 
     fn calculateRowVisualWidth = [&](const RowInfo& row, const usize requiredLabelVisualWidth) -> usize {
       return requiredLabelVisualWidth + get_visual_width(row.value) + get_visual_width_sv(" ");
@@ -245,7 +256,7 @@ namespace {
     for (const RowInfo& row : envInfoRows)
       maxContentWidth = std::max(maxContentWidth, calculateRowVisualWidth(row, requiredWidthEnvW));
 
-    usize targetBoxWidth = maxContentWidth + 2;
+    const usize targetBoxWidth = maxContentWidth + 2;
 
     usize npFixedWidthLeft  = 0;
     usize npFixedWidthRight = 0;
@@ -289,9 +300,9 @@ namespace {
     content.push_back(separator() | color(ui::DEFAULT_THEME.border));
     content.push_back(hbox({ text(String(paletteIcon)) | color(ui::DEFAULT_THEME.icon), CreateColorCircles() }));
 
-    bool section1Present = !initialRows.empty();
-    bool section2Present = !systemInfoRows.empty();
-    bool section3Present = !envInfoRows.empty();
+    const bool section1Present = !initialRows.empty();
+    const bool section2Present = !systemInfoRows.empty();
+    const bool section3Present = !envInfoRows.empty();
 
     if (section1Present)
       content.push_back(separator() | color(ui::DEFAULT_THEME.border));
@@ -342,7 +353,11 @@ fn main() -> i32 {
   Render(screen, document);
   screen.Print();
 
+#ifdef __cpp_lib_print
+  std::println();
+#else
   std::cout << '\n';
+#endif
 
   return 0;
 }

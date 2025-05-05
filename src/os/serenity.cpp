@@ -50,7 +50,7 @@ namespace {
     // NOLINTEND(readability-identifier-naming)
   };
 
-  fn CountUniquePackages(const String& dbPath) -> Result<u64, DracError> {
+  fn CountUniquePackages(const String& dbPath) -> Result<u64> {
     std::ifstream dbFile(dbPath);
 
     if (!dbFile.is_open())
@@ -68,7 +68,7 @@ namespace {
 } // namespace
 
 namespace os {
-  fn GetOSVersion() -> Result<String, DracError> {
+  fn GetOSVersion() -> Result<String> {
     utsname uts;
 
     if (uname(&uts) == -1)
@@ -77,7 +77,7 @@ namespace os {
     return uts.sysname;
   }
 
-  fn GetMemInfo() -> Result<u64, DracError> {
+  fn GetMemInfo() -> Result<u64> {
     CStr          path = "/sys/kernel/memstat";
     std::ifstream file(path);
 
@@ -106,15 +106,15 @@ namespace os {
     return (data.physical_allocated + data.physical_available) * PAGE_SIZE;
   }
 
-  fn GetNowPlaying() -> Result<MediaInfo, DracError> {
+  fn GetNowPlaying() -> Result<MediaInfo> {
     return Err(DracError(DracErrorCode::NotSupported, "Now playing is not supported on SerenityOS"));
   }
 
-  fn GetWindowManager() -> Result<String, DracError> { return "WindowManager"; }
+  fn GetWindowManager() -> Result<String> { return "WindowManager"; }
 
-  fn GetDesktopEnvironment() -> Result<String, DracError> { return "SerenityOS Desktop"; }
+  fn GetDesktopEnvironment() -> Result<String> { return "SerenityOS Desktop"; }
 
-  fn GetShell() -> Result<String, DracError> {
+  fn GetShell() -> Result<String> {
     uid_t   userId = getuid();
     passwd* pw     = getpwuid(userId);
 
@@ -134,7 +134,7 @@ namespace os {
     return shell;
   }
 
-  fn GetHost() -> Result<String, DracError> {
+  fn GetHost() -> Result<String> {
     Array<char, HOST_NAME_MAX> hostname_buffer;
 
     if (gethostname(hostname_buffer.data(), hostname_buffer.size()) != 0)
@@ -143,7 +143,7 @@ namespace os {
     return String(hostname_buffer.data());
   }
 
-  fn GetKernelVersion() -> Result<String, DracError> {
+  fn GetKernelVersion() -> Result<String> {
     utsname uts;
 
     if (uname(&uts) == -1)
@@ -152,7 +152,7 @@ namespace os {
     return uts.release;
   }
 
-  fn GetDiskUsage() -> Result<DiskSpace, DracError> {
+  fn GetDiskUsage() -> Result<DiskSpace> {
     struct statvfs stat;
     if (statvfs("/", &stat) == -1)
       return Err(DracError::withErrno("statvfs call failed for '/'"));
@@ -166,7 +166,7 @@ namespace os {
 } // namespace os
 
 namespace package {
-  fn GetSerenityCount() -> Result<u64, DracError> { return CountUniquePackages("/usr/Ports/installed.db"); }
+  fn GetSerenityCount() -> Result<u64> { return CountUniquePackages("/usr/Ports/installed.db"); }
 } // namespace package
 
 #endif // __serenity__

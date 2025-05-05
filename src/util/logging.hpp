@@ -5,9 +5,14 @@
 #include <filesystem>             // std::filesystem::path
 #include <format>                 // std::format
 #include <ftxui/screen/color.hpp> // ftxui::Color
-#include <iostream>               // std::cout
 #include <mutex>                  // std::{mutex, lock_guard}
 #include <utility>                // std::forward
+
+#ifdef __cpp_lib_print
+  #include <print> // std::print
+#else
+  #include <iostream> // std::cout
+#endif
 
 #ifndef NDEBUG
   #include <source_location> // std::source_location
@@ -16,6 +21,8 @@
 #include "src/util/defs.hpp"
 #include "src/util/error.hpp"
 #include "src/util/types.hpp"
+
+#include "ftxui/dom/elements.hpp"
 
 namespace util::logging {
   using types::usize, types::u8, types::i32, types::i64, types::CStr, types::String, types::StringView, types::Array,
@@ -118,13 +125,15 @@ namespace util::logging {
    * @return FTXUI color code
    */
   constexpr fn GetLevelColor(const LogLevel level) -> ftxui::Color::Palette16 {
-    switch (level) {
-      case LogLevel::Debug: return LogLevelConst::DEBUG_COLOR;
-      case LogLevel::Info:  return LogLevelConst::INFO_COLOR;
-      case LogLevel::Warn:  return LogLevelConst::WARN_COLOR;
-      case LogLevel::Error: return LogLevelConst::ERROR_COLOR;
-      default:              std::unreachable();
-    }
+    using namespace matchit;
+    using enum LogLevel;
+
+    return match(level)(
+      is | Debug = LogLevelConst::DEBUG_COLOR,
+      is | Info  = LogLevelConst::INFO_COLOR,
+      is | Warn  = LogLevelConst::WARN_COLOR,
+      is | Error = LogLevelConst::ERROR_COLOR
+    );
   }
 
   /**
@@ -133,13 +142,15 @@ namespace util::logging {
    * @return String representation
    */
   constexpr fn GetLevelString(const LogLevel level) -> StringView {
-    switch (level) {
-      case LogLevel::Debug: return LogLevelConst::DEBUG_STR;
-      case LogLevel::Info:  return LogLevelConst::INFO_STR;
-      case LogLevel::Warn:  return LogLevelConst::WARN_STR;
-      case LogLevel::Error: return LogLevelConst::ERROR_STR;
-      default:              std::unreachable();
-    }
+    using namespace matchit;
+    using enum LogLevel;
+
+    return match(level)(
+      is | Debug = LogLevelConst::DEBUG_STR,
+      is | Info  = LogLevelConst::INFO_STR,
+      is | Warn  = LogLevelConst::WARN_STR,
+      is | Error = LogLevelConst::ERROR_STR
+    );
   }
 
   // ReSharper disable once CppDoxygenUnresolvedReference
@@ -180,7 +191,8 @@ namespace util::logging {
     if (localtime_r(&nowTt, &localTm) != nullptr) {
 #endif
       Array<char, 64> timeBuffer {};
-      auto            formattedTime =
+
+      const usize formattedTime =
         std::strftime(timeBuffer.data(), sizeof(timeBuffer), LogLevelConst::TIMESTAMP_FORMAT, &localTm);
 
       if (formattedTime > 0) {
@@ -188,11 +200,10 @@ namespace util::logging {
       } else {
         try {
           timestamp = std::format("{:%X}", nowTp);
-        } catch (const std::format_error& fmt_err) { timestamp = "??:??:?? (fmt_err)"; }
+        } catch ([[maybe_unused]] const std::format_error& fmtErr) { timestamp = "??:??:??"; }
       }
-    } else {
-      timestamp = "??:??:?? (conv_err)";
-    }
+    } else
+      timestamp = "??:??:??";
 
     const String message = std::format(fmt, std::forward<Args>(args)...);
 
@@ -203,16 +214,28 @@ namespace util::logging {
       message
     );
 
+#ifdef __cpp_lib_print
+    std::print("{}", mainLogLine);
+#else
     std::cout << mainLogLine;
+#endif
 
 #ifndef NDEBUG
     const String fileLine =
       std::format(LogLevelConst::FILE_LINE_FORMAT, path(loc.file_name()).lexically_normal().string(), loc.line());
     const String fullDebugLine = std::format("{}{}", LogLevelConst::DEBUG_LINE_PREFIX, fileLine);
+  #ifdef __cpp_lib_print
+    std::print("\n{}", Italic(Colorize(fullDebugLine, LogLevelConst::DEBUG_INFO_COLOR)));
+  #else
     std::cout << '\n' << Italic(Colorize(fullDebugLine, LogLevelConst::DEBUG_INFO_COLOR));
+  #endif
 #endif
 
+#ifdef __cpp_lib_print
+    std::println("{}", LogLevelConst::RESET_CODE);
+#else
     std::cout << LogLevelConst::RESET_CODE << '\n';
+#endif
   }
 
   template <typename ErrorType>

@@ -66,7 +66,7 @@ using MRMediaRemoteGetNowPlayingInfoFunction =
   );
 }
 
-+ (Result<String, DracError>)macOSVersion {
++ (Result<String>)macOSVersion {
   NSProcessInfo*           processInfo = [NSProcessInfo processInfo];
   NSOperatingSystemVersion osVersion   = [processInfo operatingSystemVersion];
 
@@ -91,8 +91,8 @@ using MRMediaRemoteGetNowPlayingInfoFunction =
 
 extern "C++" {
   // NOLINTBEGIN(misc-use-internal-linkage)
-  fn GetCurrentPlayingInfo() -> Result<MediaInfo, DracError> {
-    __block Result<MediaInfo, DracError> result;
+  fn GetCurrentPlayingInfo() -> Result<MediaInfo> {
+    __block Result<MediaInfo> result;
 
     const dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
 
@@ -124,7 +124,7 @@ extern "C++" {
     return result;
   }
 
-  fn GetMacOSVersion() -> Result<String, DracError> { return [Bridge macOSVersion]; }
+  fn GetMacOSVersion() -> Result<String> { return [Bridge macOSVersion]; }
   // NOLINTEND(misc-use-internal-linkage)
 }
 

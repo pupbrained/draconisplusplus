@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>       // std::array (Array)
-#include <expected>    // std::expected (Result)
 #include <future>      // std::future (Future)
 #include <map>         // std::map (Map)
 #include <memory>      // std::shared_ptr and std::unique_ptr (SharedPointer, UniquePointer)
@@ -11,6 +10,8 @@
 #include <string_view> // std::string_view (StringView)
 #include <utility>     // std::pair (Pair)
 #include <vector>      // std::vector (Vec)
+
+#include "include/matchit.h"
 
 namespace util::types {
   using u8  = std::uint8_t;  ///< 8-bit unsigned integer.
@@ -39,24 +40,6 @@ namespace util::types {
   using LockGuard = std::lock_guard<Mutex>; ///< RAII-style lock guard for mutexes.
 
   inline constexpr std::nullopt_t None = std::nullopt; ///< Represents an empty optional value.
-
-  /**
-   * @typedef Result
-   * @brief Alias for std::expected<Tp, Er>. Represents a value that can either be
-   * a success value of type Tp or an error value of type Er.
-   * @tparam Tp The type of the success value.
-   * @tparam Er The type of the error value.
-   */
-  template <typename Tp, typename Er>
-  using Result = std::expected<Tp, Er>;
-
-  /**
-   * @typedef Err
-   * @brief Alias for std::unexpected<Er>. Used to construct a Result in an error state.
-   * @tparam Er The type of the error value.
-   */
-  template <typename Er>
-  using Err = std::unexpected<Er>;
 
   /**
    * @typedef Option
@@ -133,8 +116,8 @@ namespace util::types {
    * Used as the success type for os::GetDiskUsage.
    */
   struct DiskSpace {
-    u64 used_bytes;  ///< Currently used disk space in bytes.
-    u64 total_bytes; ///< Total disk space in bytes.
+    u64 usedBytes;  ///< Currently used disk space in bytes.
+    u64 totalBytes; ///< Total disk space in bytes.
   };
 
   /**

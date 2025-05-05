@@ -52,21 +52,21 @@ location = "London"    # Your city name
     Vec<fs::path> possiblePaths;
 
 #ifdef _WIN32
-    if (Result<String, DracError> result = GetEnv("LOCALAPPDATA"))
+    if (Result<String> result = GetEnv("LOCALAPPDATA"))
       possiblePaths.push_back(fs::path(*result) / "draconis++" / "config.toml");
 
-    if (Result<String, DracError> result = GetEnv("USERPROFILE")) {
+    if (Result<String> result = GetEnv("USERPROFILE")) {
       possiblePaths.push_back(fs::path(*result) / ".config" / "draconis++" / "config.toml");
       possiblePaths.push_back(fs::path(*result) / "AppData" / "Local" / "draconis++" / "config.toml");
     }
 
-    if (Result<String, DracError> result = GetEnv("APPDATA"))
+    if (Result<String> result = GetEnv("APPDATA"))
       possiblePaths.push_back(fs::path(*result) / "draconis++" / "config.toml");
 #else
-    if (Result<String, DracError> result = GetEnv("XDG_CONFIG_HOME"))
+    if (Result<String> result = GetEnv("XDG_CONFIG_HOME"))
       possiblePaths.emplace_back(fs::path(*result) / "draconis++" / "config.toml");
 
-    if (Result<String, DracError> result = GetEnv("HOME")) {
+    if (Result<String> result = GetEnv("HOME")) {
       possiblePaths.emplace_back(fs::path(*result) / ".config" / "draconis++" / "config.toml");
       possiblePaths.emplace_back(fs::path(*result) / ".draconis++" / "config.toml");
     }
@@ -121,8 +121,8 @@ location = "London"    # Your city name
       const passwd* pwd     = getpwuid(getuid());
       CStr          pwdName = pwd ? pwd->pw_name : nullptr;
 
-      const Result<String, DracError> envUser    = util::helpers::GetEnv("USER");
-      const Result<String, DracError> envLogname = util::helpers::GetEnv("LOGNAME");
+      const Result<String> envUser    = util::helpers::GetEnv("USER");
+      const Result<String> envLogname = util::helpers::GetEnv("LOGNAME");
 
       defaultName = pwdName ? pwdName : envUser ? *envUser : envLogname ? *envLogname : "User";
 #endif

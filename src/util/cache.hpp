@@ -25,24 +25,33 @@ namespace util::cache {
    * Should ideally only contain filesystem-safe characters.
    * @return Result containing the filesystem path on success, or a DracError on failure.
    */
-  inline fn GetCachePath(const String& cache_key) -> Result<fs::path, DracError> {
+  inline fn GetCachePath(const String& cache_key) -> Result<fs::path> {
     if (cache_key.empty())
       return Err(DracError(DracErrorCode::InvalidArgument, "Cache key cannot be empty."));
 
-    // Basic check for potentially problematic characters in the key for filename safety.
-    // You might want to expand this or implement more robust sanitization if needed.
     if (cache_key.find_first_of("/\\:*?\"<>|") != String::npos)
       return Err(
         DracError(DracErrorCode::InvalidArgument, std::format("Cache key '{}' contains invalid characters.", cache_key))
       );
 
     std::error_code errc;
-    const fs::path  cacheDir = fs::temp_directory_path(errc);
+
+    const fs::path cacheDir = fs::temp_directory_path(errc) / "draconis++";
+
+    if (!fs::exists(cacheDir, errc)) {
+      if (errc)
+        return Err(DracError(DracErrorCode::IoError, "Failed to check existence of cache directory: " + errc.message())
+        );
+
+      fs::create_directories(cacheDir, errc);
+
+      if (errc)
+        return Err(DracError(DracErrorCode::IoError, "Failed to create cache directory: " + errc.message()));
+    }
 
     if (errc)
       return Err(DracError(DracErrorCode::IoError, "Failed to get system temporary directory: " + errc.message()));
 
-    // Use a consistent naming scheme
     return cacheDir / (cache_key + "_cache.beve");
   }
 
@@ -53,18 +62,17 @@ namespace util::cache {
    * @return Result containing the deserialized object of type T on success, or a DracError on failure.
    */
   template <typename T>
-  fn ReadCache(const String& cache_key) -> Result<T, DracError> {
-    Result<fs::path, DracError> cachePathResult = GetCachePath(cache_key);
+  fn ReadCache(const String& cache_key) -> Result<T> {
+    Result<fs::path> cachePathResult = GetCachePath(cache_key);
     if (!cachePathResult)
       return Err(cachePathResult.error());
 
     const fs::path& cachePath = *cachePathResult;
 
     if (std::error_code existsEc; !fs::exists(cachePath, existsEc) || existsEc) {
-      if (existsEc) {
-        // Log if there was an error checking existence, but still return NotFound
+      if (existsEc)
         warn_log("Error checking existence of cache file '{}': {}", cachePath.string(), existsEc.message());
-      }
+
       return Err(DracError(DracErrorCode::NotFound, "Cache file not found: " + cachePath.string()));
     }
 
@@ -72,17 +80,13 @@ namespace util::cache {
     if (!ifs.is_open())
       return Err(DracError(DracErrorCode::IoError, "Failed to open cache file for reading: " + cachePath.string()));
 
-    debug_log("Reading cache for key '{}' from: {}", cache_key, cachePath.string());
-
     try {
-      // Read the entire file content
       const String content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
-      ifs.close(); // Close the file as soon as content is read
+      ifs.close();
 
       if (content.empty())
         return Err(DracError(DracErrorCode::ParseError, "BEVE cache file is empty: " + cachePath.string()));
 
-      // Ensure T is default constructible for Glaze
       static_assert(std::is_default_constructible_v<T>, "Cache type T must be default constructible for Glaze.");
       T result {};
 
@@ -98,14 +102,12 @@ namespace util::cache {
         ));
       }
 
-      debug_log("Successfully read cache for key '{}'.", cache_key);
       return result;
     } catch (const std::ios_base::failure& e) {
       return Err(DracError(
         DracErrorCode::IoError, std::format("Filesystem error reading cache file {}: {}", cachePath.string(), e.what())
       ));
     } catch (const Exception& e) {
-      // Catching std::exception or a project-specific base exception
       return Err(DracError(
         DracErrorCode::InternalError,
         std::format("Standard exception reading cache file {}: {}", cachePath.string(), e.what())
@@ -123,24 +125,20 @@ namespace util::cache {
    * @return Result containing void on success, or a DracError on failure.
    */
   template <typename T>
-  fn WriteCache(const String& cache_key, const T& data) -> Result<void, DracError> {
-    Result<fs::path, DracError> cachePathResult = GetCachePath(cache_key);
+  fn WriteCache(const String& cache_key, const T& data) -> Result<> {
+    Result<fs::path> cachePathResult = GetCachePath(cache_key);
     if (!cachePathResult)
       return Err(cachePathResult.error());
 
     const fs::path& cachePath = *cachePathResult;
     fs::path        tempPath  = cachePath;
-    tempPath += ".tmp"; // Use a temporary file for atomic write
-
-    debug_log("Writing cache for key '{}' to: {}", cache_key, cachePath.string());
+    tempPath += ".tmp";
 
     try {
       String binaryBuffer;
 
-      // Use Glaze to serialize
-      // Need to decay T in case it's a reference type from the caller
       using DecayedT           = std::decay_t<T>;
-      DecayedT dataToSerialize = data; // Make a copy if needed for non-const Glaze operations
+      DecayedT dataToSerialize = data;
 
       if (glz::error_ctx glazeErr = glz::write_beve(dataToSerialize, binaryBuffer); glazeErr) {
         return Err(DracError(
@@ -154,7 +152,6 @@ namespace util::cache {
         ));
       }
 
-      // Scope for ofstream to ensure it's closed before rename
       {
         std::ofstream ofs(tempPath, std::ios::binary | std::ios::trunc);
         if (!ofs.is_open())
@@ -163,22 +160,18 @@ namespace util::cache {
         ofs.write(binaryBuffer.data(), static_cast<isize>(binaryBuffer.size()));
 
         if (!ofs) {
-          // Attempt cleanup before returning error
           std::error_code removeEc;
-          fs::remove(tempPath, removeEc); // Ignore error on cleanup attempt
+          fs::remove(tempPath, removeEc);
           return Err(DracError(DracErrorCode::IoError, "Failed to write to temporary cache file: " + tempPath.string())
           );
         }
-        // ofstream automatically closed here
       }
 
-      // Attempt to atomically replace the old cache file
       std::error_code renameEc;
       fs::rename(tempPath, cachePath, renameEc);
       if (renameEc) {
-        // If rename failed, attempt to clean up the temp file
         std::error_code removeEc;
-        fs::remove(tempPath, removeEc); // Ignore error on cleanup attempt
+        fs::remove(tempPath, removeEc);
         return Err(DracError(
           DracErrorCode::IoError,
           std::format(
@@ -190,26 +183,24 @@ namespace util::cache {
         ));
       }
 
-      debug_log("Successfully wrote cache for key '{}'.", cache_key);
-      return {}; // Success
+      return {};
     } catch (const std::ios_base::failure& e) {
       std::error_code removeEc;
-      fs::remove(tempPath, removeEc); // Cleanup attempt
+      fs::remove(tempPath, removeEc);
       return Err(DracError(
         DracErrorCode::IoError, std::format("Filesystem error writing cache file {}: {}", tempPath.string(), e.what())
       ));
     } catch (const Exception& e) {
       std::error_code removeEc;
-      fs::remove(tempPath, removeEc); // Cleanup attempt
+      fs::remove(tempPath, removeEc);
       return Err(DracError(
         DracErrorCode::InternalError,
         std::format("Standard exception writing cache file {}: {}", tempPath.string(), e.what())
       ));
     } catch (...) {
       std::error_code removeEc;
-      fs::remove(tempPath, removeEc); // Cleanup attempt
+      fs::remove(tempPath, removeEc);
       return Err(DracError(DracErrorCode::Other, "Unknown error writing cache file: " + tempPath.string()));
     }
   }
-
 } // namespace util::cache

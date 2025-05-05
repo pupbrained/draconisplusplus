@@ -31,7 +31,7 @@ using util::error::DracError, util::error::DracErrorCode;
 using util::helpers::GetEnv;
 
 namespace os {
-  fn GetOSVersion() -> Result<String, DracError> {
+  fn GetOSVersion() -> Result<String> {
     BFile    file;
     status_t status = file.SetTo("/boot/system/lib/libbe.so", B_READ_ONLY);
 
@@ -58,7 +58,7 @@ namespace os {
     return std::format("Haiku {}", versionShortString);
   }
 
-  fn GetMemInfo() -> Result<u64, DracError> {
+  fn GetMemInfo() -> Result<u64> {
     system_info    sysinfo;
     const status_t status = get_system_info(&sysinfo);
 
@@ -68,16 +68,16 @@ namespace os {
     return static_cast<u64>(sysinfo.max_pages) * B_PAGE_SIZE;
   }
 
-  fn GetNowPlaying() -> Result<MediaInfo, DracError> {
+  fn GetNowPlaying() -> Result<MediaInfo> {
     return Err(DracError(DracErrorCode::NotSupported, "Now playing is not supported on Haiku"));
   }
 
-  fn GetWindowManager() -> Result<String, DracError> { return "app_server"; }
+  fn GetWindowManager() -> Result<String> { return "app_server"; }
 
-  fn GetDesktopEnvironment() -> Result<String, DracError> { return "Haiku Desktop Environment"; }
+  fn GetDesktopEnvironment() -> Result<String> { return "Haiku Desktop Environment"; }
 
-  fn GetShell() -> Result<String, DracError> {
-    if (const Result<String, DracError> shellPath = GetEnv("SHELL")) {
+  fn GetShell() -> Result<String> {
+    if (const Result<String> shellPath = GetEnv("SHELL")) {
       // clang-format off
       constexpr Array<Pair<StringView, StringView>, 5> shellMap {{
         { "bash",    "Bash" },
@@ -98,7 +98,7 @@ namespace os {
     return Err(DracError(DracErrorCode::NotFound, "Could not find SHELL environment variable"));
   }
 
-  fn GetHost() -> Result<String, DracError> {
+  fn GetHost() -> Result<String> {
     Array<char, HOST_NAME_MAX + 1> hostnameBuffer {};
 
     if (gethostname(hostnameBuffer.data(), hostnameBuffer.size()) != 0)
@@ -111,7 +111,7 @@ namespace os {
     return String(hostnameBuffer.data(), hostnameBuffer.size());
   }
 
-  fn GetKernelVersion() -> Result<String, DracError> {
+  fn GetKernelVersion() -> Result<String> {
     system_info    sysinfo;
     const status_t status = get_system_info(&sysinfo);
 
@@ -121,7 +121,7 @@ namespace os {
     return std::to_string(sysinfo.kernel_version);
   }
 
-  fn GetDiskUsage() -> Result<DiskSpace, DracError> {
+  fn GetDiskUsage() -> Result<DiskSpace> {
     struct statvfs stat;
 
     if (statvfs("/boot", &stat) == -1)
@@ -135,7 +135,7 @@ namespace os {
 } // namespace os
 
 namespace package {
-  fn GetHaikuCount() -> Result<u64, DracError> {
+  fn GetHaikuCount() -> Result<u64> {
     BPackageKit::BPackageRoster  roster;
     BPackageKit::BPackageInfoSet packageList;
 

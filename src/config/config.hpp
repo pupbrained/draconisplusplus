@@ -57,11 +57,11 @@ struct General {
       return pwd->pw_name;
 
     // Try to get the username using environment variables
-    if (Result<String, DracError> envUser = GetEnv("USER"))
+    if (Result<String> envUser = GetEnv("USER"))
       return *envUser;
 
     // Finally, try to get the username using LOGNAME
-    if (Result<String, DracError> envLogname = GetEnv("LOGNAME"))
+    if (Result<String> envLogname = GetEnv("LOGNAME"))
       return *envLogname;
 
     // If all else fails, return a default name
@@ -151,7 +151,7 @@ struct Weather {
    * API key, and units. It returns a WeatherOutput object containing the
    * retrieved weather data.
    */
-  [[nodiscard]] fn getWeatherInfo() const -> Result<weather::Output, DracError>;
+  [[nodiscard]] fn getWeatherInfo() const -> Result<weather::Output>;
 };
 
 /**

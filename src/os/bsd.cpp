@@ -33,7 +33,7 @@ using util::error::DracError, util::error::DracErrorCode;
 
 namespace {
   #ifdef __FreeBSD__
-  fn GetPathByPid(pid_t pid) -> Result<String, DracError> {
+  fn GetPathByPid(pid_t pid) -> Result<String> {
     Array<char, PATH_MAX> exePathBuf;
     usize                 size = exePathBuf.size();
     Array<i32, 4>         mib;
@@ -57,7 +57,7 @@ namespace {
   }
   #endif
 
-  fn GetX11WindowManager() -> Result<String, DracError> {
+  fn GetX11WindowManager() -> Result<String> {
     using namespace xcb;
 
     const DisplayGuard conn;
@@ -81,7 +81,7 @@ namespace {
           return std::format("Unknown Error Code ({})", err);
         }()));
 
-    fn internAtom = [&conn](const StringView name) -> Result<atom_t, DracError> {
+    fn internAtom = [&conn](const StringView name) -> Result<atom_t> {
       const ReplyGuard<intern_atom_reply_t> reply(
         intern_atom_reply(conn.get(), intern_atom(conn.get(), 0, static_cast<u16>(name.size()), name.data()), nullptr)
       );
@@ -94,9 +94,9 @@ namespace {
       return reply->atom;
     };
 
-    const Result<atom_t, DracError> supportingWmCheckAtom = internAtom("_NET_SUPPORTING_WM_CHECK");
-    const Result<atom_t, DracError> wmNameAtom            = internAtom("_NET_WM_NAME");
-    const Result<atom_t, DracError> utf8StringAtom        = internAtom("UTF8_STRING");
+    const Result<atom_t> supportingWmCheckAtom = internAtom("_NET_SUPPORTING_WM_CHECK");
+    const Result<atom_t> wmNameAtom            = internAtom("_NET_WM_NAME");
+    const Result<atom_t> utf8StringAtom        = internAtom("UTF8_STRING");
 
     if (!supportingWmCheckAtom || !wmNameAtom || !utf8StringAtom) {
       if (!supportingWmCheckAtom)
@@ -136,7 +136,7 @@ namespace {
     return String(nameData, length);
   }
 
-  fn GetWaylandCompositor() -> Result<String, DracError> {
+  fn GetWaylandCompositor() -> Result<String> {
   #ifndef __FreeBSD__
     return "Wayland Compositor";
   #else
@@ -163,7 +163,7 @@ namespace {
     if (peerPid <= 0)
       return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to obtain a valid peer PID"));
 
-    Result<String, DracError> exePathResult = GetPathByPid(peerPid);
+    Result<String> exePathResult = GetPathByPid(peerPid);
 
     if (!exePathResult)
       return Err(std::move(exePathResult).error());
@@ -199,7 +199,7 @@ namespace {
 namespace os {
   using util::helpers::GetEnv;
 
-  fn GetOSVersion() -> Result<String, DracError> {
+  fn GetOSVersion() -> Result<String> {
     constexpr CStr path = "/etc/os-release";
 
     std::ifstream file(path);
@@ -234,7 +234,7 @@ namespace os {
     return osName;
   }
 
-  fn GetMemInfo() -> Result<u64, DracError> {
+  fn GetMemInfo() -> Result<u64> {
     u64   mem  = 0;
     usize size = sizeof(mem);
 
@@ -247,10 +247,10 @@ namespace os {
     return mem;
   }
 
-  fn GetNowPlaying() -> Result<MediaInfo, DracError> {
+  fn GetNowPlaying() -> Result<MediaInfo> {
     using namespace dbus;
 
-    Result<Connection, DracError> connectionResult = Connection::busGet(DBUS_BUS_SESSION);
+    Result<Connection> connectionResult = Connection::busGet(DBUS_BUS_SESSION);
     if (!connectionResult)
       return Err(connectionResult.error());
 
@@ -259,12 +259,12 @@ namespace os {
     Option<String> activePlayer = None;
 
     {
-      Result<Message, DracError> listNamesResult =
+      Result<Message> listNamesResult =
         Message::newMethodCall("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "ListNames");
       if (!listNamesResult)
         return Err(listNamesResult.error());
 
-      Result<Message, DracError> listNamesReplyResult = connection.sendWithReplyAndBlock(*listNamesResult, 100);
+      Result<Message> listNamesReplyResult = connection.sendWithReplyAndBlock(*listNamesResult, 100);
       if (!listNamesReplyResult)
         return Err(listNamesReplyResult.error());
 
@@ -292,7 +292,7 @@ namespace os {
     if (!activePlayer)
       return Err(DracError(DracErrorCode::NotFound, "No active MPRIS players found"));
 
-    Result<Message, DracError> msgResult = Message::newMethodCall(
+    Result<Message> msgResult = Message::newMethodCall(
       activePlayer->c_str(), "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "Get"
     );
 
@@ -304,7 +304,7 @@ namespace os {
     if (!msg.appendArgs("org.mpris.MediaPlayer2.Player", "Metadata"))
       return Err(DracError(DracErrorCode::InternalError, "Failed to append arguments to Properties.Get message"));
 
-    Result<Message, DracError> replyResult = connection.sendWithReplyAndBlock(msg, 100);
+    Result<Message> replyResult = connection.sendWithReplyAndBlock(msg, 100);
 
     if (!replyResult)
       return Err(replyResult.error());
@@ -378,20 +378,20 @@ namespace os {
     return MediaInfo(std::move(title), std::move(artist));
   }
 
-  fn GetWindowManager() -> Result<String, DracError> {
+  fn GetWindowManager() -> Result<String> {
     if (!GetEnv("DISPLAY") && !GetEnv("WAYLAND_DISPLAY") && !GetEnv("XDG_SESSION_TYPE"))
       return Err(DracError(DracErrorCode::NotFound, "Could not find a graphical session"));
 
-    if (Result<String, DracError> waylandResult = GetWaylandCompositor())
+    if (Result<String> waylandResult = GetWaylandCompositor())
       return *waylandResult;
 
-    if (Result<String, DracError> x11Result = GetX11WindowManager())
+    if (Result<String> x11Result = GetX11WindowManager())
       return *x11Result;
 
     return Err(DracError(DracErrorCode::NotFound, "Could not detect window manager (Wayland/X11) or both failed"));
   }
 
-  fn GetDesktopEnvironment() -> Result<String, DracError> {
+  fn GetDesktopEnvironment() -> Result<String> {
     if (!GetEnv("DISPLAY") && !GetEnv("WAYLAND_DISPLAY") && !GetEnv("XDG_SESSION_TYPE"))
       return Err(DracError(DracErrorCode::NotFound, "Could not find a graphical session"));
 
@@ -402,11 +402,11 @@ namespace os {
 
         return xdgDesktop;
       })
-      .or_else([](const DracError&) -> Result<String, DracError> { return GetEnv("DESKTOP_SESSION"); });
+      .or_else([](const DracError&) -> Result<String> { return GetEnv("DESKTOP_SESSION"); });
   }
 
-  fn GetShell() -> Result<String, DracError> {
-    if (const Result<String, DracError> shellPath = GetEnv("SHELL")) {
+  fn GetShell() -> Result<String> {
+    if (const Result<String> shellPath = GetEnv("SHELL")) {
       // clang-format off
       constexpr Array<Pair<StringView, StringView>, 5> shellMap {{
         { "bash",    "Bash" },
@@ -427,7 +427,7 @@ namespace os {
     return Err(DracError(DracErrorCode::NotFound, "Could not find SHELL environment variable"));
   }
 
-  fn GetHost() -> Result<String, DracError> {
+  fn GetHost() -> Result<String> {
     Array<char, 256> buffer {};
     usize            size = buffer.size();
 
@@ -459,7 +459,7 @@ namespace os {
     return String(buffer.data());
   }
 
-  fn GetKernelVersion() -> Result<String, DracError> {
+  fn GetKernelVersion() -> Result<String> {
     utsname uts;
 
     if (uname(&uts) == -1)
@@ -471,7 +471,7 @@ namespace os {
     return uts.release;
   }
 
-  fn GetDiskUsage() -> Result<DiskSpace, DracError> {
+  fn GetDiskUsage() -> Result<DiskSpace> {
     struct statvfs stat;
 
     if (statvfs("/", &stat) == -1)
@@ -486,11 +486,11 @@ namespace os {
 
 namespace package {
   #ifdef __NetBSD__
-  fn GetPkgSrcCount() -> Result<u64, DracError> {
+  fn GetPkgSrcCount() -> Result<u64> {
     return GetCountFromDirectory("pkgsrc", fs::current_path().root_path() / "usr" / "pkg" / "pkgdb", true);
   }
   #else
-  fn GetPkgNgCount() -> Result<u64, DracError> {
+  fn GetPkgNgCount() -> Result<u64> {
     const PackageManagerInfo pkgInfo = {
       .id         = "pkgng",
       .dbPath     = "/var/db/pkg/local.sqlite",

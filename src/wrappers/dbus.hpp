@@ -265,7 +265,7 @@ namespace dbus {
      * @return Result containing a MessageGuard on success, or DraconisError on failure.
      */
     static fn newMethodCall(const char* destination, const char* path, const char* interface, const char* method)
-      -> Result<Message, DracError> {
+      -> Result<Message> {
       DBusMessage* rawMsg = dbus_message_new_method_call(destination, path, interface, method);
 
       if (!rawMsg)
@@ -331,7 +331,7 @@ namespace dbus {
      * @return Result containing the reply MessageGuard on success, or DraconisError on failure.
      */
     [[nodiscard]] fn sendWithReplyAndBlock(const Message& message, const i32 timeout_milliseconds = 1000) const
-      -> Result<Message, DracError> {
+      -> Result<Message> {
       if (!m_conn || !message.get())
         return Err(
           DracError(DracErrorCode::InvalidArgument, "Invalid connection or message provided to sendWithReplyAndBlock")
@@ -371,7 +371,7 @@ namespace dbus {
      * @param bus_type The type of bus (DBUS_BUS_SESSION or DBUS_BUS_SYSTEM).
      * @return Result containing a ConnectionGuard on success, or DraconisError on failure.
      */
-    static fn busGet(const DBusBusType bus_type) -> Result<Connection, DracError> {
+    static fn busGet(const DBusBusType bus_type) -> Result<Connection> {
       Error           err;
       DBusConnection* rawConn = dbus_bus_get(bus_type, err.get());
 

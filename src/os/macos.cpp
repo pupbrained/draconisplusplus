@@ -15,7 +15,7 @@
 using namespace util::types;
 using util::error::DracError;
 
-fn os::GetMemInfo() -> Result<u64, DracError> {
+fn os::GetMemInfo() -> Result<u64> {
   u64   mem  = 0;
   usize size = sizeof(mem);
 
@@ -25,19 +25,19 @@ fn os::GetMemInfo() -> Result<u64, DracError> {
   return mem;
 }
 
-fn os::GetNowPlaying() -> Result<MediaInfo, DracError> { return GetCurrentPlayingInfo(); }
+fn os::GetNowPlaying() -> Result<MediaInfo> { return GetCurrentPlayingInfo(); }
 
-fn os::GetOSVersion() -> Result<String, DracError> { return GetMacOSVersion(); }
+fn os::GetOSVersion() -> Result<String> { return GetMacOSVersion(); }
 
-fn os::GetDesktopEnvironment() -> Result<String, DracError> {
+fn os::GetDesktopEnvironment() -> Result<String> {
   return "Aqua"; // TODO: Implement
 }
 
-fn os::GetWindowManager() -> Result<String, DracError> {
+fn os::GetWindowManager() -> Result<String> {
   return "Yabai"; // TODO: Implement
 }
 
-fn os::GetKernelVersion() -> Result<String, DracError> {
+fn os::GetKernelVersion() -> Result<String> {
   Array<char, 256> kernelVersion {};
   usize            kernelVersionLen = sizeof(kernelVersion);
 
@@ -47,7 +47,7 @@ fn os::GetKernelVersion() -> Result<String, DracError> {
   return kernelVersion.data();
 }
 
-fn os::GetHost() -> Result<String, DracError> {
+fn os::GetHost() -> Result<String> {
   Array<char, 256> hwModel {};
   usize            hwModelLen = sizeof(hwModel);
 
@@ -212,7 +212,7 @@ fn os::GetHost() -> Result<String, DracError> {
   return String(iter->second);
 }
 
-fn os::GetDiskUsage() -> Result<DiskSpace, DracError> {
+fn os::GetDiskUsage() -> Result<DiskSpace> {
   struct statvfs vfs;
 
   if (statvfs("/", &vfs) != 0)
@@ -222,11 +222,11 @@ fn os::GetDiskUsage() -> Result<DiskSpace, DracError> {
                      .total_bytes = vfs.f_blocks * vfs.f_frsize };
 }
 
-fn os::GetPackageCount() -> Result<u64, DracError> {
+fn os::GetPackageCount() -> Result<u64> {
   return Err(DracError(DracErrorCode::NotSupported, "Package count is not supported on macOS")); // TODO: Implement
 }
 
-fn os::GetShell() -> Result<String, DracError> {
+fn os::GetShell() -> Result<String> {
   return "Fish"; // TODO: Implement
 }
 

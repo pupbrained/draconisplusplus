@@ -13,7 +13,6 @@
 #include <glaze/core/opts.hpp>    // glz::opts
 #include <glaze/core/reflect.hpp> // glz::format_error
 #include <glaze/json/read.hpp> // NOLINT(misc-include-cleaner) - glaze/json/read.hpp is needed for glz::read<glz::opts>
-#include <ios>                 // std::ios::{binary, trunc}
 #include <iterator>            // std::istreambuf_iterator
 #include <variant>             // std::{get, holds_alternative}
 
@@ -44,13 +43,13 @@ namespace {
     return totalSize;
   }
 
-  fn MakeApiRequest(const String& url) -> Result<Output, String> {
+  fn MakeApiRequest(const String& url) -> Result<Output> {
     debug_log("Making API request to URL: {}", url);
     CURL*  curl = curl_easy_init();
     String responseBuffer;
 
     if (!curl)
-      return Err("Failed to initialize cURL");
+      return Err(DracError(DracErrorCode::ApiUnavailable, "Failed to initialize cURL"));
 
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
@@ -62,41 +61,40 @@ namespace {
     curl_easy_cleanup(curl);
 
     if (res != CURLE_OK)
-      return Err(std::format("cURL error: {}", curl_easy_strerror(res)));
+      return Err(DracError(DracErrorCode::ApiUnavailable, std::format("cURL error: {}", curl_easy_strerror(res))));
 
     Output output;
 
     if (const error_ctx errc = read<glaze_opts>(output, responseBuffer); errc.ec != error_code::none)
-      return Err("API response parse error: " + format_error(errc, responseBuffer));
+      return Err(DracError(
+        DracErrorCode::ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer))
+      ));
 
     return output;
   }
 } // namespace
 
-fn Weather::getWeatherInfo() const -> Result<Output, DracError> {
+fn Weather::getWeatherInfo() const -> Result<Output> {
   using namespace std::chrono;
   using util::types::i32;
 
-  if (Result<Output, DracError> data = ReadCache<Output>("weather")) {
+  if (Result<Output> data = ReadCache<Output>("weather")) {
     const Output& dataVal = *data;
 
     if (const duration<double> cacheAge = system_clock::now() - system_clock::time_point(seconds(dataVal.dt));
-        cacheAge < 60min) { // NOLINT(misc-include-cleaner) - inherited from <chrono>
-      debug_log("Using valid cache");
+        cacheAge < 60min) // NOLINT(misc-include-cleaner) - inherited from <chrono>
       return dataVal;
-    }
 
     debug_log("Cache expired");
-  } else {
+  } else
     error_at(data.error());
-  }
 
-  fn handleApiResult = [](const Result<Output, String>& result) -> Result<Output, DracError> {
+  fn handleApiResult = [](const Result<Output>& result) -> Result<Output> {
     if (!result)
-      return Err(DracError(DracErrorCode::ApiUnavailable, result.error()));
+      return Err(result.error());
 
-    if (Result<void, DracError> writeResult = WriteCache("weather", *result); !writeResult)
-      error_at(writeResult.error());
+    if (Result writeResult = WriteCache("weather", *result); !writeResult)
+      return Err(writeResult.error());
 
     return *result;
   };
@@ -105,8 +103,6 @@ fn Weather::getWeatherInfo() const -> Result<Output, DracError> {
     const auto& city = std::get<String>(location);
 
     char* escaped = curl_easy_escape(nullptr, city.c_str(), static_cast<i32>(city.length()));
-
-    debug_log("Requesting city: {}", escaped);
 
     const String apiUrl =
       std::format("https://api.openweathermap.org/data/2.5/weather?q={}&appid={}&units={}", escaped, apiKey, units);
@@ -118,7 +114,6 @@ fn Weather::getWeatherInfo() const -> Result<Output, DracError> {
 
   if (std::holds_alternative<Coords>(location)) {
     const auto& [lat, lon] = std::get<Coords>(location);
-    debug_log("Requesting coordinates: lat={:.3f}, lon={:.3f}", lat, lon);
 
     const String apiUrl = std::format(
       "https://api.openweathermap.org/data/2.5/weather?lat={:.3f}&lon={:.3f}&appid={}&units={}", lat, lon, apiKey, units
