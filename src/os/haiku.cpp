@@ -72,9 +72,13 @@ namespace os {
     return Err(DracError(DracErrorCode::NotSupported, "Now playing is not supported on Haiku"));
   }
 
-  fn GetWindowManager() -> Result<String> { return "app_server"; }
+  fn GetWindowManager() -> Result<String> {
+    return "app_server";
+  }
 
-  fn GetDesktopEnvironment() -> Result<String> { return "Haiku Desktop Environment"; }
+  fn GetDesktopEnvironment() -> Result<String> {
+    return "Haiku Desktop Environment";
+  }
 
   fn GetShell() -> Result<String> {
     if (const Result<String> shellPath = GetEnv("SHELL")) {

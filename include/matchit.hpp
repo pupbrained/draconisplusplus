@@ -40,7 +40,8 @@ namespace matchit {
 
      public:
       template <typename V>
-      constexpr explicit MatchHelper(V&& value) : mValue { std::forward<V>(value) } {}
+      constexpr explicit MatchHelper(V&& value)
+        : mValue { std::forward<V>(value) } {}
       template <typename... PatternPair>
       constexpr auto operator()(const PatternPair&... patterns) {
         return matchPatterns(std::forward<ValueRefT>(mValue), patterns...);
@@ -116,14 +117,18 @@ namespace matchit {
     template <typename T>
     class EvalTraits<Nullary<T>> {
      public:
-      constexpr static decltype(auto) evalImpl(const Nullary<T>& e) { return e(); }
+      constexpr static decltype(auto) evalImpl(const Nullary<T>& e) {
+        return e();
+      }
     };
 
     // Only allowed in nullary
     template <typename T>
     class EvalTraits<Id<T>> {
      public:
-      constexpr static decltype(auto) evalImpl(const Id<T>& id) { return *const_cast<Id<T>&>(id); }
+      constexpr static decltype(auto) evalImpl(const Id<T>& id) {
+        return *const_cast<Id<T>&>(id);
+      }
     };
 
     template <typename Pred>
@@ -283,9 +288,11 @@ namespace matchit {
       S mEnd;
 
      public:
-      constexpr Subrange(const I begin, const S end) : mBegin { begin }, mEnd { end } {}
+      constexpr Subrange(const I begin, const S end)
+        : mBegin { begin }, mEnd { end } {}
 
-      constexpr Subrange(const Subrange& other) : mBegin { other.begin() }, mEnd { other.end() } {}
+      constexpr Subrange(const Subrange& other)
+        : mBegin { other.begin() }, mEnd { other.end() } {}
 
       Subrange& operator=(const Subrange& other) {
         mBegin = other.begin();
@@ -293,9 +300,15 @@ namespace matchit {
         return *this;
       }
 
-      size_t size() const { return static_cast<size_t>(std::distance(mBegin, mEnd)); }
-      auto   begin() const { return mBegin; }
-      auto   end() const { return mEnd; }
+      size_t size() const {
+        return static_cast<size_t>(std::distance(mBegin, mEnd));
+      }
+      auto begin() const {
+        return mBegin;
+      }
+      auto end() const {
+        return mEnd;
+      }
     };
 
     template <typename I, typename S>
@@ -465,7 +478,8 @@ namespace matchit {
       using RetType = std::common_type_t<typename PatternPairs::RetType...>;
     };
 
-    enum class IdProcess : int32_t { kCANCEL, kCONFIRM };
+    enum class IdProcess : int32_t { kCANCEL,
+                                     kCONFIRM };
 
     template <typename Pattern>
     constexpr void processId(const Pattern& pattern, int32_t depth, IdProcess idProcess) {
@@ -497,7 +511,9 @@ namespace matchit {
         mMemHolder[mSize] = std::forward<T>(t);
         ++mSize;
       }
-      constexpr auto back() -> ElementT& { return mMemHolder[mSize - 1]; }
+      constexpr auto back() -> ElementT& {
+        return mMemHolder[mSize - 1];
+      }
     };
 
     template <>
@@ -514,7 +530,7 @@ namespace matchit {
 
     template <typename Value, typename Pattern, typename ConctextT>
     constexpr auto matchPattern(Value&& value, const Pattern& pattern, int32_t depth, ConctextT& context) {
-      const auto result = PatternTraits<Pattern>::matchPatternImpl(std::forward<Value>(value), pattern, depth, context);
+      const auto result  = PatternTraits<Pattern>::matchPatternImpl(std::forward<Value>(value), pattern, depth, context);
       const auto process = result ? IdProcess::kCONFIRM : IdProcess::kCANCEL;
       processId(pattern, depth, process);
       return result;
@@ -526,12 +542,15 @@ namespace matchit {
       using RetType  = std::invoke_result_t<Func>;
       using PatternT = Pattern;
 
-      constexpr PatternPair(const Pattern& pattern, const Func& func) : mPattern { pattern }, mHandler { func } {}
+      constexpr PatternPair(const Pattern& pattern, const Func& func)
+        : mPattern { pattern }, mHandler { func } {}
       template <typename Value, typename ContextT>
       constexpr bool matchValue(Value&& value, ContextT& context) const {
         return matchPattern(std::forward<Value>(value), mPattern, /*depth*/ 0, context);
       }
-      constexpr auto execute() const { return mHandler(); }
+      constexpr auto execute() const {
+        return mHandler();
+      }
 
      private:
       const Pattern                                                         mPattern;
@@ -556,7 +575,8 @@ namespace matchit {
     template <typename Pattern>
     class PatternHelper {
      public:
-      constexpr explicit PatternHelper(const Pattern& pattern) : mPattern { pattern } {}
+      constexpr explicit PatternHelper(const Pattern& pattern)
+        : mPattern { pattern } {}
       template <typename Func>
       constexpr auto operator=(Func&& func) {
         auto f = toNullary(func);
@@ -641,8 +661,11 @@ namespace matchit {
     template <typename... Patterns>
     class Or {
      public:
-      constexpr explicit Or(const Patterns&... patterns) : mPatterns { patterns... } {}
-      constexpr const auto& patterns() const { return mPatterns; }
+      constexpr explicit Or(const Patterns&... patterns)
+        : mPatterns { patterns... } {}
+      constexpr const auto& patterns() const {
+        return mPatterns;
+      }
 
      private:
       std::tuple<InternalPatternT<Patterns>...> mPatterns;
@@ -713,8 +736,12 @@ namespace matchit {
      public:
       constexpr App(Unary&& unary, const Pattern& pattern)
         : mUnary { std::forward<Unary>(unary) }, mPattern { pattern } {}
-      constexpr const auto& unary() const { return mUnary; }
-      constexpr const auto& pattern() const { return mPattern; }
+      constexpr const auto& unary() const {
+        return mUnary;
+      }
+      constexpr const auto& pattern() const {
+        return mPattern;
+      }
 
      private:
       const Unary                     mUnary;
@@ -775,8 +802,11 @@ namespace matchit {
     template <typename... Patterns>
     class And {
      public:
-      constexpr explicit And(const Patterns&... patterns) : mPatterns { patterns... } {}
-      constexpr const auto& patterns() const { return mPatterns; }
+      constexpr explicit And(const Patterns&... patterns)
+        : mPatterns { patterns... } {}
+      constexpr const auto& patterns() const {
+        return mPatterns;
+      }
 
      private:
       std::tuple<InternalPatternT<Patterns>...> mPatterns;
@@ -835,8 +865,11 @@ namespace matchit {
     template <typename Pattern>
     class Not {
      public:
-      explicit Not(const Pattern& pattern) : mPattern { pattern } {}
-      const auto& pattern() const { return mPattern; }
+      explicit Not(const Pattern& pattern)
+        : mPattern { pattern } {}
+      const auto& pattern() const {
+        return mPattern;
+      }
 
      private:
       InternalPatternT<Pattern> mPattern;
@@ -935,10 +968,13 @@ namespace matchit {
       ValueVariant<Type> mVariant;
 
      public:
-      constexpr IdBlockBase() : mDepth {}, mVariant {} {}
+      constexpr IdBlockBase()
+        : mDepth {}, mVariant {} {}
 
-      constexpr auto& variant() { return mVariant; }
-      constexpr void  reset(const int32_t depth) {
+      constexpr auto& variant() {
+        return mVariant;
+      }
+      constexpr void reset(const int32_t depth) {
         if (mDepth - depth >= 0) {
           mVariant = {};
           mDepth   = depth;
@@ -1061,12 +1097,16 @@ namespace matchit {
       using BlockVT  = std::variant<BlockT, BlockT*>;
       BlockVT mBlock = BlockT {};
 
-      constexpr decltype(auto) internalValue() const { return block().get(); }
+      constexpr decltype(auto) internalValue() const {
+        return block().get();
+      }
 
      public:
       constexpr Id() = default;
 
-      constexpr Id(const Id& id) { mBlock = BlockVT { &id.block() }; }
+      constexpr Id(const Id& id) {
+        mBlock = BlockVT { &id.block() };
+      }
 
       // non-const to inform users not to mark Id as const.
       template <typename Pattern>
@@ -1075,7 +1115,9 @@ namespace matchit {
       }
 
       // non-const to inform users not to mark Id as const.
-      constexpr auto at(const Ooo&) { return OooBinder<Type> { *this }; }
+      constexpr auto at(const Ooo&) {
+        return OooBinder<Type> { *this };
+      }
 
       constexpr BlockT& block() const {
         return std::visit(
@@ -1094,13 +1136,23 @@ namespace matchit {
         IdUtil<Type>::bindValue(block().variant(), std::forward<Value>(v), StorePointer<Type, Value> {});
         return true;
       }
-      constexpr void reset(int32_t depth) const { return block().reset(depth); }
-      constexpr void confirm(int32_t depth) const { return block().confirm(depth); }
-      constexpr bool hasValue() const { return block().hasValue(); }
+      constexpr void reset(int32_t depth) const {
+        return block().reset(depth);
+      }
+      constexpr void confirm(int32_t depth) const {
+        return block().confirm(depth);
+      }
+      constexpr bool hasValue() const {
+        return block().hasValue();
+      }
       // non-const to inform users not to mark Id as const.
-      constexpr decltype(auto) get() { return block().get(); }
+      constexpr decltype(auto) get() {
+        return block().get();
+      }
       // non-const to inform users not to mark Id as const.
-      constexpr decltype(auto) operator*() { return get(); }
+      constexpr decltype(auto) operator*() {
+        return get();
+      }
     };
 
     template <typename Type>
@@ -1127,8 +1179,11 @@ namespace matchit {
     template <typename... Patterns>
     class Ds {
      public:
-      constexpr explicit Ds(const Patterns&... patterns) : mPatterns { patterns... } {}
-      constexpr const auto& patterns() const { return mPatterns; }
+      constexpr explicit Ds(const Patterns&... patterns)
+        : mPatterns { patterns... } {}
+      constexpr const auto& patterns() const {
+        return mPatterns;
+      }
 
       using Type = std::tuple<InternalPatternT<Patterns>...>;
 
@@ -1146,8 +1201,11 @@ namespace matchit {
       Id<T> mId;
 
      public:
-      explicit OooBinder(const Id<T>& id) : mId { id } {}
-      decltype(auto) binder() const { return mId; }
+      explicit OooBinder(const Id<T>& id)
+        : mId { id } {}
+      decltype(auto) binder() const {
+        return mId;
+      }
     };
 
     class Ooo {
@@ -1404,7 +1462,7 @@ namespace matchit {
         using Vs0                      = SubTypesT<0, idxOoo, std::tuple<Values...>>;
         constexpr static auto isBinder = isOooBinderV<std::tuple_element_t<idxOoo, std::tuple<Patterns...>>>;
         // <0, ...int32_t> to workaround compile failure for std::tuple<>.
-        using ElemT = std::tuple_element_t<0, std::tuple<std::remove_reference_t<Values>..., int32_t>>;
+        using ElemT                          = std::tuple_element_t<0, std::tuple<std::remove_reference_t<Values>..., int32_t>>;
         constexpr static int64_t diff        = static_cast<int64_t>(sizeof...(Values) - sizeof...(Patterns));
         constexpr static size_t  clippedDiff = static_cast<size_t>(diff > 0 ? diff : 0);
         using OooResultTuple =
@@ -1522,8 +1580,8 @@ namespace matchit {
           }
           constexpr auto idxOoo   = findOooIdx<typename Ds<Patterns...>::Type>();
           constexpr auto isBinder = isOooBinderV<std::tuple_element_t<idxOoo, std::tuple<Patterns...>>>;
-          auto       result = matchPatternRange<0, idxOoo>(std::begin(valueRange), dsPat.patterns(), depth, context);
-          const auto valLen = valueRange.size();
+          auto           result   = matchPatternRange<0, idxOoo>(std::begin(valueRange), dsPat.patterns(), depth, context);
+          const auto     valLen   = valueRange.size();
           constexpr auto patLen   = sizeof...(Patterns);
           const auto     beginOoo = std::next(std::begin(valueRange), idxOoo);
           if constexpr (isBinder) {
@@ -1568,9 +1626,14 @@ namespace matchit {
     template <typename Pattern, typename Pred>
     class PostCheck {
      public:
-      constexpr explicit PostCheck(const Pattern& pattern, const Pred& pred) : mPattern { pattern }, mPred { pred } {}
-      constexpr bool        check() const { return mPred(); }
-      constexpr const auto& pattern() const { return mPattern; }
+      constexpr explicit PostCheck(const Pattern& pattern, const Pred& pred)
+        : mPattern { pattern }, mPred { pred } {}
+      constexpr bool check() const {
+        return mPred();
+      }
+      constexpr const auto& pattern() const {
+        return mPattern;
+      }
 
      private:
       const Pattern mPattern;
@@ -1742,9 +1805,13 @@ namespace matchit {
         return dynamic_cast<T*>(std::addressof(b));
       }
 
-      constexpr auto operator()(const T& b) const { return std::addressof(b); }
+      constexpr auto operator()(const T& b) const {
+        return std::addressof(b);
+      }
 
-      constexpr auto operator()(T& b) const { return std::addressof(b); }
+      constexpr auto operator()(T& b) const {
+        return std::addressof(b);
+      }
     };
 
     static_assert(std::is_invocable_v<AsPointer<int>, int>);

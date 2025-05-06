@@ -131,6 +131,7 @@ namespace util::types {
 
     MediaInfo() = default;
 
-    MediaInfo(Option<String> title, Option<String> artist) : title(std::move(title)), artist(std::move(artist)) {}
+    MediaInfo(Option<String> title, Option<String> artist)
+      : title(std::move(title)), artist(std::move(artist)) {}
   };
 } // namespace util::types

@@ -124,7 +124,9 @@ location = "London"    # Your city name
       const Result<String> envUser    = util::helpers::GetEnv("USER");
       const Result<String> envLogname = util::helpers::GetEnv("LOGNAME");
 
-      defaultName = pwdName ? pwdName : envUser ? *envUser : envLogname ? *envLogname : "User";
+      defaultName = pwdName ? pwdName : envUser ? *envUser
+        : envLogname                            ? *envLogname
+                                                : "User";
 #endif
 
       std::ofstream file(configPath);

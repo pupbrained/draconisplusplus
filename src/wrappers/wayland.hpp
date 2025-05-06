@@ -16,9 +16,15 @@ namespace wl {
   using display = wl_display;
 
   // NOLINTBEGIN(readability-identifier-naming)
-  inline fn connect(const char* name) -> display* { return wl_display_connect(name); }
-  inline fn disconnect(display* display) -> void { wl_display_disconnect(display); }
-  inline fn get_fd(display* display) -> int { return wl_display_get_fd(display); }
+  inline fn connect(const char* name) -> display* {
+    return wl_display_connect(name);
+  }
+  inline fn disconnect(display* display) -> void {
+    wl_display_disconnect(display);
+  }
+  inline fn get_fd(display* display) -> int {
+    return wl_display_get_fd(display);
+  }
   // NOLINTEND(readability-identifier-naming)
 
   /**
@@ -77,7 +83,8 @@ namespace wl {
     fn operator=(const DisplayGuard&)->DisplayGuard& = delete;
 
     // Movable
-    DisplayGuard(DisplayGuard&& other) noexcept : m_display(std::exchange(other.m_display, nullptr)) {}
+    DisplayGuard(DisplayGuard&& other) noexcept
+      : m_display(std::exchange(other.m_display, nullptr)) {}
     fn operator=(DisplayGuard&& other) noexcept -> DisplayGuard& {
       if (this != &other) {
         if (m_display)
@@ -89,10 +96,16 @@ namespace wl {
       return *this;
     }
 
-    [[nodiscard]] explicit operator bool() const { return m_display != nullptr; }
+    [[nodiscard]] explicit operator bool() const {
+      return m_display != nullptr;
+    }
 
-    [[nodiscard]] fn get() const -> display* { return m_display; }
-    [[nodiscard]] fn fd() const -> util::types::i32 { return get_fd(m_display); }
+    [[nodiscard]] fn get() const -> display* {
+      return m_display;
+    }
+    [[nodiscard]] fn fd() const -> util::types::i32 {
+      return get_fd(m_display);
+    }
   };
 } // namespace wl
 

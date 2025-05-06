@@ -12,7 +12,7 @@
 
 #include "src/util/types.hpp"
 
-#include "include/matchit.h"
+#include "include/matchit.hpp"
 
 namespace util {
   namespace error {
@@ -72,12 +72,13 @@ namespace util {
           is | or_(no_such_file_or_directory, not_a_directory, is_a_directory, file_exists) = NotFound,
           is | permission_denied                                                            = PermissionDenied,
           is | timed_out                                                                    = Timeout,
-          is | _ = errc.category() == std::generic_category() ? InternalError : PlatformSpecific
+          is | _                                                                            = errc.category() == std::generic_category() ? InternalError : PlatformSpecific
         );
       }
 
 #ifdef _WIN32
-      explicit DracError(const winrt::hresult_error& e) : message(winrt::to_string(e.message())) {
+      explicit DracError(const winrt::hresult_error& e)
+        : message(winrt::to_string(e.message())) {
         using namespace matchit;
         using enum DracErrorCode;
 

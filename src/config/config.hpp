@@ -10,12 +10,11 @@
 #else
   #include <pwd.h>    // getpwuid, passwd
   #include <unistd.h> // getuid
-
-  #include "src/util/helpers.hpp"
 #endif
 
 #include "src/util/defs.hpp"
 #include "src/util/error.hpp"
+#include "src/util/helpers.hpp"
 #include "src/util/logging.hpp"
 #include "src/util/types.hpp"
 
@@ -92,7 +91,9 @@ struct NowPlaying {
    * @param tbl The TOML table to parse, containing [now_playing].
    * @return A NowPlaying instance with the parsed values, or defaults otherwise.
    */
-  static fn fromToml(const toml::table& tbl) -> NowPlaying { return { .enabled = tbl["enabled"].value_or(false) }; }
+  static fn fromToml(const toml::table& tbl) -> NowPlaying {
+    return { .enabled = tbl["enabled"].value_or(false) };
+  }
 };
 
 /**

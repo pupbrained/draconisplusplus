@@ -74,7 +74,10 @@ namespace util::logging {
    * @enum LogLevel
    * @brief Represents different log levels.
    */
-  enum class LogLevel : u8 { Debug, Info, Warn, Error };
+  enum class LogLevel : u8 { Debug,
+                             Info,
+                             Warn,
+                             Error };
 
   /**
    * @brief Directly applies ANSI color codes to text
@@ -227,7 +230,8 @@ namespace util::logging {
   #ifdef __cpp_lib_print
     std::print("\n{}", Italic(Colorize(fullDebugLine, LogLevelConst::DEBUG_INFO_COLOR)));
   #else
-    std::cout << '\n' << Italic(Colorize(fullDebugLine, LogLevelConst::DEBUG_INFO_COLOR));
+    std::cout << '\n'
+              << Italic(Colorize(fullDebugLine, LogLevelConst::DEBUG_INFO_COLOR));
   #endif
 #endif
 

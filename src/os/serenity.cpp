@@ -110,9 +110,13 @@ namespace os {
     return Err(DracError(DracErrorCode::NotSupported, "Now playing is not supported on SerenityOS"));
   }
 
-  fn GetWindowManager() -> Result<String> { return "WindowManager"; }
+  fn GetWindowManager() -> Result<String> {
+    return "WindowManager";
+  }
 
-  fn GetDesktopEnvironment() -> Result<String> { return "SerenityOS Desktop"; }
+  fn GetDesktopEnvironment() -> Result<String> {
+    return "SerenityOS Desktop";
+  }
 
   fn GetShell() -> Result<String> {
     uid_t   userId = getuid();
@@ -166,7 +170,9 @@ namespace os {
 } // namespace os
 
 namespace package {
-  fn GetSerenityCount() -> Result<u64> { return CountUniquePackages("/usr/Ports/installed.db"); }
+  fn GetSerenityCount() -> Result<u64> {
+    return CountUniquePackages("/usr/Ports/installed.db");
+  }
 } // namespace package
 
 #endif // __serenity__

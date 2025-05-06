@@ -48,15 +48,26 @@ namespace os {
     return mem;
   }
 
-  fn GetNowPlaying() -> Result<MediaInfo> { return GetCurrentPlayingInfo(); }
+  fn GetNowPlaying() -> Result<MediaInfo> {
+    return GetCurrentPlayingInfo();
+  }
 
-  fn GetOSVersion() -> Result<String> { return GetMacOSVersion(); }
+  fn GetOSVersion() -> Result<String> {
+    return GetMacOSVersion();
+  }
 
-  fn GetDesktopEnvironment() -> Result<String> { return "Aqua"; }
+  fn GetDesktopEnvironment() -> Result<String> {
+    return "Aqua";
+  }
 
   fn GetWindowManager() -> Result<String> {
     constexpr Array<StringView, 6> knownWms = {
-      "yabai", "kwm", "chunkwm", "amethyst", "spectacle", "rectangle",
+      "yabai",
+      "kwm",
+      "chunkwm",
+      "amethyst",
+      "spectacle",
+      "rectangle",
     };
 
     Array<i32, 3> request = { CTL_KERN, KERN_PROC, KERN_PROC_ALL };

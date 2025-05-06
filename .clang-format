@@ -13,10 +13,11 @@ AlignConsecutiveShortCaseStatements:
 AlignOperands: DontAlign
 AllowShortBlocksOnASingleLine: Always
 AllowShortCaseLabelsOnASingleLine: true
-AllowShortFunctionsOnASingleLine: All
+AllowShortFunctionsOnASingleLine: Empty
 AllowShortLoopsOnASingleLine: true
 BinPackArguments: false
-ColumnLimit: 120
+BreakBeforeBraces: Attach
+ColumnLimit: 0
 ConstructorInitializerIndentWidth: 2
 ContinuationIndentWidth: 2
 Cpp11BracedListStyle: false

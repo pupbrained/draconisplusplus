@@ -53,8 +53,12 @@ namespace xcb {
   inline fn connect(const char* displayname, int* screenp) -> connection_t* {
     return xcb_connect(displayname, screenp);
   }
-  inline fn disconnect(connection_t* conn) -> void { xcb_disconnect(conn); }
-  inline fn connection_has_error(connection_t* conn) -> int { return xcb_connection_has_error(conn); }
+  inline fn disconnect(connection_t* conn) -> void {
+    xcb_disconnect(conn);
+  }
+  inline fn connection_has_error(connection_t* conn) -> int {
+    return xcb_connection_has_error(conn);
+  }
   inline fn intern_atom(connection_t* conn, const uint8_t only_if_exists, const uint16_t name_len, const char* name)
     -> intern_atom_cookie_t {
     return xcb_intern_atom(conn, only_if_exists, name_len, name);
@@ -81,7 +85,9 @@ namespace xcb {
   inline fn get_property_value_length(const get_property_reply_t* reply) -> int {
     return xcb_get_property_value_length(reply);
   }
-  inline fn get_property_value(const get_property_reply_t* reply) -> void* { return xcb_get_property_value(reply); }
+  inline fn get_property_value(const get_property_reply_t* reply) -> void* {
+    return xcb_get_property_value(reply);
+  }
   // NOLINTEND(readability-identifier-naming)
 
   /**
@@ -96,7 +102,8 @@ namespace xcb {
      * Opens an XCB connection
      * @param name Display name (nullptr for default)
      */
-    explicit DisplayGuard(const util::types::CStr name = nullptr) : m_connection(connect(name, nullptr)) {}
+    explicit DisplayGuard(const util::types::CStr name = nullptr)
+      : m_connection(connect(name, nullptr)) {}
     ~DisplayGuard() {
       if (m_connection)
         disconnect(m_connection);
@@ -107,7 +114,8 @@ namespace xcb {
     fn operator=(const DisplayGuard&)->DisplayGuard& = delete;
 
     // Movable
-    DisplayGuard(DisplayGuard&& other) noexcept : m_connection(std::exchange(other.m_connection, nullptr)) {}
+    DisplayGuard(DisplayGuard&& other) noexcept
+      : m_connection(std::exchange(other.m_connection, nullptr)) {}
     fn operator=(DisplayGuard&& other) noexcept -> DisplayGuard& {
       if (this != &other) {
         if (m_connection)
@@ -118,11 +126,17 @@ namespace xcb {
       return *this;
     }
 
-    [[nodiscard]] explicit operator bool() const { return m_connection && !connection_has_error(m_connection); }
+    [[nodiscard]] explicit operator bool() const {
+      return m_connection && !connection_has_error(m_connection);
+    }
 
-    [[nodiscard]] fn get() const -> connection_t* { return m_connection; }
+    [[nodiscard]] fn get() const -> connection_t* {
+      return m_connection;
+    }
 
-    [[nodiscard]] fn setup() const -> const setup_t* { return m_connection ? xcb_get_setup(m_connection) : nullptr; }
+    [[nodiscard]] fn setup() const -> const setup_t* {
+      return m_connection ? xcb_get_setup(m_connection) : nullptr;
+    }
 
     [[nodiscard]] fn rootScreen() const -> screen_t* {
       const setup_t* setup = this->setup();
@@ -140,7 +154,8 @@ namespace xcb {
 
    public:
     ReplyGuard() = default;
-    explicit ReplyGuard(T* reply) : m_reply(reply) {}
+    explicit ReplyGuard(T* reply)
+      : m_reply(reply) {}
 
     ~ReplyGuard() {
       if (m_reply)
@@ -152,7 +167,8 @@ namespace xcb {
     fn operator=(const ReplyGuard&)->ReplyGuard& = delete;
 
     // Movable
-    ReplyGuard(ReplyGuard&& other) noexcept : m_reply(std::exchange(other.m_reply, nullptr)) {}
+    ReplyGuard(ReplyGuard&& other) noexcept
+      : m_reply(std::exchange(other.m_reply, nullptr)) {}
     fn operator=(ReplyGuard&& other) noexcept -> ReplyGuard& {
       if (this != &other) {
         if (m_reply)
@@ -163,11 +179,19 @@ namespace xcb {
       return *this;
     }
 
-    [[nodiscard]] explicit operator bool() const { return m_reply != nullptr; }
+    [[nodiscard]] explicit operator bool() const {
+      return m_reply != nullptr;
+    }
 
-    [[nodiscard]] fn get() const -> T* { return m_reply; }
-    [[nodiscard]] fn operator->() const->T* { return m_reply; }
-    [[nodiscard]] fn operator*() const->T& { return *m_reply; }
+    [[nodiscard]] fn get() const -> T* {
+      return m_reply;
+    }
+    [[nodiscard]] fn operator->() const->T* {
+      return m_reply;
+    }
+    [[nodiscard]] fn operator*() const->T& {
+      return *m_reply;
+    }
   };
 } // namespace xcb
 

@@ -27,7 +27,10 @@ namespace dbus {
     bool      m_isInitialized = false;
 
    public:
-    Error() : m_isInitialized(true) { dbus_error_init(&m_err); }
+    Error()
+      : m_isInitialized(true) {
+      dbus_error_init(&m_err);
+    }
 
     ~Error() {
       if (m_isInitialized)
@@ -37,7 +40,8 @@ namespace dbus {
     Error(const Error&)                = delete;
     fn operator=(const Error&)->Error& = delete;
 
-    Error(Error&& other) noexcept : m_err(other.m_err), m_isInitialized(other.m_isInitialized) {
+    Error(Error&& other) noexcept
+      : m_err(other.m_err), m_isInitialized(other.m_isInitialized) {
       other.m_isInitialized = false;
       dbus_error_init(&other.m_err);
     }
@@ -60,30 +64,40 @@ namespace dbus {
      * @brief Checks if the D-Bus error is set.
      * @return True if an error is set, false otherwise.
      */
-    [[nodiscard]] fn isSet() const -> bool { return m_isInitialized && dbus_error_is_set(&m_err); }
+    [[nodiscard]] fn isSet() const -> bool {
+      return m_isInitialized && dbus_error_is_set(&m_err);
+    }
 
     /**
      * @brief Gets the error message.
      * @return The error message string, or "" if not set or not initialized.
      */
-    [[nodiscard]] fn message() const -> const char* { return isSet() ? m_err.message : ""; }
+    [[nodiscard]] fn message() const -> const char* {
+      return isSet() ? m_err.message : "";
+    }
 
     /**
      * @brief Gets the error name.
      * @return The error name string (e.g., "org.freedesktop.DBus.Error.Failed"), or "" if not set or not initialized.
      */
-    [[nodiscard]] fn name() const -> const char* { return isSet() ? m_err.name : ""; }
+    [[nodiscard]] fn name() const -> const char* {
+      return isSet() ? m_err.name : "";
+    }
 
     /**
      * @brief Gets a pointer to the underlying DBusError. Use with caution.
      * @return Pointer to the DBusError struct.
      */
-    [[nodiscard]] fn get() -> DBusError* { return &m_err; }
+    [[nodiscard]] fn get() -> DBusError* {
+      return &m_err;
+    }
     /**
      * @brief Gets a const pointer to the underlying DBusError.
      * @return Const pointer to the DBusError struct.
      */
-    [[nodiscard]] fn get() const -> const DBusError* { return &m_err; }
+    [[nodiscard]] fn get() const -> const DBusError* {
+      return &m_err;
+    }
 
     /**
      * @brief Converts the D-Bus error to a DraconisError.
@@ -107,7 +121,8 @@ namespace dbus {
     DBusMessageIter m_iter {};
     bool            m_isValid = false;
 
-    explicit MessageIter(const DBusMessageIter& iter, const bool isValid) : m_iter(iter), m_isValid(isValid) {}
+    explicit MessageIter(const DBusMessageIter& iter, const bool isValid)
+      : m_iter(iter), m_isValid(isValid) {}
 
     friend class Message;
 
@@ -131,7 +146,9 @@ namespace dbus {
     /**
      * @brief Checks if the iterator is validly initialized.
      */
-    [[nodiscard]] fn isValid() const -> bool { return m_isValid; }
+    [[nodiscard]] fn isValid() const -> bool {
+      return m_isValid;
+    }
 
     /**
      * @brief Gets the D-Bus type code of the current argument.
@@ -154,7 +171,9 @@ namespace dbus {
      * @brief Advances the iterator to the next argument.
      * @return True if successful (moved to a next element), false if at the end or iterator is invalid.
      */
-    fn next() -> bool { return m_isValid && dbus_message_iter_next(&m_iter); }
+    fn next() -> bool {
+      return m_isValid && dbus_message_iter_next(&m_iter);
+    }
 
     /**
      * @brief Recurses into a container-type argument (e.g., array, struct, variant).
@@ -197,7 +216,8 @@ namespace dbus {
     DBusMessage* m_msg = nullptr;
 
    public:
-    explicit Message(DBusMessage* msg = nullptr) : m_msg(msg) {}
+    explicit Message(DBusMessage* msg = nullptr)
+      : m_msg(msg) {}
 
     ~Message() {
       if (m_msg)
@@ -207,7 +227,8 @@ namespace dbus {
     Message(const Message&)                = delete;
     fn operator=(const Message&)->Message& = delete;
 
-    Message(Message&& other) noexcept : m_msg(std::exchange(other.m_msg, nullptr)) {}
+    Message(Message&& other) noexcept
+      : m_msg(std::exchange(other.m_msg, nullptr)) {}
 
     fn operator=(Message&& other) noexcept -> Message& {
       if (this != &other) {
@@ -222,7 +243,9 @@ namespace dbus {
      * @brief Gets the underlying DBusMessage pointer. Use with caution.
      * @return The raw DBusMessage pointer, or nullptr if not holding a message.
      */
-    [[nodiscard]] fn get() const -> DBusMessage* { return m_msg; }
+    [[nodiscard]] fn get() const -> DBusMessage* {
+      return m_msg;
+    }
 
     /**
      * @brief Initializes a message iterator for reading arguments from this message.
@@ -296,7 +319,8 @@ namespace dbus {
     DBusConnection* m_conn = nullptr;
 
    public:
-    explicit Connection(DBusConnection* conn = nullptr) : m_conn(conn) {}
+    explicit Connection(DBusConnection* conn = nullptr)
+      : m_conn(conn) {}
 
     ~Connection() {
       if (m_conn)
@@ -306,7 +330,8 @@ namespace dbus {
     Connection(const Connection&)                = delete;
     fn operator=(const Connection&)->Connection& = delete;
 
-    Connection(Connection&& other) noexcept : m_conn(std::exchange(other.m_conn, nullptr)) {}
+    Connection(Connection&& other) noexcept
+      : m_conn(std::exchange(other.m_conn, nullptr)) {}
 
     fn operator=(Connection&& other) noexcept -> Connection& {
       if (this != &other) {
@@ -322,7 +347,9 @@ namespace dbus {
      * @brief Gets the underlying DBusConnection pointer. Use with caution.
      * @return The raw DBusConnection pointer, or nullptr if not holding a connection.
      */
-    [[nodiscard]] fn get() const -> DBusConnection* { return m_conn; }
+    [[nodiscard]] fn get() const -> DBusConnection* {
+      return m_conn;
+    }
 
     /**
      * @brief Sends a message and waits for a reply, blocking execution.

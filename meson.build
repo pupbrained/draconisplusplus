@@ -88,7 +88,14 @@ add_project_arguments(common_cpp_args, language : 'cpp')
 # ------- #
 #  Files  #
 # ------- #
-base_sources = files('src/core/system_data.cpp', 'src/core/package.cpp', 'src/config/config.cpp', 'src/config/weather.cpp', 'src/main.cpp')
+base_sources = files(
+  'src/core/system_data.cpp',
+  'src/core/package.cpp',
+  'src/config/config.cpp',
+  'src/config/weather.cpp',
+  'src/ui/ui.cpp',
+  'src/main.cpp',
+)
 
 platform_sources = {
   'darwin' : ['src/os/macos.cpp', 'src/os/macos/bridge.mm'],
