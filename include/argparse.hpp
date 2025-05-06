@@ -63,6 +63,7 @@
 #endif
 
 #include "src/util/defs.hpp"
+#include "src/util/error.hpp" // Added for Result type
 #include "src/util/types.hpp"
 
 #ifndef ARGPARSE_CUSTOM_STRTOF
@@ -231,7 +232,7 @@ namespace argparse {
     }
 
     template <class T, auto Param>
-    fn do_from_chars(const StringView s) -> T {
+    fn do_from_chars(const StringView s) -> Result<T> {
       T x { 0 };
       auto [first, last] = pointer_range(s);
       auto [ptr, ec]     = std::from_chars(first, last, x, Param);
@@ -239,102 +240,94 @@ namespace argparse {
       if (ec == std::errc()) {
         if (ptr == last)
           return x;
-        throw std::invalid_argument { "pattern '" + String(s) + "' does not match to the end" };
+
+        return Err(util::error::DracError(util::error::DracErrorCode::ParseError, std::format("pattern '{}' does not match to the end", String(s))));
       }
 
       if (ec == std::errc::invalid_argument)
-        throw std::invalid_argument { "pattern '" + String(s) + "' not found" };
+        return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, std::format("pattern '{}' not found", String(s))));
 
       if (ec == std::errc::result_out_of_range)
-        throw std::range_error { "'" + String(s) + "' not representable" };
+        return Err(util::error::DracError(util::error::DracErrorCode::ParseError, std::format("'{}' not representable", String(s))));
 
-      return x; // unreachable
+      // Should be unreachable, but handle potential unknown error codes
+      return Err(util::error::DracError(util::error::DracErrorCode::InternalError, std::format("Unknown parsing error for '{}'", String(s))));
     }
 
     template <class T, auto Param = 0>
     struct parse_number {
-      static fn operator()(const StringView s)->T {
+      static fn operator()(const StringView s)->Result<T> {
         return do_from_chars<T, Param>(s);
       }
     };
 
     template <class T>
     struct parse_number<T, radix_2> {
-      static fn operator()(const StringView s)->T {
+      static fn operator()(const StringView s)->Result<T> {
         if (auto [ok, rest] = consume_binary_prefix(s); ok)
           return do_from_chars<T, radix_2>(rest);
 
-        throw std::invalid_argument { "pattern not found" };
+        return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "pattern not found"));
       }
     };
 
     template <class T>
     struct parse_number<T, radix_16> {
-      static fn operator()(const StringView s)->T {
+      static fn operator()(const StringView s)->Result<T> {
+        Result<T> result;
+
         if (starts_with("0x"sv, s) || starts_with("0X"sv, s)) {
           if (auto [ok, rest] = consume_hex_prefix(s); ok)
-            try {
-              return do_from_chars<T, radix_16>(rest);
-            } catch (const std::invalid_argument& err) {
-              throw std::invalid_argument("Failed to parse '" + String(s) + "' as hexadecimal: " + err.what());
-            } catch (const std::range_error& err) {
-              throw std::range_error("Failed to parse '" + String(s) + "' as hexadecimal: " + err.what());
-            }
+            result = do_from_chars<T, radix_16>(rest);
+          else
+            return Err(util::error::DracError(util::error::DracErrorCode::InternalError, std::format("Inconsistent hex prefix detection for '{}'", String(s))));
         } else
-          // Allow passing hex numbers without prefix
-          // Shape 'x' already has to be specified
-          try {
-            return do_from_chars<T, radix_16>(s);
-          } catch (const std::invalid_argument& err) {
-            throw std::invalid_argument("Failed to parse '" + String(s) + "' as hexadecimal: " + err.what());
-          } catch (const std::range_error& err) {
-            throw std::range_error("Failed to parse '" + String(s) + "' as hexadecimal: " + err.what());
-          }
+          result = do_from_chars<T, radix_16>(s);
 
-        throw std::invalid_argument { "pattern '" + String(s) +
-                                      "' not identified as hexadecimal" };
+        if (!result)
+          return Err(util::error::DracError(result.error().code, std::format("Failed to parse '{}' as hexadecimal: {}", String(s), result.error().message)));
+
+        return result;
       }
     };
 
     template <class T>
     struct parse_number<T> {
-      static fn operator()(const StringView s)->T {
-        auto [ok, rest] = consume_hex_prefix(s);
+      static fn operator()(const StringView s)->Result<T> {
+        if (auto [ok, rest] = consume_hex_prefix(s); ok) {
+          Result<T> result = do_from_chars<T, radix_16>(rest);
 
-        if (ok)
-          try {
-            return do_from_chars<T, radix_16>(rest);
-          } catch (const std::invalid_argument& err) {
-            throw std::invalid_argument("Failed to parse '" + String(s) + "' as hexadecimal: " + err.what());
-          } catch (const std::range_error& err) {
-            throw std::range_error("Failed to parse '" + String(s) + "' as hexadecimal: " + err.what());
-          }
+          if (!result)
+            return Err(util::error::DracError(result.error().code, std::format("Failed to parse '{}' as hexadecimal: {}", String(s), result.error().message)));
 
-        if (auto [ok_binary, rest_binary] = consume_binary_prefix(s); ok_binary)
-          try {
-            return do_from_chars<T, radix_2>(rest_binary);
-          } catch (const std::invalid_argument& err) {
-            throw std::invalid_argument("Failed to parse '" + String(s) + "' as binary: " + err.what());
-          } catch (const std::range_error& err) {
-            throw std::range_error("Failed to parse '" + String(s) + "' as binary: " + err.what());
-          }
-
-        if (starts_with("0"sv, s))
-          try {
-            return do_from_chars<T, radix_8>(rest);
-          } catch (const std::invalid_argument& err) {
-            throw std::invalid_argument("Failed to parse '" + String(s) + "' as octal: " + err.what());
-          } catch (const std::range_error& err) {
-            throw std::range_error("Failed to parse '" + String(s) + "' as octal: " + err.what());
-          }
-
-        try {
-          return do_from_chars<T, radix_10>(rest);
-        } catch (const std::invalid_argument& err) {
-          throw std::invalid_argument("Failed to parse '" + String(s) + "' as decimal integer: " + err.what());
-        } catch (const std::range_error& err) {
-          throw std::range_error("Failed to parse '" + String(s) + "' as decimal integer: " + err.what());
+          return result;
         }
+
+        if (auto [ok_binary, rest_binary] = consume_binary_prefix(s); ok_binary) {
+          Result<T> result = do_from_chars<T, radix_2>(rest_binary);
+
+          if (!result)
+            return Err(util::error::DracError(result.error().code, std::format("Failed to parse '{}' as binary: {}", String(s), result.error().message)));
+
+          return result;
+        }
+
+        // Note: consume_hex_prefix already removed the prefix if present, so 'rest' is correct here for octal/decimal check.
+        if (starts_with("0"sv, s)) {                       // Check original string for octal prefix
+          Result<T> result = do_from_chars<T, radix_8>(s); // Pass original string for octal
+
+          if (!result)
+            return Err(util::error::DracError(result.error().code, std::format("Failed to parse '{}' as octal: {}", String(s), result.error().message)));
+
+          return result;
+        }
+
+        Result<T> result = do_from_chars<T, radix_10>(s); // Pass original string for decimal
+
+        if (!result)
+          return Err(util::error::DracError(result.error().code, std::format("Failed to parse '{}' as decimal integer: {}", String(s), result.error().message)));
+
+        return result;
       }
     };
 
@@ -348,9 +341,9 @@ namespace argparse {
     inline const auto generic_strtod<long double> = ARGPARSE_CUSTOM_STRTOLD;
 
     template <class T>
-    fn do_strtod(const String& s) -> T {
+    fn do_strtod(const String& s) -> Result<T> {
       if (isspace(static_cast<unsigned char>(s[0])) || s[0] == '+')
-        throw std::invalid_argument { "pattern '" + s + "' not found" };
+        return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, std::format("pattern '{}' not found", s)));
 
       auto [first, last] = pointer_range(s);
 
@@ -364,126 +357,103 @@ namespace argparse {
         if (ptr == last)
           return x;
 
-        throw std::invalid_argument { "pattern '" + s +
-                                      "' does not match to the end" };
+        return Err(util::error::DracError(util::error::DracErrorCode::ParseError, std::format("pattern '{}' does not match to the end", s)));
       }
 
       if (errno == ERANGE)
-        throw std::range_error { "'" + s + "' not representable" };
+        return Err(util::error::DracError(util::error::DracErrorCode::ParseError, std::format("'{}' not representable", s)));
 
-      return x; // unreachable
+      // Handle other potential errno values
+      return Err(util::error::DracError(std::error_code(errno, std::system_category())));
     }
 
     template <class T>
     struct parse_number<T, chars_format::general> {
-      fn operator()(const String& s)->T {
+      fn operator()(const String& s)->Result<T> {
         if (auto [is_hex, rest] = consume_hex_prefix(s); is_hex)
-          throw std::invalid_argument {
-            "chars_format::general does not parse hexfloat"
-          };
+          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::general does not parse hexfloat"));
 
         if (auto [is_bin, rest] = consume_binary_prefix(s); is_bin)
-          throw std::invalid_argument {
-            "chars_format::general does not parse binfloat"
-          };
+          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::general does not parse binfloat"));
 
-        try {
-          return do_strtod<T>(s);
-        } catch (const std::invalid_argument& err) {
-          throw std::invalid_argument("Failed to parse '" + s + "' as number: " + err.what());
-        } catch (const std::range_error& err) {
-          throw std::range_error("Failed to parse '" + s + "' as number: " + err.what());
-        }
+        Result<T> result = do_strtod<T>(s);
+        if (!result)
+          return Err(util::error::DracError(result.error().code, std::format("Failed to parse '{}' as number: {}", s, result.error().message)));
+        return result;
       }
     };
 
     template <class T>
     struct parse_number<T, chars_format::hex> {
-      fn operator()(const String& s)->T {
+      fn operator()(const String& s)->Result<T> {
         if (auto [is_hex, rest] = consume_hex_prefix(s); !is_hex)
-          throw std::invalid_argument { "chars_format::hex parses hexfloat" };
+          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::hex requires hexfloat format (e.g., 0x1.2p3)"));
 
         if (auto [is_bin, rest] = consume_binary_prefix(s); is_bin)
-          throw std::invalid_argument { "chars_format::hex does not parse binfloat" };
+          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::hex does not parse binfloat"));
 
-        try {
-          return do_strtod<T>(s);
-        } catch (const std::invalid_argument& err) {
-          throw std::invalid_argument("Failed to parse '" + s + "' as hexadecimal: " + err.what());
-        } catch (const std::range_error& err) {
-          throw std::range_error("Failed to parse '" + s + "' as hexadecimal: " + err.what());
-        }
+        Result<T> result = do_strtod<T>(s);
+        if (!result)
+          return Err(util::error::DracError(result.error().code, std::format("Failed to parse '{}' as hexadecimal float: {}", s, result.error().message)));
+        return result;
       }
     };
 
     template <class T>
     struct parse_number<T, chars_format::binary> {
-      fn operator()(const String& s)->T {
+      fn operator()(const String& s)->Result<T> {
         if (auto [is_hex, rest] = consume_hex_prefix(s); is_hex)
-          throw std::invalid_argument {
-            "chars_format::binary does not parse hexfloat"
-          };
+          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::binary does not parse hexfloat"));
 
         if (auto [is_bin, rest] = consume_binary_prefix(s); !is_bin)
-          throw std::invalid_argument { "chars_format::binary parses binfloat" };
+          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::binary requires binfloat format (e.g., 0b1.01p2)"));
 
-        return do_strtod<T>(s);
+        Result<T> result = do_strtod<T>(s);
+        if (!result)
+          return Err(util::error::DracError(result.error().code, std::format("Failed to parse '{}' as binary float: {}", s, result.error().message)));
+        return result;
       }
     };
 
     template <class T>
     struct parse_number<T, chars_format::scientific> {
-      fn operator()(const String& s)->T {
+      fn operator()(const String& s)->Result<T> {
         if (const auto [is_hex, rest] = consume_hex_prefix(s); is_hex)
-          throw std::invalid_argument {
-            "chars_format::scientific does not parse hexfloat"
-          };
+          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::scientific does not parse hexfloat"));
 
         if (const auto [is_bin, rest] = consume_binary_prefix(s); is_bin)
-          throw std::invalid_argument {
-            "chars_format::scientific does not parse binfloat"
-          };
+          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::scientific does not parse binfloat"));
 
         if (s.find_first_of("eE") == String::npos)
-          throw std::invalid_argument {
-            "chars_format::scientific requires exponent part"
-          };
+          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::scientific requires exponent part"));
 
-        try {
-          return do_strtod<T>(s);
-        } catch (const std::invalid_argument& err) {
-          throw std::invalid_argument("Failed to parse '" + s + "' as scientific notation: " + err.what());
-        } catch (const std::range_error& err) {
-          throw std::range_error("Failed to parse '" + s + "' as scientific notation: " + err.what());
-        }
+        Result<T> result = do_strtod<T>(s);
+
+        if (!result)
+          return Err(util::error::DracError(result.error().code, std::format("Failed to parse '{}' as scientific notation: {}", s, result.error().message)));
+
+        return result;
       }
     };
 
     template <class T>
     struct parse_number<T, chars_format::fixed> {
-      fn operator()(const String& s)->T {
+      fn operator()(const String& s)->Result<T> {
         if (const auto [is_hex, rest] = consume_hex_prefix(s); is_hex)
-          throw std::invalid_argument {
-            "chars_format::fixed does not parse hexfloat"
-          };
+          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::fixed does not parse hexfloat"));
 
         if (const auto [is_bin, rest] = consume_binary_prefix(s); is_bin)
-          throw std::invalid_argument {
-            "chars_format::fixed does not parse binfloat"
-          };
+          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::fixed does not parse binfloat"));
 
         if (s.find_first_of("eE") != String::npos)
-          throw std::invalid_argument {
-            "chars_format::fixed does not parse exponent part"
-          };
+          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::fixed does not parse exponent part"));
 
-        try {
-          return do_strtod<T>(s);
-        } catch (const std::invalid_argument& err) {
-          throw std::invalid_argument("Failed to parse '" + s + "' as fixed notation: " + err.what());
-        } catch (const std::range_error& err) {
-          throw std::range_error("Failed to parse '" + s + "' as fixed notation: " + err.what());
-        }
+        Result<T> result = do_strtod<T>(s);
+
+        if (!result)
+          return Err(util::error::DracError(result.error().code, std::format("Failed to parse '{}' as fixed notation: {}", s, result.error().message)));
+
+        return result;
       }
     };
 
@@ -707,7 +677,12 @@ namespace argparse {
         var = std::any_cast<T>(m_default_value);
 
       action([&var](const auto& s) {
-        var = details::parse_number<T, details::radix_10>()(s);
+        Result<T> result = details::parse_number<T, details::radix_10>()(s);
+
+        if (!result)
+          throw std::runtime_error(std::format("Failed to parse '{}' as decimal integer: {}", s, result.error().message));
+
+        var = *result;
         return var;
       });
 
@@ -720,7 +695,12 @@ namespace argparse {
         var = std::any_cast<T>(m_default_value);
 
       action([&var](const auto& s) {
-        var = details::parse_number<T, details::chars_format::general>()(s);
+        Result<T> result = details::parse_number<T, details::chars_format::general>()(s);
+
+        if (!result)
+          throw std::runtime_error(std::format("Failed to parse '{}' as number: {}", s, result.error().message));
+
+        var = *result;
         return var;
       });
 
@@ -774,7 +754,13 @@ namespace argparse {
           var.clear();
 
         m_is_used = true;
-        var.push_back(details::parse_number<int, details::radix_10>()(s));
+
+        Result<int> result = details::parse_number<int, details::radix_10>()(s);
+
+        if (!result)
+          throw std::runtime_error(std::format("Failed to parse '{}' as decimal integer for vector: {}", s, result.error().message));
+
+        var.push_back(*result);
         return var;
       });
 
@@ -806,7 +792,13 @@ namespace argparse {
           var.clear();
 
         m_is_used = true;
-        var.insert(details::parse_number<int, details::radix_10>()(s));
+
+        Result<int> result = details::parse_number<int, details::radix_10>()(s);
+
+        if (!result)
+          throw std::runtime_error(std::format("Failed to parse '{}' as decimal integer for set: {}", s, result.error().message));
+
+        var.insert(*result);
         return var;
       });
 
@@ -833,25 +825,75 @@ namespace argparse {
       };
 
       if constexpr (Shape == 'd' && std::is_integral_v<T>)
-        action(details::parse_number<T, details::radix_10>());
+        action([](const String& s) -> T {
+          Result<T> result = details::parse_number<T, details::radix_10>()(s);
+          if (!result)
+            throw std::runtime_error(std::format("Failed to parse '{}' as decimal integer (scan 'd'): {}", s, result.error().message));
+          return *result;
+        });
       else if constexpr (Shape == 'i' && std::is_integral_v<T>)
-        action(details::parse_number<T>());
+        action([](const String& s) -> T {
+          Result<T> result = details::parse_number<T>()(s);
+          if (!result)
+            throw std::runtime_error(std::format("Failed to parse '{}' as integer (scan 'i'): {}", s, result.error().message));
+          return *result;
+        });
       else if constexpr (Shape == 'u' && (std::is_integral_v<T> && std::is_unsigned_v<T>))
-        action(details::parse_number<T, details::radix_10>());
+        action([](const String& s) -> T {
+          Result<T> result = details::parse_number<T, details::radix_10>()(s);
+          if (!result)
+            throw std::runtime_error(std::format("Failed to parse '{}' as unsigned decimal integer (scan 'u'): {}", s, result.error().message));
+          return *result;
+        });
       else if constexpr (Shape == 'b' && (std::is_integral_v<T> && std::is_unsigned_v<T>))
-        action(details::parse_number<T, details::radix_2>());
+        action([](const String& s) -> T {
+          Result<T> result = details::parse_number<T, details::radix_2>()(s);
+          if (!result)
+            throw std::runtime_error(std::format("Failed to parse '{}' as binary integer (scan 'b'): {}", s, result.error().message));
+          return *result;
+        });
       else if constexpr (Shape == 'o' && (std::is_integral_v<T> && std::is_unsigned_v<T>))
-        action(details::parse_number<T, details::radix_8>());
+        action([](const String& s) -> T {
+          Result<T> result = details::parse_number<T, details::radix_8>()(s);
+          if (!result)
+            throw std::runtime_error(std::format("Failed to parse '{}' as octal integer (scan 'o'): {}", s, result.error().message));
+          return *result;
+        });
       else if constexpr (is_one_of(Shape, 'x', 'X') && (std::is_integral_v<T> && std::is_unsigned_v<T>))
-        action(details::parse_number<T, details::radix_16>());
+        action([](const String& s) -> T {
+          Result<T> result = details::parse_number<T, details::radix_16>()(s);
+          if (!result)
+            throw std::runtime_error(std::format("Failed to parse '{}' as hexadecimal integer (scan '{}'): {}", s, Shape, result.error().message));
+          return *result;
+        });
       else if constexpr (is_one_of(Shape, 'a', 'A') && std::is_floating_point_v<T>)
-        action(details::parse_number<T, details::chars_format::hex>());
+        action([](const String& s) -> T {
+          Result<T> result = details::parse_number<T, details::chars_format::hex>()(s);
+          if (!result)
+            throw std::runtime_error(std::format("Failed to parse '{}' as hexadecimal float (scan '{}'): {}", s, Shape, result.error().message));
+          return *result;
+        });
       else if constexpr (is_one_of(Shape, 'e', 'E') && std::is_floating_point_v<T>)
-        action(details::parse_number<T, details::chars_format::scientific>());
+        action([](const String& s) -> T {
+          Result<T> result = details::parse_number<T, details::chars_format::scientific>()(s);
+          if (!result)
+            throw std::runtime_error(std::format("Failed to parse '{}' as scientific float (scan '{}'): {}", s, Shape, result.error().message));
+          return *result;
+        });
       else if constexpr (is_one_of(Shape, 'f', 'F') && std::is_floating_point_v<T>)
-        action(details::parse_number<T, details::chars_format::fixed>());
+        action([](const String& s) -> T {
+          Result<T> result = details::parse_number<T, details::chars_format::fixed>()(s);
+          if (!result)
+            throw std::runtime_error(std::format("Failed to parse '{}' as fixed float (scan '{}'): {}", s, Shape, result.error().message));
+          return *result;
+        });
       else if constexpr (is_one_of(Shape, 'g', 'G') && std::is_floating_point_v<T>)
-        action(details::parse_number<T, details::chars_format::general>());
+        action([](const String& s) -> T {
+          Result<T> result = details::parse_number<T, details::chars_format::general>()(s);
+          if (!result)
+            throw std::runtime_error(std::format("Failed to parse '{}' as general float (scan '{}'): {}", s, Shape, result.error().message));
+          return *result;
+        });
       else
         static_assert(false, "No scan specification for T");
 
@@ -1070,26 +1112,72 @@ namespace argparse {
     }
 
     /*
-     * @throws std::runtime_error if argument values are not valid
+     * @returns Result<void> indicating success or failure
      */
-    fn validate() const -> void {
+    [[nodiscard]] fn validate() const -> Result<void> {
       if (m_is_optional) {
         // TODO: check if an implicit value was programmed for this argument
         if (!m_is_used && !m_default_value.has_value() && m_is_required)
-          throw_required_arg_not_used_error();
+          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, std::format("Required argument '{}' was not provided", m_names[0])));
 
         if (m_is_used && m_is_required && m_values.empty())
-          throw_required_arg_no_value_provided_error();
+          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, std::format("Required argument '{}' requires a value, but none was provided", m_names[0])));
+
+        if (m_is_used && m_num_args_range.get_min() > m_values.size())
+          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, std::format("Too few arguments for optional argument '{}'. Expected at least {}, got {}.", m_names[0], m_num_args_range.get_min(), m_values.size())));
       } else {
-        if (!m_num_args_range.contains(m_values.size()) &&
-            !m_default_value.has_value())
-          throw_nargs_range_validation_error();
+        if (!m_num_args_range.contains(m_values.size()) && !m_default_value.has_value()) {
+          String expected_str;
+
+          if (m_num_args_range.is_exact())
+            expected_str = std::to_string(m_num_args_range.get_min());
+          else if (!m_num_args_range.is_right_bounded())
+            expected_str = std::format("at least {}", m_num_args_range.get_min());
+          else
+            expected_str = std::format("{} to {}", m_num_args_range.get_min(), m_num_args_range.get_max());
+
+          return Err(DracError(util::error::DracErrorCode::InvalidArgument, std::format("Incorrect number of arguments for positional argument '{}'. Expected {}, got {}.", (m_metavar.empty() ? m_names[0] : m_metavar), expected_str, m_values.size())));
+        }
+
+        if (m_num_args_range.get_min() > m_values.size())
+          return Err(DracError(util::error::DracErrorCode::InvalidArgument, std::format("Too few arguments for positional argument '{}'. Expected at least {}, got {}.", (m_metavar.empty() ? m_names[0] : m_metavar), m_num_args_range.get_min(), m_values.size())));
       }
 
-      if (m_choices.has_value())
-        // Make sure the default value (if provided)
-        // is in the list of choices
-        find_default_value_in_choices_or_throw();
+      if (m_num_args_range.get_max() < m_values.size()) {
+        if (m_is_optional)
+          return Err(DracError(util::error::DracErrorCode::InvalidArgument, std::format("Too many arguments for optional argument '{}'. Expected at most {}, got {}.", m_names[0], m_num_args_range.get_max(), m_values.size())));
+
+        return Err(DracError(util::error::DracErrorCode::InvalidArgument, std::format("Too many arguments for positional argument '{}'. Expected at most {}, got {}.", (m_metavar.empty() ? m_names[0] : m_metavar), m_num_args_range.get_max(), m_values.size())));
+      }
+
+      if (m_choices.has_value()) {
+        const Vec<String>& choices = m_choices.value();
+
+        // Check default value
+        if (m_default_value.has_value())
+          if (const String& default_val_str = m_default_value_str.value(); std::ranges::find(choices, default_val_str) == choices.end()) {
+            const String choices_as_csv = std::accumulate(
+              choices.begin(), choices.end(), String(), [](const String& option_a, const String& option_b) -> String { return option_a + (option_a.empty() ? "" : ", ") + option_b; }
+            );
+            return Err(DracError(util::error::DracErrorCode::InvalidArgument, std::format("Default value '{}' is not in the allowed choices: {{{}}}", default_val_str, choices_as_csv)));
+          }
+
+        // Check provided values
+        for (const auto& value_any : m_values) {
+          if (value_any.type() != typeid(String))
+            return Err(DracError(util::error::DracErrorCode::InvalidArgument, std::format("Invalid argument type for choice validation - expected string, got '{}'", value_any.type().name())));
+
+          if (const String& value = std::any_cast<const String&>(value_any); std::ranges::find(choices, value) == choices.end()) {
+            const String choices_as_csv = std::accumulate(
+              choices.begin(), choices.end(), String(), [](const String& option_a, const String& option_b) -> String { return std::format("{}{}{}", option_a, option_a.empty() ? "" : ", ", option_b); }
+            );
+
+            return Err(DracError(util::error::DracErrorCode::InvalidArgument, std::format("Invalid argument '{}' - allowed options: {{{}}}", value, choices_as_csv)));
+          }
+        }
+      }
+
+      return {};
     }
 
     [[nodiscard]] fn get_names_csv(const char separator = ',') const -> String {
@@ -1432,7 +1520,8 @@ namespace argparse {
 
       // precondition: we have consumed or will consume at least one digit
       fn consume_digits = [=](StringView sd) -> StringView {
-        const char* const it = std::ranges::find_if_not(sd, is_digit);
+        const auto it = std::ranges::find_if_not(sd, is_digit);
+
         return sd.substr(static_cast<usize>(it - std::begin(sd)));
       };
 
@@ -1848,7 +1937,8 @@ namespace argparse {
       parse_args_internal(arguments);
       // Check if all arguments are parsed
       for (const auto& argument : m_argument_map | std::views::values)
-        argument->validate();
+        if (Result<> validation_result = argument->validate(); !validation_result)
+          throw std::runtime_error(validation_result.error().message);
 
       // Check each mutually exclusive group and make sure
       // there are no constraint violations
@@ -1896,8 +1986,10 @@ namespace argparse {
     fn parse_known_args(const Vec<String>& arguments) -> Vec<String> {
       Vec<String> unknown_arguments = parse_known_args_internal(arguments);
 
-      for (const auto& argument : m_argument_map | std::views::values)
-        argument->validate();
+      for (const auto& argument : m_argument_map | std::views::values) {
+        if (Result<> validation_result = argument->validate(); !validation_result)
+          throw std::runtime_error(validation_result.error().message);
+      }
 
       return unknown_arguments;
     }

@@ -1,3 +1,4 @@
+#define NOMINMAX
 #include "weather.hpp"
 
 #include <chrono>                 // std::chrono::{duration, operator-}

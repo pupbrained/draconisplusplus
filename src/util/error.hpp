@@ -6,6 +6,7 @@
 #include <system_error>    // std::error_code
 
 #ifdef _WIN32
+  #include <guiddef.h>    // GUID
   #include <winerror.h>   // error values
   #include <winrt/base.h> // winrt::hresult_error
 #endif
@@ -77,14 +78,14 @@ namespace util {
       }
 
 #ifdef _WIN32
-      explicit DracError(const winrt::hresult_error& e)
-        : message(winrt::to_string(e.message())) {
+      explicit DracError(const winrt::hresult_error& err)
+        : message(winrt::to_string(err.message())) {
         using namespace matchit;
         using enum DracErrorCode;
 
-        fn fromWin32 = [](const types::u32 x) -> HRESULT { return HRESULT_FROM_WIN32(x); };
+        fn fromWin32 = [](const types::u32 win32) -> HRESULT { return HRESULT_FROM_WIN32(win32); };
 
-        code = match(e.code())(
+        code = match(err.code())(
           is | or_(E_ACCESSDENIED, fromWin32(ERROR_ACCESS_DENIED)) = PermissionDenied,
           is | fromWin32(ERROR_FILE_NOT_FOUND)                     = NotFound,
           is | fromWin32(ERROR_PATH_NOT_FOUND)                     = NotFound,
