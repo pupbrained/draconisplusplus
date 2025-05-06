@@ -139,15 +139,12 @@ namespace argparse {
               first = false;
             }
           } else {
-            usize count = 0;
-
             for (const String& elem_repr : transformed_view | std::views::take(repr_max_container_size - 1)) {
               if (!first)
                 result += " ";
 
               result += elem_repr;
               first = false;
-              count++;
             }
 
             result += "... ";
