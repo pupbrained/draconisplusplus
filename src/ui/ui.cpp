@@ -77,8 +77,10 @@ namespace ui {
       auto colorView =
         std::views::iota(0, 16) | std::views::transform([](i32 colorIndex) {
           return ftxui::hbox(
-            { ftxui::text("◯") | ftxui::bold | ftxui::color(static_cast<ftxui::Color::Palette256>(colorIndex)),
-              ftxui::text(" ") }
+            {
+              ftxui::text("◯") | ftxui::bold | ftxui::color(static_cast<ftxui::Color::Palette256>(colorIndex)),
+              ftxui::text(" "),
+            }
           );
         });
 
@@ -104,8 +106,24 @@ namespace ui {
       const String&  name    = config.general.name;
       const Weather& weather = config.weather;
 
-      const auto& [userIcon, paletteIcon, calendarIcon, hostIcon, kernelIcon, osIcon, memoryIcon, weatherIcon, musicIcon, diskIcon, shellIcon, packageIcon, deIcon, wmIcon] =
-        ui::ICON_TYPE;
+      // clang-format off
+      const auto& [
+        userIcon,
+        paletteIcon,
+        calendarIcon,
+        hostIcon,
+        kernelIcon,
+        osIcon,
+        memoryIcon,
+        weatherIcon,
+        diskIcon,
+        shellIcon,
+        packageIcon,
+        deIcon,
+        wmIcon,
+        musicIcon
+      ] = ui::ICON_TYPE;
+      // clang-format on
 
       std::vector<RowInfo> initialRows;    // Date, Weather
       std::vector<RowInfo> systemInfoRows; // Host, Kernel, OS, RAM, Disk, Shell, Packages
@@ -115,10 +133,12 @@ namespace ui {
         initialRows.push_back({ .icon = calendarIcon, .label = "Date", .value = *data.date });
 
       if (weather.enabled && data.weather) {
-        const weather::Output& weatherInfo  = *data.weather;
-        String                 weatherValue = weather.showTownName
-                          ? std::format("{}°F in {}", std::lround(weatherInfo.main.temp), weatherInfo.name)
-                          : std::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description);
+        const weather::Output& weatherInfo = *data.weather;
+
+        String weatherValue = weather.showTownName
+          ? std::format("{}°F in {}", std::lround(weatherInfo.main.temp), weatherInfo.name)
+          : std::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description);
+
         initialRows.push_back({ .icon = weatherIcon, .label = "Weather", .value = std::move(weatherValue) });
       } else if (weather.enabled && !data.weather.has_value())
         debug_at(data.weather.error());
@@ -133,9 +153,7 @@ namespace ui {
         systemInfoRows.push_back({ .icon = kernelIcon, .label = "Kernel", .value = *data.kernelVersion });
 
       if (data.memInfo)
-        systemInfoRows.push_back(
-          { .icon = memoryIcon, .label = "RAM", .value = std::format("{}", BytesToGiB { *data.memInfo }) }
-        );
+        systemInfoRows.push_back({ .icon = memoryIcon, .label = "RAM", .value = std::format("{}", BytesToGiB { *data.memInfo }) });
       else if (!data.memInfo.has_value())
         debug_at(data.memInfo.error());
 
@@ -144,8 +162,7 @@ namespace ui {
           {
             .icon  = diskIcon,
             .label = "Disk",
-            .value =
-              std::format("{}/{}", BytesToGiB { data.diskUsage->usedBytes }, BytesToGiB { data.diskUsage->totalBytes }),
+            .value = std::format("{}/{}", BytesToGiB { data.diskUsage->usedBytes }, BytesToGiB { data.diskUsage->totalBytes }),
           }
         );
 
@@ -154,9 +171,7 @@ namespace ui {
 
       if (data.packageCount) {
         if (*data.packageCount > 0)
-          systemInfoRows.push_back(
-            { .icon = packageIcon, .label = "Packages", .value = std::format("{}", *data.packageCount) }
-          );
+          systemInfoRows.push_back({ .icon = packageIcon, .label = "Packages", .value = std::format("{}", *data.packageCount) });
         else
           debug_log("Package count is 0, skipping");
       }
@@ -184,13 +199,11 @@ namespace ui {
 
       usize maxContentWidth = 0;
 
-      const usize greetingWidth = get_visual_width_sv(userIcon) + get_visual_width_sv("Hello ") + get_visual_width(name) +
-        get_visual_width_sv("! ");
-      maxContentWidth = std::max(maxContentWidth, greetingWidth);
+      const usize greetingWidth = get_visual_width_sv(userIcon) + get_visual_width_sv("Hello ") + get_visual_width(name) + get_visual_width_sv("! ");
+      maxContentWidth           = std::max(maxContentWidth, greetingWidth);
 
-      const usize paletteWidth =
-        get_visual_width_sv(userIcon) + (16 * (get_visual_width_sv("◯") + get_visual_width_sv(" ")));
-      maxContentWidth = std::max(maxContentWidth, paletteWidth);
+      const usize paletteWidth = get_visual_width_sv(userIcon) + (16 * (get_visual_width_sv("◯") + get_visual_width_sv(" ")));
+      maxContentWidth          = std::max(maxContentWidth, paletteWidth);
 
       const usize iconActualWidth = get_visual_width_sv(userIcon);
 
@@ -228,8 +241,7 @@ namespace ui {
       i32 paragraphLimit = 1;
 
       if (nowPlayingActive) {
-        i32 availableForParagraph =
-          static_cast<i32>(targetBoxWidth) - static_cast<i32>(npFixedWidthLeft) - static_cast<i32>(npFixedWidthRight);
+        i32 availableForParagraph = static_cast<i32>(targetBoxWidth) - static_cast<i32>(npFixedWidthLeft) - static_cast<i32>(npFixedWidthRight);
 
         availableForParagraph -= 2;
 

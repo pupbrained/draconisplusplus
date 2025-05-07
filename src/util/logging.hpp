@@ -5,7 +5,6 @@
 #include <filesystem>             // std::filesystem::path
 #include <format>                 // std::format
 #include <ftxui/screen/color.hpp> // ftxui::Color
-#include <mutex>                  // std::{mutex, lock_guard}
 #include <utility>                // std::forward
 
 #ifdef __cpp_lib_print
@@ -21,8 +20,6 @@
 #include "src/util/defs.hpp"
 #include "src/util/error.hpp"
 #include "src/util/types.hpp"
-
-#include "ftxui/dom/elements.hpp"
 
 namespace util::logging {
   using types::usize, types::u8, types::i32, types::i64, types::CStr, types::String, types::StringView, types::Array,

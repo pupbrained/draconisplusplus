@@ -13,21 +13,26 @@
 #include "src/util/error.hpp"
 #include "src/util/types.hpp"
 
+#include "include/matchit.hpp"
+
 using util::error::DracError, util::error::DracErrorCode;
 
 namespace {
   using util::types::i32, util::types::CStr;
 
   fn getOrdinalSuffix(const i32 day) -> CStr {
+    using matchit::match, matchit::is, matchit::_, matchit::within;
+
     if (day >= 11 && day <= 13)
       return "th";
 
-    switch (day % 10) {
-      case 1:  return "st";
-      case 2:  return "nd";
-      case 3:  return "rd";
-      default: return "th";
-    }
+    return match(day % 10)(
+      is | within(11, 13) = "th",
+      is | 1              = "st",
+      is | 2              = "nd",
+      is | 3              = "rd",
+      is | _              = "th"
+    );
   }
 
   fn getDate() -> Result<String> {

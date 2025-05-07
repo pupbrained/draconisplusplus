@@ -76,8 +76,7 @@ namespace {
   }
 
   template <usize sz>
-  fn FindShellInProcessTree(const DWORD startPid, const Array<Pair<StringView, StringView>, sz>& shellMap)
-    -> Option<String> {
+  fn FindShellInProcessTree(const DWORD startPid, const Array<Pair<StringView, StringView>, sz>& shellMap) -> Option<String> {
     if (startPid == 0)
       return None;
 

@@ -1701,8 +1701,7 @@ namespace argparse {
       }
 
       if (m_is_optional) {
-        // TODO: check if an implicit value was programmed for this argument
-        if (!m_is_used && !m_default_value.has_value() && m_is_required)
+        if (!m_is_used && !m_default_value.has_value() && !m_implicit_value.has_value() && m_is_required)
           return Err(DracError(DracErrorCode::InvalidArgument, std::format("Required argument '{}' was not provided", m_names[0])));
 
         if (m_is_used && m_is_required && m_values.empty())
