@@ -47,7 +47,6 @@
 
 #ifndef ARGPARSE_MODULE_USE_STD_MODULE
   #include <algorithm>
-  #include <any>
   #include <array>
   #include <charconv>
   #include <cstdlib>
@@ -68,6 +67,7 @@
   #include <string_view>
   #include <tuple>
   #include <type_traits>
+  #include <unordered_set>
   #include <utility>
   #include <variant>
   #include <vector>
@@ -94,6 +94,17 @@
 namespace argparse {
   using namespace util::types;
   using util::error::DracError, util::error::DracErrorCode;
+
+  using ArgValue = std::variant<
+    bool,
+    int,
+    double,
+    String,
+    std::filesystem::path,
+    Vec<String>,
+    Vec<int>,
+    std::set<String>,
+    std::set<int>>;
 
   namespace details {
     /**
@@ -965,7 +976,7 @@ namespace argparse {
      * @param value The implicit value to use when the argument is present but no value is provided
      * @return Reference to this argument for method chaining
      */
-    fn implicit_value(std::any value) -> Argument& {
+    fn implicit_value(ArgValue value) -> Argument& {
       m_implicit_value = std::move(value);
       m_num_args_range = NArgsRange { 0, 0 };
       return *this;
@@ -1014,13 +1025,13 @@ namespace argparse {
         );
       } else if constexpr (argparse::details::is_specialization_v<RawReturnType, Result>) {
         m_actions.emplace_back<valued_action>(
-          [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<std::any> {
+          [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<ArgValue> {
             RawReturnType result = details::apply_plus_one(f, tup, opt);
             if (result) {
               if constexpr (!std::is_void_v<typename RawReturnType::value_type>) {
                 return result.value();
               } else {
-                return std::any {};
+                return ArgValue {};
               }
             } else {
               return Err(result.error());
@@ -1029,7 +1040,7 @@ namespace argparse {
         );
       } else {
         m_actions.emplace_back<valued_action>(
-          [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<std::any> {
+          [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<ArgValue> {
             return details::apply_plus_one(f, tup, opt);
           }
         );
@@ -1049,7 +1060,7 @@ namespace argparse {
         flag();
 
       if (m_default_value.has_value())
-        var = std::any_cast<bool>(m_default_value);
+        var = std::get<bool>(m_default_value.value());
 
       action([&var](const String& /*unused*/) -> Result<bool> {
         var = true;
@@ -1070,7 +1081,7 @@ namespace argparse {
       requires(std::is_integral_v<T>)
     {
       if (m_default_value.has_value())
-        var = std::any_cast<T>(m_default_value);
+        var = std::get<T>(m_default_value.value());
 
       action([&var](const auto& s) -> Result<T> {
         Result<T> result = details::parse_number<T, details::radix_10>()(s);
@@ -1096,7 +1107,7 @@ namespace argparse {
       requires(std::is_floating_point_v<T>)
     {
       if (m_default_value.has_value())
-        var = std::any_cast<T>(m_default_value);
+        var = std::get<T>(m_default_value.value());
 
       action([&var](const auto& s) -> Result<T> {
         Result<T> result = details::parse_number<T, details::chars_format::general>()(s);
@@ -1119,7 +1130,7 @@ namespace argparse {
     fn store_into(String& var)
       -> Argument& {
       if (m_default_value.has_value())
-        var = std::any_cast<String>(m_default_value);
+        var = std::get<String>(m_default_value.value());
 
       action([&var](const String& s) -> Result<String> {
         var = s;
@@ -1136,7 +1147,7 @@ namespace argparse {
      */
     fn store_into(std::filesystem::path& var) -> Argument& {
       if (m_default_value.has_value())
-        var = std::any_cast<std::filesystem::path>(m_default_value);
+        var = std::get<std::filesystem::path>(m_default_value.value());
 
       action([&var](const String& s) -> Result<std::filesystem::path> {
         var = s;
@@ -1153,7 +1164,7 @@ namespace argparse {
      */
     fn store_into(Vec<String>& var) -> Argument& {
       if (m_default_value.has_value())
-        var = std::any_cast<Vec<String>>(m_default_value);
+        var = std::get<Vec<String>>(m_default_value.value());
 
       action([this, &var](const String& s) -> Result<Vec<String>> {
         if (!m_is_used)
@@ -1174,7 +1185,7 @@ namespace argparse {
      */
     fn store_into(Vec<int>& var) -> Argument& {
       if (m_default_value.has_value())
-        var = std::any_cast<Vec<int>>(m_default_value);
+        var = std::get<Vec<int>>(m_default_value.value());
 
       action([this, &var](const String& s) -> Result<Vec<int>> {
         if (!m_is_used)
@@ -1201,7 +1212,7 @@ namespace argparse {
      */
     fn store_into(std::set<String>& var) -> Argument& {
       if (m_default_value.has_value())
-        var = std::any_cast<std::set<String>>(m_default_value);
+        var = std::get<std::set<String>>(m_default_value.value());
 
       action([this, &var](const String& s) -> Result<std::set<String>> {
         if (!m_is_used)
@@ -1222,7 +1233,7 @@ namespace argparse {
      */
     fn store_into(std::set<int>& var) -> Argument& {
       if (m_default_value.has_value())
-        var = std::any_cast<std::set<int>>(m_default_value);
+        var = std::get<std::set<int>>(m_default_value.value());
 
       action([this, &var](const String& s) -> Result<std::set<int>> {
         if (!m_is_used)
@@ -1433,12 +1444,12 @@ namespace argparse {
       static_assert(details::IsChoiceTypeSupported<T>::value, "Only string or integer type supported for choice");
       static_assert(std::is_convertible_v<T, StringView> || details::can_invoke_to_string<T>::value, "Choice is not convertible to string_type");
       if (!m_choices.has_value())
-        m_choices = Vec<String> {};
+        m_choices = std::unordered_set<String> {};
 
       if constexpr (std::is_convertible_v<T, StringView>)
-        m_choices.value().emplace_back(StringView { std::forward<T>(choice) });
+        m_choices.value().insert(String(StringView { std::forward<T>(choice) }));
       else if constexpr (details::can_invoke_to_string<T>::value)
-        m_choices.value().push_back(std::to_string(std::forward<T>(choice)));
+        m_choices.value().insert(std::to_string(std::forward<T>(choice)));
     }
 
     /**
@@ -1478,10 +1489,10 @@ namespace argparse {
      */
     [[nodiscard]] fn find_default_value_in_choices() const -> Result<> {
       assert(m_choices.has_value());
-      const Vec<std::string>& choices = m_choices.value();
+      const auto& choices = m_choices.value();
 
       if (m_default_value.has_value()) {
-        if (std::ranges::find(choices, m_default_value_str.value_or("")) == choices.end()) {
+        if (choices.find(m_default_value_str.value_or("")) == choices.end()) {
           const String choices_as_csv =
             std::accumulate(choices.begin(), choices.end(), String(), [](const String& a, const String& b) {
               return a + (a.empty() ? "" : ", ") + b;
@@ -1503,9 +1514,9 @@ namespace argparse {
     template <typename Iterator>
     [[nodiscard]] fn is_value_in_choices(Iterator option_it) const -> bool {
       assert(m_choices.has_value());
-      const Vec<std::string>& choices = m_choices.value();
+      const auto& choices = m_choices.value();
 
-      return (std::find(choices.begin(), choices.end(), *option_it) != choices.end());
+      return (choices.find(*option_it) != choices.end());
     }
 
     /**
@@ -1561,14 +1572,15 @@ namespace argparse {
 
       if (num_args_max == 0) {
         if (!dry_run) {
-          m_values.emplace_back(m_implicit_value);
+          if (m_implicit_value.has_value())
+            m_values.emplace_back(*m_implicit_value);
 
           for (usize i = 0; i < m_actions.size(); ++i) {
             auto&    action = m_actions[i];
             Result<> action_call_result;
             std::visit([&](auto& f) {
-              if constexpr (std::is_same_v<decltype(f({})), Result<std::any>>) {
-                Result<std::any> valued_result = f({});
+              if constexpr (std::is_same_v<decltype(f({})), Result<ArgValue>>) {
+                Result<ArgValue> valued_result = f({});
                 if (!valued_result)
                   action_call_result = Err(valued_result.error());
               } else {
@@ -1583,8 +1595,8 @@ namespace argparse {
           if (m_actions.empty()) {
             Result<> action_call_result;
             std::visit([&](auto& f) {
-              if constexpr (std::is_same_v<decltype(f({})), Result<std::any>>) {
-                Result<std::any> valued_result = f({});
+              if constexpr (std::is_same_v<decltype(f({})), Result<ArgValue>>) {
+                Result<ArgValue> valued_result = f({});
                 if (!valued_result)
                   action_call_result = Err(valued_result.error());
               } else {
@@ -1623,7 +1635,7 @@ namespace argparse {
 
           fn operator()(valued_action& f)->Result<> {
             for (auto it_arg = first; it_arg != last; ++it_arg) {
-              Result<std::any> res = f(*it_arg);
+              Result<ArgValue> res = f(*it_arg);
               if (!res)
                 return Err(res.error());
               self->m_values.push_back(res.value());
@@ -1724,26 +1736,26 @@ namespace argparse {
       }
 
       if (m_choices.has_value()) {
-        const Vec<String>& choices = m_choices.value();
+        const auto& choices = m_choices.value();
 
         if (m_default_value.has_value())
-          if (const String& default_val_str = m_default_value_str.value(); std::ranges::find(choices, default_val_str) == choices.end()) {
+          if (const String& default_val_str = m_default_value_str.value(); choices.find(default_val_str) == choices.end()) {
             const String choices_as_csv = std::accumulate(
               choices.begin(), choices.end(), String(), [](const String& option_a, const String& option_b) -> String { return option_a + (option_a.empty() ? "" : ", ") + option_b; }
             );
             return Err(DracError(DracErrorCode::InvalidArgument, std::format("Default value '{}' is not in the allowed choices: {{{}}}", default_val_str, choices_as_csv)));
           }
 
-        for (const auto& value_any : m_values) {
-          if (value_any.type() != typeid(String))
-            return Err(DracError(DracErrorCode::InvalidArgument, std::format("Invalid argument type for choice validation - expected string, got '{}'", value_any.type().name())));
+        for (const auto& value : m_values) {
+          if (value.index() != typeid(String).hash_code())
+            return Err(DracError(DracErrorCode::InvalidArgument, std::format("Invalid argument type for choice validation - expected string, got '{}'", typeid(value).name())));
 
-          if (const String& value = std::any_cast<const String&>(value_any); std::ranges::find(choices, value) == choices.end()) {
+          if (const String& value_str = std::get<String>(value); choices.find(value_str) == choices.end()) {
             const String choices_as_csv = std::accumulate(
               choices.begin(), choices.end(), String(), [](const String& option_a, const String& option_b) -> String { return std::format("{}{}{}", option_a, option_a.empty() ? "" : ", ", option_b); }
             );
 
-            return Err(DracError(DracErrorCode::InvalidArgument, std::format("Invalid argument '{}' - allowed options: {{{}}}", value, choices_as_csv)));
+            return Err(DracError(DracErrorCode::InvalidArgument, std::format("Invalid argument '{}' - allowed options: {{{}}}", details::repr(value), choices_as_csv)));
           }
         }
       }
@@ -2250,9 +2262,9 @@ namespace argparse {
       if (!m_values.empty()) {
         try {
           if constexpr (details::IsContainer<T>)
-            return any_cast_container<T>(m_values);
+            return argvalue_cast_container<T>(m_values);
           else
-            return std::any_cast<T>(m_values.front());
+            return std::get<T>(m_values.front());
         } catch (const std::bad_any_cast& e) {
           return Err(DracError(DracErrorCode::InternalError, std::format("Bad any_cast for value in get(): {}", e.what())));
         }
@@ -2260,7 +2272,7 @@ namespace argparse {
 
       if (m_default_value.has_value()) {
         try {
-          return std::any_cast<T>(m_default_value);
+          return std::get<T>(m_default_value.value());
         } catch (const std::bad_any_cast& e) {
           return Err(DracError(DracErrorCode::InternalError, std::format("Bad any_cast for default_value in get(): {}", e.what())));
         }
@@ -2288,9 +2300,9 @@ namespace argparse {
 
       try {
         if constexpr (details::IsContainer<T>)
-          return any_cast_container<T>(m_values);
+          return argvalue_cast_container<T>(m_values);
         else
-          return std::any_cast<T>(m_values.front());
+          return std::get<T>(m_values.front());
       } catch (const std::bad_any_cast& e) {
         return Err(DracError(DracErrorCode::InternalError, std::format("Bad any_cast in present(): {}", e.what())));
       }
@@ -2303,13 +2315,13 @@ namespace argparse {
      * @return Container of the specified type
      */
     template <typename T>
-    static fn any_cast_container(const Vec<std::any>& operand) -> T {
+    static fn argvalue_cast_container(const Vec<ArgValue>& operand) -> T {
       using ValueType = typename T::value_type;
 
       T result;
 
       std::transform(
-        std::begin(operand), std::end(operand), std::back_inserter(result), [](const auto& value) { return std::any_cast<ValueType>(value); }
+        std::begin(operand), std::end(operand), std::back_inserter(result), [](const auto& value) { return std::get<ValueType>(value); }
       );
 
       return result;
@@ -2354,7 +2366,7 @@ namespace argparse {
     /**
      * @brief Default value for this argument if none is provided
      */
-    std::any m_default_value;
+    std::optional<ArgValue> m_default_value;
 
     /**
      * @brief String representation of the default value for display in help messages
@@ -2369,17 +2381,17 @@ namespace argparse {
     /**
      * @brief Value to use when the argument is present but no value is provided
      */
-    std::any m_implicit_value;
+    std::optional<ArgValue> m_implicit_value;
 
     /**
      * @brief Optional list of allowed values for this argument
      */
-    Option<Vec<String>> m_choices { std::nullopt };
+    Option<std::unordered_set<String>> m_choices { std::nullopt };
 
     /**
      * @brief Type alias for action that returns a value
      */
-    using valued_action = std::function<Result<std::any>(const String&)>;
+    using valued_action = std::function<Result<ArgValue>(const String&)>;
 
     /**
      * @brief Type alias for action that returns void
@@ -2396,13 +2408,13 @@ namespace argparse {
      */
     std::variant<valued_action, void_action> m_default_action {
       std::in_place_type<valued_action>,
-      [](const String& value) -> Result<std::any> { return value; }
+      [](const String& value) -> Result<ArgValue> { return value; }
     };
 
     /**
      * @brief List of values provided for this argument
      */
-    Vec<std::any> m_values;
+    Vec<ArgValue> m_values;
 
     /**
      * @brief Range specifying the allowed number of arguments
@@ -2789,9 +2801,9 @@ namespace argparse {
           const usize size = group.m_elements.size();
           for (const Argument* arg : group.m_elements) {
             if (i + 1 == size)
-              argument_names += String("'") + arg->get_usage_full() + String("' ");
+              argument_names += std::format("'{}' ", arg->get_usage_full());
             else
-              argument_names += String("'") + arg->get_usage_full() + String("' or ");
+              argument_names += std::format("'{}' or ", arg->get_usage_full());
             i += 1;
           }
           return Err(DracError(DracErrorCode::InvalidArgument, std::format("One of the arguments {}is required", argument_names)));
@@ -2983,12 +2995,12 @@ namespace argparse {
 
         const String prefix = String(1, legal_prefix_char);
 
-        name = prefix + String(arg_name);
+        name = std::format("{}{}", prefix, arg_name);
         it   = m_argument_map.find(name);
         if (it != m_argument_map.end())
           return &(*(it->second));
 
-        name = prefix + name;
+        name = std::format("{}{}", prefix, name);
         it   = m_argument_map.find(name);
 
         if (it != m_argument_map.end())
