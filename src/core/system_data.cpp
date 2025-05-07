@@ -23,9 +23,6 @@ namespace {
   fn getOrdinalSuffix(const i32 day) -> CStr {
     using matchit::match, matchit::is, matchit::_, matchit::within;
 
-    if (day >= 11 && day <= 13)
-      return "th";
-
     return match(day % 10)(
       is | within(11, 13) = "th",
       is | 1              = "st",
