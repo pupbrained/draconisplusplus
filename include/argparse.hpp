@@ -41,7 +41,6 @@
   #include <cstdlib>
   #include <filesystem>
   #include <functional>
-  #include <iomanip>
   #include <iostream>
   #include <iterator>
   #include <limits>
@@ -63,7 +62,7 @@
 #endif
 
 #include "src/util/defs.hpp"
-#include "src/util/error.hpp" // Added for Result type
+#include "src/util/error.hpp"
 #include "src/util/types.hpp"
 
 #ifndef ARGPARSE_CUSTOM_STRTOF
@@ -79,11 +78,12 @@
 #endif
 
 // ReSharper disable CppTemplateParameterNeverUsed, CppDFATimeOver
-// NOLINTBEGIN(readability-identifier-naming, readability-identifier-length)
+// NOLINTBEGIN(readability-identifier-naming, readability-identifier-length, modernize-use-nullptr)
 namespace argparse {
   using namespace util::types;
+  using util::error::DracError, util::error::DracErrorCode;
 
-  namespace details { // namespace for helper methods
+  namespace details {
     template <typename T, typename = void>
     struct HasContainerTraits : std::false_type {};
 
@@ -241,17 +241,16 @@ namespace argparse {
         if (ptr == last)
           return x;
 
-        return Err(util::error::DracError(util::error::DracErrorCode::ParseError, std::format("pattern '{}' does not match to the end", String(s))));
+        return Err(DracError(DracErrorCode::ParseError, std::format("pattern '{}' does not match to the end", String(s))));
       }
 
       if (ec == std::errc::invalid_argument)
-        return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, std::format("pattern '{}' not found", String(s))));
+        return Err(DracError(DracErrorCode::InvalidArgument, std::format("pattern '{}' not found", String(s))));
 
       if (ec == std::errc::result_out_of_range)
-        return Err(util::error::DracError(util::error::DracErrorCode::ParseError, std::format("'{}' not representable", String(s))));
+        return Err(DracError(DracErrorCode::ParseError, std::format("'{}' not representable", String(s))));
 
-      // Should be unreachable, but handle potential unknown error codes
-      return Err(util::error::DracError(util::error::DracErrorCode::InternalError, std::format("Unknown parsing error for '{}'", String(s))));
+      return Err(DracError(DracErrorCode::InternalError, std::format("Unknown parsing error for '{}'", String(s))));
     }
 
     template <class T, auto Param = 0>
@@ -267,7 +266,7 @@ namespace argparse {
         if (auto [ok, rest] = consume_binary_prefix(s); ok)
           return do_from_chars<T, radix_2>(rest);
 
-        return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "pattern not found"));
+        return Err(DracError(DracErrorCode::InvalidArgument, "pattern not found"));
       }
     };
 
@@ -280,12 +279,12 @@ namespace argparse {
           if (auto [ok, rest] = consume_hex_prefix(s); ok)
             result = do_from_chars<T, radix_16>(rest);
           else
-            return Err(util::error::DracError(util::error::DracErrorCode::InternalError, std::format("Inconsistent hex prefix detection for '{}'", String(s))));
+            return Err(DracError(DracErrorCode::InternalError, std::format("Inconsistent hex prefix detection for '{}'", String(s))));
         } else
           result = do_from_chars<T, radix_16>(s);
 
         if (!result)
-          return Err(util::error::DracError(result.error().code, std::format("Failed to parse '{}' as hexadecimal: {}", String(s), result.error().message)));
+          return Err(DracError(result.error().code, std::format("Failed to parse '{}' as hexadecimal: {}", String(s), result.error().message)));
 
         return result;
       }
@@ -298,7 +297,7 @@ namespace argparse {
           Result<T> result = do_from_chars<T, radix_16>(rest);
 
           if (!result)
-            return Err(util::error::DracError(result.error().code, std::format("Failed to parse '{}' as hexadecimal: {}", String(s), result.error().message)));
+            return Err(DracError(result.error().code, std::format("Failed to parse '{}' as hexadecimal: {}", String(s), result.error().message)));
 
           return result;
         }
@@ -307,25 +306,24 @@ namespace argparse {
           Result<T> result = do_from_chars<T, radix_2>(rest_binary);
 
           if (!result)
-            return Err(util::error::DracError(result.error().code, std::format("Failed to parse '{}' as binary: {}", String(s), result.error().message)));
+            return Err(DracError(result.error().code, std::format("Failed to parse '{}' as binary: {}", String(s), result.error().message)));
 
           return result;
         }
 
-        // Note: consume_hex_prefix already removed the prefix if present, so 'rest' is correct here for octal/decimal check.
-        if (starts_with("0"sv, s)) {                       // Check original string for octal prefix
-          Result<T> result = do_from_chars<T, radix_8>(s); // Pass original string for octal
+        if (starts_with("0"sv, s)) {
+          Result<T> result = do_from_chars<T, radix_8>(s);
 
           if (!result)
-            return Err(util::error::DracError(result.error().code, std::format("Failed to parse '{}' as octal: {}", String(s), result.error().message)));
+            return Err(DracError(result.error().code, std::format("Failed to parse '{}' as octal: {}", String(s), result.error().message)));
 
           return result;
         }
 
-        Result<T> result = do_from_chars<T, radix_10>(s); // Pass original string for decimal
+        Result<T> result = do_from_chars<T, radix_10>(s);
 
         if (!result)
-          return Err(util::error::DracError(result.error().code, std::format("Failed to parse '{}' as decimal integer: {}", String(s), result.error().message)));
+          return Err(DracError(result.error().code, std::format("Failed to parse '{}' as decimal integer: {}", String(s), result.error().message)));
 
         return result;
       }
@@ -343,7 +341,7 @@ namespace argparse {
     template <class T>
     fn do_strtod(const String& s) -> Result<T> {
       if (isspace(static_cast<unsigned char>(s[0])) || s[0] == '+')
-        return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, std::format("pattern '{}' not found", s)));
+        return Err(DracError(DracErrorCode::InvalidArgument, std::format("pattern '{}' not found", s)));
 
       auto [first, last] = pointer_range(s);
 
@@ -357,28 +355,27 @@ namespace argparse {
         if (ptr == last)
           return x;
 
-        return Err(util::error::DracError(util::error::DracErrorCode::ParseError, std::format("pattern '{}' does not match to the end", s)));
+        return Err(DracError(DracErrorCode::ParseError, std::format("pattern '{}' does not match to the end", s)));
       }
 
       if (errno == ERANGE)
-        return Err(util::error::DracError(util::error::DracErrorCode::ParseError, std::format("'{}' not representable", s)));
+        return Err(DracError(DracErrorCode::ParseError, std::format("'{}' not representable", s)));
 
-      // Handle other potential errno values
-      return Err(util::error::DracError(std::error_code(errno, std::system_category())));
+      return Err(DracError(std::error_code(errno, std::system_category())));
     }
 
     template <class T>
     struct parse_number<T, chars_format::general> {
       fn operator()(const String& s)->Result<T> {
         if (auto [is_hex, rest] = consume_hex_prefix(s); is_hex)
-          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::general does not parse hexfloat"));
+          return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::general does not parse hexfloat"));
 
         if (auto [is_bin, rest] = consume_binary_prefix(s); is_bin)
-          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::general does not parse binfloat"));
+          return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::general does not parse binfloat"));
 
         Result<T> result = do_strtod<T>(s);
         if (!result)
-          return Err(util::error::DracError(result.error().code, std::format("Failed to parse '{}' as number: {}", s, result.error().message)));
+          return Err(DracError(result.error().code, std::format("Failed to parse '{}' as number: {}", s, result.error().message)));
         return result;
       }
     };
@@ -387,14 +384,14 @@ namespace argparse {
     struct parse_number<T, chars_format::hex> {
       fn operator()(const String& s)->Result<T> {
         if (auto [is_hex, rest] = consume_hex_prefix(s); !is_hex)
-          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::hex requires hexfloat format (e.g., 0x1.2p3)"));
+          return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::hex requires hexfloat format (e.g., 0x1.2p3)"));
 
         if (auto [is_bin, rest] = consume_binary_prefix(s); is_bin)
-          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::hex does not parse binfloat"));
+          return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::hex does not parse binfloat"));
 
         Result<T> result = do_strtod<T>(s);
         if (!result)
-          return Err(util::error::DracError(result.error().code, std::format("Failed to parse '{}' as hexadecimal float: {}", s, result.error().message)));
+          return Err(DracError(result.error().code, std::format("Failed to parse '{}' as hexadecimal float: {}", s, result.error().message)));
         return result;
       }
     };
@@ -403,14 +400,14 @@ namespace argparse {
     struct parse_number<T, chars_format::binary> {
       fn operator()(const String& s)->Result<T> {
         if (auto [is_hex, rest] = consume_hex_prefix(s); is_hex)
-          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::binary does not parse hexfloat"));
+          return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::binary does not parse hexfloat"));
 
         if (auto [is_bin, rest] = consume_binary_prefix(s); !is_bin)
-          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::binary requires binfloat format (e.g., 0b1.01p2)"));
+          return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::binary requires binfloat format (e.g., 0b1.01p2)"));
 
         Result<T> result = do_strtod<T>(s);
         if (!result)
-          return Err(util::error::DracError(result.error().code, std::format("Failed to parse '{}' as binary float: {}", s, result.error().message)));
+          return Err(DracError(result.error().code, std::format("Failed to parse '{}' as binary float: {}", s, result.error().message)));
         return result;
       }
     };
@@ -419,18 +416,18 @@ namespace argparse {
     struct parse_number<T, chars_format::scientific> {
       fn operator()(const String& s)->Result<T> {
         if (const auto [is_hex, rest] = consume_hex_prefix(s); is_hex)
-          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::scientific does not parse hexfloat"));
+          return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::scientific does not parse hexfloat"));
 
         if (const auto [is_bin, rest] = consume_binary_prefix(s); is_bin)
-          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::scientific does not parse binfloat"));
+          return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::scientific does not parse binfloat"));
 
         if (s.find_first_of("eE") == String::npos)
-          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::scientific requires exponent part"));
+          return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::scientific requires exponent part"));
 
         Result<T> result = do_strtod<T>(s);
 
         if (!result)
-          return Err(util::error::DracError(result.error().code, std::format("Failed to parse '{}' as scientific notation: {}", s, result.error().message)));
+          return Err(DracError(result.error().code, std::format("Failed to parse '{}' as scientific notation: {}", s, result.error().message)));
 
         return result;
       }
@@ -440,18 +437,18 @@ namespace argparse {
     struct parse_number<T, chars_format::fixed> {
       fn operator()(const String& s)->Result<T> {
         if (const auto [is_hex, rest] = consume_hex_prefix(s); is_hex)
-          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::fixed does not parse hexfloat"));
+          return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::fixed does not parse hexfloat"));
 
         if (const auto [is_bin, rest] = consume_binary_prefix(s); is_bin)
-          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::fixed does not parse binfloat"));
+          return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::fixed does not parse binfloat"));
 
         if (s.find_first_of("eE") != String::npos)
-          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, "chars_format::fixed does not parse exponent part"));
+          return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::fixed does not parse exponent part"));
 
         Result<T> result = do_strtod<T>(s);
 
         if (!result)
-          return Err(util::error::DracError(result.error().code, std::format("Failed to parse '{}' as fixed notation: {}", s, result.error().message)));
+          return Err(DracError(result.error().code, std::format("Failed to parse '{}' as fixed notation: {}", s, result.error().message)));
 
         return result;
       }
@@ -538,6 +535,14 @@ namespace argparse {
       return most_similar;
     }
 
+    template <typename Test, template <typename...> class Ref>
+    struct is_specialization : std::false_type {};
+
+    template <template <typename...> class Ref, typename... Args>
+    struct is_specialization<Ref<Args...>, Ref> : std::true_type {};
+
+    template <typename Test, template <typename...> class Ref>
+    inline constexpr bool is_specialization_v = is_specialization<Test, Ref>::value;
   } // namespace details
 
   enum class nargs_pattern : u8 {
@@ -640,30 +645,58 @@ namespace argparse {
 
     template <class F, class... Args>
     fn action(F&& callable, Args&&... bound_args)
-      -> Argument& requires(std::is_invocable_v<F, Args..., const String>) {
-        using action_type = std::conditional_t<std::is_void_v<std::invoke_result_t<F, Args..., const String>>, void_action, valued_action>;
+      -> Argument&
+      requires(std::is_invocable_v<F, Args..., const String>)
+    {
+      using RawReturnType = std::invoke_result_t<F, Args..., const String>;
 
-        if constexpr (sizeof...(Args) == 0)
-          m_actions.emplace_back<action_type>(std::forward<F>(callable));
-        else
-          m_actions.emplace_back<action_type>(
-            [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable {
-              return details::apply_plus_one(f, tup, opt);
+      if constexpr (std::is_void_v<RawReturnType>) {
+        m_actions.emplace_back<void_action>(
+          [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<void> {
+            details::apply_plus_one(f, tup, opt);
+            return {};
+          }
+        );
+      } else if constexpr (argparse::details::is_specialization_v<RawReturnType, Result> && std::is_void_v<typename RawReturnType::value_type>) {
+        m_actions.emplace_back<void_action>(
+          [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<void> {
+            return details::apply_plus_one(f, tup, opt);
+          }
+        );
+      } else if constexpr (argparse::details::is_specialization_v<RawReturnType, Result>) {
+        m_actions.emplace_back<valued_action>(
+          [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<std::any> {
+            RawReturnType result = details::apply_plus_one(f, tup, opt);
+            if (result) {
+              if constexpr (!std::is_void_v<typename RawReturnType::value_type>) {
+                return result.value();
+              } else {
+                return std::any {};
+              }
+            } else {
+              return Err(result.error());
             }
-          );
-
-        return *this;
+          }
+        );
+      } else {
+        m_actions.emplace_back<valued_action>(
+          [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<std::any> {
+            return details::apply_plus_one(f, tup, opt);
+          }
+        );
       }
+      return *this;
+    }
 
     fn store_into(bool& var)
-      ->Argument& {
+      -> Argument& {
       if ((!m_default_value.has_value()) && (!m_implicit_value.has_value()))
         flag();
 
       if (m_default_value.has_value())
         var = std::any_cast<bool>(m_default_value);
 
-      action([&var](const String& /*unused*/) {
+      action([&var](const String& /*unused*/) -> Result<bool> {
         var = true;
         return var;
       });
@@ -672,49 +705,53 @@ namespace argparse {
     }
 
     template <typename T>
-    fn store_into(T& var) -> Argument& requires(std::is_integral_v<T>) {
+    fn store_into(T& var) -> Argument&
+      requires(std::is_integral_v<T>)
+    {
       if (m_default_value.has_value())
         var = std::any_cast<T>(m_default_value);
 
-      action([&var](const auto& s) {
+      action([&var](const auto& s) -> Result<T> {
         Result<T> result = details::parse_number<T, details::radix_10>()(s);
 
         if (!result)
-          throw std::runtime_error(std::format("Failed to parse '{}' as decimal integer: {}", s, result.error().message));
+          return Err(DracError(result.error().code, std::format("Failed to parse '{}' as decimal integer: {}", s, result.error().message)));
 
         var = *result;
-        return var;
+        return result;
       });
 
       return *this;
     }
 
     template <typename T>
-    fn store_into(T& var)->Argument& requires(std::is_floating_point_v<T>) {
+    fn store_into(T& var) -> Argument&
+      requires(std::is_floating_point_v<T>)
+    {
       if (m_default_value.has_value())
         var = std::any_cast<T>(m_default_value);
 
-      action([&var](const auto& s) {
+      action([&var](const auto& s) -> Result<T> {
         Result<T> result = details::parse_number<T, details::chars_format::general>()(s);
 
         if (!result)
-          throw std::runtime_error(std::format("Failed to parse '{}' as number: {}", s, result.error().message));
+          return Err(DracError(result.error().code, std::format("Failed to parse '{}' as number: {}", s, result.error().message)));
 
         var = *result;
-        return var;
+        return result;
       });
 
       return *this;
     }
 
     fn store_into(String& var)
-      ->Argument& {
+      -> Argument& {
       if (m_default_value.has_value())
         var = std::any_cast<String>(m_default_value);
 
-      action([&var](const String& s) {
+      action([&var](const String& s) -> Result<String> {
         var = s;
-        return var;
+        return s;
       });
 
       return *this;
@@ -724,7 +761,10 @@ namespace argparse {
       if (m_default_value.has_value())
         var = std::any_cast<std::filesystem::path>(m_default_value);
 
-      action([&var](const String& s) { var = s; });
+      action([&var](const String& s) -> Result<std::filesystem::path> {
+        var = s;
+        return var;
+      });
 
       return *this;
     }
@@ -733,7 +773,7 @@ namespace argparse {
       if (m_default_value.has_value())
         var = std::any_cast<Vec<String>>(m_default_value);
 
-      action([this, &var](const String& s) {
+      action([this, &var](const String& s) -> Result<Vec<String>> {
         if (!m_is_used)
           var.clear();
 
@@ -749,7 +789,7 @@ namespace argparse {
       if (m_default_value.has_value())
         var = std::any_cast<Vec<int>>(m_default_value);
 
-      action([this, &var](const String& s) {
+      action([this, &var](const String& s) -> Result<Vec<int>> {
         if (!m_is_used)
           var.clear();
 
@@ -758,7 +798,7 @@ namespace argparse {
         Result<int> result = details::parse_number<int, details::radix_10>()(s);
 
         if (!result)
-          throw std::runtime_error(std::format("Failed to parse '{}' as decimal integer for vector: {}", s, result.error().message));
+          return Err(DracError(result.error().code, std::format("Failed to parse '{}' as decimal integer for vector: {}", s, result.error().message)));
 
         var.push_back(*result);
         return var;
@@ -771,7 +811,7 @@ namespace argparse {
       if (m_default_value.has_value())
         var = std::any_cast<std::set<String>>(m_default_value);
 
-      action([this, &var](const String& s) {
+      action([this, &var](const String& s) -> Result<std::set<String>> {
         if (!m_is_used)
           var.clear();
 
@@ -787,7 +827,7 @@ namespace argparse {
       if (m_default_value.has_value())
         var = std::any_cast<std::set<int>>(m_default_value);
 
-      action([this, &var](const String& s) {
+      action([this, &var](const String& s) -> Result<std::set<int>> {
         if (!m_is_used)
           var.clear();
 
@@ -796,7 +836,7 @@ namespace argparse {
         Result<int> result = details::parse_number<int, details::radix_10>()(s);
 
         if (!result)
-          throw std::runtime_error(std::format("Failed to parse '{}' as decimal integer for set: {}", s, result.error().message));
+          return Err(DracError(result.error().code, std::format("Failed to parse '{}' as decimal integer for set: {}", s, result.error().message)));
 
         var.insert(*result);
         return var;
@@ -810,14 +850,15 @@ namespace argparse {
       return *this;
     }
 
-    // Cause the argument to be invisible in usage and help
     fn hidden() -> Argument& {
       m_is_hidden = true;
       return *this;
     }
 
     template <char Shape, typename T>
-    fn scan() -> Argument& requires(std::is_arithmetic_v<T>) {
+    fn scan() -> Argument&
+      requires(std::is_arithmetic_v<T>)
+    {
       static_assert(!(std::is_const_v<T> || std::is_volatile_v<T>), "T should not be cv-qualified");
 
       fn is_one_of = [](char c, auto... x) constexpr {
@@ -825,74 +866,74 @@ namespace argparse {
       };
 
       if constexpr (Shape == 'd' && std::is_integral_v<T>)
-        action([](const String& s) -> T {
+        action([](const String& s) -> Result<T> {
           Result<T> result = details::parse_number<T, details::radix_10>()(s);
           if (!result)
-            throw std::runtime_error(std::format("Failed to parse '{}' as decimal integer (scan 'd'): {}", s, result.error().message));
-          return *result;
+            return Err(DracError(result.error().code, std::format("Failed to parse '{}' as decimal integer (scan 'd'): {}", s, result.error().message)));
+          return result;
         });
       else if constexpr (Shape == 'i' && std::is_integral_v<T>)
-        action([](const String& s) -> T {
+        action([](const String& s) -> Result<T> {
           Result<T> result = details::parse_number<T>()(s);
           if (!result)
-            throw std::runtime_error(std::format("Failed to parse '{}' as integer (scan 'i'): {}", s, result.error().message));
-          return *result;
+            return Err(DracError(result.error().code, std::format("Failed to parse '{}' as integer (scan 'i'): {}", s, result.error().message)));
+          return result;
         });
       else if constexpr (Shape == 'u' && (std::is_integral_v<T> && std::is_unsigned_v<T>))
-        action([](const String& s) -> T {
+        action([](const String& s) -> Result<T> {
           Result<T> result = details::parse_number<T, details::radix_10>()(s);
           if (!result)
-            throw std::runtime_error(std::format("Failed to parse '{}' as unsigned decimal integer (scan 'u'): {}", s, result.error().message));
-          return *result;
+            return Err(DracError(result.error().code, std::format("Failed to parse '{}' as unsigned decimal integer (scan 'u'): {}", s, result.error().message)));
+          return result;
         });
       else if constexpr (Shape == 'b' && (std::is_integral_v<T> && std::is_unsigned_v<T>))
-        action([](const String& s) -> T {
+        action([](const String& s) -> Result<T> {
           Result<T> result = details::parse_number<T, details::radix_2>()(s);
           if (!result)
-            throw std::runtime_error(std::format("Failed to parse '{}' as binary integer (scan 'b'): {}", s, result.error().message));
-          return *result;
+            return Err(DracError(result.error().code, std::format("Failed to parse '{}' as binary integer (scan 'b'): {}", s, result.error().message)));
+          return result;
         });
       else if constexpr (Shape == 'o' && (std::is_integral_v<T> && std::is_unsigned_v<T>))
-        action([](const String& s) -> T {
+        action([](const String& s) -> Result<T> {
           Result<T> result = details::parse_number<T, details::radix_8>()(s);
           if (!result)
-            throw std::runtime_error(std::format("Failed to parse '{}' as octal integer (scan 'o'): {}", s, result.error().message));
-          return *result;
+            return Err(DracError(result.error().code, std::format("Failed to parse '{}' as octal integer (scan 'o'): {}", s, result.error().message)));
+          return result;
         });
       else if constexpr (is_one_of(Shape, 'x', 'X') && (std::is_integral_v<T> && std::is_unsigned_v<T>))
-        action([](const String& s) -> T {
+        action([](const String& s) -> Result<T> {
           Result<T> result = details::parse_number<T, details::radix_16>()(s);
           if (!result)
-            throw std::runtime_error(std::format("Failed to parse '{}' as hexadecimal integer (scan '{}'): {}", s, Shape, result.error().message));
-          return *result;
+            return Err(DracError(result.error().code, std::format("Failed to parse '{}' as hexadecimal integer (scan '{}'): {}", s, Shape, result.error().message)));
+          return result;
         });
       else if constexpr (is_one_of(Shape, 'a', 'A') && std::is_floating_point_v<T>)
-        action([](const String& s) -> T {
+        action([](const String& s) -> Result<T> {
           Result<T> result = details::parse_number<T, details::chars_format::hex>()(s);
           if (!result)
-            throw std::runtime_error(std::format("Failed to parse '{}' as hexadecimal float (scan '{}'): {}", s, Shape, result.error().message));
-          return *result;
+            return Err(DracError(result.error().code, std::format("Failed to parse '{}' as hexadecimal float (scan '{}'): {}", s, Shape, result.error().message)));
+          return result;
         });
       else if constexpr (is_one_of(Shape, 'e', 'E') && std::is_floating_point_v<T>)
-        action([](const String& s) -> T {
+        action([](const String& s) -> Result<T> {
           Result<T> result = details::parse_number<T, details::chars_format::scientific>()(s);
           if (!result)
-            throw std::runtime_error(std::format("Failed to parse '{}' as scientific float (scan '{}'): {}", s, Shape, result.error().message));
-          return *result;
+            return Err(DracError(result.error().code, std::format("Failed to parse '{}' as scientific float (scan '{}'): {}", s, Shape, result.error().message)));
+          return result;
         });
       else if constexpr (is_one_of(Shape, 'f', 'F') && std::is_floating_point_v<T>)
-        action([](const String& s) -> T {
+        action([](const String& s) -> Result<T> {
           Result<T> result = details::parse_number<T, details::chars_format::fixed>()(s);
           if (!result)
-            throw std::runtime_error(std::format("Failed to parse '{}' as fixed float (scan '{}'): {}", s, Shape, result.error().message));
-          return *result;
+            return Err(DracError(result.error().code, std::format("Failed to parse '{}' as fixed float (scan '{}'): {}", s, Shape, result.error().message)));
+          return result;
         });
       else if constexpr (is_one_of(Shape, 'g', 'G') && std::is_floating_point_v<T>)
-        action([](const String& s) -> T {
+        action([](const String& s) -> Result<T> {
           Result<T> result = details::parse_number<T, details::chars_format::general>()(s);
           if (!result)
-            throw std::runtime_error(std::format("Failed to parse '{}' as general float (scan '{}'): {}", s, Shape, result.error().message));
-          return *result;
+            return Err(DracError(result.error().code, std::format("Failed to parse '{}' as general float (scan '{}'): {}", s, Shape, result.error().message)));
+          return result;
         });
       else
         static_assert(false, "No scan specification for T");
@@ -901,7 +942,7 @@ namespace argparse {
     }
 
     fn nargs(const usize num_args)
-      ->Argument& {
+      -> Argument& {
       m_num_args_range = NArgsRange { num_args, num_args };
       return *this;
     }
@@ -945,40 +986,38 @@ namespace argparse {
         m_choices.value().push_back(std::to_string(std::forward<T>(choice)));
     }
 
-    fn choices() -> Argument& {
-      if (!m_choices.has_value())
-        throw std::runtime_error("Zero choices provided");
+    fn choices() -> Result<Argument*> {
+      if (!m_choices.has_value() || m_choices.value().empty())
+        return Err(DracError(DracErrorCode::InvalidArgument, "Zero choices provided"));
 
-      return *this;
+      return this;
     }
 
     template <typename T, typename... U>
-    fn choices(T&& first, U&&... rest) -> Argument& {
+    fn choices(T&& first, U&&... rest) -> Result<Argument*> {
       add_choice(std::forward<T>(first));
-      choices(std::forward<U>(rest)...);
-      return *this;
+      if constexpr (sizeof...(rest) == 0) {
+        return choices();
+      } else {
+        return choices(std::forward<U>(rest)...);
+      }
     }
 
-    fn find_default_value_in_choices_or_throw() const -> void {
+    fn find_default_value_in_choices_or_throw() const -> Result<void> {
       assert(m_choices.has_value());
       const Vec<std::string>& choices = m_choices.value();
 
       if (m_default_value.has_value()) {
-        if (std::ranges::find(choices, m_default_value_str) == choices.end()) {
-          // provided arg not in list of allowed choices
-          // report error
-
+        if (std::ranges::find(choices, m_default_value_str.value_or("")) == choices.end()) {
           const String choices_as_csv =
             std::accumulate(choices.begin(), choices.end(), String(), [](const String& a, const String& b) {
               return a + (a.empty() ? "" : ", ") + b;
             });
 
-          throw std::runtime_error(
-            String { "Invalid default value " } + m_default_value_repr +
-            " - allowed options: {" + choices_as_csv + "}"
-          );
+          return Err(DracError(DracErrorCode::InvalidArgument, String { "Invalid default value " } + m_default_value_repr + " - allowed options: {" + choices_as_csv + "}"));
         }
       }
+      return {};
     }
 
     template <typename Iterator>
@@ -989,38 +1028,20 @@ namespace argparse {
       return (std::find(choices.begin(), choices.end(), *option_it) != choices.end());
     }
 
-    template <typename Iterator>
-    fn throw_invalid_arguments_error(Iterator option_it) const -> void {
-      assert(m_choices.has_value());
-      const Vec<std::string>& choices = m_choices.value();
-
-      const String choices_as_csv = std::accumulate(
-        choices.begin(), choices.end(), String(), [](const String& option_a, const String& option_b) {
-          return option_a + (option_a.empty() ? "" : ", ") + option_b;
-        }
-      );
-
-      throw std::runtime_error(String { "Invalid argument " } + details::repr(*option_it) + " - allowed options: {" + choices_as_csv + "}");
-    }
-
     /* The dry_run parameter can be set to true to avoid running the actions,
      * and setting m_is_used. This may be used by a pre-processing step to do
      * a first iteration over arguments.
      */
     template <typename Iterator>
-    fn consume(Iterator start, Iterator end, const StringView used_name = {}, const bool dry_run = false) -> Iterator {
+    fn consume(Iterator start, Iterator end, const StringView used_name = {}, const bool dry_run = false) -> Result<Iterator> {
       if (!m_is_repeatable && m_is_used)
-        throw std::runtime_error(
-          String("Duplicate argument ").append(used_name)
-        );
+        return Err(DracError(DracErrorCode::InvalidArgument, String("Duplicate argument ").append(used_name)));
 
       m_used_name = used_name;
 
       usize passed_options = 0;
 
       if (m_choices.has_value()) {
-        // Check each value in (start, end) and make sure
-        // it is in the list of allowed choices/options
         const auto max_number_of_args = m_num_args_range.get_max();
         const auto min_number_of_args = m_num_args_range.get_min();
 
@@ -1031,11 +1052,16 @@ namespace argparse {
           }
 
           if ((passed_options >= min_number_of_args) &&
-              (passed_options <= max_number_of_args)) {
+              (passed_options <= max_number_of_args))
             break;
-          }
 
-          throw_invalid_arguments_error(it);
+          const String choices_as_csv = std::accumulate(
+            m_choices.value().begin(), m_choices.value().end(), String(), [](const String& option_a, const String& option_b) {
+              return std::format("{}{}{}", option_a, option_a.empty() ? "" : ", ", option_b);
+            }
+          );
+
+          return Err(DracError(DracErrorCode::InvalidArgument, String { "Invalid argument " } + details::repr(*it) + " - allowed options: {" + choices_as_csv + "}"));
         }
       }
 
@@ -1046,12 +1072,38 @@ namespace argparse {
         if (!dry_run) {
           m_values.emplace_back(m_implicit_value);
 
-          for (auto& action : m_actions)
-            std::visit([&](const auto& f) { f({}); }, action);
+          for (usize i = 0; i < m_actions.size(); ++i) {
+            auto&        action = m_actions[i];
+            Result<void> action_call_result;
+            std::visit([&](auto& f) {
+              if constexpr (std::is_same_v<decltype(f({})), Result<std::any>>) {
+                Result<std::any> valued_result = f({});
+                if (!valued_result)
+                  action_call_result = Err(valued_result.error());
+              } else {
+                action_call_result = f({});
+              }
+            },
+                       action);
+            if (!action_call_result)
+              return Err(action_call_result.error());
+          }
 
-          if (m_actions.empty())
-            std::visit([&](const auto& f) { f({}); }, m_default_action);
-
+          if (m_actions.empty()) {
+            Result<void> action_call_result;
+            std::visit([&](auto& f) {
+              if constexpr (std::is_same_v<decltype(f({})), Result<std::any>>) {
+                Result<std::any> valued_result = f({});
+                if (!valued_result)
+                  action_call_result = Err(valued_result.error());
+              } else {
+                action_call_result = f({});
+              }
+            },
+                       m_default_action);
+            if (!action_call_result)
+              return Err(action_call_result.error());
+          }
           m_is_used = true;
         }
         return start;
@@ -1069,34 +1121,53 @@ namespace argparse {
           dist = static_cast<usize>(std::distance(start, end));
 
           if (dist < num_args_min)
-            throw std::runtime_error("Too few arguments for '" + String(m_used_name) + "'.");
+            return Err(DracError(DracErrorCode::InvalidArgument, "Too few arguments for '" + String(m_used_name) + "'."));
         }
 
         struct ActionApply {
-          fn operator()(valued_action& f)->void {
-            std::transform(first, last, std::back_inserter(self.m_values), f);
+          ActionApply(Iterator f, Iterator l, Argument& s)
+            : first(f), last(l), self(&s) {}
+          Iterator  first, last;
+          Argument* self;
+
+          fn operator()(valued_action& f)->Result<void> {
+            for (auto it_arg = first; it_arg != last; ++it_arg) {
+              Result<std::any> res = f(*it_arg);
+              if (!res)
+                return Err(res.error());
+              self->m_values.push_back(res.value());
+            }
+            return {};
           }
 
-          fn operator()(void_action& f)->void {
-            std::for_each(first, last, f);
-            if (!self.m_default_value.has_value())
-              if (!self.m_accepts_optional_like_value)
-                self.m_values.resize(
+          fn operator()(void_action& f)->Result<void> {
+            for (auto it_arg = first; it_arg != last; ++it_arg) {
+              Result<void> res = f(*it_arg);
+              if (!res)
+                return Err(res.error());
+            }
+            if (!self->m_default_value.has_value())
+              if (!self->m_accepts_optional_like_value)
+                self->m_values.resize(
                   static_cast<usize>(std::distance(first, last))
                 );
+            return {};
           }
-
-          Iterator first, last;
-          Argument self;
         };
 
         if (!dry_run) {
-          for (std::variant<valued_action, void_action>& action : m_actions)
-            std::visit(ActionApply { start, end, *this }, action);
+          for (usize i = 0; i < m_actions.size(); ++i) {
+            auto&        action       = m_actions[i];
+            Result<void> apply_result = std::visit(ActionApply { start, end, *this }, action);
+            if (!apply_result)
+              return Err(apply_result.error());
+          }
 
-          if (m_actions.empty())
-            std::visit(ActionApply { start, end, *this }, m_default_action);
-
+          if (m_actions.empty()) {
+            Result<void> apply_result = std::visit(ActionApply { start, end, *this }, m_default_action);
+            if (!apply_result)
+              return Err(apply_result.error());
+          }
           m_is_used = true;
         }
 
@@ -1108,23 +1179,27 @@ namespace argparse {
 
         return start;
       }
-      throw std::runtime_error("Too few arguments for '" + String(m_used_name) + "'.");
+      return Err(DracError(DracErrorCode::InvalidArgument, std::format("Too few arguments for '{}'", m_used_name)));
     }
 
     /*
      * @returns Result<void> indicating success or failure
      */
     [[nodiscard]] fn validate() const -> Result<void> {
+      if (m_num_args_range.get_min() > m_num_args_range.get_max()) {
+        return Err(DracError(DracErrorCode::InvalidArgument, std::format("Invalid nargs range for argument '{}': min ({}) > max ({}). This indicates a configuration error when defining the argument.", m_names.empty() ? "UnnamedArgument" : m_names[0], m_num_args_range.get_min(), m_num_args_range.get_max())));
+      }
+
       if (m_is_optional) {
         // TODO: check if an implicit value was programmed for this argument
         if (!m_is_used && !m_default_value.has_value() && m_is_required)
-          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, std::format("Required argument '{}' was not provided", m_names[0])));
+          return Err(DracError(DracErrorCode::InvalidArgument, std::format("Required argument '{}' was not provided", m_names[0])));
 
         if (m_is_used && m_is_required && m_values.empty())
-          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, std::format("Required argument '{}' requires a value, but none was provided", m_names[0])));
+          return Err(DracError(DracErrorCode::InvalidArgument, std::format("Required argument '{}' requires a value, but none was provided", m_names[0])));
 
         if (m_is_used && m_num_args_range.get_min() > m_values.size())
-          return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, std::format("Too few arguments for optional argument '{}'. Expected at least {}, got {}.", m_names[0], m_num_args_range.get_min(), m_values.size())));
+          return Err(DracError(DracErrorCode::InvalidArgument, std::format("Too few arguments for optional argument '{}'. Expected at least {}, got {}.", m_names[0], m_num_args_range.get_min(), m_values.size())));
       } else {
         if (!m_num_args_range.contains(m_values.size()) && !m_default_value.has_value()) {
           String expected_str;
@@ -1136,43 +1211,41 @@ namespace argparse {
           else
             expected_str = std::format("{} to {}", m_num_args_range.get_min(), m_num_args_range.get_max());
 
-          return Err(DracError(util::error::DracErrorCode::InvalidArgument, std::format("Incorrect number of arguments for positional argument '{}'. Expected {}, got {}.", (m_metavar.empty() ? m_names[0] : m_metavar), expected_str, m_values.size())));
+          return Err(DracError(DracErrorCode::InvalidArgument, std::format("Incorrect number of arguments for positional argument '{}'. Expected {}, got {}.", (m_metavar.empty() ? m_names[0] : m_metavar), expected_str, m_values.size())));
         }
 
         if (m_num_args_range.get_min() > m_values.size())
-          return Err(DracError(util::error::DracErrorCode::InvalidArgument, std::format("Too few arguments for positional argument '{}'. Expected at least {}, got {}.", (m_metavar.empty() ? m_names[0] : m_metavar), m_num_args_range.get_min(), m_values.size())));
+          return Err(DracError(DracErrorCode::InvalidArgument, std::format("Too few arguments for positional argument '{}'. Expected at least {}, got {}.", (m_metavar.empty() ? m_names[0] : m_metavar), m_num_args_range.get_min(), m_values.size())));
       }
 
       if (m_num_args_range.get_max() < m_values.size()) {
         if (m_is_optional)
-          return Err(DracError(util::error::DracErrorCode::InvalidArgument, std::format("Too many arguments for optional argument '{}'. Expected at most {}, got {}.", m_names[0], m_num_args_range.get_max(), m_values.size())));
+          return Err(DracError(DracErrorCode::InvalidArgument, std::format("Too many arguments for optional argument '{}'. Expected at most {}, got {}.", m_names[0], m_num_args_range.get_max(), m_values.size())));
 
-        return Err(DracError(util::error::DracErrorCode::InvalidArgument, std::format("Too many arguments for positional argument '{}'. Expected at most {}, got {}.", (m_metavar.empty() ? m_names[0] : m_metavar), m_num_args_range.get_max(), m_values.size())));
+        return Err(DracError(DracErrorCode::InvalidArgument, std::format("Too many arguments for positional argument '{}'. Expected at most {}, got {}.", (m_metavar.empty() ? m_names[0] : m_metavar), m_num_args_range.get_max(), m_values.size())));
       }
 
       if (m_choices.has_value()) {
         const Vec<String>& choices = m_choices.value();
 
-        // Check default value
         if (m_default_value.has_value())
           if (const String& default_val_str = m_default_value_str.value(); std::ranges::find(choices, default_val_str) == choices.end()) {
             const String choices_as_csv = std::accumulate(
               choices.begin(), choices.end(), String(), [](const String& option_a, const String& option_b) -> String { return option_a + (option_a.empty() ? "" : ", ") + option_b; }
             );
-            return Err(DracError(util::error::DracErrorCode::InvalidArgument, std::format("Default value '{}' is not in the allowed choices: {{{}}}", default_val_str, choices_as_csv)));
+            return Err(DracError(DracErrorCode::InvalidArgument, std::format("Default value '{}' is not in the allowed choices: {{{}}}", default_val_str, choices_as_csv)));
           }
 
-        // Check provided values
         for (const auto& value_any : m_values) {
           if (value_any.type() != typeid(String))
-            return Err(DracError(util::error::DracErrorCode::InvalidArgument, std::format("Invalid argument type for choice validation - expected string, got '{}'", value_any.type().name())));
+            return Err(DracError(DracErrorCode::InvalidArgument, std::format("Invalid argument type for choice validation - expected string, got '{}'", value_any.type().name())));
 
           if (const String& value = std::any_cast<const String&>(value_any); std::ranges::find(choices, value) == choices.end()) {
             const String choices_as_csv = std::accumulate(
               choices.begin(), choices.end(), String(), [](const String& option_a, const String& option_b) -> String { return std::format("{}{}{}", option_a, option_a.empty() ? "" : ", ", option_b); }
             );
 
-            return Err(DracError(util::error::DracErrorCode::InvalidArgument, std::format("Invalid argument '{}' - allowed options: {{{}}}", value, choices_as_csv)));
+            return Err(DracError(DracErrorCode::InvalidArgument, std::format("Invalid argument '{}' - allowed options: {{{}}}", value, choices_as_csv)));
           }
         }
       }
@@ -1206,7 +1279,6 @@ namespace argparse {
     [[nodiscard]] fn get_inline_usage() const -> String {
       std::stringstream usage;
 
-      // Find the longest variant to show in the usage string
       String longest_name = m_names.front();
       for (const String& s : m_names)
         if (s.size() > longest_name.size())
@@ -1239,56 +1311,48 @@ namespace argparse {
       );
 
       if (is_positional(m_names.front(), m_prefix_chars)) {
-        // A set metavar means this replaces the names
         if (!m_metavar.empty())
-          // Indent and metavar
           return 2 + m_metavar.size();
 
-        // Indent and space-separated
         return 2 + names_size + (m_names.size() - 1);
       }
 
-      // Is an option - include both names _and_ metavar
-      // size = text + (", " between names)
       usize size = names_size + (2 * (m_names.size() - 1));
       if (!m_metavar.empty() && m_num_args_range == NArgsRange { 1, 1 })
         size += m_metavar.size() + 1;
 
-      return size + 2; // indent
+      return size + 2;
     }
 
     friend fn operator<<(std::ostream& stream, const Argument& argument)->std::ostream& {
-      std::stringstream name_stream;
-      name_stream << "  "; // indent
-                           //
+      String name_str = "  ";
+
       if (argparse::Argument::is_positional(argument.m_names.front(), argument.m_prefix_chars)) {
         if (!argument.m_metavar.empty()) {
-          name_stream << argument.m_metavar;
+          name_str += argument.m_metavar;
         } else {
-          name_stream << details::join(argument.m_names.begin(), argument.m_names.end(), " ");
+          name_str += details::join(argument.m_names.begin(), argument.m_names.end(), " ");
         }
       } else {
-        name_stream << details::join(argument.m_names.begin(), argument.m_names.end(), ", ");
-        // If we have a metavar, and one narg - print the metavar
+        name_str += details::join(argument.m_names.begin(), argument.m_names.end(), ", ");
         if (!argument.m_metavar.empty() &&
             ((argument.m_num_args_range == NArgsRange { 1, 1 }) ||
              (argument.m_num_args_range.get_min() == argument.m_num_args_range.get_max() &&
               argument.m_metavar.contains("> <")))) {
-          name_stream << " " << argument.m_metavar;
+          name_str += std::format(" {}", argument.m_metavar);
         }
       }
 
-      // align multiline help message
       const std::streamsize stream_width = stream.width();
-      const String          name_padding = String(name_stream.str().size(), ' ');
+      const String          name_padding = String(name_str.size(), ' ');
 
       auto pos  = String::size_type {};
       auto prev = String::size_type {};
 
       bool        first_line = true;
-      const char* hspace     = "  "; // minimal space between name and help message
+      const char* hspace     = "  ";
 
-      stream << name_stream.str();
+      stream << name_str;
 
       const StringView help_view(argument.m_help);
 
@@ -1313,7 +1377,6 @@ namespace argparse {
         stream << name_padding << hspace << leftover;
       }
 
-      // print nargs spec
       if (!argument.m_help.empty())
         stream << " ";
 
@@ -1322,7 +1385,7 @@ namespace argparse {
       bool add_space = false;
       if (argument.m_default_value.has_value() &&
           argument.m_num_args_range != NArgsRange { 0, 0 }) {
-        stream << "[default: " << argument.m_default_value_repr << "]";
+        stream << std::format("[default: {}]", argument.m_default_value_repr);
         add_space = true;
       } else if (argument.m_is_required) {
         stream << "[required]";
@@ -1351,15 +1414,20 @@ namespace argparse {
      */
     template <typename T>
     fn operator==(const T& rhs) const->bool {
-      if constexpr (!details::IsContainer<T>)
-        return get<T>() == rhs;
-      else {
-        using ValueType = typename T::value_type;
-        auto lhs        = get<T>();
+      Result<T> lhs_res = get<T>();
+      if (!lhs_res) {
+        return false;
+      }
 
-        return std::equal(std::begin(lhs), std::end(lhs), std::begin(rhs), std::end(rhs), [](const auto& a, const auto& b) {
-          return std::any_cast<const ValueType&>(a) == b;
-        });
+      const T& lhs_val = lhs_res.value();
+
+      if constexpr (!details::IsContainer<T>) {
+        return lhs_val == rhs;
+      } else {
+        if (lhs_val.size() != rhs.size()) {
+          return false;
+        }
+        return std::equal(std::begin(lhs_val), std::end(lhs_val), std::begin(rhs));
       }
     }
 
@@ -1395,10 +1463,7 @@ namespace argparse {
 
      public:
       NArgsRange(const usize minimum, const usize maximum)
-        : m_min(minimum), m_max(maximum) {
-        if (minimum > maximum)
-          throw std::logic_error("Range of number of arguments is invalid");
-      }
+        : m_min(minimum), m_max(maximum) {}
 
       [[nodiscard]] fn contains(const usize value) const -> bool {
         return value >= m_min && value <= m_max;
@@ -1420,16 +1485,15 @@ namespace argparse {
         return m_max;
       }
 
-      // Print help message
       friend fn operator<<(std::ostream& stream, const NArgsRange& range)
         ->std::ostream& {
         if (range.m_min == range.m_max) {
           if (range.m_min != 0 && range.m_min != 1)
-            stream << "[nargs: " << range.m_min << "] ";
+            stream << std::format("[nargs: {}] ", range.m_min);
         } else if (range.m_max == (std::numeric_limits<usize>::max)())
-          stream << "[nargs: " << range.m_min << " or more] ";
+          stream << std::format("[nargs: {} or more] ", range.m_min);
         else
-          stream << "[nargs=" << range.m_min << ".." << range.m_max << "] ";
+          stream << std::format("[nargs={}..{}] ", range.m_min, range.m_max);
 
         return stream;
       }
@@ -1442,38 +1506,6 @@ namespace argparse {
         return !(*this == rhs);
       }
     };
-
-    fn throw_nargs_range_validation_error() const -> void {
-      std::stringstream stream;
-
-      if (!m_used_name.empty())
-        stream << m_used_name << ": ";
-      else
-        stream << m_names.front() << ": ";
-
-      if (m_num_args_range.is_exact())
-        stream << m_num_args_range.get_min();
-      else if (m_num_args_range.is_right_bounded())
-        stream << m_num_args_range.get_min() << " to "
-               << m_num_args_range.get_max();
-      else
-        stream << m_num_args_range.get_min() << " or more";
-
-      stream << " argument(s) expected. " << m_values.size() << " provided.";
-      throw std::runtime_error(stream.str());
-    }
-
-    fn throw_required_arg_not_used_error() const -> void {
-      std::stringstream stream;
-      stream << m_names.front() << ": required.";
-      throw std::runtime_error(stream.str());
-    }
-
-    fn throw_required_arg_no_value_provided_error() const -> void {
-      std::stringstream stream;
-      stream << m_used_name << ": no value provided.";
-      throw std::runtime_error(stream.str());
-    }
 
     static constexpr int eof = std::char_traits<char>::eof();
 
@@ -1518,7 +1550,6 @@ namespace argparse {
         return c >= '0' && c <= '9';
       };
 
-      // precondition: we have consumed or will consume at least one digit
       fn consume_digits = [=](StringView sd) -> StringView {
         const auto it = std::ranges::find_if_not(sd, is_digit);
 
@@ -1626,22 +1657,31 @@ namespace argparse {
      * @throws std::logic_error in case of incompatible types
      */
     template <typename T>
-    fn get() const -> T {
+    fn get() const -> Result<T> {
       if (!m_values.empty()) {
-        if constexpr (details::IsContainer<T>)
-          return any_cast_container<T>(m_values);
-        else
-          return std::any_cast<T>(m_values.front());
+        try {
+          if constexpr (details::IsContainer<T>)
+            return any_cast_container<T>(m_values);
+          else
+            return std::any_cast<T>(m_values.front());
+        } catch (const std::bad_any_cast& e) {
+          return Err(DracError(DracErrorCode::InternalError, std::format("Bad any_cast for value in get(): {}", e.what())));
+        }
       }
 
-      if (m_default_value.has_value())
-        return std::any_cast<T>(m_default_value);
+      if (m_default_value.has_value()) {
+        try {
+          return std::any_cast<T>(m_default_value);
+        } catch (const std::bad_any_cast& e) {
+          return Err(DracError(DracErrorCode::InternalError, std::format("Bad any_cast for default_value in get(): {}", e.what())));
+        }
+      }
 
       if constexpr (details::IsContainer<T>)
-        if (!m_accepts_optional_like_value)
-          return any_cast_container<T>(m_values);
+        if (!m_accepts_optional_like_value && m_values.empty())
+          return T {};
 
-      throw std::logic_error("No value provided for '" + m_names.back() + "'.");
+      return Err(DracError(DracErrorCode::NotFound, std::format("No value provided for '{}'", m_names.back())));
     }
 
     /*
@@ -1650,17 +1690,21 @@ namespace argparse {
      * @returns The stored value if any, std::nullopt otherwise.
      */
     template <typename T>
-    fn present() const -> Option<T> {
+    fn present() const -> Result<Option<T>> {
       if (m_default_value.has_value())
-        throw std::logic_error("Argument with default value always presents");
+        return Err(DracError(DracErrorCode::InvalidArgument, std::format("present() called on argument '{}' which has a default value.", m_names.back())));
 
       if (m_values.empty())
         return std::nullopt;
 
-      if constexpr (details::IsContainer<T>)
-        return any_cast_container<T>(m_values);
-
-      return std::any_cast<T>(m_values.front());
+      try {
+        if constexpr (details::IsContainer<T>)
+          return any_cast_container<T>(m_values);
+        else
+          return std::any_cast<T>(m_values.front());
+      } catch (const std::bad_any_cast& e) {
+        return Err(DracError(DracErrorCode::InternalError, std::format("Bad any_cast in present(): {}", e.what())));
+      }
     }
 
     template <typename T>
@@ -1690,33 +1734,32 @@ namespace argparse {
     String         m_metavar;
     std::any       m_default_value;
     String         m_default_value_repr;
-    Option<String> m_default_value_str; // used for checking default_value against choices
+    Option<String> m_default_value_str;
 
     std::any m_implicit_value;
 
     Option<Vec<String>> m_choices { std::nullopt };
 
-    using valued_action = std::function<std::any(const String&)>;
-    using void_action   = std::function<void(const String&)>;
+    using valued_action = std::function<Result<std::any>(const String&)>;
+    using void_action   = std::function<Result<void>(const String&)>;
 
     Vec<std::variant<valued_action, void_action>> m_actions;
 
     std::variant<valued_action, void_action> m_default_action {
       std::in_place_type<valued_action>,
-      [](const String& value) { return value; }
+      [](const String& value) -> Result<std::any> { return value; }
     };
 
     Vec<std::any> m_values;
     NArgsRange    m_num_args_range { 1, 1 };
 
-    // Bit field of bool values. Set default value in ctor.
     bool       m_accepts_optional_like_value : 1;
     bool       m_is_optional : 1;
     bool       m_is_required : 1;
     bool       m_is_repeatable : 1;
     bool       m_is_used : 1;
-    bool       m_is_hidden : 1; // if set, does not appear in usage or help
-    StringView m_prefix_chars;  // ArgumentParser has the prefix_chars
+    bool       m_is_hidden : 1;
+    StringView m_prefix_chars;
     int        m_usage_newline_counter = 0;
     usize      m_group_idx             = 0;
   };
@@ -1754,12 +1797,6 @@ namespace argparse {
 
     ~ArgumentParser() = default;
 
-    // ArgumentParser is meant to be used in a single function.
-    // Setup everything and parse arguments in one place.
-    //
-    // ArgumentParser internally uses StringViews,
-    // references, iterators, etc.
-    // Many of these elements become invalidated after a copy or move.
     ArgumentParser(const ArgumentParser& other)                = delete;
     fn operator=(const ArgumentParser& other)->ArgumentParser& = delete;
     ArgumentParser(ArgumentParser&&) noexcept                  = delete;
@@ -1774,8 +1811,6 @@ namespace argparse {
       return m_is_parsed && (arg_used || subparser_used);
     }
 
-    // Parameter packing
-    // Call add_argument with variadic number of string arguments
     template <typename... Targs>
     fn add_argument(Targs... f_args) -> Argument& {
       using array_of_sv = std::array<StringView, sizeof...(Targs)>;
@@ -1833,8 +1868,6 @@ namespace argparse {
       return m_mutually_exclusive_groups.back();
     }
 
-    // Parameter packed add_parents method
-    // Accepts a variadic number of ArgumentParser objects
     template <typename... Targs>
     fn add_parents(const Targs&... f_args) -> ArgumentParser& {
       for (const ArgumentParser& parent_parser : { std::ref(f_args)... }) {
@@ -1886,34 +1919,36 @@ namespace argparse {
     // Add a un-documented/hidden alias for an argument.
     // Ideally we'd want this to be a method of Argument, but Argument
     // does not own its owing ArgumentParser.
-    fn add_hidden_alias_for(const Argument& arg, const StringView alias) -> ArgumentParser& {
+    fn add_hidden_alias_for(const Argument& arg, const StringView alias) -> Result<ArgumentParser*> {
       for (auto it = m_optional_arguments.begin();
            it != m_optional_arguments.end();
            ++it)
         if (&(*it) == &arg) {
           m_argument_map.insert_or_assign(String(alias), it);
-          return *this;
+          return this;
         }
 
-      throw std::logic_error(
-        "Argument is not an optional argument of this parser"
-      );
+      return Err(DracError(DracErrorCode::InvalidArgument, std::format("Argument is not an optional argument of this parser")));
     }
 
     /* Getter for arguments and subparsers.
      * @throws std::logic_error in case of an invalid argument or subparser name
      */
     template <typename T = Argument>
-    fn at(const StringView name) -> T& {
-      if constexpr (std::is_same_v<T, Argument>)
-        return (*this)[name];
-      else {
+    fn at(const StringView name) -> Result<T*> {
+      if constexpr (std::is_same_v<T, Argument>) {
+        Result<Argument*> arg_result = (*this)[name];
+        if (!arg_result) {
+          return Err(DracError(DracErrorCode::NotFound, std::format("Argument not found in 'at': {}", name)));
+        }
+        return arg_result.value();
+      } else {
+        static_assert(std::is_same_v<T, ArgumentParser>, "T must be Argument or ArgumentParser for at()");
         const String str_name(name);
-
-        if (const auto subparser_it = m_subparser_map.find(str_name); subparser_it != m_subparser_map.end())
-          return subparser_it->second->get();
-
-        throw std::logic_error("No such subparser: " + str_name);
+        if (const auto subparser_it = m_subparser_map.find(str_name); subparser_it != m_subparser_map.end()) {
+          return &(subparser_it->second->get());
+        }
+        return Err(DracError(DracErrorCode::NotFound, std::format("No such subparser: {}", str_name)));
       }
     }
 
@@ -1933,49 +1968,49 @@ namespace argparse {
      * @throws std::runtime_error in case of any invalid argument
      */
     // NOLINTNEXTLINE(misc-no-recursion)
-    fn parse_args(const Vec<String>& arguments) -> void {
-      parse_args_internal(arguments);
-      // Check if all arguments are parsed
-      for (const auto& argument : m_argument_map | std::views::values)
-        if (Result<> validation_result = argument->validate(); !validation_result)
-          throw std::runtime_error(validation_result.error().message);
+    fn parse_args(const Vec<String>& arguments) -> Result<void> {
+      Result<void> pres = parse_args_internal(arguments);
+      if (!pres)
+        return pres;
 
-      // Check each mutually exclusive group and make sure
-      // there are no constraint violations
+      for (const auto& argument_entry : m_argument_map) {
+        if (Result<> validation_result = argument_entry.second->validate(); !validation_result) {
+          return Err(validation_result.error());
+        }
+      }
+
       for (const MutuallyExclusiveGroup& group : m_mutually_exclusive_groups) {
-        bool mutex_argument_used = false;
+        bool            mutex_argument_used = false;
+        const Argument* mutex_argument_ptr  = nullptr;
 
-        const Argument* mutex_argument_it { nullptr };
         for (const Argument* arg : group.m_elements) {
-          if (!mutex_argument_used && arg->m_is_used) {
+          auto is_used_res = this->is_used(arg->m_names.front());
+          if (!is_used_res)
+            return Err(is_used_res.error());
+
+          if (!mutex_argument_used && is_used_res.value()) {
             mutex_argument_used = true;
-            mutex_argument_it   = arg;
-          } else if (mutex_argument_used && arg->m_is_used)
-            // Violation
-            throw std::runtime_error("Argument '" + arg->get_usage_full() + "' not allowed with '" + mutex_argument_it->get_usage_full() + "'");
+            mutex_argument_ptr  = arg;
+          } else if (mutex_argument_used && is_used_res.value()) {
+            return Err(DracError(DracErrorCode::InvalidArgument, std::format("Argument '{}' not allowed with '{}'", arg->get_usage_full(), mutex_argument_ptr->get_usage_full())));
+          }
         }
 
         if (!mutex_argument_used && group.m_required) {
-          // at least one argument from the group is
-          // required
-          String argument_names {};
-          usize  i = 0;
-
+          String      argument_names {};
+          usize       i    = 0;
           const usize size = group.m_elements.size();
-
           for (const Argument* arg : group.m_elements) {
             if (i + 1 == size)
-              // last
               argument_names += String("'") + arg->get_usage_full() + String("' ");
             else
               argument_names += String("'") + arg->get_usage_full() + String("' or ");
-
             i += 1;
           }
-
-          throw std::runtime_error("One of the arguments " + argument_names + "is required");
+          return Err(DracError(DracErrorCode::InvalidArgument, std::format("One of the arguments {}is required", argument_names)));
         }
       }
+      return {};
     }
 
     /* Call parse_known_args_internal - which does all the work
@@ -1983,14 +2018,71 @@ namespace argparse {
      * This variant is used mainly for testing
      * @throws std::runtime_error in case of any invalid argument
      */
-    fn parse_known_args(const Vec<String>& arguments) -> Vec<String> {
-      Vec<String> unknown_arguments = parse_known_args_internal(arguments);
+    // NOLINTNEXTLINE(misc-no-recursion)
+    fn parse_known_args_internal(const Vec<String>& raw_arguments) -> Result<Vec<String>> {
+      Vec<String> arguments = preprocess_arguments(raw_arguments);
+      Vec<String> unknown_arguments {};
 
-      for (const auto& argument : m_argument_map | std::views::values) {
-        if (Result<> validation_result = argument->validate(); !validation_result)
-          throw std::runtime_error(validation_result.error().message);
+      if (m_program_name.empty() && !arguments.empty())
+        m_program_name = arguments.front();
+
+      const auto end                    = std::end(arguments);
+      auto       positional_argument_it = std::begin(m_positional_arguments);
+
+      for (auto it = std::next(std::begin(arguments)); it != end;) {
+        const String& current_argument = *it;
+        if (Argument::is_positional(current_argument, m_prefix_chars)) {
+          if (positional_argument_it == std::end(m_positional_arguments)) {
+            if (auto subparser_it = m_subparser_map.find(current_argument); subparser_it != m_subparser_map.end()) {
+              const Vec<String> unprocessed_arguments = Vec<String>(it, end);
+              m_is_parsed                             = true;
+              m_subparser_used[current_argument]      = true;
+              return subparser_it->second->get().parse_known_args_internal(unprocessed_arguments);
+            }
+            unknown_arguments.push_back(current_argument);
+            ++it;
+          } else {
+            const auto           argument       = positional_argument_it++;
+            Result<decltype(it)> consume_result = argument->consume(it, end);
+            if (!consume_result)
+              return Err(consume_result.error());
+            it = consume_result.value();
+          }
+          continue;
+        }
+
+        auto arg_map_it = m_argument_map.find(current_argument);
+        if (arg_map_it != m_argument_map.end()) {
+          const auto           argument       = arg_map_it->second;
+          Result<decltype(it)> consume_result = argument->consume(std::next(it), end, arg_map_it->first);
+          if (!consume_result)
+            return Err(consume_result.error());
+          it = consume_result.value();
+        } else if (const String& compound_arg = current_argument;
+                   compound_arg.size() > 1 &&
+                   is_valid_prefix_char(compound_arg[0]) &&
+                   !is_valid_prefix_char(compound_arg[1])) {
+          ++it;
+          for (usize j = 1; j < compound_arg.size(); j++) {
+            const String hypothetical_arg = { '-', compound_arg[j] };
+            auto         arg_map_it2      = m_argument_map.find(hypothetical_arg);
+            if (arg_map_it2 != m_argument_map.end()) {
+              const auto           argument       = arg_map_it2->second;
+              Result<decltype(it)> consume_result = argument->consume(it, end, arg_map_it2->first);
+              if (!consume_result)
+                return Err(consume_result.error());
+              it = consume_result.value();
+            } else {
+              unknown_arguments.push_back(current_argument);
+              break;
+            }
+          }
+        } else {
+          unknown_arguments.push_back(current_argument);
+          ++it;
+        }
       }
-
+      m_is_parsed = true;
       return unknown_arguments;
     }
 
@@ -1999,8 +2091,8 @@ namespace argparse {
      * @throws std::runtime_error in case of any invalid argument
      */
     // NOLINTNEXTLINE(*-avoid-c-arrays)
-    fn parse_args(const int argc, const char* const argv[]) -> void {
-      parse_args({ argv, argv + argc });
+    fn parse_args(const int argc, const char* const argv[]) -> Result<void> {
+      return parse_args({ argv, argv + argc });
     }
 
     /* Main entry point for parsing command-line arguments using this
@@ -2008,8 +2100,8 @@ namespace argparse {
      * @throws std::runtime_error in case of any invalid argument
      */
     // NOLINTNEXTLINE(*-avoid-c-arrays)
-    fn parse_known_args(const int argc, const char* const argv[]) {
-      return parse_known_args({ argv, argv + argc });
+    fn parse_known_args(const int argc, const char* const argv[]) -> Result<Vec<String>> {
+      return parse_known_args_internal({ argv, argv + argc });
     }
 
     /* Getter for options with default values.
@@ -2019,11 +2111,15 @@ namespace argparse {
      * @throws std::bad_any_cast if the option is not of type T
      */
     template <typename T = String>
-    fn get(const StringView arg_name) const -> T {
+    fn get(const StringView arg_name) const -> Result<T> {
       if (!m_is_parsed)
-        throw std::logic_error("Nothing parsed, no arguments are available.");
+        return Err(DracError(DracErrorCode::InternalError, "Nothing parsed, no arguments are available."));
 
-      return (*this)[arg_name].get<T>();
+      Result<Argument*> arg_ref_result = (*this)[arg_name];
+      if (!arg_ref_result)
+        return Err(arg_ref_result.error());
+
+      return arg_ref_result.value()->get<T>();
     }
 
     /* Getter for options without default values.
@@ -2032,26 +2128,45 @@ namespace argparse {
      * @throws std::bad_any_cast if the option is not of type T
      */
     template <typename T = String>
-    fn present(const StringView arg_name) const -> Option<T> {
-      return (*this)[arg_name].present<T>();
+    fn present(const StringView arg_name) const -> Result<Option<T>> {
+      if (!m_is_parsed)
+        return Err(DracError(DracErrorCode::InternalError, "Nothing parsed, no arguments are available for present()."));
+
+      Result<Argument*> arg_ref_result = (*this)[arg_name];
+      if (!arg_ref_result)
+        return Err(arg_ref_result.error());
+
+      return arg_ref_result.value()->present<T>();
     }
 
     /* Getter that returns true for user-supplied options. Returns false if not
      * user-supplied, even with a default value.
      */
-    [[nodiscard]] fn is_used(const StringView arg_name) const -> bool {
-      return (*this)[arg_name].m_is_used;
+    [[nodiscard]] fn is_used(const StringView arg_name) const -> Result<bool> {
+      if (!m_is_parsed)
+        return Err(DracError(DracErrorCode::InternalError, "Nothing parsed, cannot check if argument is used."));
+
+      Result<Argument*> arg_ref_result = (*this)[arg_name];
+      if (!arg_ref_result)
+        return Err(arg_ref_result.error());
+      return bool { arg_ref_result.value()->m_is_used };
     }
 
     /* Getter that returns true if a subcommand is used.
      */
-    [[nodiscard]] fn is_subcommand_used(const StringView subcommand_name) const -> bool {
-      return m_subparser_used.at(String(subcommand_name));
+    [[nodiscard]] fn is_subcommand_used(const StringView subcommand_name) const -> Result<bool> {
+      if (!m_is_parsed)
+        return Err(DracError(DracErrorCode::InternalError, "Nothing parsed, cannot check if subcommand is used."));
+      try {
+        return m_subparser_used.at(String(subcommand_name));
+      } catch (const std::out_of_range& oor) {
+        return Err(DracError(DracErrorCode::NotFound, std::format("Subcommand '{}' not found for is_subcommand_used check.", subcommand_name)));
+      }
     }
 
     /* Getter that returns true if a subcommand is used.
      */
-    [[nodiscard]] fn is_subcommand_used(const ArgumentParser& subparser) const -> bool {
+    [[nodiscard]] fn is_subcommand_used(const ArgumentParser& subparser) const -> Result<bool> {
       return is_subcommand_used(subparser.m_program_name);
     }
 
@@ -2059,34 +2174,32 @@ namespace argparse {
      * Used in conjunction with Argument.operator== e.g., parser["foo"] == true
      * @throws std::logic_error in case of an invalid argument name
      */
-    fn operator[](const StringView arg_name) const->Argument& {
+    fn operator[](const StringView arg_name) const->Result<Argument*> {
       String name(arg_name);
 
       auto it = m_argument_map.find(name);
 
       if (it != m_argument_map.end())
-        return *(it->second);
+        return &(*(it->second));
 
       if (!is_valid_prefix_char(arg_name.front())) {
         const char legal_prefix_char = get_any_valid_prefix_char();
 
         const String prefix = String(1, legal_prefix_char);
 
-        // "-" + arg_name
-        name = prefix + name;
+        name = prefix + String(arg_name);
         it   = m_argument_map.find(name);
         if (it != m_argument_map.end())
-          return *(it->second);
+          return &(*(it->second));
 
-        // "--" + arg_name
         name = prefix + name;
         it   = m_argument_map.find(name);
 
         if (it != m_argument_map.end())
-          return *(it->second);
+          return &(*(it->second));
       }
 
-      throw std::logic_error("No such argument: " + String(arg_name));
+      return Err(DracError(DracErrorCode::NotFound, std::format("No such argument: {}", arg_name)));
     }
 
     // Print help message
@@ -2122,8 +2235,7 @@ namespace argparse {
         }
 
       for (usize i_group = 0; i_group < parser.m_group_names.size(); ++i_group) {
-        stream << "\n"
-               << parser.m_group_names[i_group] << " (detailed usage):\n";
+        stream << std::format("\n{} (detailed usage):\n", parser.m_group_names[i_group]);
 
         for (const Argument& argument : parser.m_optional_arguments)
           if (argument.m_group_idx == i_group + 1 && !argument.m_is_hidden) {
@@ -2141,10 +2253,7 @@ namespace argparse {
           if (subparser->get().m_suppress)
             continue;
 
-          stream << std::setw(2) << " ";
-          stream << std::setw(static_cast<int>(longest_arg_length - 2))
-                 << command;
-          stream << " " << subparser->get().m_description << "\n";
+          stream << std::format("  {:<{}} {}", command, longest_arg_length - 2, subparser->get().m_description) << "\n";
         }
       }
 
@@ -2178,18 +2287,15 @@ namespace argparse {
 
     // Format usage part of help only
     [[nodiscard]] fn usage() const -> String {
-      std::stringstream stream;
-
-      String curline("Usage: ");
-      curline += this->m_parser_path;
+      String     curline = std::format("Usage: {}", this->m_parser_path);
       const bool multiline_usage =
         this->m_usage_max_line_width < (std::numeric_limits<usize>::max)();
       const usize indent_size = curline.size();
+      String      result;
 
       const fn deal_with_options_of_group = [&](const usize group_idx) {
         bool found_options = false;
 
-        // Add any options inline here
         const MutuallyExclusiveGroup* cur_mutex             = nullptr;
         int                           usage_newline_counter = -1;
 
@@ -2204,7 +2310,7 @@ namespace argparse {
             if (usage_newline_counter != argument.m_usage_newline_counter) {
               if (usage_newline_counter >= 0) {
                 if (curline.size() > indent_size) {
-                  stream << curline << '\n';
+                  result += std::format("\n{}", curline);
                   curline = String(indent_size, ' ');
                 }
               }
@@ -2218,14 +2324,14 @@ namespace argparse {
           if ((cur_mutex != nullptr) && (arg_mutex == nullptr)) {
             curline += ']';
             if (this->m_usage_break_on_mutex) {
-              stream << curline << '\n';
+              result += std::format("\n{}", curline);
               curline = String(indent_size, ' ');
             }
           } else if ((cur_mutex == nullptr) && (arg_mutex != nullptr)) {
             if ((this->m_usage_break_on_mutex && curline.size() > indent_size) ||
                 curline.size() + 3 + arg_inline_usage.size() >
                   this->m_usage_max_line_width) {
-              stream << curline << '\n';
+              result += std::format("\n{}", curline);
               curline = String(indent_size, ' ');
             }
             curline += " [";
@@ -2235,7 +2341,7 @@ namespace argparse {
               if (this->m_usage_break_on_mutex ||
                   curline.size() + 3 + arg_inline_usage.size() >
                     this->m_usage_max_line_width) {
-                stream << curline << '\n';
+                result += std::format("\n{}", curline);
                 curline = String(indent_size, ' ');
               }
               curline += " [";
@@ -2247,7 +2353,7 @@ namespace argparse {
           if (curline.size() != indent_size &&
               curline.size() + 1 + arg_inline_usage.size() >
                 this->m_usage_max_line_width) {
-            stream << curline << '\n';
+            result += std::format("\n{}", curline);
             curline = String(indent_size, ' ');
             curline += " ";
           } else if (cur_mutex == nullptr) {
@@ -2263,11 +2369,10 @@ namespace argparse {
 
       if (const bool found_options = deal_with_options_of_group(0); found_options && multiline_usage &&
           !this->m_positional_arguments.empty()) {
-        stream << curline << '\n';
+        result += std::format("\n{}", curline);
         curline = String(indent_size, ' ');
       }
 
-      // Put positional arguments after the optionals
       for (const Argument& argument : this->m_positional_arguments) {
         if (argument.m_is_hidden)
           continue;
@@ -2277,7 +2382,7 @@ namespace argparse {
           : argument.m_names.front();
 
         if (curline.size() + 1 + pos_arg.size() > this->m_usage_max_line_width) {
-          stream << curline << '\n';
+          result += std::format("\n{}", curline);
           curline = String(indent_size, ' ');
         }
 
@@ -2297,36 +2402,32 @@ namespace argparse {
       }
 
       if (multiline_usage)
-        // Display options of other groups
         for (usize i = 0; i < m_group_names.size(); ++i) {
-          stream << curline << '\n'
-                 << '\n';
-          stream << m_group_names[i] << ":" << '\n';
+          result += std::format("\n\n{}:\n", m_group_names[i]);
           curline = String(indent_size, ' ');
           deal_with_options_of_group(i + 1);
         }
 
-      stream << curline;
+      result += curline;
 
-      // Put subcommands after positional arguments
       if (!m_subparser_map.empty()) {
-        stream << " {";
+        result += " {";
         usize i { 0 };
         for (const auto& [command, subparser] : m_subparser_map) {
           if (subparser->get().m_suppress)
             continue;
 
           if (i == 0)
-            stream << command;
+            result += command;
           else
-            stream << "," << command;
+            result += std::format(",{}", command);
 
           ++i;
         }
-        stream << "}";
+        result += "}";
       }
 
-      return stream.str();
+      return result;
     }
 
     fn add_subparser(ArgumentParser& parser) -> void {
@@ -2417,7 +2518,7 @@ namespace argparse {
      * @throws std::runtime_error in case of any invalid argument
      */
     // NOLINTNEXTLINE(misc-no-recursion)
-    fn parse_args_internal(const Vec<String>& raw_arguments) -> void {
+    fn parse_args_internal(const Vec<String>& raw_arguments) -> Result<void> {
       Vec<String> arguments = preprocess_arguments(raw_arguments);
 
       if (m_program_name.empty() && !arguments.empty())
@@ -2430,193 +2531,93 @@ namespace argparse {
         const String& current_argument = *it;
         if (Argument::is_positional(current_argument, m_prefix_chars)) {
           if (positional_argument_it == std::end(m_positional_arguments)) {
-            // Check sub-parsers
             if (const auto subparser_it = m_subparser_map.find(current_argument); subparser_it != m_subparser_map.end()) {
-              // build list of remaining args
               const Vec<String> unprocessed_arguments = Vec<String>(it, end);
-
-              // invoke subparser
-              m_is_parsed                        = true;
-              m_subparser_used[current_argument] = true;
-
-              subparser_it->second->get().parse_args(
-                unprocessed_arguments
-              );
-
-              return;
+              m_is_parsed                             = true;
+              m_subparser_used[current_argument]      = true;
+              // parse_args on subparser will be void, or we change it to Result<void>
+              // Assuming subparser itself handles its errors internally by throwing/exiting, or needs refactor too.
+              // For now, let's assume it might throw, or we adapt it later.
+              // If subparser.parse_args itself returns Result<void>, we'd check it.
+              // This is recursive, so sub-parsers also need this refactoring.
+              Result<void> sub_parse_res = subparser_it->second->get().parse_args_internal(unprocessed_arguments);
+              if (!sub_parse_res)
+                return sub_parse_res;
+              return {};
             }
 
             if (m_positional_arguments.empty()) {
-              // Ask the user if they argument they provided was a typo
-              // for some sub-parser,
-              // e.g., user provided `git totes` instead of `git notes`
               if (!m_subparser_map.empty())
-                throw std::runtime_error(
-                  "Failed to parse '" + current_argument + "', did you mean '" +
-                  String { details::get_most_similar_string(
-                    m_subparser_map, current_argument
-                  ) } +
-                  "'"
-                );
-
-              // Ask the user if they meant to use a specific optional argument
+                return Err(DracError(DracErrorCode::InvalidArgument, std::format("Failed to parse '{}', did you mean '{}'", current_argument, details::get_most_similar_string(m_subparser_map, current_argument))));
               if (!m_optional_arguments.empty()) {
                 for (const Argument& opt : m_optional_arguments) {
                   if (!opt.m_implicit_value.has_value()) {
-                    // not a flag, requires a value
                     if (!opt.m_is_used) {
-                      throw std::runtime_error(
-                        "Zero positional arguments expected, did you mean " +
-                        opt.get_usage_full()
-                      );
+                      return Err(DracError(DracErrorCode::InvalidArgument, std::format("Zero positional arguments expected, did you mean '{}'", opt.get_usage_full())));
                     }
                   }
                 }
-
-                throw std::runtime_error("Zero positional arguments expected");
+                return Err(DracError(DracErrorCode::InvalidArgument, "Zero positional arguments expected"));
               }
-
-              throw std::runtime_error("Zero positional arguments expected");
+              return Err(DracError(DracErrorCode::InvalidArgument, "Zero positional arguments expected"));
             }
-
-            throw std::runtime_error(
-              "Maximum number of positional arguments "
-              "exceeded, failed to parse '" +
-              current_argument + "'"
-            );
+            return Err(DracError(DracErrorCode::InvalidArgument, std::format("Maximum number of positional arguments exceeded, failed to parse '{}'", current_argument)));
           }
 
-          const auto argument = positional_argument_it++;
-
-          // Deal with the situation of <positional_arg1>... <positional_arg2>
-          if (argument->m_num_args_range.get_min() == 1 &&
-              argument->m_num_args_range.get_max() == (std::numeric_limits<usize>::max)() &&
+          const auto argument_ptr = positional_argument_it++;
+          if (argument_ptr->m_num_args_range.get_min() == 1 &&
+              argument_ptr->m_num_args_range.get_max() == (std::numeric_limits<usize>::max)() &&
               positional_argument_it != std::end(m_positional_arguments) &&
               std::next(positional_argument_it) == std::end(m_positional_arguments) &&
               positional_argument_it->m_num_args_range.get_min() == 1 &&
               positional_argument_it->m_num_args_range.get_max() == 1) {
             if (std::next(it) != end) {
-              positional_argument_it->consume(std::prev(end), end);
+              Result<decltype(end)> consume_res = positional_argument_it->consume(std::prev(end), end);
+              if (!consume_res)
+                return Err(consume_res.error());
               end = std::prev(end);
             } else
-              throw std::runtime_error("Missing " + positional_argument_it->m_names.front());
+              return Err(DracError(DracErrorCode::InvalidArgument, std::format("Missing {}", positional_argument_it->m_names.front())));
           }
 
-          it = argument->consume(it, end);
+          Result<decltype(it)> consume_result = argument_ptr->consume(it, end);
+          if (!consume_result)
+            return Err(consume_result.error());
+          it = consume_result.value();
           continue;
         }
 
         auto arg_map_it = m_argument_map.find(current_argument);
         if (arg_map_it != m_argument_map.end()) {
-          const auto argument = arg_map_it->second;
-
-          it = argument->consume(std::next(it), end, arg_map_it->first);
+          const auto           argument_iter  = arg_map_it->second;
+          Result<decltype(it)> consume_result = argument_iter->consume(std::next(it), end, arg_map_it->first);
+          if (!consume_result)
+            return Err(consume_result.error());
+          it = consume_result.value();
         } else if (const String& compound_arg = current_argument;
                    compound_arg.size() > 1 &&
                    is_valid_prefix_char(compound_arg[0]) &&
                    !is_valid_prefix_char(compound_arg[1])) {
           ++it;
-
           for (usize j = 1; j < compound_arg.size(); j++) {
             const String hypothetical_arg = { '-', compound_arg[j] };
-
-            auto arg_map_it2 = m_argument_map.find(hypothetical_arg);
-
+            auto         arg_map_it2      = m_argument_map.find(hypothetical_arg);
             if (arg_map_it2 != m_argument_map.end()) {
-              const auto argument = arg_map_it2->second;
-
-              it = argument->consume(it, end, arg_map_it2->first);
+              const auto           argument_iter2 = arg_map_it2->second;
+              Result<decltype(it)> consume_result = argument_iter2->consume(it, end, arg_map_it2->first);
+              if (!consume_result)
+                return Err(consume_result.error());
+              it = consume_result.value();
             } else
-              throw std::runtime_error("Unknown argument: " + current_argument);
+              return Err(DracError(DracErrorCode::InvalidArgument, std::format("Unknown argument: {} in compound {}", hypothetical_arg, current_argument)));
           }
         } else
-          throw std::runtime_error("Unknown argument: " + current_argument);
+          return Err(DracError(DracErrorCode::InvalidArgument, std::format("Unknown argument: {}", current_argument)));
       }
       m_is_parsed = true;
+      return {};
     }
 
-    /*
-     * Like parse_args_internal but collects unused args into a vector<string>
-     */
-    // NOLINTNEXTLINE(misc-no-recursion)
-    fn parse_known_args_internal(const Vec<String>& raw_arguments) -> Vec<String> {
-      Vec<String> arguments = preprocess_arguments(raw_arguments);
-
-      Vec<String> unknown_arguments {};
-
-      if (m_program_name.empty() && !arguments.empty())
-        m_program_name = arguments.front();
-
-      const auto end = std::end(arguments);
-
-      auto positional_argument_it = std::begin(m_positional_arguments);
-
-      for (auto it = std::next(std::begin(arguments)); it != end;) {
-        const String& current_argument = *it;
-        if (Argument::is_positional(current_argument, m_prefix_chars)) {
-          if (positional_argument_it == std::end(m_positional_arguments)) {
-            // Check sub-parsers
-            if (auto subparser_it = m_subparser_map.find(current_argument); subparser_it != m_subparser_map.end()) {
-              // build list of remaining args
-              const Vec<String> unprocessed_arguments = Vec<String>(it, end);
-
-              // invoke subparser
-              m_is_parsed                        = true;
-              m_subparser_used[current_argument] = true;
-              return subparser_it->second->get().parse_known_args_internal(
-                unprocessed_arguments
-              );
-            }
-
-            // save current argument as unknown and go to next argument
-            unknown_arguments.push_back(current_argument);
-            ++it;
-          } else {
-            // current argument is the value of a positional argument
-            // consume it
-            const auto argument = positional_argument_it++;
-
-            it = argument->consume(it, end);
-          }
-          continue;
-        }
-
-        auto arg_map_it = m_argument_map.find(current_argument);
-
-        if (arg_map_it != m_argument_map.end()) {
-          const auto argument = arg_map_it->second;
-
-          it = argument->consume(std::next(it), end, arg_map_it->first);
-        } else if (const String& compound_arg = current_argument;
-                   compound_arg.size() > 1 &&
-                   is_valid_prefix_char(compound_arg[0]) &&
-                   !is_valid_prefix_char(compound_arg[1])) {
-          ++it;
-          for (usize j = 1; j < compound_arg.size(); j++) {
-            const String hypothetical_arg = { '-', compound_arg[j] };
-
-            auto arg_map_it2 = m_argument_map.find(hypothetical_arg);
-            if (arg_map_it2 != m_argument_map.end()) {
-              const auto argument = arg_map_it2->second;
-
-              it = argument->consume(it, end, arg_map_it2->first);
-            } else {
-              unknown_arguments.push_back(current_argument);
-              break;
-            }
-          }
-        } else {
-          // current argument is an optional-like argument that is unknown
-          // save it and move to next argument
-          unknown_arguments.push_back(current_argument);
-          ++it;
-        }
-      }
-      m_is_parsed = true;
-      return unknown_arguments;
-    }
-
-    // Used by print_help.
     [[nodiscard]] fn get_length_of_longest_argument() const -> usize {
       if (m_argument_map.empty())
         return 0;
@@ -2668,4 +2669,4 @@ namespace argparse {
   };
 } // namespace argparse
 
-// NOLINTEND(readability-identifier-naming, readability-identifier-length)
+// NOLINTEND(readability-identifier-naming, readability-identifier-length, modernize-use-nullptr)

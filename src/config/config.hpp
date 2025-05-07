@@ -10,11 +10,12 @@
 #else
   #include <pwd.h>    // getpwuid, passwd
   #include <unistd.h> // getuid
+
+  #include "src/util/helpers.hpp"
 #endif
 
 #include "src/util/defs.hpp"
 #include "src/util/error.hpp"
-#include "src/util/helpers.hpp"
 #include "src/util/logging.hpp"
 #include "src/util/types.hpp"
 

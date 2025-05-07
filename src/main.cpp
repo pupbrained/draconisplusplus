@@ -23,54 +23,53 @@ using util::types::i32;
 
 fn main(const i32 argc, char* argv[]) -> i32 {
   using namespace ftxui;
+  using argparse::Argument, argparse::ArgumentParser;
   using os::SystemData;
-  using util::types::Exception;
 
-  // TODO: don't wrap all of this in a try-catch
-  try {
 #ifdef _WIN32
-    winrt::init_apartment();
+  winrt::init_apartment();
 #endif
 
-    argparse::ArgumentParser parser("draconis", "0.1.0");
+  ArgumentParser parser("draconis", "0.1.0");
 
+  Argument& logLevel =
     parser
       .add_argument("--log-level")
       .help("Set the log level")
-      .default_value("info")
-      .choices("trace", "debug", "info", "warn", "error", "fatal");
+      .default_value("info");
 
-    parser
-      .add_argument("-V", "--verbose")
-      .help("Enable verbose logging. Alias for --log-level=debug")
-      .flag();
-
-    parser.parse_args(argc, argv);
-
-    if (parser["--verbose"] == true || parser["-v"] == true)
-      info_log("Verbose logging enabled");
-
-    const Config&    config = Config::getInstance();
-    const SystemData data   = SystemData(config);
-
-    Element document = ui::CreateUI(config, data);
-
-    Screen screen = Screen::Create(Dimension::Full(), Dimension::Fit(document));
-    Render(screen, document);
-    screen.Print();
-
-#ifdef __cpp_lib_print
-    std::println();
-#else
-    std::cout << '\n';
-#endif
-  } catch (const Exception& e) {
-    error_log("Exception: {}", e.what());
-    return 1;
-  } catch (...) {
-    error_log("Unknown exception");
+  if (Result<Argument*> result = logLevel.choices("trace", "debug", "info", "warn", "error", "fatal"); !result) {
+    error_log("Error setting choices: {}", result.error().message);
     return 1;
   }
+
+  parser
+    .add_argument("-V", "--verbose")
+    .help("Enable verbose logging. Alias for --log-level=debug")
+    .flag();
+
+  if (Result<> result = parser.parse_args(argc, argv); !result) {
+    error_log("Error parsing arguments: {}", result.error().message);
+    return 1;
+  }
+
+  if (parser.get<bool>("--verbose").value_or(false) || parser.get<bool>("-v").value_or(false))
+    info_log("Verbose logging enabled");
+
+  const Config&    config = Config::getInstance();
+  const SystemData data   = SystemData(config);
+
+  Element document = ui::CreateUI(config, data);
+
+  Screen screen = Screen::Create(Dimension::Full(), Dimension::Fit(document));
+  Render(screen, document);
+  screen.Print();
+
+#ifdef __cpp_lib_print
+  std::println();
+#else
+  std::cout << '\n';
+#endif
 
   return 0;
 }
