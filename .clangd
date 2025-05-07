@@ -1,4 +1,0 @@
-Diagnostics:
-  Suppress:
-    - -Wmissing-template-arg-list-after-template-kw,
-    - -Wctad-maybe-unsupported
