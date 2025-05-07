@@ -1,9 +1,4 @@
-CompileFlags:
-  Add: [
-    -D_HAS_CXX20_COROUTINES=1,
-    -D_HAS_STD_BYTE=0
-  ]
 Diagnostics:
-  Suppress: >
-    -Wmissing-template-arg-list-after-template-kw,
-    -Wctad-maybe-unsupported
+  Suppress:
+    - -Wmissing-template-arg-list-after-template-kw,
+    - -Wctad-maybe-unsupported
