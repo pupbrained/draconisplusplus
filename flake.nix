@@ -182,7 +182,10 @@
             ++ darwinPkgs
             ++ linuxPkgs;
 
-          darwinPkgs = nixpkgs.lib.optionals stdenv.isDarwin (with pkgs.pkgsStatic; [libiconv]);
+          darwinPkgs = nixpkgs.lib.optionals stdenv.isDarwin (with pkgs.pkgsStatic; [
+            libiconv
+            apple-sdk_15
+          ]);
 
           linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs;
             [
@@ -240,7 +243,7 @@
               };
             };
 
-            devShell = mkShell.override {inherit stdenv;} {
+            devShell = mkShell.override {inherit stdenv;} rec {
               packages =
                 [
                   alejandra
@@ -264,6 +267,11 @@
 
               LD_LIBRARY_PATH = "${lib.makeLibraryPath deps}";
               NIX_ENFORCE_NO_NATIVE = 0;
+              SDKROOT = lib.optionalString stdenv.isDarwin "${pkgs.pkgsStatic.apple-sdk_15}/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk";
+              NIX_CFLAGS_COMPILE = lib.optionalString stdenv.isDarwin "-isysroot ${SDKROOT}";
+              NIX_CXXFLAGS_COMPILE = lib.optionalString stdenv.isDarwin "-isysroot ${SDKROOT}";
+              NIX_OBJCFLAGS_COMPILE = lib.optionalString stdenv.isDarwin "-isysroot ${SDKROOT}";
+              NIX_OBJCXXFLAGS_COMPILE = lib.optionalString stdenv.isDarwin "-isysroot ${SDKROOT}";
             };
           }
     );

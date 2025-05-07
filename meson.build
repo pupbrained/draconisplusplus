@@ -26,7 +26,6 @@ common_warning_flags = [
   '-Wno-c++20-extensions',
   '-Wno-c++98-compat',
   '-Wno-c++98-compat-pedantic',
-  '-Wno-covered-switch-default',
   '-Wno-disabled-macro-expansion',
   '-Wno-missing-prototypes',
   '-Wno-padded',
@@ -60,8 +59,7 @@ if host_system == 'darwin'
   add_languages('objcpp', native : false)
   objcpp = meson.get_compiler('objcpp')
   objcpp_flags = common_warning_flags + [
-    '-Wno-switch-default',
-    '-std=c++23',
+    '-std=c++26',
     '-fvisibility=hidden',
     '-fvisibility-inlines-hidden',
   ]
