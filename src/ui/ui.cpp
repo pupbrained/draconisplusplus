@@ -116,12 +116,12 @@ namespace ui {
         osIcon,
         memoryIcon,
         weatherIcon,
+        musicIcon,
         diskIcon,
         shellIcon,
         packageIcon,
         deIcon,
-        wmIcon,
-        musicIcon
+        wmIcon
       ] = ui::ICON_TYPE;
       // clang-format on
 
