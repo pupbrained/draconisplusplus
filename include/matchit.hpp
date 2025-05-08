@@ -10,10 +10,11 @@
 #include <array>
 #include <cassert>
 #include <cstdint>
-#include <functional>
+#include <optional>
 #include <stdexcept>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 #include <variant>
 
 #include "src/util/defs.hpp"

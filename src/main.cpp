@@ -1,4 +1,4 @@
-#include <cstdlib>
+#include <cstdlib>                 // EXIT_FAILURE, EXIT_SUCCESS
 #include <ftxui/dom/elements.hpp>  // ftxui::{Element, hbox, vbox, text, separator, filler, etc.}
 #include <ftxui/dom/node.hpp>      // ftxui::{Render}
 #include <ftxui/screen/screen.hpp> // ftxui::{Screen, Dimension::Full}

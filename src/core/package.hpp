@@ -56,7 +56,7 @@ namespace package {
    * @param pmInfo Information about the package manager database.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn GetCountFromDb(const PackageManagerInfo& pmInfo) -> Result<u64>;
+  fn GetCountFromDb(const String& pmId, const fs::path& dbPath, const String& countQuery) -> Result<u64>;
 
   /**
    * @brief Gets package count by iterating entries in a directory, optionally filtering and subtracting.
@@ -101,14 +101,12 @@ namespace package {
   fn GetCountFromDirectory(const String& pmId, const fs::path& dirPath) -> Result<u64>;
 
 #ifdef __linux__
-  fn GetApkCount() -> Result<u64>;
-  fn GetDpkgCount() -> Result<u64>;
-  fn GetMossCount() -> Result<u64>;
-  fn GetPacmanCount() -> Result<u64>;
-  // fn GetPortageCount() -> Result<u64>;
-  fn GetRpmCount() -> Result<u64>;
-  fn GetXbpsCount() -> Result<u64>;
-  // fn GetZypperCount() -> Result<u64>;
+  fn CountApk() -> Result<u64>;
+  fn CountDpkg() -> Result<u64>;
+  fn CountMoss() -> Result<u64>;
+  fn CountPacman() -> Result<u64>;
+  fn CountRpm() -> Result<u64>;
+  fn CountXbps() -> Result<u64>;
 
   /**
    * @brief Counts installed packages in a plist file (used by xbps and potentially others).
@@ -136,7 +134,7 @@ namespace package {
 
   // Common (potentially cross-platform)
 #ifndef _WIN32
-  fn GetNixCount() -> Result<u64>;
+  fn CountNix() -> Result<u64>;
 #endif
   fn CountCargo() -> Result<u64>;
 } // namespace package

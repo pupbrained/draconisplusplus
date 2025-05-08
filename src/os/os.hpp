@@ -14,9 +14,7 @@
  * (found in linux.cpp, windows.cpp, macos.cpp).
  */
 namespace os {
-  using util::error::DracError;
-  using util::types::u64, util::types::String, util::types::Option, util::types::Result, util::types::MediaInfo,
-    util::types::DiskSpace;
+  using util::types::u64, util::types::String, util::types::Result, util::types::MediaInfo, util::types::DiskSpace;
 
   /**
    * @brief Get the total amount of physical RAM installed in the system.

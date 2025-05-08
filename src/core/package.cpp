@@ -1,20 +1,20 @@
 #include "package.hpp"
 
-#if !defined(__serenity_) && !defined(_WIN32)
+#if !defined(__serenity__) && !defined(_WIN32)
   #include <SQLiteCpp/Database.h>  // SQLite::{Database, OPEN_READONLY}
   #include <SQLiteCpp/Exception.h> // SQLite::Exception
   #include <SQLiteCpp/Statement.h> // SQLite::Statement
 #endif
 
 #ifdef __linux__
-  #include <pugixml.hpp>
+  #include <pugixml.hpp> // pugi::{xml_document, xml_node, xml_parse_result}
 #endif
 
 #include <chrono>       // std::chrono
 #include <filesystem>   // std::filesystem
 #include <format>       // std::format
 #include <future>       // std::{async, future, launch}
-#include <system_error> // std::error_code
+#include <system_error> // std::{errc, error_code}
 
 #include "src/util/cache.hpp"
 #include "src/util/error.hpp"
@@ -22,14 +22,15 @@
 #include "src/util/logging.hpp"
 #include "src/util/types.hpp"
 
-namespace fs = std::filesystem;
-using namespace std::chrono;
-using util::cache::ReadCache, util::cache::WriteCache;
-using util::error::DracError, util::error::DracErrorCode;
-using util::types::Err, util::types::Exception, util::types::Future, util::types::Result, util::types::String,
-  util::types::Vec, util::types::i64, util::types::u64, util::types::Option, util::types::None;
+#include "include/matchit.hpp"
 
 namespace {
+  namespace fs = std::filesystem;
+  using std::chrono::system_clock, std::chrono::seconds, std::chrono::floor, std::chrono::duration_cast;
+  using util::cache::ReadCache, util::cache::WriteCache;
+  using util::error::DracError, util::error::DracErrorCode;
+  using util::types::Err, util::types::Exception, util::types::Result, util::types::String, util::types::u64, util::types::i64, util::types::Option;
+
   fn GetCountFromDirectoryImpl(
     const String&         pmId,
     const fs::path&       dirPath,
@@ -89,9 +90,7 @@ namespace {
           std::format("Filesystem error checking if '{}' is a directory: {}", dirPath.string(), fsErrCode.message())
         ));
 
-      return Err(
-        DracError(DracErrorCode::NotFound, std::format("{} path is not a directory: {}", pmId, dirPath.string()))
-      );
+      return Err(DracError(DracErrorCode::NotFound, std::format("{} path is not a directory: {}", pmId, dirPath.string())));
     }
 
     fsErrCode.clear();
@@ -160,6 +159,9 @@ namespace {
 } // namespace
 
 namespace package {
+  namespace fs = std::filesystem;
+  using util::types::Err, util::types::None, util::types::Option, util::types::Result, util::types::String, util::types::u64;
+
   fn GetCountFromDirectory(
     const String&   pmId,
     const fs::path& dirPath,
@@ -183,14 +185,17 @@ namespace package {
   }
 
 #if !defined(__serenity__) && !defined(_WIN32)
-  fn GetCountFromDb(const PackageManagerInfo& pmInfo) -> Result<u64> {
-    const auto& [pmId, dbPath, countQuery] = pmInfo;
-    const String cacheKey                  = "pkg_count_" + pmId; // More specific cache key
+  fn GetCountFromDb(const String& pmId, const fs::path& dbPath, const String& countQuery) -> Result<u64> {
+    using util::cache::ReadCache, util::cache::WriteCache;
+    using util::error::DracError, util::error::DracErrorCode;
+    using util::types::Exception, util::types::i64;
+
+    const String cacheKey = "pkg_count_" + pmId;
 
     if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(cacheKey)) {
       const auto& [count, timestamp] = *cachedDataResult;
-      std::error_code                       errc;
-      const std::filesystem::file_time_type dbModTime = fs::last_write_time(dbPath, errc);
+      std::error_code          errc;
+      const fs::file_time_type dbModTime = fs::last_write_time(dbPath, errc);
 
       if (errc) {
         warn_log(
@@ -230,7 +235,7 @@ namespace package {
       }
 
       const SQLite::Database database(dbPath.string(), SQLite::OPEN_READONLY);
-      SQLite::Statement      queryStmt(database, countQuery); // Use query directly
+      SQLite::Statement      queryStmt(database, countQuery);
 
       if (queryStmt.executeStep()) {
         const i64 countInt64 = queryStmt.getColumn(0).getInt64();
@@ -268,20 +273,21 @@ namespace package {
 #endif // __serenity__ || _WIN32
 
 #ifdef __linux__
-  fn GetCountFromPlist(const String& pmId, const std::filesystem::path& plistPath) -> Result<u64> {
-    using namespace pugi;
-    using util::types::StringView;
+  fn GetCountFromPlist(const String& pmId, const fs::path& plistPath) -> Result<u64> {
+    using pugi::xml_document, pugi::xml_node, pugi::xml_parse_result;
+    using util::cache::ReadCache, util::cache::WriteCache;
+    using util::error::DracError, util::error::DracErrorCode;
+    using util::types::i64, util::types::StringView;
 
     const String    cacheKey = "pkg_count_" + pmId;
     std::error_code fsErrCode;
 
-    // Cache check
     if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(cacheKey)) {
       const auto& [cachedCount, timestamp] = *cachedDataResult;
       if (fs::exists(plistPath, fsErrCode) && !fsErrCode) {
         const fs::file_time_type plistModTime = fs::last_write_time(plistPath, fsErrCode);
         if (!fsErrCode) {
-          if (const std::chrono::system_clock::time_point cacheTimePoint = std::chrono::system_clock::time_point(std::chrono::seconds(timestamp));
+          if (const system_clock::time_point cacheTimePoint = system_clock::time_point(seconds(timestamp));
               cacheTimePoint.time_since_epoch() >= plistModTime.time_since_epoch()) {
             debug_log("Using valid {} plist count cache (file '{}' unchanged since {}). Count: {}", pmId, plistPath.string(), std::format("{:%F %T %Z}", std::chrono::floor<std::chrono::seconds>(cacheTimePoint)), cachedCount);
             return cachedCount;
@@ -296,17 +302,16 @@ namespace package {
       debug_log("{} plist count cache not found or unreadable", pmId);
     }
 
-    // Parse plist and count
     xml_document     doc;
     xml_parse_result result = doc.load_file(plistPath.c_str());
 
     if (!result)
-      return Err(util::error::DracError(util::error::DracErrorCode::ParseError, std::format("Failed to parse plist file '{}': {}", plistPath.string(), result.description())));
+      return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse plist file '{}': {}", plistPath.string(), result.description())));
 
     xml_node dict = doc.child("plist").child("dict");
 
     if (!dict)
-      return Err(util::error::DracError(util::error::DracErrorCode::ParseError, std::format("No <dict> in plist file '{}'.", plistPath.string())));
+      return Err(DracError(DracErrorCode::ParseError, std::format("No <dict> in plist file '{}'.", plistPath.string())));
 
     u64 count = 0;
 
@@ -340,7 +345,7 @@ namespace package {
     }
 
     if (count == 0)
-      return Err(util::error::DracError(util::error::DracErrorCode::NotFound, std::format("No installed packages found in plist file '{}'.", plistPath.string())));
+      return Err(DracError(DracErrorCode::NotFound, std::format("No installed packages found in plist file '{}'.", plistPath.string())));
 
     const i64               timestampEpochSeconds = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     const PkgCountCacheData dataToCache(count, timestampEpochSeconds);
@@ -351,27 +356,13 @@ namespace package {
 #endif // __linux__
 
 #if defined(__linux__) || defined(__APPLE__)
-  fn GetNixCount() -> Result<u64> {
-    const PackageManagerInfo nixInfo = {
-      .id         = "nix",
-      .dbPath     = "/nix/var/nix/db/db.sqlite",
-      .countQuery = "SELECT COUNT(path) FROM ValidPaths WHERE sigs IS NOT NULL",
-    };
-
-    if (std::error_code errc; !fs::exists(nixInfo.dbPath, errc)) {
-      if (errc) {
-        warn_log("Filesystem error checking for Nix DB at '{}': {}", nixInfo.dbPath.string(), errc.message());
-        return Err(DracError(DracErrorCode::IoError, "Filesystem error checking Nix DB: " + errc.message()));
-      }
-
-      return Err(DracError(DracErrorCode::ApiUnavailable, "Nix db not found: " + nixInfo.dbPath.string()));
-    }
-
-    return GetCountFromDb(nixInfo);
+  fn CountNix() -> Result<u64> {
+    return GetCountFromDb("nix", "/nix/var/nix/db/db.sqlite", "SELECT COUNT(path) FROM ValidPaths WHERE sigs IS NOT NULL");
   }
 #endif // __linux__ || __APPLE__
 
   fn CountCargo() -> Result<u64> {
+    using util::error::DracError, util::error::DracErrorCode;
     using util::helpers::GetEnv;
 
     fs::path cargoPath {};
@@ -388,55 +379,87 @@ namespace package {
   }
 
   fn GetTotalCount() -> Result<u64> {
-    Vec<Future<Result<u64>>> futures;
+    using util::error::DracError;
+    using util::types::Array, util::types::Exception, util::types::Future;
 
 #ifdef __linux__
-    // futures.push_back(std::async(std::launch::async, GetApkCount));
-    futures.push_back(std::async(std::launch::async, GetDpkgCount));
-    futures.push_back(std::async(std::launch::async, GetMossCount));
-    futures.push_back(std::async(std::launch::async, GetPacmanCount));
-    // futures.push_back(std::async(std::launch::async, GetPortageCount));
-    futures.push_back(std::async(std::launch::async, GetRpmCount));
-    futures.push_back(std::async(std::launch::async, GetXbpsCount));
-    // futures.push_back(std::async(std::launch::async, GetZypperCount));
+    constexpr size_t platformSpecificCount = 6; // Apk, Dpkg, Moss, Pacman, Rpm, Xbps
 #elifdef __APPLE__
-    futures.push_back(std::async(std::launch::async, GetHomebrewCount));
-    futures.push_back(std::async(std::launch::async, GetMacPortsCount));
+    constexpr size_t platformSpecificCount = 2; // Homebrew, MacPorts
 #elifdef _WIN32
-    futures.push_back(std::async(std::launch::async, CountWinGet));
-    futures.push_back(std::async(std::launch::async, CountChocolatey));
-    futures.push_back(std::async(std::launch::async, CountScoop));
+    constexpr size_t platformSpecificCount = 3; // WinGet, Chocolatey, Scoop
 #elif defined(__FreeBSD__) || defined(__DragonFly__)
-    futures.push_back(std::async(std::launch::async, GetPkgNgCount));
+    constexpr size_t platformSpecificCount = 1; // GetPkgNgCount
 #elifdef __NetBSD__
-    futures.push_back(std::async(std::launch::async, GetPkgSrcCount));
+    constexpr size_t platformSpecificCount = 1; // GetPkgSrcCount
 #elifdef __HAIKU__
-    futures.push_back(std::async(std::launch::async, GetHaikuCount));
+    constexpr size_t platformSpecificCount = 1; // GetHaikuCount
 #elifdef __serenity__
-    futures.push_back(std::async(std::launch::async, GetSerenityCount));
+    constexpr size_t platformSpecificCount = 1; // GetSerenityCount
 #endif
 
 #if defined(__linux__) || defined(__APPLE__)
-    futures.push_back(std::async(std::launch::async, GetNixCount));
+    // platform specific + cargo + nix
+    constexpr size_t numFutures = platformSpecificCount + 2;
+#else
+    // platform specific + cargo
+    constexpr size_t numFutures = platformSpecificCount + 1;
 #endif
-    futures.push_back(std::async(std::launch::async, CountCargo));
+
+    Array<Future<Result<u64>>, numFutures>
+      futures = {
+        {
+#ifdef __linux__
+         std::async(std::launch::async, CountApk),
+         std::async(std::launch::async, CountDpkg),
+         std::async(std::launch::async, CountMoss),
+         std::async(std::launch::async, CountPacman),
+         std::async(std::launch::async, CountRpm),
+         std::async(std::launch::async, CountXbps),
+    //  std::async(std::launch::async, CountZypper),
+#elifdef __APPLE__
+          std::async(std::launch::async, GetHomebrewCount),
+          std::async(std::launch::async, GetMacPortsCount),
+#elifdef _WIN32
+          std::async(std::launch::async, CountWinGet),
+          std::async(std::launch::async, CountChocolatey),
+          std::async(std::launch::async, CountScoop),
+#elif defined(__FreeBSD__) || defined(__DragonFly__)
+          std::async(std::launch::async, GetPkgNgCount),
+#elifdef __NetBSD__
+          std::async(std::launch::async, GetPkgSrcCount),
+#elifdef __HAIKU__
+          std::async(std::launch::async, GetHaikuCount),
+#elifdef __serenity__
+          std::async(std::launch::async, GetSerenityCount),
+#endif
+
+#if defined(__linux__) || defined(__APPLE__)
+         std::async(std::launch::async, CountNix),
+#endif
+
+         std::async(std::launch::async, CountCargo),
+         }
+    };
 
     u64  totalCount   = 0;
     bool oneSucceeded = false;
 
     for (Future<Result<u64>>& fut : futures) {
       try {
+        using matchit::match, matchit::is, matchit::or_, matchit::_;
         using enum util::error::DracErrorCode;
 
         if (Result<u64> result = fut.get()) {
           totalCount += *result;
           oneSucceeded = true;
           debug_log("Added {} packages. Current total: {}", *result, totalCount);
-        } else if (result.error().code != NotFound && result.error().code != ApiUnavailable &&
-                   result.error().code != NotSupported) {
-          error_at(result.error());
-        } else
-          debug_at(result.error());
+        } else {
+          match(result.error().code)(
+            is | or_(NotFound, ApiUnavailable, NotSupported) = [&] -> void { debug_at(result.error()); },
+            is | _                                           = [&] -> void { error_at(result.error()); }
+          );
+        }
       } catch (const Exception& exc) {
         error_log("Caught exception while getting package count future: {}", exc.what());
       } catch (...) { error_log("Caught unknown exception while getting package count future."); }

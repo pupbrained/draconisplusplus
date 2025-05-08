@@ -26,6 +26,7 @@
 #include <utility>               // std::move
 
 #include "src/core/package.hpp"
+#include "src/util/cache.hpp"
 #include "src/util/defs.hpp"
 #include "src/util/error.hpp"
 #include "src/util/helpers.hpp"
@@ -494,18 +495,97 @@ namespace os {
 namespace package {
   using namespace std::string_literals;
 
-  fn GetDpkgCount() -> Result<u64> {
+  fn CountApk() -> Result<u64> {
+    using namespace util::cache;
+
+    const String   pmId      = "apk";
+    const fs::path apkDbPath = "/lib/apk/db/installed";
+    const String   cacheKey  = "pkg_count_" + pmId;
+
+    std::error_code fsErrCode;
+
+    if (!fs::exists(apkDbPath, fsErrCode)) {
+      if (fsErrCode) {
+        warn_log("Filesystem error checking for Apk DB at '{}': {}", apkDbPath.string(), fsErrCode.message());
+        return Err(DracError(DracErrorCode::IoError, "Filesystem error checking Apk DB: " + fsErrCode.message()));
+      }
+
+      return Err(DracError(DracErrorCode::NotFound, std::format("Apk database path '{}' does not exist", apkDbPath.string())));
+    }
+
+    if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(cacheKey)) {
+      const auto& [cachedCount, timestamp] = *cachedDataResult;
+      std::error_code          modTimeErrCode;
+      const fs::file_time_type dbModTime = fs::last_write_time(apkDbPath, modTimeErrCode);
+
+      if (modTimeErrCode) {
+        warn_log(
+          "Could not get modification time for '{}': {}. Invalidating {} cache.",
+          apkDbPath.string(),
+          modTimeErrCode.message(),
+          pmId
+        );
+      } else {
+        using std::chrono::system_clock, std::chrono::seconds, std::chrono::floor;
+        const system_clock::time_point cacheTimePoint = system_clock::time_point(seconds(timestamp));
+
+        if (cacheTimePoint.time_since_epoch() >= dbModTime.time_since_epoch()) {
+          debug_log("Using valid {} package count cache (DB file unchanged since {}). Count: {}", pmId, std::format("{:%F %T %Z}", floor<seconds>(cacheTimePoint)), cachedCount);
+          return cachedCount;
+        }
+
+        debug_log("{} package count cache stale (DB file modified).", pmId);
+      }
+    } else {
+      if (cachedDataResult.error().code != DracErrorCode::NotFound)
+        debug_at(cachedDataResult.error());
+      debug_log("{} package count cache not found or unreadable.", pmId);
+    }
+
+    debug_log("Fetching fresh {} package count from file: {}", pmId, apkDbPath.string());
+
+    std::ifstream file(apkDbPath);
+    if (!file.is_open())
+      return Err(DracError(DracErrorCode::IoError, std::format("Failed to open Apk database file '{}'", apkDbPath.string())));
+
+    String line;
+
+    u64 count = 0;
+
+    try {
+      while (std::getline(file, line))
+        if (line.empty())
+          count++;
+    } catch (const std::ios_base::failure& e) {
+      return Err(DracError(
+        DracErrorCode::IoError,
+        std::format("Error reading Apk database file '{}': {}", apkDbPath.string(), e.what())
+      ));
+    }
+
+    if (file.bad())
+      return Err(DracError(DracErrorCode::IoError, std::format("IO error while reading Apk database file '{}'", apkDbPath.string())));
+
+    {
+      using std::chrono::duration_cast, std::chrono::system_clock, std::chrono::seconds;
+
+      const i64 timestampEpochSeconds = duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
+
+      const PkgCountCacheData dataToCache(count, timestampEpochSeconds);
+
+      if (Result writeResult = WriteCache(cacheKey, dataToCache); !writeResult)
+        debug_at(writeResult.error());
+    }
+
+    return count;
+  }
+
+  fn CountDpkg() -> Result<u64> {
     return GetCountFromDirectory("Dpkg", fs::current_path().root_path() / "var" / "lib" / "dpkg" / "info", ".list"s);
   }
 
-  fn GetMossCount() -> Result<u64> {
-    const PackageManagerInfo mossInfo = {
-      .id         = "moss",
-      .dbPath     = "/.moss/db/install",
-      .countQuery = "SELECT COUNT(*) FROM meta",
-    };
-
-    Result<u64> countResult = GetCountFromDb(mossInfo);
+  fn CountMoss() -> Result<u64> {
+    Result<u64> countResult = GetCountFromDb("moss", "/.moss/db/install", "SELECT COUNT(*) FROM meta");
 
     if (countResult)
       if (*countResult > 0)
@@ -514,21 +594,15 @@ namespace package {
     return countResult;
   }
 
-  fn GetPacmanCount() -> Result<u64> {
+  fn CountPacman() -> Result<u64> {
     return GetCountFromDirectory("Pacman", fs::current_path().root_path() / "var" / "lib" / "pacman" / "local", true);
   }
 
-  fn GetRpmCount() -> Result<u64> {
-    const PackageManagerInfo rpmInfo = {
-      .id         = "rpm",
-      .dbPath     = "/var/lib/rpm/rpmdb.sqlite",
-      .countQuery = "SELECT COUNT(*) FROM Installtid",
-    };
-
-    return GetCountFromDb(rpmInfo);
+  fn CountRpm() -> Result<u64> {
+    return GetCountFromDb("rpm", "/var/lib/rpm/rpmdb.sqlite", "SELECT COUNT(*) FROM Installtid");
   }
 
-  fn GetXbpsCount() -> Result<u64> {
+  fn CountXbps() -> Result<u64> {
     const StringView xbpsDbPath = "/var/db/xbps";
     const String     pmId       = "xbps";
 

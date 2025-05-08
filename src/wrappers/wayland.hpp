@@ -15,17 +15,15 @@ struct wl_display;
 namespace wl {
   using display = wl_display;
 
-  // NOLINTBEGIN(readability-identifier-naming)
-  inline fn connect(const char* name) -> display* {
+  inline fn Connect(const char* name) -> display* {
     return wl_display_connect(name);
   }
-  inline fn disconnect(display* display) -> void {
+  inline fn Disconnect(display* display) -> void {
     wl_display_disconnect(display);
   }
-  inline fn get_fd(display* display) -> int {
+  inline fn GetFd(display* display) -> int {
     return wl_display_get_fd(display);
   }
-  // NOLINTEND(readability-identifier-naming)
 
   /**
    * RAII wrapper for Wayland display connections
@@ -70,12 +68,12 @@ namespace wl {
       });
 
       // NOLINTNEXTLINE(cppcoreguidelines-prefer-member-initializer) - needs to come after wl_log_set_handler_client
-      m_display = connect(nullptr);
+      m_display = Connect(nullptr);
     }
 
     ~DisplayGuard() {
       if (m_display)
-        disconnect(m_display);
+        Disconnect(m_display);
     }
 
     // Non-copyable
@@ -88,7 +86,7 @@ namespace wl {
     fn operator=(DisplayGuard&& other) noexcept -> DisplayGuard& {
       if (this != &other) {
         if (m_display)
-          disconnect(m_display);
+          Disconnect(m_display);
 
         m_display = std::exchange(other.m_display, nullptr);
       }
@@ -104,7 +102,7 @@ namespace wl {
       return m_display;
     }
     [[nodiscard]] fn fd() const -> util::types::i32 {
-      return get_fd(m_display);
+      return GetFd(m_display);
     }
   };
 } // namespace wl
