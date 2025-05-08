@@ -1454,12 +1454,11 @@ namespace argparse {
 
     /**
      * @brief Get a pointer to this argument if it has choices
-     * @return Result containing a pointer to this argument or an error
-     * @details Returns an error if no choices have been added
+     * @return Pointer to this argument or nullptr if no choices have been added
      */
-    fn choices() -> Result<Argument*> {
+    fn choices() -> Argument* {
       if (!m_choices.has_value() || m_choices.value().empty())
-        return Err(DracError(DracErrorCode::InvalidArgument, "Zero choices provided"));
+        return nullptr;
 
       return this;
     }
@@ -1470,10 +1469,10 @@ namespace argparse {
      * @tparam U Types of the remaining choices
      * @param first The first choice value
      * @param rest The remaining choice values
-     * @return Result containing a pointer to this argument or an error
+     * @return Pointer to this argument or nullptr if no choices have been added
      */
     template <typename T, typename... U>
-    fn choices(T&& first, U&&... rest) -> Result<Argument*> {
+    fn choices(T&& first, U&&... rest) -> Argument* {
       add_choice(std::forward<T>(first));
       if constexpr (sizeof...(rest) == 0) {
         return choices();
@@ -1492,7 +1491,7 @@ namespace argparse {
       const auto& choices = m_choices.value();
 
       if (m_default_value.has_value()) {
-        if (choices.find(m_default_value_str.value_or("")) == choices.end()) {
+        if (!choices.contains(m_default_value_str.value_or(""))) {
           const String choices_as_csv =
             std::accumulate(choices.begin(), choices.end(), String(), [](const String& a, const String& b) {
               return a + (a.empty() ? "" : ", ") + b;
@@ -1696,67 +1695,41 @@ namespace argparse {
      *          - Validates default values against choices
      */
     [[nodiscard]] fn validate() const -> Result<> {
-      if (m_num_args_range.get_min() > m_num_args_range.get_max()) {
+      if (m_num_args_range.get_min() > m_num_args_range.get_max())
         return Err(DracError(DracErrorCode::InvalidArgument, std::format("Invalid nargs range for argument '{}': min ({}) > max ({}). This indicates a configuration error when defining the argument.", m_names.empty() ? "UnnamedArgument" : m_names[0], m_num_args_range.get_min(), m_num_args_range.get_max())));
-      }
 
       if (m_is_optional) {
-        if (!m_is_used && !m_default_value.has_value() && !m_implicit_value.has_value() && m_is_required)
+        if (!m_is_used && !m_default_value.has_value() && m_is_required)
           return Err(DracError(DracErrorCode::InvalidArgument, std::format("Required argument '{}' was not provided", m_names[0])));
 
         if (m_is_used && m_is_required && m_values.empty())
           return Err(DracError(DracErrorCode::InvalidArgument, std::format("Required argument '{}' requires a value, but none was provided", m_names[0])));
-
-        if (m_is_used && m_num_args_range.get_min() > m_values.size())
-          return Err(DracError(DracErrorCode::InvalidArgument, std::format("Too few arguments for optional argument '{}'. Expected at least {}, got {}.", m_names[0], m_num_args_range.get_min(), m_values.size())));
       } else {
         if (!m_num_args_range.contains(m_values.size()) && !m_default_value.has_value()) {
           String expected_str;
-
           if (m_num_args_range.is_exact())
             expected_str = std::to_string(m_num_args_range.get_min());
           else if (!m_num_args_range.is_right_bounded())
             expected_str = std::format("at least {}", m_num_args_range.get_min());
           else
             expected_str = std::format("{} to {}", m_num_args_range.get_min(), m_num_args_range.get_max());
-
           return Err(DracError(DracErrorCode::InvalidArgument, std::format("Incorrect number of arguments for positional argument '{}'. Expected {}, got {}.", (m_metavar.empty() ? m_names[0] : m_metavar), expected_str, m_values.size())));
         }
 
-        if (m_num_args_range.get_min() > m_values.size())
-          return Err(DracError(DracErrorCode::InvalidArgument, std::format("Too few arguments for positional argument '{}'. Expected at least {}, got {}.", (m_metavar.empty() ? m_names[0] : m_metavar), m_num_args_range.get_min(), m_values.size())));
-      }
-
-      if (m_num_args_range.get_max() < m_values.size()) {
-        if (m_is_optional)
-          return Err(DracError(DracErrorCode::InvalidArgument, std::format("Too many arguments for optional argument '{}'. Expected at most {}, got {}.", m_names[0], m_num_args_range.get_max(), m_values.size())));
-
-        return Err(DracError(DracErrorCode::InvalidArgument, std::format("Too many arguments for positional argument '{}'. Expected at most {}, got {}.", (m_metavar.empty() ? m_names[0] : m_metavar), m_num_args_range.get_max(), m_values.size())));
+        if (m_num_args_range.get_max() < m_values.size())
+          return Err(DracError(DracErrorCode::InvalidArgument, std::format("Too many arguments for positional argument '{}'. Expected at most {}, got {}.", (m_metavar.empty() ? m_names[0] : m_metavar), m_num_args_range.get_max(), m_values.size())));
       }
 
       if (m_choices.has_value()) {
         const auto& choices = m_choices.value();
 
         if (m_default_value.has_value())
-          if (const String& default_val_str = m_default_value_str.value(); choices.find(default_val_str) == choices.end()) {
+          if (const String& default_val_str = m_default_value_str.value(); !choices.contains(default_val_str)) {
             const String choices_as_csv = std::accumulate(
               choices.begin(), choices.end(), String(), [](const String& option_a, const String& option_b) -> String { return option_a + (option_a.empty() ? "" : ", ") + option_b; }
             );
             return Err(DracError(DracErrorCode::InvalidArgument, std::format("Default value '{}' is not in the allowed choices: {{{}}}", default_val_str, choices_as_csv)));
           }
-
-        for (const auto& value : m_values) {
-          if (value.index() != typeid(String).hash_code())
-            return Err(DracError(DracErrorCode::InvalidArgument, std::format("Invalid argument type for choice validation - expected string, got '{}'", typeid(value).name())));
-
-          if (const String& value_str = std::get<String>(value); choices.find(value_str) == choices.end()) {
-            const String choices_as_csv = std::accumulate(
-              choices.begin(), choices.end(), String(), [](const String& option_a, const String& option_b) -> String { return std::format("{}{}{}", option_a, option_a.empty() ? "" : ", ", option_b); }
-            );
-
-            return Err(DracError(DracErrorCode::InvalidArgument, std::format("Invalid argument '{}' - allowed options: {{{}}}", details::repr(value), choices_as_csv)));
-          }
-        }
       }
 
       return {};
@@ -2144,7 +2117,7 @@ namespace argparse {
       };
 
       fn consume_digits = [=](StringView sd) -> StringView {
-        const auto it = std::ranges::find_if_not(sd, is_digit);
+        const char* const it = std::ranges::find_if_not(sd, is_digit);
 
         return sd.substr(static_cast<usize>(it - std::begin(sd)));
       };
@@ -3447,13 +3420,22 @@ namespace argparse {
             const String hypothetical_arg = { '-', compound_arg[j] };
             auto         arg_map_it2      = m_argument_map.find(hypothetical_arg);
             if (arg_map_it2 != m_argument_map.end()) {
-              const auto           argument_iter2 = arg_map_it2->second;
-              Result<decltype(it)> consume_result = argument_iter2->consume(it, end, arg_map_it2->first);
-              if (!consume_result)
-                return Err(consume_result.error());
-              it = consume_result.value();
-            } else
-              return Err(DracError(DracErrorCode::InvalidArgument, std::format("Unknown argument: {} in compound {}", hypothetical_arg, current_argument)));
+              auto argument = arg_map_it2->second;
+              if (argument->m_num_args_range.get_max() == 0) {
+                // Flag: do not consume the next argument as a value
+                Result<decltype(it)> consume_result_flag = argument->consume(it, it, arg_map_it2->first);
+                if (!consume_result_flag)
+                  return Err(consume_result_flag.error());
+                it = consume_result_flag.value();
+              } else {
+                // Option expects a value: consume as before
+                Result<decltype(it)> consume_result = argument->consume(it, end, arg_map_it2->first);
+                if (!consume_result)
+                  return Err(consume_result.error());
+              }
+            } else {
+              return Err(DracError(DracErrorCode::InvalidArgument, std::format("Unknown argument: {}", current_argument)));
+            }
           }
         } else
           return Err(DracError(DracErrorCode::InvalidArgument, std::format("Unknown argument: {}", current_argument)));

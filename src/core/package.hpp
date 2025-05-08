@@ -11,11 +11,7 @@
 namespace package {
   namespace fs = std::filesystem;
   using util::error::DracError;
-  using util::types::Future;
-  using util::types::i64;
-  using util::types::Result;
-  using util::types::String;
-  using util::types::u64;
+  using util::types::Future, util::types::i64, util::types::Result, util::types::String, util::types::u64;
 
   /**
    * @struct PkgCountCacheData
@@ -24,6 +20,9 @@ namespace package {
   struct PkgCountCacheData {
     u64 count {};
     i64 timestampEpochSeconds {};
+
+    PkgCountCacheData() = default;
+    PkgCountCacheData(u64 count, i64 timestampEpochSeconds) : count(count), timestampEpochSeconds(timestampEpochSeconds) {}
 
     // NOLINTBEGIN(readability-identifier-naming)
     struct [[maybe_unused]] glaze {
@@ -102,13 +101,22 @@ namespace package {
   fn GetCountFromDirectory(const String& pmId, const fs::path& dirPath) -> Result<u64>;
 
 #ifdef __linux__
-  fn GetDpkgCount() -> Result<u64>;
-  fn GetPacmanCount() -> Result<u64>;
-  fn GetMossCount() -> Result<u64>;
-  fn GetRpmCount() -> Result<u64>;
-  fn GetZypperCount() -> Result<u64>;
-  fn GetPortageCount() -> Result<u64>;
   fn GetApkCount() -> Result<u64>;
+  fn GetDpkgCount() -> Result<u64>;
+  fn GetMossCount() -> Result<u64>;
+  fn GetPacmanCount() -> Result<u64>;
+  // fn GetPortageCount() -> Result<u64>;
+  fn GetRpmCount() -> Result<u64>;
+  fn GetXbpsCount() -> Result<u64>;
+  // fn GetZypperCount() -> Result<u64>;
+
+  /**
+   * @brief Counts installed packages in a plist file (used by xbps and potentially others).
+   * @param pmId Identifier for the package manager (for logging/cache).
+   * @param plistPath Path to the plist file.
+   * @return Result containing the count (u64) or a DracError.
+   */
+  fn GetCountFromPlist(const String& pmId, const std::filesystem::path& plistPath) -> Result<u64>;
 #elifdef __APPLE__
   fn GetHomebrewCount() -> Result<u64>;
   fn GetMacPortsCount() -> Result<u64>;

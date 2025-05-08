@@ -6,6 +6,10 @@
   #include <SQLiteCpp/Statement.h> // SQLite::Statement
 #endif
 
+#ifdef __linux__
+  #include <pugixml.hpp>
+#endif
+
 #include <chrono>       // std::chrono
 #include <filesystem>   // std::filesystem
 #include <format>       // std::format
@@ -144,8 +148,9 @@ namespace {
     if (count == 0)
       return Err(DracError(DracErrorCode::NotFound, std::format("No packages found in {} directory", pmId)));
 
-    const i64               nowEpochSeconds = duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
-    const PkgCountCacheData dataToCache     = { .count = count, .timestampEpochSeconds = nowEpochSeconds };
+    const i64 timestampEpochSeconds = duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
+
+    const PkgCountCacheData dataToCache(count, timestampEpochSeconds);
 
     if (Result writeResult = WriteCache(pmId, dataToCache); !writeResult)
       debug_at(writeResult.error());
@@ -251,15 +256,99 @@ namespace package {
 
     debug_log("Successfully fetched {} package count: {}.", pmId, count);
 
-    const i64               nowEpochSeconds = duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
-    const PkgCountCacheData dataToCache     = { .count = count, .timestampEpochSeconds = nowEpochSeconds };
+    const i64 timestampEpochSeconds = duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
+
+    const PkgCountCacheData dataToCache(count, timestampEpochSeconds);
 
     if (Result writeResult = WriteCache(cacheKey, dataToCache); !writeResult)
       debug_at(writeResult.error());
 
     return count;
   }
-#endif // __serenity__
+#endif // __serenity__ || _WIN32
+
+#ifdef __linux__
+  fn GetCountFromPlist(const String& pmId, const std::filesystem::path& plistPath) -> Result<u64> {
+    using namespace pugi;
+    using util::types::StringView;
+
+    const String    cacheKey = "pkg_count_" + pmId;
+    std::error_code fsErrCode;
+
+    // Cache check
+    if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(cacheKey)) {
+      const auto& [cachedCount, timestamp] = *cachedDataResult;
+      if (fs::exists(plistPath, fsErrCode) && !fsErrCode) {
+        const fs::file_time_type plistModTime = fs::last_write_time(plistPath, fsErrCode);
+        if (!fsErrCode) {
+          if (const std::chrono::system_clock::time_point cacheTimePoint = std::chrono::system_clock::time_point(std::chrono::seconds(timestamp));
+              cacheTimePoint.time_since_epoch() >= plistModTime.time_since_epoch()) {
+            debug_log("Using valid {} plist count cache (file '{}' unchanged since {}). Count: {}", pmId, plistPath.string(), std::format("{:%F %T %Z}", std::chrono::floor<std::chrono::seconds>(cacheTimePoint)), cachedCount);
+            return cachedCount;
+          }
+        } else {
+          warn_log("Could not get modification time for '{}': {}. Invalidating {} cache.", plistPath.string(), fsErrCode.message(), pmId);
+        }
+      }
+    } else if (cachedDataResult.error().code != DracErrorCode::NotFound) {
+      debug_at(cachedDataResult.error());
+    } else {
+      debug_log("{} plist count cache not found or unreadable", pmId);
+    }
+
+    // Parse plist and count
+    xml_document     doc;
+    xml_parse_result result = doc.load_file(plistPath.c_str());
+
+    if (!result)
+      return Err(util::error::DracError(util::error::DracErrorCode::ParseError, std::format("Failed to parse plist file '{}': {}", plistPath.string(), result.description())));
+
+    xml_node dict = doc.child("plist").child("dict");
+
+    if (!dict)
+      return Err(util::error::DracError(util::error::DracErrorCode::ParseError, std::format("No <dict> in plist file '{}'.", plistPath.string())));
+
+    u64 count = 0;
+
+    for (xml_node node = dict.first_child(); node; node = node.next_sibling()) {
+      if (StringView(node.name()) != "key")
+        continue;
+
+      const StringView keyName = node.child_value();
+
+      if (keyName == "_XBPS_ALTERNATIVES_")
+        continue;
+
+      xml_node pkgDict = node.next_sibling("dict");
+
+      if (!pkgDict)
+        continue;
+
+      bool isInstalled = false;
+
+      for (xml_node pkgNode = pkgDict.first_child(); pkgNode; pkgNode = pkgNode.next_sibling())
+        if (StringView(pkgNode.name()) == "key" && StringView(pkgNode.child_value()) == "state") {
+          xml_node stateValue = pkgNode.next_sibling("string");
+          if (stateValue && StringView(stateValue.child_value()) == "installed") {
+            isInstalled = true;
+            break;
+          }
+        }
+
+      if (isInstalled)
+        ++count;
+    }
+
+    if (count == 0)
+      return Err(util::error::DracError(util::error::DracErrorCode::NotFound, std::format("No installed packages found in plist file '{}'.", plistPath.string())));
+
+    const i64               timestampEpochSeconds = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    const PkgCountCacheData dataToCache(count, timestampEpochSeconds);
+    if (Result writeResult = WriteCache(cacheKey, dataToCache); !writeResult)
+      debug_at(writeResult.error());
+    return count;
+  }
+#endif // __linux__
 
 #if defined(__linux__) || defined(__APPLE__)
   fn GetNixCount() -> Result<u64> {
@@ -302,13 +391,14 @@ namespace package {
     Vec<Future<Result<u64>>> futures;
 
 #ifdef __linux__
-    futures.push_back(std::async(std::launch::async, GetDpkgCount));
-    futures.push_back(std::async(std::launch::async, GetPacmanCount));
-    // futures.push_back(std::async(std::launch::async, GetRpmCount));
-    // futures.push_back(std::async(std::launch::async, GetPortageCount));
-    // futures.push_back(std::async(std::launch::async, GetZypperCount));
     // futures.push_back(std::async(std::launch::async, GetApkCount));
+    futures.push_back(std::async(std::launch::async, GetDpkgCount));
     futures.push_back(std::async(std::launch::async, GetMossCount));
+    futures.push_back(std::async(std::launch::async, GetPacmanCount));
+    // futures.push_back(std::async(std::launch::async, GetPortageCount));
+    futures.push_back(std::async(std::launch::async, GetRpmCount));
+    futures.push_back(std::async(std::launch::async, GetXbpsCount));
+    // futures.push_back(std::async(std::launch::async, GetZypperCount));
 #elifdef __APPLE__
     futures.push_back(std::async(std::launch::async, GetHomebrewCount));
     futures.push_back(std::async(std::launch::async, GetMacPortsCount));

@@ -24,50 +24,110 @@ namespace xcb {
   using get_property_cookie_t = xcb_get_property_cookie_t;
   using get_property_reply_t  = xcb_get_property_reply_t;
 
-  constexpr atom_t ATOM_WINDOW = XCB_ATOM_WINDOW;
+  constexpr atom_t ATOM_WINDOW = XCB_ATOM_WINDOW; ///< Window atom
 
+  /**
+   * @brief Enum representing different types of connection errors
+   *
+   * This enum defines the possible types of errors that can occur when
+   * establishing or maintaining an XCB connection. Each error type
+   * corresponds to a specific error code defined in the XCB library.
+   */
   enum ConnError : u8 {
-    Generic         = XCB_CONN_ERROR,
-    ExtNotSupported = XCB_CONN_CLOSED_EXT_NOTSUPPORTED,
-    MemInsufficient = XCB_CONN_CLOSED_MEM_INSUFFICIENT,
-    ReqLenExceed    = XCB_CONN_CLOSED_REQ_LEN_EXCEED,
-    ParseErr        = XCB_CONN_CLOSED_PARSE_ERR,
-    InvalidScreen   = XCB_CONN_CLOSED_INVALID_SCREEN,
-    FdPassingFailed = XCB_CONN_CLOSED_FDPASSING_FAILED,
+    Generic         = XCB_CONN_ERROR,                   ///< Generic connection error
+    ExtNotSupported = XCB_CONN_CLOSED_EXT_NOTSUPPORTED, ///< Extension not supported
+    MemInsufficient = XCB_CONN_CLOSED_MEM_INSUFFICIENT, ///< Memory insufficient
+    ReqLenExceed    = XCB_CONN_CLOSED_REQ_LEN_EXCEED,   ///< Request length exceed
+    ParseErr        = XCB_CONN_CLOSED_PARSE_ERR,        ///< Parse error
+    InvalidScreen   = XCB_CONN_CLOSED_INVALID_SCREEN,   ///< Invalid screen
+    FdPassingFailed = XCB_CONN_CLOSED_FDPASSING_FAILED, ///< FD passing failed
   };
 
-  // NOLINTBEGIN(readability-identifier-naming)
-  inline fn getConnError(const util::types::i32 code) -> util::types::Option<ConnError> {
-    switch (code) {
-      case XCB_CONN_ERROR:                   return Generic;
-      case XCB_CONN_CLOSED_EXT_NOTSUPPORTED: return ExtNotSupported;
-      case XCB_CONN_CLOSED_MEM_INSUFFICIENT: return MemInsufficient;
-      case XCB_CONN_CLOSED_REQ_LEN_EXCEED:   return ReqLenExceed;
-      case XCB_CONN_CLOSED_PARSE_ERR:        return ParseErr;
-      case XCB_CONN_CLOSED_INVALID_SCREEN:   return InvalidScreen;
-      case XCB_CONN_CLOSED_FDPASSING_FAILED: return FdPassingFailed;
-      default:                               return None;
-    }
-  }
-
-  inline fn connect(const char* displayname, int* screenp) -> connection_t* {
+  /**
+   * @brief Connect to an XCB display
+   *
+   * This function establishes a connection to an XCB display. It takes a
+   * display name and a pointer to an integer that will store the screen
+   * number.
+   *
+   * @param displayname The name of the display to connect to
+   * @param screenp Pointer to an integer that will store the screen number
+   * @return A pointer to the connection object
+   */
+  inline fn Connect(const char* displayname, int* screenp) -> connection_t* {
     return xcb_connect(displayname, screenp);
   }
-  inline fn disconnect(connection_t* conn) -> void {
+
+  /**
+   * @brief Disconnect from an XCB display
+   *
+   * This function disconnects from an XCB display. It takes a pointer to
+   * the connection object.
+   *
+   * @param conn The connection object to disconnect from
+   */
+  inline fn Disconnect(connection_t* conn) -> void {
     xcb_disconnect(conn);
   }
-  inline fn connection_has_error(connection_t* conn) -> int {
+
+  /**
+   * @brief Check if a connection has an error
+   *
+   * This function checks if a connection has an error. It takes a pointer
+   * to the connection object.
+   *
+   * @param conn The connection object to check
+   * @return 1 if the connection has an error, 0 otherwise
+   */
+  inline fn ConnectionHasError(connection_t* conn) -> int {
     return xcb_connection_has_error(conn);
   }
-  inline fn intern_atom(connection_t* conn, const uint8_t only_if_exists, const uint16_t name_len, const char* name)
+
+  /**
+   * @brief Intern an atom
+   *
+   * This function interns an atom. It takes a connection object, a flag
+   *
+   * @param conn The connection object to intern the atom on
+   * @param only_if_exists The flag to check if the atom exists
+   * @param name_len The length of the atom name
+   * @param name The name of the atom
+   * @return The cookie for the atom
+   */
+  inline fn InternAtom(connection_t* conn, const uint8_t only_if_exists, const uint16_t name_len, const char* name)
     -> intern_atom_cookie_t {
     return xcb_intern_atom(conn, only_if_exists, name_len, name);
   }
-  inline fn intern_atom_reply(connection_t* conn, const intern_atom_cookie_t cookie, generic_error_t** err)
+
+  /**
+   * @brief Get the reply for an interned atom
+   *
+   * This function gets the reply for an interned atom. It takes a connection
+   * object, a cookie, and a pointer to a generic error.
+   *
+   * @param conn The connection object
+   * @param cookie The cookie for the atom
+   * @param err The pointer to the generic error
+   * @return The reply for the atom
+   */
+  inline fn InternAtomReply(connection_t* conn, const intern_atom_cookie_t cookie, generic_error_t** err)
     -> intern_atom_reply_t* {
     return xcb_intern_atom_reply(conn, cookie, err);
   }
-  inline fn get_property(
+
+  /**
+   * @brief Get a property
+   *
+   * This function gets a property. It takes a connection object, a flag,
+   * a window, a property, a type, a long offset, and a long length.
+   *
+   * @param conn The connection object
+   * @param _delete The flag
+   * @param window The window
+   * @param property The property
+   * @param type The type
+   */
+  inline fn GetProperty(
     connection_t*  conn,
     const uint8_t  _delete,
     const window_t window,
@@ -78,24 +138,49 @@ namespace xcb {
   ) -> get_property_cookie_t {
     return xcb_get_property(conn, _delete, window, property, type, long_offset, long_length);
   }
-  inline fn get_property_reply(connection_t* conn, const get_property_cookie_t cookie, generic_error_t** err)
+
+  /**
+   * @brief Get the reply for a property
+   *
+   * This function gets the reply for a property. It takes a connection
+   * object, a cookie, and a pointer to a generic error.
+   *
+   * @param conn The connection object
+   * @param cookie The cookie for the property
+   * @param err The pointer to the generic error
+   * @return The reply for the property
+   */
+  inline fn GetPropertyReply(connection_t* conn, const get_property_cookie_t cookie, generic_error_t** err)
     -> get_property_reply_t* {
     return xcb_get_property_reply(conn, cookie, err);
   }
-  inline fn get_property_value_length(const get_property_reply_t* reply) -> int {
+
+  /**
+   * @brief Get the value length for a property
+   *
+   * @param reply The reply for the property
+   * @return The value length for the property
+   */
+  inline fn GetPropertyValueLength(const get_property_reply_t* reply) -> int {
     return xcb_get_property_value_length(reply);
   }
-  inline fn get_property_value(const get_property_reply_t* reply) -> void* {
+
+  /**
+   * @brief Get the value for a property
+   *
+   * @param reply The reply for the property
+   * @return The value for the property
+   */
+  inline fn GetPropertyValue(const get_property_reply_t* reply) -> void* {
     return xcb_get_property_value(reply);
   }
-  // NOLINTEND(readability-identifier-naming)
 
   /**
    * RAII wrapper for X11 Display connections
    * Automatically handles resource acquisition and cleanup
    */
   class DisplayGuard {
-    connection_t* m_connection = nullptr;
+    connection_t* m_connection = nullptr; ///< The connection to the display
 
    public:
     /**
@@ -103,10 +188,10 @@ namespace xcb {
      * @param name Display name (nullptr for default)
      */
     explicit DisplayGuard(const util::types::CStr name = nullptr)
-      : m_connection(connect(name, nullptr)) {}
+      : m_connection(Connect(name, nullptr)) {}
     ~DisplayGuard() {
       if (m_connection)
-        disconnect(m_connection);
+        Disconnect(m_connection);
     }
 
     // Non-copyable
@@ -116,28 +201,50 @@ namespace xcb {
     // Movable
     DisplayGuard(DisplayGuard&& other) noexcept
       : m_connection(std::exchange(other.m_connection, nullptr)) {}
+
+    /**
+     * Move assignment operator
+     * @param other The other display guard
+     * @return The moved display guard
+     */
     fn operator=(DisplayGuard&& other) noexcept -> DisplayGuard& {
       if (this != &other) {
         if (m_connection)
-          disconnect(m_connection);
+          Disconnect(m_connection);
 
         m_connection = std::exchange(other.m_connection, nullptr);
       }
       return *this;
     }
 
+    /**
+     * @brief Check if the display guard is valid
+     * @return True if the display guard is valid, false otherwise
+     */
     [[nodiscard]] explicit operator bool() const {
-      return m_connection && !connection_has_error(m_connection);
+      return m_connection && !ConnectionHasError(m_connection);
     }
 
+    /**
+     * @brief Get the connection to the display
+     * @return The connection to the display
+     */
     [[nodiscard]] fn get() const -> connection_t* {
       return m_connection;
     }
 
+    /**
+     * @brief Get the setup for the display
+     * @return The setup for the display
+     */
     [[nodiscard]] fn setup() const -> const setup_t* {
       return m_connection ? xcb_get_setup(m_connection) : nullptr;
     }
 
+    /**
+     * @brief Get the root screen for the display
+     * @return The root screen for the display
+     */
     [[nodiscard]] fn rootScreen() const -> screen_t* {
       const setup_t* setup = this->setup();
       return setup ? xcb_setup_roots_iterator(setup).data : nullptr;
@@ -150,13 +257,24 @@ namespace xcb {
    */
   template <typename T>
   class ReplyGuard {
-    T* m_reply = nullptr;
+    T* m_reply = nullptr; ///< The reply to the XCB request
 
    public:
+    /**
+     * @brief Default constructor
+     */
     ReplyGuard() = default;
+
+    /**
+     * @brief Constructor with a reply
+     * @param reply The reply to the XCB request
+     */
     explicit ReplyGuard(T* reply)
       : m_reply(reply) {}
 
+    /**
+     * @brief Destructor
+     */
     ~ReplyGuard() {
       if (m_reply)
         free(m_reply);
@@ -169,6 +287,12 @@ namespace xcb {
     // Movable
     ReplyGuard(ReplyGuard&& other) noexcept
       : m_reply(std::exchange(other.m_reply, nullptr)) {}
+
+    /**
+     * @brief Move assignment operator
+     * @param other The other reply guard
+     * @return The moved reply guard
+     */
     fn operator=(ReplyGuard&& other) noexcept -> ReplyGuard& {
       if (this != &other) {
         if (m_reply)
@@ -179,16 +303,34 @@ namespace xcb {
       return *this;
     }
 
+    /**
+     * @brief Check if the reply guard is valid
+     * @return True if the reply guard is valid, false otherwise
+     */
     [[nodiscard]] explicit operator bool() const {
       return m_reply != nullptr;
     }
 
+    /**
+     * @brief Get the reply
+     * @return The reply
+     */
     [[nodiscard]] fn get() const -> T* {
       return m_reply;
     }
+
+    /**
+     * @brief Get the reply
+     * @return The reply
+     */
     [[nodiscard]] fn operator->() const->T* {
       return m_reply;
     }
+
+    /**
+     * @brief Dereference the reply
+     * @return The reply
+     */
     [[nodiscard]] fn operator*() const->T& {
       return *m_reply;
     }

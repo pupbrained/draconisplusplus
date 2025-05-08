@@ -1,4 +1,4 @@
-#include <format>                  // std::format
+#include <cstdlib>
 #include <ftxui/dom/elements.hpp>  // ftxui::{Element, hbox, vbox, text, separator, filler, etc.}
 #include <ftxui/dom/node.hpp>      // ftxui::{Render}
 #include <ftxui/screen/screen.hpp> // ftxui::{Screen, Dimension::Full}
@@ -19,57 +19,84 @@
 
 #include "include/argparse.hpp"
 
-using util::types::i32;
+using util::types::i32, util::types::Exception;
 
 fn main(const i32 argc, char* argv[]) -> i32 {
-  using namespace ftxui;
-  using argparse::Argument, argparse::ArgumentParser;
-  using os::SystemData;
-
+  try {
 #ifdef _WIN32
-  winrt::init_apartment();
+    winrt::init_apartment();
 #endif
 
-  ArgumentParser parser("draconis", "0.1.0");
+    argparse::ArgumentParser parser("draconis", "0.1.0");
 
-  Argument& logLevel =
     parser
       .add_argument("--log-level")
       .help("Set the log level")
-      .default_value("info");
+      .default_value("info")
+      .choices("debug", "info", "warn", "error");
 
-  if (Result<Argument*> result = logLevel.choices("trace", "debug", "info", "warn", "error", "fatal"); !result) {
-    error_log("Error setting choices: {}", result.error().message);
-    return 1;
-  }
+    parser
+      .add_argument("-V", "--verbose")
+      .help("Enable verbose logging. Overrides --log-level.")
+      .flag();
 
-  parser
-    .add_argument("-V", "--verbose")
-    .help("Enable verbose logging. Alias for --log-level=debug")
-    .flag();
+    if (Result result = parser.parse_args(argc, argv); !result) {
+      error_at(result.error());
+      return EXIT_FAILURE;
+    }
 
-  if (Result<> result = parser.parse_args(argc, argv); !result) {
-    error_log("Error parsing arguments: {}", result.error().message);
-    return 1;
-  }
+    bool   verbose     = parser.get<bool>("-V").value_or(false) || parser.get<bool>("--verbose").value_or(false);
+    Result logLevelStr = verbose ? "debug" : parser.get<String>("--log-level");
 
-  if (parser.get<bool>("--verbose").value_or(false) || parser.get<bool>("-v").value_or(false))
-    info_log("Verbose logging enabled");
+    {
+      using matchit::match, matchit::is, matchit::_;
+      using util::logging::LogLevel;
+      using enum util::logging::LogLevel;
 
-  const Config&    config = Config::getInstance();
-  const SystemData data   = SystemData(config);
-
-  Element document = ui::CreateUI(config, data);
-
-  Screen screen = Screen::Create(Dimension::Full(), Dimension::Fit(document));
-  Render(screen, document);
-  screen.Print();
-
-#ifdef __cpp_lib_print
-  std::println();
+      LogLevel minLevel = match(logLevelStr)(
+        is | "debug" = Debug,
+        is | "info"  = Info,
+        is | "warn"  = Warn,
+        is | "error" = Error,
+#ifndef NDEBUG
+        is | _ = Debug
 #else
-  std::cout << '\n';
+        is | _ = Info
 #endif
+      );
 
-  return 0;
+      SetRuntimeLogLevel(minLevel);
+    }
+
+    const Config& config = Config::getInstance();
+
+    const os::SystemData data = os::SystemData(config);
+
+    {
+      using ftxui::Element, ftxui::Screen, ftxui::Render;
+      using ftxui::Dimension::Full, ftxui::Dimension::Fit;
+
+      Element document = ui::CreateUI(config, data);
+
+      Screen screen = Screen::Create(Full(), Fit(document));
+      Render(screen, document);
+      screen.Print();
+    }
+
+    // Running the program as part of the shell's startup will cut
+    // off the last line of output, so we need to add a newline here.
+#ifdef __cpp_lib_print
+    std::println();
+#else
+    std::cout << '\n';
+#endif
+  } catch (const DracError& e) {
+    error_at(e);
+    return EXIT_FAILURE;
+  } catch (const Exception& e) {
+    error_at(e);
+    return EXIT_FAILURE;
+  }
+
+  return EXIT_SUCCESS;
 }

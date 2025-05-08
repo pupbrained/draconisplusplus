@@ -15,6 +15,7 @@
 #include <glaze/beve/read.hpp>   // glz::read_beve
 #include <glaze/beve/write.hpp>  // glz::write_beve
 #include <limits>                // std::numeric_limits
+#include <pugixml.hpp>           // pugi::xml_document
 #include <string>                // std::{getline, string (String)}
 #include <string_view>           // std::string_view (StringView)
 #include <sys/socket.h>          // ucred, getsockopt, SOL_SOCKET, SO_PEERCRED
@@ -34,6 +35,8 @@
 #include "src/wrappers/wayland.hpp"
 #include "src/wrappers/xcb.hpp"
 
+#include "include/matchit.hpp"
+
 #include "os.hpp"
 // clang-format on
 
@@ -44,37 +47,34 @@ using util::helpers::GetEnv;
 namespace {
   fn GetX11WindowManager() -> Result<String> {
     using namespace xcb;
+    using namespace matchit;
+    using enum ConnError;
 
     const DisplayGuard conn;
 
     if (!conn)
-      if (const i32 err = connection_has_error(conn.get()))
-        return Err(DracError(DracErrorCode::ApiUnavailable, [&] -> String {
-          if (const Option<ConnError> connErr = getConnError(err)) {
-            switch (*connErr) {
-              case Generic:         return "Stream/Socket/Pipe Error";
-              case ExtNotSupported: return "Extension Not Supported";
-              case MemInsufficient: return "Insufficient Memory";
-              case ReqLenExceed:    return "Request Length Exceeded";
-              case ParseErr:        return "Display String Parse Error";
-              case InvalidScreen:   return "Invalid Screen";
-              case FdPassingFailed: return "FD Passing Failed";
-              default:              return std::format("Unknown Error Code ({})", err);
-            }
-          }
-
-          return std::format("Unknown Error Code ({})", err);
-        }()));
+      if (const i32 err = ConnectionHasError(conn.get()))
+        return Err(
+          DracError(
+            DracErrorCode::ApiUnavailable,
+            match(err)(
+              is | Generic         = "Stream/Socket/Pipe Error",
+              is | ExtNotSupported = "Extension Not Supported",
+              is | MemInsufficient = "Insufficient Memory",
+              is | ReqLenExceed    = "Request Length Exceeded",
+              is | ParseErr        = "Display String Parse Error",
+              is | InvalidScreen   = "Invalid Screen",
+              is | FdPassingFailed = "FD Passing Failed",
+              is | _               = std::format("Unknown Error Code ({})", err)
+            )
+          )
+        );
 
     fn internAtom = [&conn](const StringView name) -> Result<atom_t> {
-      const ReplyGuard<intern_atom_reply_t> reply(
-        intern_atom_reply(conn.get(), intern_atom(conn.get(), 0, static_cast<u16>(name.size()), name.data()), nullptr)
-      );
+      const ReplyGuard<intern_atom_reply_t> reply(InternAtomReply(conn.get(), InternAtom(conn.get(), 0, static_cast<u16>(name.size()), name.data()), nullptr));
 
       if (!reply)
-        return Err(
-          DracError(DracErrorCode::PlatformSpecific, std::format("Failed to get X11 atom reply for '{}'", name))
-        );
+        return Err(DracError(DracErrorCode::PlatformSpecific, std::format("Failed to get X11 atom reply for '{}'", name)));
 
       return reply->atom;
     };
@@ -96,27 +96,27 @@ namespace {
       return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to get X11 atoms"));
     }
 
-    const ReplyGuard<get_property_reply_t> wmWindowReply(get_property_reply(
+    const ReplyGuard<get_property_reply_t> wmWindowReply(GetPropertyReply(
       conn.get(),
-      get_property(conn.get(), 0, conn.rootScreen()->root, *supportingWmCheckAtom, ATOM_WINDOW, 0, 1),
+      GetProperty(conn.get(), 0, conn.rootScreen()->root, *supportingWmCheckAtom, ATOM_WINDOW, 0, 1),
       nullptr
     ));
 
     if (!wmWindowReply || wmWindowReply->type != ATOM_WINDOW || wmWindowReply->format != 32 ||
-        get_property_value_length(wmWindowReply.get()) == 0)
+        GetPropertyValueLength(wmWindowReply.get()) == 0)
       return Err(DracError(DracErrorCode::NotFound, "Failed to get _NET_SUPPORTING_WM_CHECK property"));
 
-    const window_t wmRootWindow = *static_cast<window_t*>(get_property_value(wmWindowReply.get()));
+    const window_t wmRootWindow = *static_cast<window_t*>(GetPropertyValue(wmWindowReply.get()));
 
-    const ReplyGuard<get_property_reply_t> wmNameReply(get_property_reply(
-      conn.get(), get_property(conn.get(), 0, wmRootWindow, *wmNameAtom, *utf8StringAtom, 0, 1024), nullptr
+    const ReplyGuard<get_property_reply_t> wmNameReply(GetPropertyReply(
+      conn.get(), GetProperty(conn.get(), 0, wmRootWindow, *wmNameAtom, *utf8StringAtom, 0, 1024), nullptr
     ));
 
-    if (!wmNameReply || wmNameReply->type != *utf8StringAtom || get_property_value_length(wmNameReply.get()) == 0)
+    if (!wmNameReply || wmNameReply->type != *utf8StringAtom || GetPropertyValueLength(wmNameReply.get()) == 0)
       return Err(DracError(DracErrorCode::NotFound, "Failed to get _NET_WM_NAME property"));
 
-    const char* nameData = static_cast<const char*>(get_property_value(wmNameReply.get()));
-    const usize length   = get_property_value_length(wmNameReply.get());
+    const char* nameData = static_cast<const char*>(GetPropertyValue(wmNameReply.get()));
+    const usize length   = GetPropertyValueLength(wmNameReply.get());
 
     return String(nameData, length);
   }
@@ -255,20 +255,23 @@ namespace os {
     Option<String> activePlayer = None;
 
     {
-      Result<Message> listNamesResult =
-        Message::newMethodCall("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "ListNames");
+      Result<Message> listNamesResult = Message::newMethodCall("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "ListNames");
+
       if (!listNamesResult)
         return Err(listNamesResult.error());
 
       Result<Message> listNamesReplyResult = connection.sendWithReplyAndBlock(*listNamesResult, 100);
+
       if (!listNamesReplyResult)
         return Err(listNamesReplyResult.error());
 
       MessageIter iter = listNamesReplyResult->iterInit();
+
       if (!iter.isValid() || iter.getArgType() != DBUS_TYPE_ARRAY)
         return Err(DracError(DracErrorCode::ParseError, "Invalid DBus ListNames reply format: Expected array"));
 
       MessageIter subIter = iter.recurse();
+
       if (!subIter.isValid())
         return Err(
           DracError(DracErrorCode::ParseError, "Invalid DBus ListNames reply format: Could not recurse into array")
@@ -288,9 +291,7 @@ namespace os {
     if (!activePlayer)
       return Err(DracError(DracErrorCode::NotFound, "No active MPRIS players found"));
 
-    Result<Message> msgResult = Message::newMethodCall(
-      activePlayer->c_str(), "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "Get"
-    );
+    Result<Message> msgResult = Message::newMethodCall(activePlayer->c_str(), "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "Get");
 
     if (!msgResult)
       return Err(msgResult.error());
@@ -309,6 +310,7 @@ namespace os {
     Option<String> artist = None;
 
     MessageIter propIter = replyResult->iterInit();
+
     if (!propIter.isValid())
       return Err(DracError(DracErrorCode::ParseError, "Properties.Get reply has no arguments or invalid iterator"));
 
@@ -316,6 +318,7 @@ namespace os {
       return Err(DracError(DracErrorCode::ParseError, "Properties.Get reply argument is not a variant"));
 
     MessageIter variantIter = propIter.recurse();
+
     if (!variantIter.isValid())
       return Err(DracError(DracErrorCode::ParseError, "Could not recurse into variant"));
 
@@ -323,11 +326,13 @@ namespace os {
       return Err(DracError(DracErrorCode::ParseError, "Metadata variant content is not a dictionary array (a{sv})"));
 
     MessageIter dictIter = variantIter.recurse();
+
     if (!dictIter.isValid())
       return Err(DracError(DracErrorCode::ParseError, "Could not recurse into metadata dictionary array"));
 
     while (dictIter.getArgType() == DBUS_TYPE_DICT_ENTRY) {
       MessageIter entryIter = dictIter.recurse();
+
       if (!entryIter.isValid()) {
         debug_log("Warning: Could not recurse into dict entry, skipping.");
         if (!dictIter.next())
@@ -336,6 +341,7 @@ namespace os {
       }
 
       Option<String> key = entryIter.getString();
+
       if (!key) {
         debug_log("Warning: Could not get key string from dict entry, skipping.");
         if (!dictIter.next())
@@ -350,6 +356,7 @@ namespace os {
       }
 
       MessageIter valueVariantIter = entryIter.recurse();
+
       if (!valueVariantIter.isValid()) {
         if (!dictIter.next())
           break;
@@ -362,9 +369,8 @@ namespace os {
         if (valueVariantIter.getArgType() == DBUS_TYPE_ARRAY && valueVariantIter.getElementType() == DBUS_TYPE_STRING) {
           if (MessageIter artistArrayIter = valueVariantIter.recurse(); artistArrayIter.isValid())
             artist = artistArrayIter.getString();
-        } else {
+        } else
           debug_log("Warning: Artist value was not an array of strings as expected.");
-        }
       }
 
       if (!dictIter.next())
@@ -426,32 +432,38 @@ namespace os {
       String        line;
 
       if (!file)
-        return Err(
-          DracError(DracErrorCode::NotFound, std::format("Failed to open DMI product identifier file '{}'", path))
-        );
+        return Err(DracError(DracErrorCode::NotFound, std::format("Failed to open DMI product identifier file '{}'", path)));
 
       if (!std::getline(file, line) || line.empty())
-        return Err(
-          DracError(DracErrorCode::ParseError, std::format("DMI product identifier file ('{}') is empty", path))
-        );
+        return Err(DracError(DracErrorCode::ParseError, std::format("DMI product identifier file ('{}') is empty", path)));
 
       return line;
     };
 
-    return readFirstLine(primaryPath).or_else([&](const DracError& primaryError) -> Result<String> {
-      return readFirstLine(fallbackPath).or_else([&](const DracError& fallbackError) -> Result<String> {
-        return Err(DracError(
-          DracErrorCode::InternalError,
-          std::format(
-            "Failed to get host identifier. Primary ('{}'): {}. Fallback ('{}'): {}",
-            primaryPath,
-            primaryError.message,
-            fallbackPath,
-            fallbackError.message
-          )
-        ));
-      });
-    });
+    Result<String> primaryResult = readFirstLine(primaryPath);
+
+    if (primaryResult)
+      return primaryResult;
+
+    DracError primaryError = primaryResult.error();
+
+    Result<String> fallbackResult = readFirstLine(fallbackPath);
+
+    if (fallbackResult)
+      return fallbackResult;
+
+    DracError fallbackError = fallbackResult.error();
+
+    return Err(DracError(
+      DracErrorCode::InternalError,
+      std::format(
+        "Failed to get host identifier. Primary ('{}'): {}. Fallback ('{}'): {}",
+        primaryPath,
+        primaryError.message,
+        fallbackPath,
+        fallbackError.message
+      )
+    ));
   }
 
   fn GetKernelVersion() -> Result<String> {
@@ -504,6 +516,38 @@ namespace package {
 
   fn GetPacmanCount() -> Result<u64> {
     return GetCountFromDirectory("Pacman", fs::current_path().root_path() / "var" / "lib" / "pacman" / "local", true);
+  }
+
+  fn GetRpmCount() -> Result<u64> {
+    const PackageManagerInfo rpmInfo = {
+      .id         = "rpm",
+      .dbPath     = "/var/lib/rpm/rpmdb.sqlite",
+      .countQuery = "SELECT COUNT(*) FROM Installtid",
+    };
+
+    return GetCountFromDb(rpmInfo);
+  }
+
+  fn GetXbpsCount() -> Result<u64> {
+    const StringView xbpsDbPath = "/var/db/xbps";
+    const String     pmId       = "xbps";
+
+    if (!fs::exists(xbpsDbPath))
+      return Err(DracError(DracErrorCode::NotFound, std::format("Xbps database path '{}' does not exist", xbpsDbPath)));
+
+    fs::path plistPath;
+    for (const fs::directory_entry& entry : fs::directory_iterator(xbpsDbPath)) {
+      const String filename = entry.path().filename().string();
+      if (filename.starts_with("pkgdb-") && filename.ends_with(".plist")) {
+        plistPath = entry.path();
+        break;
+      }
+    }
+
+    if (plistPath.empty())
+      return Err(DracError(DracErrorCode::NotFound, "No Xbps database found"));
+
+    return GetCountFromPlist(pmId, plistPath);
   }
 } // namespace package
 

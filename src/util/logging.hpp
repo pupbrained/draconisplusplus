@@ -71,10 +71,21 @@ namespace util::logging {
    * @enum LogLevel
    * @brief Represents different log levels.
    */
-  enum class LogLevel : u8 { Debug,
-                             Info,
-                             Warn,
-                             Error };
+  enum class LogLevel : u8 {
+    Debug,
+    Info,
+    Warn,
+    Error,
+  };
+
+  inline fn GetRuntimeLogLevel() -> LogLevel& {
+    static LogLevel RuntimeLogLevel = LogLevel::Info;
+    return RuntimeLogLevel;
+  }
+
+  inline fn SetRuntimeLogLevel(const LogLevel level) {
+    GetRuntimeLogLevel() = level;
+  }
 
   /**
    * @brief Directly applies ANSI color codes to text
@@ -176,6 +187,9 @@ namespace util::logging {
   ) {
     using namespace std::chrono;
     using std::filesystem::path;
+
+    if (level < GetRuntimeLogLevel())
+      return;
 
     const LockGuard lock(GetLogMutex());
 

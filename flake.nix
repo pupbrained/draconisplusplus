@@ -84,6 +84,7 @@
             xorg.libxcb
 
             (mkOverridden "cmake" ftxui)
+            (mkOverridden "cmake" pugixml)
             (mkOverridden "cmake" sqlitecpp)
             (mkOverridden "meson" tomlplusplus)
           ];
@@ -193,6 +194,7 @@
             ]
             ++ (with pkgsStatic; [
               dbus
+              pugixml
               xorg.libxcb
               wayland
             ]));
