@@ -41,15 +41,15 @@
 #include "os.hpp"
 // clang-format on
 
-using namespace util::types;
 using util::error::DracError, util::error::DracErrorCode;
-using util::helpers::GetEnv;
+using util::types::String, util::types::Result, util::types::Err, util::types::usize;
 
 namespace {
   fn GetX11WindowManager() -> Result<String> {
     using namespace xcb;
     using namespace matchit;
     using enum ConnError;
+    using util::types::StringView;
 
     const DisplayGuard conn;
 
@@ -72,6 +72,8 @@ namespace {
         );
 
     fn internAtom = [&conn](const StringView name) -> Result<atom_t> {
+      using util::types::u16;
+
       const ReplyGuard<intern_atom_reply_t> reply(InternAtomReply(conn.get(), InternAtom(conn.get(), 0, static_cast<u16>(name.size()), name.data()), nullptr));
 
       if (!reply)
@@ -123,6 +125,8 @@ namespace {
   }
 
   fn GetWaylandCompositor() -> Result<String> {
+    using util::types::i32, util::types::Array, util::types::isize, util::types::StringView;
+
     const wl::DisplayGuard display;
 
     if (!display)
@@ -195,13 +199,15 @@ namespace {
 } // namespace
 
 namespace os {
-  fn GetOSVersion() -> Result<String> {
-    constexpr CStr path = "/etc/os-release";
+  using util::helpers::GetEnv;
 
-    std::ifstream file(path);
+  fn GetOSVersion() -> Result<String> {
+    using util::types::StringView;
+
+    std::ifstream file("/etc/os-release");
 
     if (!file)
-      return Err(DracError(DracErrorCode::NotFound, std::format("Failed to open {}", path)));
+      return Err(DracError(DracErrorCode::NotFound, std::format("Failed to open /etc/os-release")));
 
     String               line;
     constexpr StringView prefix = "PRETTY_NAME=";
@@ -216,14 +222,14 @@ namespace os {
 
         if (value.empty())
           return Err(
-            DracError(DracErrorCode::ParseError, std::format("PRETTY_NAME value is empty or only quotes in {}", path))
+            DracError(DracErrorCode::ParseError, std::format("PRETTY_NAME value is empty or only quotes in /etc/os-release"))
           );
 
         return value;
       }
     }
 
-    return Err(DracError(DracErrorCode::NotFound, std::format("PRETTY_NAME line not found in {}", path)));
+    return Err(DracError(DracErrorCode::NotFound, "PRETTY_NAME line not found in /etc/os-release"));
   }
 
   fn GetMemInfo() -> Result<u64> {
@@ -403,6 +409,8 @@ namespace os {
   }
 
   fn GetShell() -> Result<String> {
+    using util::types::Pair, util::types::Array, util::types::StringView;
+
     if (const Result<String> shellPath = GetEnv("SHELL")) {
       // clang-format off
       constexpr Array<Pair<StringView, StringView>, 5> shellMap {{
@@ -425,6 +433,8 @@ namespace os {
   }
 
   fn GetHost() -> Result<String> {
+    using util::types::CStr;
+
     constexpr CStr primaryPath  = "/sys/class/dmi/id/product_family";
     constexpr CStr fallbackPath = "/sys/class/dmi/id/product_name";
 
@@ -603,8 +613,9 @@ namespace package {
   }
 
   fn CountXbps() -> Result<u64> {
-    const StringView xbpsDbPath = "/var/db/xbps";
-    const String     pmId       = "xbps";
+    using util::types::CStr;
+
+    const CStr xbpsDbPath = "/var/db/xbps";
 
     if (!fs::exists(xbpsDbPath))
       return Err(DracError(DracErrorCode::NotFound, std::format("Xbps database path '{}' does not exist", xbpsDbPath)));
@@ -621,7 +632,7 @@ namespace package {
     if (plistPath.empty())
       return Err(DracError(DracErrorCode::NotFound, "No Xbps database found"));
 
-    return GetCountFromPlist(pmId, plistPath);
+    return GetCountFromPlist("xbps", plistPath);
   }
 } // namespace package
 

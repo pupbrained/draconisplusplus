@@ -1,5 +1,6 @@
 #include "ui.hpp"
 
+#include "src/os/os.hpp"
 #include "src/util/types.hpp"
 
 namespace ui {
@@ -31,12 +32,22 @@ namespace ui {
   };
 
   [[maybe_unused]] static constexpr Icons NERD = {
-    .user          = "   ",
-    .palette       = "   ",
-    .calendar      = "   ",
-    .host          = " 󰌢  ",
-    .kernel        = "   ",
-    .os            = "   ",
+    .user     = "   ",
+    .palette  = "   ",
+    .calendar = "   ",
+    .host     = " 󰌢  ",
+    .kernel   = "   ",
+#ifdef __linux__
+    .os = " 󰌽  ",
+#elifdef __APPLE__
+    .os = "   ",
+#elifdef _WIN32
+    .os = "   ",
+#elifdef __FreeBSD__
+    .os = "   ",
+#else
+    .os = "   ",
+#endif
     .memory        = "   ",
     .weather       = "   ",
     .music         = "   ",
@@ -73,6 +84,37 @@ namespace ui {
   };
 
   namespace {
+#ifdef __linux__
+    // clang-format off
+    constexpr Array<Pair<String, String>, 13> distro_icons {{
+      {        "NixOS", "   " },
+      {        "Zorin", "   " },
+      {       "Debian", "   " },
+      {       "Fedora", "   " },
+      {       "Gentoo", "   " },
+      {       "Ubuntu", "   " },
+      {      "Manjaro", "   " },
+      {      "Pop!_OS", "   " },
+      {   "Arch Linux", "   " },
+      {   "Linux Mint", "   " },
+      {   "Void Linux", "   " },
+      { "Alpine Linux", "   " },
+    }};
+    // clang-format on
+
+    fn GetDistroIcon() -> Option<StringView> {
+      using namespace matchit;
+
+      const Result<String> distro = os::GetOSVersion();
+
+      for (const auto& [distroName, distroIcon] : distro_icons)
+        if (distro->contains(distroName))
+          return distroIcon;
+
+      return None;
+    }
+#endif
+
     fn CreateColorCircles() -> Element {
       auto colorView =
         std::views::iota(0, 16) | std::views::transform([](i32 colorIndex) {
@@ -146,14 +188,23 @@ namespace ui {
       if (data.host && !data.host->empty())
         systemInfoRows.push_back({ .icon = hostIcon, .label = "Host", .value = *data.host });
 
-      if (data.osVersion)
-        systemInfoRows.push_back({ .icon = osIcon, .label = "OS", .value = *data.osVersion });
+      if (data.osVersion) {
+        systemInfoRows.push_back({
+#ifdef __linux__
+          .icon = GetDistroIcon().value_or(osIcon),
+#else
+          .icon = osIcon,
+#endif
+          .label = "OS",
+          .value = *data.osVersion,
+        });
+      }
 
       if (data.kernelVersion)
         systemInfoRows.push_back({ .icon = kernelIcon, .label = "Kernel", .value = *data.kernelVersion });
 
       if (data.memInfo)
-        systemInfoRows.push_back({ .icon = memoryIcon, .label = "RAM", .value = std::format("{}", BytesToGiB { *data.memInfo }) });
+        systemInfoRows.push_back({ .icon = memoryIcon, .label = "RAM", .value = std::format("{}", BytesToGiB(*data.memInfo)) });
       else if (!data.memInfo.has_value())
         debug_at(data.memInfo.error());
 
@@ -162,7 +213,7 @@ namespace ui {
           {
             .icon  = diskIcon,
             .label = "Disk",
-            .value = std::format("{}/{}", BytesToGiB { data.diskUsage->usedBytes }, BytesToGiB { data.diskUsage->totalBytes }),
+            .value = std::format("{}/{}", BytesToGiB(data.diskUsage->usedBytes), BytesToGiB(data.diskUsage->totalBytes)),
           }
         );
 

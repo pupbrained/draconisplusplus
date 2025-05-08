@@ -21,6 +21,12 @@ using util::types::u64, util::types::f64, util::types::String, util::types::Opti
  */
 struct BytesToGiB {
   u64 value; ///< The byte value to be converted.
+
+  /**
+   * @brief Constructor for BytesToGiB.
+   * @param value The byte value to be converted.
+   */
+  explicit constexpr BytesToGiB(u64 value) : value(value) {}
 };
 
 /// @brief Conversion factor from bytes to GiB
