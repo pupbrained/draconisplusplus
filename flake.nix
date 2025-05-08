@@ -128,7 +128,11 @@
 
           devShell = muslPkgs.mkShell.override {inherit stdenv;} {
             packages =
-              (with pkgs; [bear cmake])
+              (with pkgs; [
+                bear
+                cachix
+                cmake
+              ])
               ++ (with muslPkgs; [
                 llvmPackages_20.clang-tools
                 meson
