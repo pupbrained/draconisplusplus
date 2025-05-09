@@ -328,16 +328,15 @@ namespace package {
       "/usr/local/Cellar",
     };
 
-    for (const auto& cellarPath : cellarPaths) {
+    for (const fs::path& cellarPath : cellarPaths) {
       if (std::error_code errc; !fs::exists(cellarPath, errc) || errc) {
         if (errc && errc != std::errc::no_such_file_or_directory)
           return Err(DracError(errc));
 
-        return Err(DracError(DracErrorCode::NotFound, "Homebrew Cellar directory not found at: " + cellarPath.string())
-        );
+        return Err(DracError(DracErrorCode::NotFound, "Homebrew Cellar directory not found at: " + cellarPath.string()));
       }
 
-      Result<u64> dirCount = GetCountFromDirectory("homebrew", cellarPath, true);
+      Result dirCount = GetCountFromDirectory("homebrew", cellarPath, true);
 
       if (!dirCount) {
         if (dirCount.error().code != DracErrorCode::NotFound)
@@ -353,24 +352,7 @@ namespace package {
   }
 
   fn GetMacPortsCount() -> Result<u64> {
-    const PackageManagerInfo macPortsInfo = {
-      .id         = "macports",
-      .dbPath     = "/opt/local/var/macports/registry/registry.db",
-      .countQuery = "SELECT COUNT(*) FROM ports WHERE state='installed';",
-    };
-
-    // Check if the database file exists before trying to query
-    std::error_code errc;
-    if (!fs::exists(macPortsInfo.dbPath, errc) || errc) {
-      if (errc && errc != std::errc::no_such_file_or_directory)
-        return Err(DracError(errc));
-
-      return Err(
-        DracError(DracErrorCode::NotFound, "MacPorts registry database not found at: " + macPortsInfo.dbPath.string())
-      );
-    }
-
-    return GetCountFromDb(macPortsInfo);
+    return GetCountFromDb("macports", "/opt/local/var/macports/registry/registry.db", "SELECT COUNT(*) FROM ports WHERE state='installed';");
   }
 } // namespace package
 
