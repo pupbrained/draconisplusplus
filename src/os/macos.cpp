@@ -1,9 +1,9 @@
 #ifdef __APPLE__
 
 // clang-format off
-#include <flat_map>
-#include <sys/statvfs.h>
-#include <sys/sysctl.h>
+#include <flat_map>      // std::flat_map
+#include <sys/statvfs.h> // statvfs
+#include <sys/sysctl.h>  // {CTL_KERN, KERN_PROC, KERN_PROC_ALL, kinfo_proc, sysctl, sysctlbyname}
 
 #include "src/core/package.hpp"
 #include "src/util/defs.hpp"
@@ -292,8 +292,10 @@ namespace os {
     if (statvfs("/", &vfs) != 0)
       return Err(DracError("Failed to get disk usage"));
 
-    return DiskSpace { .usedBytes  = (vfs.f_blocks - vfs.f_bfree) * vfs.f_frsize,
-                       .totalBytes = vfs.f_blocks * vfs.f_frsize };
+    return DiskSpace {
+      .usedBytes  = (vfs.f_blocks - vfs.f_bfree) * vfs.f_frsize,
+      .totalBytes = vfs.f_blocks * vfs.f_frsize,
+    };
   }
 
   fn GetShell() -> Result<String> {

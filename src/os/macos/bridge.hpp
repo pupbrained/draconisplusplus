@@ -7,15 +7,16 @@
 #include "src/util/error.hpp"
 #include "src/util/types.hpp"
 // clang-format on
+
 using util::error::DracError;
 using util::types::MediaInfo, util::types::String, util::types::Result;
 
   #ifdef __OBJC__
-    #import <Foundation/Foundation.h>
+    #import <Foundation/Foundation.h> // Foundation
 
 @interface Bridge : NSObject
-+ (void)fetchCurrentPlayingMetadata:(void (^)(Result<NSDictionary*, const char*>))completion;
-+ (Result<String, DracError>)macOSVersion;
++ (void)fetchCurrentPlayingMetadata:(void (^_Nonnull)(NSDictionary* __nullable, NSError* __nullable))completion;
++ (NSString* __nullable)macOSVersion;
 @end
   #else
 extern "C++" {

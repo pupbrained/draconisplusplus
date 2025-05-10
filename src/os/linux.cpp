@@ -142,7 +142,7 @@ namespace {
     if (getsockopt(fileDescriptor, SOL_SOCKET, SO_PEERCRED, &cred, &len) == -1)
       return Err(DracError("Failed to get socket credentials (SO_PEERCRED)"));
 
-    Array<char, 128> exeLinkPathBuf;
+    Array<char, 128> exeLinkPathBuf {};
 
     auto [out, size] = std::format_to_n(exeLinkPathBuf.data(), exeLinkPathBuf.size() - 1, "/proc/{}/exe", cred.pid);
 
@@ -153,7 +153,7 @@ namespace {
 
     const char* exeLinkPath = exeLinkPathBuf.data();
 
-    Array<char, PATH_MAX> exeRealPathBuf; // NOLINT(misc-include-cleaner) - PATH_MAX is in <climits>
+    Array<char, PATH_MAX> exeRealPathBuf {}; // NOLINT(misc-include-cleaner) - PATH_MAX is in <climits>
 
     const isize bytesRead = readlink(exeLinkPath, exeRealPathBuf.data(), exeRealPathBuf.size() - 1);
 
