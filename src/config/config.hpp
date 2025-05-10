@@ -47,25 +47,22 @@ struct General {
 #ifdef _WIN32
     // Try to get the username using GetUserNameA
     Array<char, 256> username;
-    DWORD            size = sizeof(username);
+
+    DWORD size = username.size();
+
     return GetUserNameA(username.data(), &size) ? username.data() : "User";
 #else
     using util::helpers::GetEnv;
 
-    // Try to get the username using getpwuid
-    if (const passwd* pwd = getpwuid(getuid()))
-      return pwd->pw_name;
+    const passwd*        pwd        = getpwuid(getuid());
+    CStr                 pwdName    = pwd ? pwd->pw_name : nullptr;
+    const Result<String> envUser    = GetEnv("USER");
+    const Result<String> envLogname = GetEnv("LOGNAME");
 
-    // Try to get the username using environment variables
-    if (Result<String> envUser = GetEnv("USER"))
-      return *envUser;
-
-    // Finally, try to get the username using LOGNAME
-    if (Result<String> envLogname = GetEnv("LOGNAME"))
-      return *envLogname;
-
-    // If all else fails, return a default name
-    return "User";
+    return pwdName ? pwdName
+      : envUser    ? *envUser
+      : envLogname ? *envLogname
+                   : "User";
 #endif
   }
 

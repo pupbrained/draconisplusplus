@@ -2117,7 +2117,7 @@ namespace argparse {
       };
 
       fn consume_digits = [=](StringView sd) -> StringView {
-        const char* const it = std::ranges::find_if_not(sd, is_digit);
+        const auto it = std::ranges::find_if_not(sd, is_digit);
 
         return sd.substr(static_cast<usize>(it - std::begin(sd)));
       };

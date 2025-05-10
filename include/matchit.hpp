@@ -1762,12 +1762,8 @@ namespace matchit {
     template <typename T>
     constexpr fn asDsVia = [](auto... members) { return [members...](auto... pats) { return as<T>(and_(app(members, pats)...)); }; };
 
-    constexpr fn within = [](const auto& first, const auto& last) {
+    constexpr fn in = [](const auto& first, const auto& last) {
       return meet([=](auto&& v) { return first <= v && v <= last; });
-    };
-
-    constexpr fn between = [](const auto& first, const auto& last) {
-      return meet([=](auto&& v) { return first < v && v < last; });
     };
   } // namespace impl
 
@@ -1780,6 +1776,7 @@ namespace matchit {
   using impl::dsVia;
   using impl::expr;
   using impl::Id;
+  using impl::in;
   using impl::is;
   using impl::match;
   using impl::matched;
@@ -1792,6 +1789,5 @@ namespace matchit {
   using impl::Subrange;
   using impl::SubrangeT;
   using impl::when;
-  using impl::within;
 } // namespace matchit
 // NOLINTEND(readability-identifier-*, cppcoreguidelines-special-member-functions)

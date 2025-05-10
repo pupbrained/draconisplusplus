@@ -21,14 +21,14 @@ namespace {
   using util::types::i32, util::types::CStr;
 
   fn getOrdinalSuffix(const i32 day) -> CStr {
-    using matchit::match, matchit::is, matchit::_, matchit::within;
+    using matchit::match, matchit::is, matchit::_, matchit::in;
 
     return match(day % 10)(
-      is | within(11, 13) = "th",
-      is | 1              = "st",
-      is | 2              = "nd",
-      is | 3              = "rd",
-      is | _              = "th"
+      is | in(11, 13) = "th",
+      is | 1          = "st",
+      is | 2          = "nd",
+      is | 3          = "rd",
+      is | _          = "th"
     );
   }
 
@@ -83,23 +83,25 @@ namespace os {
     Future<Result<String>>          shellFut  = std::async(async, GetShell);
     Future<Result<u64>>             pkgFut    = std::async(async, GetTotalCount);
     Future<Result<MediaInfo>>       npFut     = std::async(config.nowPlaying.enabled ? async : deferred, GetNowPlaying);
-    Future<Result<weather::Output>> wthrFut =
-      std::async(config.weather.enabled ? async : deferred, [&config] { return config.weather.getWeatherInfo(); });
+    Future<Result<weather::Output>> wthrFut   = std::async(config.weather.enabled ? async : deferred, [&config] {
+      return config.weather.getWeatherInfo();
+    });
 
-    this->date          = getDate();
-    this->host          = hostFut.get();
-    this->kernelVersion = kernelFut.get();
-    this->osVersion     = osFut.get();
-    this->memInfo       = memFut.get();
-    this->desktopEnv    = deFut.get();
-    this->windowMgr     = wmFut.get();
-    this->diskUsage     = diskFut.get();
-    this->shell         = shellFut.get();
-    this->packageCount  = pkgFut.get();
-    this->weather =
-      config.weather.enabled ? wthrFut.get() : Err(DracError(DracErrorCode::ApiUnavailable, "Weather API disabled"));
-    this->nowPlaying = config.nowPlaying.enabled
-      ? npFut.get()
-      : Err(DracError(DracErrorCode::ApiUnavailable, "Now Playing API disabled"));
+    {
+      using enum util::error::DracErrorCode;
+
+      this->date          = getDate();
+      this->host          = hostFut.get();
+      this->kernelVersion = kernelFut.get();
+      this->osVersion     = osFut.get();
+      this->memInfo       = memFut.get();
+      this->desktopEnv    = deFut.get();
+      this->windowMgr     = wmFut.get();
+      this->diskUsage     = diskFut.get();
+      this->shell         = shellFut.get();
+      this->packageCount  = pkgFut.get();
+      this->weather       = config.weather.enabled ? wthrFut.get() : Err(DracError(ApiUnavailable, "Weather API disabled"));
+      this->nowPlaying    = config.nowPlaying.enabled ? npFut.get() : Err(DracError(ApiUnavailable, "Now Playing API disabled"));
+    }
   }
 } // namespace os

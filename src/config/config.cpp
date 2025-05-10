@@ -53,15 +53,15 @@ location = "London"    # Your city name
 
 #ifdef _WIN32
     if (Result<String> result = GetEnv("LOCALAPPDATA"))
-      possiblePaths.push_back(fs::path(*result) / "draconis++" / "config.toml");
+      possiblePaths.emplace_back(fs::path(*result) / "draconis++" / "config.toml");
 
     if (Result<String> result = GetEnv("USERPROFILE")) {
-      possiblePaths.push_back(fs::path(*result) / ".config" / "draconis++" / "config.toml");
-      possiblePaths.push_back(fs::path(*result) / "AppData" / "Local" / "draconis++" / "config.toml");
+      possiblePaths.emplace_back(fs::path(*result) / ".config" / "draconis++" / "config.toml");
+      possiblePaths.emplace_back(fs::path(*result) / "AppData" / "Local" / "draconis++" / "config.toml");
     }
 
     if (Result<String> result = GetEnv("APPDATA"))
-      possiblePaths.push_back(fs::path(*result) / "draconis++" / "config.toml");
+      possiblePaths.emplace_back(fs::path(*result) / "draconis++" / "config.toml");
 #else
     if (Result<String> result = GetEnv("XDG_CONFIG_HOME"))
       possiblePaths.emplace_back(fs::path(*result) / "draconis++" / "config.toml");
@@ -72,7 +72,7 @@ location = "London"    # Your city name
     }
 #endif
 
-    possiblePaths.push_back(fs::path(".") / "config.toml");
+    possiblePaths.emplace_back(fs::path(".") / "config.toml");
 
     for (const fs::path& path : possiblePaths)
       if (std::error_code errc; fs::exists(path, errc) && !errc)
@@ -104,31 +104,6 @@ location = "London"    # Your city name
         return false;
       }
 
-      String defaultName;
-
-#ifdef _WIN32
-      Array<char, 256> username;
-
-      DWORD size = sizeof(username);
-
-      if (GetUserNameA(username.data(), &size)) {
-        defaultName = username.data();
-      } else {
-        debug_log("Failed to get username: {}", GetLastError());
-        defaultName = "User";
-      }
-#else
-      const passwd* pwd     = getpwuid(getuid());
-      CStr          pwdName = pwd ? pwd->pw_name : nullptr;
-
-      const Result<String> envUser    = util::helpers::GetEnv("USER");
-      const Result<String> envLogname = util::helpers::GetEnv("LOGNAME");
-
-      defaultName = pwdName ? pwdName : envUser ? *envUser
-        : envLogname                            ? *envLogname
-                                                : "User";
-#endif
-
       std::ofstream file(configPath);
       if (!file) {
         error_log("Failed to open config file for writing: {}", configPath.string());
@@ -136,18 +111,14 @@ location = "London"    # Your city name
       }
 
       try {
-        const String formattedConfig = std::format(defaultConfigTemplate, defaultName);
+        const String defaultName = General::getDefaultName();
+
+        const String formattedConfig = std::vformat(defaultConfigTemplate, std::make_format_args(defaultName));
+
         file << formattedConfig;
       } catch (const std::format_error& fmtErr) {
-        error_log("Failed to format default config string: {}. Using fallback name 'User'.", fmtErr.what());
-
-        try {
-          const String fallbackConfig = std::format(defaultConfigTemplate, "User");
-          file << fallbackConfig;
-        } catch (...) {
-          error_log("Failed to format default config even with fallback name.");
-          return false;
-        }
+        error_log("Failed to format default config string: {}", fmtErr.what());
+        return false;
       }
 
       if (!file) {
@@ -189,9 +160,7 @@ fn Config::getInstance() -> Config {
     const bool exists = fs::exists(configPath, errc);
 
     if (errc)
-      warn_log(
-        "Failed to check if config file exists at {}: {}. Assuming it doesn't.", configPath.string(), errc.message()
-      );
+      warn_log("Failed to check if config file exists at {}: {}. Assuming it doesn't.", configPath.string(), errc.message());
 
     if (!exists) {
       info_log("Config file not found at {}, creating defaults.", configPath.string());
@@ -205,12 +174,15 @@ fn Config::getInstance() -> Config {
     const toml::table config = toml::parse_file(configPath.string());
 
     debug_log("Config loaded from {}", configPath.string());
+
     return Config(config);
   } catch (const Exception& e) {
     debug_log("Config loading failed: {}, using defaults", e.what());
+
     return {};
   } catch (...) {
     error_log("An unexpected error occurred during config loading. Using in-memory defaults.");
+
     return {};
   }
 }
