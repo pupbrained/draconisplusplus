@@ -6,8 +6,6 @@
 #include <SQLiteCpp/Statement.h> // SQLite::Statement
 #include <climits>               // PATH_MAX
 #include <cstring>               // std::strlen
-#include <dbus/dbus-protocol.h>  // DBUS_TYPE_*
-#include <dbus/dbus-shared.h>    // DBUS_BUS_SESSION
 #include <expected>              // std::{unexpected, expected}
 #include <filesystem>            // std::filesystem::{current_path, directory_entry, directory_iterator, etc.}
 #include <format>                // std::{format, format_to_n}
@@ -45,6 +43,7 @@ using util::error::DracError, util::error::DracErrorCode;
 using util::types::String, util::types::Result, util::types::Err, util::types::usize;
 
 namespace {
+  #ifdef HAVE_XCB
   fn GetX11WindowManager() -> Result<String> {
     using namespace xcb;
     using namespace matchit;
@@ -123,7 +122,13 @@ namespace {
 
     return String(nameData, length);
   }
+  #else
+  fn GetX11WindowManager() -> Result<String> {
+    return Err(DracError(DracErrorCode::NotSupported, "XCB (X11) support not available"));
+  }
+  #endif
 
+  #ifdef HAVE_WAYLAND
   fn GetWaylandCompositor() -> Result<String> {
     using util::types::i32, util::types::Array, util::types::isize, util::types::StringView;
 
@@ -196,6 +201,11 @@ namespace {
 
     return String(compositorNameView);
   }
+  #else
+  fn GetWaylandCompositor() -> Result<String> {
+    return Err(DracError(DracErrorCode::NotSupported, "Wayland support not available"));
+  }
+  #endif
 } // namespace
 
 namespace os {
@@ -251,6 +261,7 @@ namespace os {
   }
 
   fn GetNowPlaying() -> Result<MediaInfo> {
+  #ifdef HAVE_DBUS
     using namespace dbus;
 
     Result<Connection> connectionResult = Connection::busGet(DBUS_BUS_SESSION);
@@ -385,9 +396,15 @@ namespace os {
     }
 
     return MediaInfo(std::move(title), std::move(artist));
+  #else
+    return Err(DracError(DracErrorCode::NotSupported, "DBus support not available"));
+  #endif
   }
 
   fn GetWindowManager() -> Result<String> {
+  #if !defined(HAVE_WAYLAND) && !defined(HAVE_XCB)
+    return Err(DracError(DracErrorCode::NotSupported, "Wayland or XCB support not available"));
+  #else
     if (Result<String> waylandResult = GetWaylandCompositor())
       return *waylandResult;
 
@@ -395,6 +412,7 @@ namespace os {
       return *x11Result;
 
     return Err(DracError(DracErrorCode::NotFound, "Could not detect window manager (Wayland/X11) or both failed"));
+  #endif
   }
 
   fn GetDesktopEnvironment() -> Result<String> {

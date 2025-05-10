@@ -134,16 +134,31 @@ elif host_system == 'windows'
     cpp.find_library('dwmapi'),
     cpp.find_library('windowsapp'),
   ]
-elif host_system != 'serenity'
+elif host_system != 'serenity' and host_system != 'haiku'
+  # Make dbus, x11, and wayland dependencies optional
+  dbus_dep = dependency('dbus-1', required: false)
+  xcb_dep = dependency('xcb', required: false)
+  xau_dep = dependency('xau', required: false)
+  xdmcp_dep = dependency('xdmcp', required: false)
+  wayland_dep = dependency('wayland-client', required: false)
+
   platform_deps += [
     dependency('SQLiteCpp'),
     dependency('pugixml'),
-    dependency('xcb'),
-    dependency('xau'),
-    dependency('xdmcp'),
-    dependency('wayland-client'),
-    dependency('dbus-1'),
   ]
+
+  if dbus_dep.found()
+    platform_deps += dbus_dep
+    add_project_arguments('-DHAVE_DBUS', language: 'cpp')
+  endif
+  if xcb_dep.found() and xau_dep.found() and xdmcp_dep.found()
+    platform_deps += [xcb_dep, xau_dep, xdmcp_dep]
+    add_project_arguments('-DHAVE_XCB', language: 'cpp')
+  endif
+  if wayland_dep.found()
+    platform_deps += wayland_dep
+    add_project_arguments('-DHAVE_WAYLAND', language: 'cpp')
+  endif
 endif
 
 # FTXUI configuration
