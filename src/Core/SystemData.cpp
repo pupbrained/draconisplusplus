@@ -71,6 +71,7 @@ namespace os {
     using enum std::launch;
     using package::GetTotalCount;
     using util::types::Future, util::types::Err;
+    using enum util::error::DracErrorCode;
 
     Future<Result<String>>                 hostFut   = std::async(async, GetHost);
     Future<Result<String>>                 kernelFut = std::async(async, GetKernelVersion);
@@ -85,24 +86,20 @@ namespace os {
     Future<Result<weather::WeatherReport>> wthrFut   = std::async(config.weather.enabled ? async : deferred, [&config]() -> Result<weather::WeatherReport> {
       return config.weather.enabled && config.weather.service
           ? config.weather.service->getWeatherInfo()
-          : Err(DracError(util::error::DracErrorCode::ApiUnavailable, "Weather API disabled"));
+          : Err(DracError(ApiUnavailable, "Weather API disabled"));
     });
 
-    {
-      using enum util::error::DracErrorCode;
-
-      this->date          = getDate();
-      this->host          = hostFut.get();
-      this->kernelVersion = kernelFut.get();
-      this->osVersion     = osFut.get();
-      this->memInfo       = memFut.get();
-      this->desktopEnv    = deFut.get();
-      this->windowMgr     = wmFut.get();
-      this->diskUsage     = diskFut.get();
-      this->shell         = shellFut.get();
-      this->packageCount  = pkgFut.get();
-      this->weather       = config.weather.enabled ? wthrFut.get() : Err(DracError(util::error::DracErrorCode::ApiUnavailable, "Weather API disabled"));
-      this->nowPlaying    = config.nowPlaying.enabled ? npFut.get() : Err(DracError(util::error::DracErrorCode::ApiUnavailable, "Now Playing API disabled"));
-    }
+    this->date          = getDate();
+    this->host          = hostFut.get();
+    this->kernelVersion = kernelFut.get();
+    this->osVersion     = osFut.get();
+    this->memInfo       = memFut.get();
+    this->desktopEnv    = deFut.get();
+    this->windowMgr     = wmFut.get();
+    this->diskUsage     = diskFut.get();
+    this->shell         = shellFut.get();
+    this->packageCount  = pkgFut.get();
+    this->weather       = config.weather.enabled ? wthrFut.get() : Err(DracError(ApiUnavailable, "Weather API disabled"));
+    this->nowPlaying    = config.nowPlaying.enabled ? npFut.get() : Err(DracError(ApiUnavailable, "Now Playing API disabled"));
   }
 } // namespace os
