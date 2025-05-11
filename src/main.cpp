@@ -1,9 +1,8 @@
+#include <argparse.hpp>            // argparse::ArgumentParser
 #include <cstdlib>                 // EXIT_FAILURE, EXIT_SUCCESS
 #include <ftxui/dom/elements.hpp>  // ftxui::{Element, hbox, vbox, text, separator, filler, etc.}
 #include <ftxui/dom/node.hpp>      // ftxui::{Render}
 #include <ftxui/screen/screen.hpp> // ftxui::{Screen, Dimension::Full}
-
-#include "src/ui/ui.hpp"
 
 #ifdef __cpp_lib_print
   #include <print> // std::print
@@ -11,13 +10,12 @@
   #include <iostream> // std::cout
 #endif
 
-#include "src/config/config.hpp"
-#include "src/core/system_data.hpp"
-#include "src/util/defs.hpp"
-#include "src/util/logging.hpp"
-#include "src/util/types.hpp"
-
-#include "include/argparse.hpp"
+#include "Config/Config.hpp"
+#include "Core/SystemData.hpp"
+#include "UI/UI.hpp"
+#include "Util/Definitions.hpp"
+#include "Util/Logging.hpp"
+#include "Util/Types.hpp"
 
 using util::types::i32, util::types::Exception;
 
@@ -27,45 +25,49 @@ fn main(const i32 argc, char* argv[]) -> i32 {
     winrt::init_apartment();
 #endif
 
-    argparse::ArgumentParser parser("draconis", "0.1.0");
-
-    parser
-      .add_argument("--log-level")
-      .help("Set the log level")
-      .default_value("info")
-      .choices("debug", "info", "warn", "error");
-
-    parser
-      .add_argument("-V", "--verbose")
-      .help("Enable verbose logging. Overrides --log-level.")
-      .flag();
-
-    if (Result result = parser.parse_args(argc, argv); !result) {
-      error_at(result.error());
-      return EXIT_FAILURE;
-    }
-
-    bool   verbose     = parser.get<bool>("-V").value_or(false) || parser.get<bool>("--verbose").value_or(false);
-    Result logLevelStr = verbose ? "debug" : parser.get<String>("--log-level");
-
     {
-      using matchit::match, matchit::is, matchit::_;
-      using util::logging::LogLevel;
-      using enum util::logging::LogLevel;
+      using argparse::ArgumentParser;
 
-      LogLevel minLevel = match(logLevelStr)(
-        is | "debug" = Debug,
-        is | "info"  = Info,
-        is | "warn"  = Warn,
-        is | "error" = Error,
+      ArgumentParser parser("draconis", "0.1.0");
+
+      parser
+        .add_argument("--log-level")
+        .help("Set the log level")
+        .default_value("info")
+        .choices("debug", "info", "warn", "error");
+
+      parser
+        .add_argument("-V", "--verbose")
+        .help("Enable verbose logging. Overrides --log-level.")
+        .flag();
+
+      if (Result result = parser.parse_args(argc, argv); !result) {
+        error_at(result.error());
+        return EXIT_FAILURE;
+      }
+
+      bool   verbose     = parser.get<bool>("-V").value_or(false) || parser.get<bool>("--verbose").value_or(false);
+      Result logLevelStr = verbose ? "debug" : parser.get<String>("--log-level");
+
+      {
+        using matchit::match, matchit::is, matchit::_;
+        using util::logging::LogLevel;
+        using enum util::logging::LogLevel;
+
+        LogLevel minLevel = match(logLevelStr)(
+          is | "debug" = Debug,
+          is | "info"  = Info,
+          is | "warn"  = Warn,
+          is | "error" = Error,
 #ifndef NDEBUG
-        is | _ = Debug
+          is | _ = Debug
 #else
-        is | _ = Info
+          is | _ = Info
 #endif
-      );
+        );
 
-      SetRuntimeLogLevel(minLevel);
+        SetRuntimeLogLevel(minLevel);
+      }
     }
 
     const Config& config = Config::getInstance();

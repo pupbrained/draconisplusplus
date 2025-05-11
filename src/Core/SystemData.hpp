@@ -2,10 +2,10 @@
 
 #include <format> // std::{formatter, format_to}
 
-#include "src/config/config.hpp"
-#include "src/config/weather.hpp"
-#include "src/util/defs.hpp"
-#include "src/util/types.hpp"
+#include "Services/Weather.hpp"
+#include "Util/Definitions.hpp"
+#include "Util/Error.hpp"
+#include "Util/Types.hpp"
 
 struct Config;
 
@@ -26,7 +26,8 @@ struct BytesToGiB {
    * @brief Constructor for BytesToGiB.
    * @param value The byte value to be converted.
    */
-  explicit constexpr BytesToGiB(u64 value) : value(value) {}
+  explicit constexpr BytesToGiB(u64 value)
+    : value(value) {}
 };
 
 /// @brief Conversion factor from bytes to GiB
@@ -72,18 +73,18 @@ namespace os {
    * in order to display it at all at once during runtime.
    */
   struct SystemData {
-    Result<String>          date;          ///< Current date (e.g., "April 26th").
-    Result<String>          host;          ///< Host/product family (e.g., "MacBook Air").
-    Result<String>          kernelVersion; ///< OS kernel version (e.g., "6.14.4").
-    Result<String>          osVersion;     ///< OS pretty name (e.g., "Ubuntu 24.04.2 LTS").
-    Result<u64>             memInfo;       ///< Total physical RAM in bytes.
-    Result<String>          desktopEnv;    ///< Desktop environment (e.g., "KDE").
-    Result<String>          windowMgr;     ///< Window manager (e.g., "KWin").
-    Result<DiskSpace>       diskUsage;     ///< Used/Total disk space for root filesystem.
-    Result<String>          shell;         ///< Name of the current user shell (e.g., "zsh").
-    Result<u64>             packageCount;  ///< Total number of packages installed.
-    Result<MediaInfo>       nowPlaying;    ///< Result of fetching media info.
-    Result<weather::Output> weather;       ///< Result of fetching weather info.
+    Result<String>                 date;          ///< Current date (e.g., "April 26th").
+    Result<String>                 host;          ///< Host/product family (e.g., "MacBook Air").
+    Result<String>                 kernelVersion; ///< OS kernel version (e.g., "6.14.4").
+    Result<String>                 osVersion;     ///< OS pretty name (e.g., "Ubuntu 24.04.2 LTS").
+    Result<u64>                    memInfo;       ///< Total physical RAM in bytes.
+    Result<String>                 desktopEnv;    ///< Desktop environment (e.g., "KDE").
+    Result<String>                 windowMgr;     ///< Window manager (e.g., "KWin").
+    Result<DiskSpace>              diskUsage;     ///< Used/Total disk space for root filesystem.
+    Result<String>                 shell;         ///< Name of the current user shell (e.g., "zsh").
+    Result<u64>                    packageCount;  ///< Total number of packages installed.
+    Result<MediaInfo>              nowPlaying;    ///< Result of fetching media info.
+    Result<weather::WeatherReport> weather;       ///< Result of fetching weather info.
 
     /**
      * @brief Constructs a SystemData object and initializes its members.

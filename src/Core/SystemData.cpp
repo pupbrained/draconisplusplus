@@ -1,19 +1,18 @@
-#include "system_data.hpp"
+#include "SystemData.hpp"
 
-#include <chrono> // std::chrono::system_clock
-#include <ctime>  // localtime_r/s, strftime, time_t, tm
-#include <format> // std::format
-#include <future> // std::{async, launch}
+#include <chrono>      // std::chrono::system_clock
+#include <ctime>       // localtime_r/s, strftime, time_t, tm
+#include <format>      // std::format
+#include <future>      // std::{async, launch}
+#include <matchit.hpp> // matchit::{match, is, in, _}
 
-#include "src/config/config.hpp"
-#include "src/config/weather.hpp"
-#include "src/core/package.hpp"
-#include "src/os/os.hpp"
-#include "src/util/defs.hpp"
-#include "src/util/error.hpp"
-#include "src/util/types.hpp"
-
-#include "include/matchit.hpp"
+#include "Config/Config.hpp"
+#include "OS/OperatingSystem.hpp"
+#include "Services/PackageCounting.hpp"
+#include "Services/Weather.hpp"
+#include "Util/Definitions.hpp"
+#include "Util/Error.hpp"
+#include "Util/Types.hpp"
 
 using util::error::DracError, util::error::DracErrorCode;
 
@@ -73,18 +72,20 @@ namespace os {
     using package::GetTotalCount;
     using util::types::Future, util::types::Err;
 
-    Future<Result<String>>          hostFut   = std::async(async, GetHost);
-    Future<Result<String>>          kernelFut = std::async(async, GetKernelVersion);
-    Future<Result<String>>          osFut     = std::async(async, GetOSVersion);
-    Future<Result<u64>>             memFut    = std::async(async, GetMemInfo);
-    Future<Result<String>>          deFut     = std::async(async, GetDesktopEnvironment);
-    Future<Result<String>>          wmFut     = std::async(async, GetWindowManager);
-    Future<Result<DiskSpace>>       diskFut   = std::async(async, GetDiskUsage);
-    Future<Result<String>>          shellFut  = std::async(async, GetShell);
-    Future<Result<u64>>             pkgFut    = std::async(async, GetTotalCount);
-    Future<Result<MediaInfo>>       npFut     = std::async(config.nowPlaying.enabled ? async : deferred, GetNowPlaying);
-    Future<Result<weather::Output>> wthrFut   = std::async(config.weather.enabled ? async : deferred, [&config] {
-      return config.weather.getWeatherInfo();
+    Future<Result<String>>                 hostFut   = std::async(async, GetHost);
+    Future<Result<String>>                 kernelFut = std::async(async, GetKernelVersion);
+    Future<Result<String>>                 osFut     = std::async(async, GetOSVersion);
+    Future<Result<u64>>                    memFut    = std::async(async, GetMemInfo);
+    Future<Result<String>>                 deFut     = std::async(async, GetDesktopEnvironment);
+    Future<Result<String>>                 wmFut     = std::async(async, GetWindowManager);
+    Future<Result<DiskSpace>>              diskFut   = std::async(async, GetDiskUsage);
+    Future<Result<String>>                 shellFut  = std::async(async, GetShell);
+    Future<Result<u64>>                    pkgFut    = std::async(async, GetTotalCount);
+    Future<Result<MediaInfo>>              npFut     = std::async(config.nowPlaying.enabled ? async : deferred, GetNowPlaying);
+    Future<Result<weather::WeatherReport>> wthrFut   = std::async(config.weather.enabled ? async : deferred, [&config]() -> Result<weather::WeatherReport> {
+      return config.weather.enabled && config.weather.service
+          ? config.weather.service->getWeatherInfo()
+          : Err(DracError(util::error::DracErrorCode::ApiUnavailable, "Weather API disabled"));
     });
 
     {
@@ -100,8 +101,8 @@ namespace os {
       this->diskUsage     = diskFut.get();
       this->shell         = shellFut.get();
       this->packageCount  = pkgFut.get();
-      this->weather       = config.weather.enabled ? wthrFut.get() : Err(DracError(ApiUnavailable, "Weather API disabled"));
-      this->nowPlaying    = config.nowPlaying.enabled ? npFut.get() : Err(DracError(ApiUnavailable, "Now Playing API disabled"));
+      this->weather       = config.weather.enabled ? wthrFut.get() : Err(DracError(util::error::DracErrorCode::ApiUnavailable, "Weather API disabled"));
+      this->nowPlaying    = config.nowPlaying.enabled ? npFut.get() : Err(DracError(util::error::DracErrorCode::ApiUnavailable, "Now Playing API disabled"));
     }
   }
 } // namespace os

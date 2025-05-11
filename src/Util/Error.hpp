@@ -1,7 +1,7 @@
 #pragma once
 
 #include <expected>        // std::{unexpected, expected}
-#include <format>          // std::format
+#include <matchit.hpp>     // matchit::{match, is, or_, _}
 #include <source_location> // std::source_location
 #include <system_error>    // std::error_code
 
@@ -9,11 +9,11 @@
   #include <guiddef.h>    // GUID
   #include <winerror.h>   // error values
   #include <winrt/base.h> // winrt::hresult_error
+#else
+  #include <format> // std::format
 #endif
 
-#include "src/util/types.hpp"
-
-#include "include/matchit.hpp"
+#include "Util/Types.hpp"
 
 namespace util {
   namespace error {
@@ -48,15 +48,15 @@ namespace util {
     struct DracError {
       // ReSharper disable CppDFANotInitializedField
       String               message;  ///< A descriptive error message, potentially including platform details.
-      DracErrorCode        code;     ///< The general category of the error.
       std::source_location location; ///< The source location where the error occurred (file, line, function).
+      DracErrorCode        code;     ///< The general category of the error.
       // ReSharper restore CppDFANotInitializedField
 
       DracError(const DracErrorCode errc, String msg, const std::source_location& loc = std::source_location::current())
-        : message(std::move(msg)), code(errc), location(loc) {}
+        : message(std::move(msg)), location(loc), code(errc) {}
 
       explicit DracError(const Exception& exc, const std::source_location& loc = std::source_location::current())
-        : message(exc.what()), code(DracErrorCode::InternalError), location(loc) {}
+        : message(exc.what()), location(loc), code(DracErrorCode::InternalError) {}
 
       explicit DracError(const std::error_code& errc, const std::source_location& loc = std::source_location::current())
         : message(errc.message()), location(loc) {

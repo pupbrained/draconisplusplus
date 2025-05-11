@@ -17,9 +17,9 @@
   #include <source_location> // std::source_location
 #endif
 
-#include "src/util/defs.hpp"
-#include "src/util/error.hpp"
-#include "src/util/types.hpp"
+#include "Util/Definitions.hpp"
+#include "Util/Error.hpp"
+#include "Util/Types.hpp"
 
 namespace util::logging {
   using types::usize, types::u8, types::i32, types::i64, types::CStr, types::String, types::StringView, types::Array,

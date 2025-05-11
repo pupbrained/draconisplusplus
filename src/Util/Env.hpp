@@ -1,12 +1,15 @@
 #pragma once
 
-#include "src/util/defs.hpp"
-#include "src/util/error.hpp"
-#include "src/util/types.hpp"
+#ifdef _WIN32
+  #include <stdlib.h> // NOLINT(*-deprecated-headers)
+#endif
+
+#include "Util/Definitions.hpp"
+#include "Util/Error.hpp"
+#include "Util/Types.hpp"
 
 namespace util::helpers {
-  using error::DracError, error::DracErrorCode;
-  using types::Result, types::String, types::CStr, types::Err;
+  using types::Result, types::String, types::CStr;
 
   /**
    * @brief Safely retrieves an environment variable.
@@ -15,6 +18,9 @@ namespace util::helpers {
    * or an EnvError if an error occurred.
    */
   [[nodiscard]] inline fn GetEnv(CStr name) -> Result<String> {
+    using error::DracError, error::DracErrorCode;
+    using types::Err;
+
 #ifdef _WIN32
     using types::i32, types::usize, types::UniquePointer;
 

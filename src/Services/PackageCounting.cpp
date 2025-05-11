@@ -1,4 +1,4 @@
-#include "package.hpp"
+#include "PackageCounting.hpp"
 
 #if !defined(__serenity__) && !defined(_WIN32)
   #include <SQLiteCpp/Database.h>  // SQLite::{Database, OPEN_READONLY}
@@ -14,15 +14,14 @@
 #include <filesystem>   // std::filesystem
 #include <format>       // std::format
 #include <future>       // std::{async, future, launch}
+#include <matchit.hpp>  // matchit::{match, is, or_, _}
 #include <system_error> // std::{errc, error_code}
 
-#include "src/util/cache.hpp"
-#include "src/util/error.hpp"
-#include "src/util/helpers.hpp"
-#include "src/util/logging.hpp"
-#include "src/util/types.hpp"
-
-#include "include/matchit.hpp"
+#include "Util/Caching.hpp"
+#include "Util/Env.hpp"
+#include "Util/Error.hpp"
+#include "Util/Logging.hpp"
+#include "Util/Types.hpp"
 
 namespace {
   namespace fs = std::filesystem;
@@ -454,12 +453,11 @@ namespace package {
           totalCount += *result;
           oneSucceeded = true;
           debug_log("Added {} packages. Current total: {}", *result, totalCount);
-        } else {
+        } else
           match(result.error().code)(
             is | or_(NotFound, ApiUnavailable, NotSupported) = [&] -> void { debug_at(result.error()); },
             is | _                                           = [&] -> void { error_at(result.error()); }
           );
-        }
       } catch (const Exception& exc) {
         error_log("Caught exception while getting package count future: {}", exc.what());
       } catch (...) { error_log("Caught unknown exception while getting package count future."); }

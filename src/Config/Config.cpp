@@ -1,4 +1,4 @@
-#include "config.hpp"
+#include "Config.hpp"
 
 #include <filesystem>                // std::filesystem::{path, operator/, exists, create_directories}
 #include <format>                    // std::{format, format_error}
@@ -8,15 +8,10 @@
 #include <toml++/impl/parser.hpp>    // toml::{parse_file, parse_result}
 #include <toml++/impl/table.hpp>     // toml::table
 
-#ifndef _WIN32
-  #include <pwd.h>    // passwd, getpwuid
-  #include <unistd.h> // getuid
-#endif
-
-#include "src/util/defs.hpp"
-#include "src/util/helpers.hpp"
-#include "src/util/logging.hpp"
-#include "src/util/types.hpp"
+#include "Util/Definitions.hpp"
+#include "Util/Env.hpp"
+#include "Util/Logging.hpp"
+#include "Util/Types.hpp"
 
 namespace fs = std::filesystem;
 

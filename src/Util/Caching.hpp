@@ -9,10 +9,10 @@
 #include <system_error>           // std::error_code
 #include <type_traits>            // std::decay_t
 
-#include "src/util/defs.hpp"
-#include "src/util/error.hpp"
-#include "src/util/logging.hpp"
-#include "src/util/types.hpp"
+#include "Util/Definitions.hpp"
+#include "Util/Error.hpp"
+#include "Util/Logging.hpp"
+#include "Util/Types.hpp"
 
 namespace util::cache {
   namespace fs = std::filesystem;
@@ -40,8 +40,7 @@ namespace util::cache {
 
     if (!fs::exists(cacheDir, errc)) {
       if (errc)
-        return Err(DracError(DracErrorCode::IoError, "Failed to check existence of cache directory: " + errc.message())
-        );
+        return Err(DracError(DracErrorCode::IoError, "Failed to check existence of cache directory: " + errc.message()));
 
       fs::create_directories(cacheDir, errc);
 
@@ -162,8 +161,7 @@ namespace util::cache {
         if (!ofs) {
           std::error_code removeEc;
           fs::remove(tempPath, removeEc);
-          return Err(DracError(DracErrorCode::IoError, "Failed to write to temporary cache file: " + tempPath.string())
-          );
+          return Err(DracError(DracErrorCode::IoError, "Failed to write to temporary cache file: " + tempPath.string()));
         }
       }
 

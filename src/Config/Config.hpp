@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>                    // std::{make_unique, unique_ptr}
 #include <toml++/impl/node.hpp>      // toml::node
 #include <toml++/impl/node_view.hpp> // toml::node_view
 #include <toml++/impl/table.hpp>     // toml::table
@@ -11,15 +12,16 @@
   #include <pwd.h>    // getpwuid, passwd
   #include <unistd.h> // getuid
 
-  #include "src/util/helpers.hpp"
+  #include "Util/Env.hpp"
 #endif
 
-#include "src/util/defs.hpp"
-#include "src/util/error.hpp"
-#include "src/util/logging.hpp"
-#include "src/util/types.hpp"
-
-#include "weather.hpp"
+#include "../Services/Weather/OpenMeteoService.hpp"
+#include "../Services/Weather/OpenWeatherMapService.hpp"
+#include "Services/Weather.hpp"
+#include "Util/Definitions.hpp"
+#include "Util/Error.hpp"
+#include "Util/Logging.hpp"
+#include "Util/Types.hpp"
 
 using util::error::DracError;
 using util::types::CStr, util::types::String, util::types::Array, util::types::Option, util::types::Result;
@@ -103,8 +105,9 @@ struct Weather {
   String   apiKey;   ///< API key for the weather service.
   String   units;    ///< Units for temperature, either "metric" or "imperial".
 
-  bool enabled      = false; ///< Flag to enable or disable the Weather feature.
-  bool showTownName = false; ///< Flag to show the town name in the output.
+  bool                                      enabled      = false;   ///< Flag to enable or disable the Weather feature.
+  bool                                      showTownName = false;   ///< Flag to show the town name in the output.
+  std::unique_ptr<weather::IWeatherService> service      = nullptr; ///< Pointer to the weather service.
 
   /**
    * @brief Parses a TOML table to create a Weather instance.
@@ -112,11 +115,9 @@ struct Weather {
    * @return A Weather instance with the parsed values, or defaults otherwise.
    */
   static fn fromToml(const toml::table& tbl) -> Weather {
-    Weather weather;
-
+    Weather              weather;
     const Option<String> apiKey = tbl["api_key"].value<String>();
-
-    weather.enabled = tbl["enabled"].value_or<bool>(false) && apiKey;
+    weather.enabled             = tbl["enabled"].value_or<bool>(false) && apiKey;
 
     if (!weather.enabled)
       return weather;
@@ -124,6 +125,9 @@ struct Weather {
     weather.apiKey       = *apiKey;
     weather.showTownName = tbl["show_town_name"].value_or(false);
     weather.units        = tbl["units"].value_or("metric");
+
+    // Read provider (default to "openweathermap" if not set)
+    String provider = tbl["provider"].value_or("openweathermap");
 
     if (const toml::node_view<const toml::node> location = tbl["location"]) {
       if (location.is_string())
@@ -137,20 +141,27 @@ struct Weather {
         error_log("Invalid location format in config.");
         weather.enabled = false;
       }
+    } else {
+      error_log("No location provided in config.");
+      weather.enabled = false;
+    }
+
+    if (weather.enabled) {
+      if (provider == "openmeteo") {
+        if (std::holds_alternative<weather::Coords>(weather.location)) {
+          const auto& coords = std::get<weather::Coords>(weather.location);
+          weather.service    = std::make_unique<weather::OpenMeteoService>(coords.lat, coords.lon, weather.units);
+        } else {
+          error_log("OpenMeteo requires coordinates for location.");
+          weather.enabled = false;
+        }
+      } else {
+        weather.service = std::make_unique<weather::OpenWeatherMapService>(weather.location, weather.apiKey, weather.units);
+      }
     }
 
     return weather;
   }
-
-  /**
-   * @brief Retrieves the weather information based on the configuration.
-   * @return The weather information as a WeatherOutput object.
-   *
-   * This function fetches the weather data based on the configured location,
-   * API key, and units. It returns a WeatherOutput object containing the
-   * retrieved weather data.
-   */
-  [[nodiscard]] fn getWeatherInfo() const -> Result<weather::Output>;
 };
 
 /**

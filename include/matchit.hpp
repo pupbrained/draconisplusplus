@@ -17,7 +17,7 @@
 #include <utility>
 #include <variant>
 
-#include "src/util/defs.hpp"
+#include "Util/Definitions.hpp"
 
 // NOLINTBEGIN(readability-identifier-*, cppcoreguidelines-special-member-functions)
 namespace matchit {

@@ -3,9 +3,9 @@
 #include <ftxui/dom/elements.hpp> // ftxui::Element
 #include <ftxui/screen/color.hpp> // ftxui::Color
 
-#include "src/config/config.hpp"
-#include "src/core/system_data.hpp"
-#include "src/util/types.hpp"
+#include "Config/Config.hpp"
+#include "Core/SystemData.hpp"
+#include "Util/Types.hpp"
 
 namespace ui {
   struct Theme {

@@ -1,7 +1,6 @@
-#include "ui.hpp"
+#include "UI.hpp"
 
-#include "src/os/os.hpp"
-#include "src/util/types.hpp"
+#include "Util/Types.hpp"
 
 namespace ui {
   using namespace ftxui;
@@ -175,11 +174,11 @@ namespace ui {
         initialRows.push_back({ .icon = calendarIcon, .label = "Date", .value = *data.date });
 
       if (weather.enabled && data.weather) {
-        const weather::Output& weatherInfo = *data.weather;
+        const weather::WeatherReport& weatherInfo = *data.weather;
 
-        String weatherValue = weather.showTownName
-          ? std::format("{}°F in {}", std::lround(weatherInfo.main.temp), weatherInfo.name)
-          : std::format("{}°F, {}", std::lround(weatherInfo.main.temp), weatherInfo.weather[0].description);
+        String weatherValue = weather.showTownName && weatherInfo.name
+          ? std::format("{}°F in {}", std::lround(weatherInfo.temperature), *weatherInfo.name)
+          : std::format("{}°F, {}", std::lround(weatherInfo.temperature), weatherInfo.description);
 
         initialRows.push_back({ .icon = weatherIcon, .label = "Weather", .value = std::move(weatherValue) });
       } else if (weather.enabled && !data.weather.has_value())

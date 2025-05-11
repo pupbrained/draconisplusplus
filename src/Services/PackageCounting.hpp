@@ -4,9 +4,9 @@
 #include <glaze/core/common.hpp> // glz::object
 #include <glaze/core/meta.hpp>   // glz::detail::Object
 
-#include "src/util/defs.hpp"
-#include "src/util/error.hpp"
-#include "src/util/types.hpp"
+#include "Util/Definitions.hpp"
+#include "Util/Error.hpp"
+#include "Util/Types.hpp"
 
 namespace package {
   namespace fs = std::filesystem;
@@ -22,7 +22,8 @@ namespace package {
     i64 timestampEpochSeconds {};
 
     PkgCountCacheData() = default;
-    PkgCountCacheData(u64 count, i64 timestampEpochSeconds) : count(count), timestampEpochSeconds(timestampEpochSeconds) {}
+    PkgCountCacheData(u64 count, i64 timestampEpochSeconds)
+      : count(count), timestampEpochSeconds(timestampEpochSeconds) {}
 
     // NOLINTBEGIN(readability-identifier-naming)
     struct [[maybe_unused]] glaze {
@@ -132,8 +133,7 @@ namespace package {
   fn GetSerenityCount() -> Result<u64>;
 #endif
 
-  // Common (potentially cross-platform)
-#ifndef _WIN32
+#if defined(__linux__) || defined(__APPLE__)
   fn CountNix() -> Result<u64>;
 #endif
   fn CountCargo() -> Result<u64>;

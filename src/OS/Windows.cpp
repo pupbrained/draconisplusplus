@@ -11,18 +11,15 @@
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.Management.Deployment.h>
 #include <winrt/Windows.Media.Control.h>
-#include <winrt/Windows.Storage.h>
 #include <winrt/Windows.System.Profile.h>
-#include <winrt/base.h>
-#include <winrt/impl/Windows.Media.Control.2.h>
 
-#include "src/core/package.hpp"
-#include "src/util/error.hpp"
-#include "src/util/helpers.hpp"
-#include "src/util/logging.hpp"
-#include "src/util/types.hpp"
+#include "Services/PackageCounting.hpp"
+#include "Util/Env.hpp"
+#include "Util/Error.hpp"
+#include "Util/Logging.hpp"
+#include "Util/Types.hpp"
 
-#include "os.hpp"
+#include "OperatingSystem.hpp"
 // clang-format on
 
 using RtlGetVersionPtr = NTSTATUS(WINAPI*)(PRTL_OSVERSIONINFOW);
@@ -65,8 +62,7 @@ namespace {
     String value((type == REG_SZ || type == REG_EXPAND_SZ) ? dataSize - 1 : dataSize, '\0');
 
     // NOLINTNEXTLINE(*-pro-type-reinterpret-cast) - required here
-    if (RegQueryValueExA(key, valueName.c_str(), nullptr, nullptr, reinterpret_cast<LPBYTE>(value.data()), &dataSize) !=
-        ERROR_SUCCESS) {
+    if (RegQueryValueExA(key, valueName.c_str(), nullptr, nullptr, reinterpret_cast<LPBYTE>(value.data()), &dataSize) != ERROR_SUCCESS) {
       RegCloseKey(key);
       return "";
     }
@@ -175,10 +171,7 @@ namespace os {
     if (GlobalMemoryStatusEx(&memInfo))
       return memInfo.ullTotalPhys;
 
-    DWORD lastError = GetLastError();
-    return Err(DracError(
-      DracErrorCode::PlatformSpecific, std::format("GlobalMemoryStatusEx failed with error code {}", lastError)
-    ));
+    return Err(DracError(DracErrorCode::PlatformSpecific, std::format("GlobalMemoryStatusEx failed with error code {}", GetLastError())));
   }
 
   fn GetNowPlaying() -> Result<MediaInfo> {
@@ -216,18 +209,15 @@ namespace os {
       if (const Option<u64> buildNumberOpt = GetBuildNumber()) {
         if (const u64 buildNumber = *buildNumberOpt; buildNumber >= 22000) {
           if (const size_t pos = productName.find("Windows 10"); pos != String::npos) {
-            const bool startBoundary = (pos == 0 || !isalnum(static_cast<unsigned char>(productName[pos - 1])));
-            const bool endBoundary =
-              (pos + 10 == productName.length() || !isalnum(static_cast<unsigned char>(productName[pos + 10])));
+            const bool startBoundary = (pos == 0 || !isalnum(static_cast<u8>(productName[pos - 1])));
+            const bool endBoundary   = (pos + 10 == productName.length() || !isalnum(static_cast<u8>(productName[pos + 10])));
 
-            if (startBoundary && endBoundary) {
+            if (startBoundary && endBoundary)
               productName.replace(pos, 10, "Windows 11");
-            }
           }
         }
-      } else {
+      } else
         debug_log("Warning: Could not get build number via WinRT; Win11 detection might be inaccurate.");
-      }
 
       return displayVersion.empty() ? productName : productName + " " + displayVersion;
     } catch (const std::exception& e) { return Err(DracError(e)); }
@@ -245,9 +235,7 @@ namespace os {
         osInfo.dwOSVersionInfoSize = sizeof(osInfo);
 
         if (rtlGetVersion(&osInfo) == 0)
-          return std::format(
-            "{}.{}.{}.{}", osInfo.dwMajorVersion, osInfo.dwMinorVersion, osInfo.dwBuildNumber, osInfo.dwPlatformId
-          );
+          return std::format("{}.{}.{}.{}", osInfo.dwMajorVersion, osInfo.dwMinorVersion, osInfo.dwBuildNumber, osInfo.dwPlatformId);
       }
     }
 

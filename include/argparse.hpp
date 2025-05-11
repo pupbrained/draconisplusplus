@@ -73,9 +73,9 @@
   #include <vector>
 #endif
 
-#include "src/util/defs.hpp"
-#include "src/util/error.hpp"
-#include "src/util/types.hpp"
+#include "Util/Definitions.hpp"
+#include "Util/Error.hpp"
+#include "Util/Types.hpp"
 
 #ifndef ARGPARSE_CUSTOM_STRTOF
   #define ARGPARSE_CUSTOM_STRTOF strtof
