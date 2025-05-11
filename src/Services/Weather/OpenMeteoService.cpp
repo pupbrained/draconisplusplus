@@ -79,7 +79,7 @@ namespace {
 #ifdef _WIN32
     return static_cast<util::types::usize>(_mkgmtime(&time));
 #else
-    return static_cast<util::types::usize>(timegm(&tm));
+    return static_cast<util::types::usize>(timegm(&time));
 #endif
   }
 } // namespace

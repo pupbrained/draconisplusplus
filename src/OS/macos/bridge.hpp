@@ -3,9 +3,9 @@
 #ifdef __APPLE__
 
 // clang-format off
-#include "src/util/defs.hpp"
-#include "src/util/error.hpp"
-#include "src/util/types.hpp"
+#include "Util/Definitions.hpp"
+#include "Util/Error.hpp"
+#include "Util/Types.hpp"
 // clang-format on
 
 using util::error::DracError;

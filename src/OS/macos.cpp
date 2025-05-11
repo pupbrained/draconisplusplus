@@ -1,21 +1,23 @@
 #ifdef __APPLE__
 
 // clang-format off
+#include <chrono>        // std::chrono::{system_clock, seconds}
 #include <flat_map>      // std::flat_map
 #include <sys/statvfs.h> // statvfs
 #include <sys/sysctl.h>  // {CTL_KERN, KERN_PROC, KERN_PROC_ALL, kinfo_proc, sysctl, sysctlbyname}
 
-#include "src/core/package.hpp"
-#include "src/util/defs.hpp"
-#include "src/util/error.hpp"
-#include "src/util/helpers.hpp"
-#include "src/util/types.hpp"
-
-#include "macos/bridge.hpp"
-#include "os.hpp"
+#include "OperatingSystem.hpp"
+#include "Services/PackageCounting.hpp"
+#include "Util/Caching.hpp"
+#include "Util/Definitions.hpp"
+#include "Util/Env.hpp"
+#include "Util/Error.hpp"
+#include "Util/Types.hpp"
+#include "macOS/Bridge.hpp"
 // clang-format on
 
 using namespace util::types;
+using std::chrono::system_clock, std::chrono::seconds;
 using util::error::DracError, util::error::DracErrorCode;
 using util::helpers::GetEnv;
 
@@ -323,22 +325,48 @@ namespace os {
 
 namespace package {
   fn GetHomebrewCount() -> Result<u64> {
-    u64 count = 0;
+    using util::cache::ReadCache, util::cache::WriteCache;
 
     Array<fs::path, 2> cellarPaths {
       "/opt/homebrew/Cellar",
       "/usr/local/Cellar",
     };
 
+    if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>("homebrew_total")) {
+      const auto& [cachedCount, timestamp] = *cachedDataResult;
+
+      bool cacheValid = true;
+      for (const fs::path& cellarPath : cellarPaths) {
+        if (std::error_code errc; fs::exists(cellarPath, errc) && !errc) {
+          const fs::file_time_type dirModTime = fs::last_write_time(cellarPath, errc);
+          if (!errc) {
+            const system_clock::time_point cacheTimePoint = system_clock::time_point(seconds(timestamp));
+            if (cacheTimePoint.time_since_epoch() < dirModTime.time_since_epoch()) {
+              cacheValid = false;
+              break;
+            }
+          }
+        }
+      }
+
+      if (cacheValid) {
+        debug_log("Using valid Homebrew total count cache. Count: {}", cachedCount);
+        return cachedCount;
+      }
+    }
+
+    u64 count = 0;
+
     for (const fs::path& cellarPath : cellarPaths) {
       if (std::error_code errc; !fs::exists(cellarPath, errc) || errc) {
         if (errc && errc != std::errc::no_such_file_or_directory)
           return Err(DracError(errc));
 
-        return Err(DracError(DracErrorCode::NotFound, "Homebrew Cellar directory not found at: " + cellarPath.string()));
+        continue;
       }
 
-      Result dirCount = GetCountFromDirectory("homebrew", cellarPath, true);
+      const String cacheKey = "homebrew_" + cellarPath.filename().string();
+      Result       dirCount = GetCountFromDirectory(cacheKey, cellarPath, true);
 
       if (!dirCount) {
         if (dirCount.error().code != DracErrorCode::NotFound)
@@ -349,6 +377,15 @@ namespace package {
 
       count += *dirCount;
     }
+
+    if (count == 0)
+      return Err(DracError(DracErrorCode::NotFound, "No Homebrew packages found in any Cellar directory"));
+
+    const i64 timestampEpochSeconds = duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
+
+    const PkgCountCacheData dataToCache(count, timestampEpochSeconds);
+    if (Result writeResult = WriteCache("homebrew_total", dataToCache); !writeResult)
+      debug_at(writeResult.error());
 
     return count;
   }

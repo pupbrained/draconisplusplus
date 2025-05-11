@@ -1,7 +1,7 @@
 #ifdef __APPLE__
 
 // clang-format off
-#import "bridge.hpp"
+#import "Bridge.hpp"
 
 #import <dispatch/dispatch.h>
 #import <objc/runtime.h>
@@ -12,7 +12,7 @@
 #include <string>
 #include <utility>
 
-#include "src/util/error.hpp"
+#include "Util/Error.hpp"
 // clang-format on
 
 using util::error::DracError, util::error::DracErrorCode;
