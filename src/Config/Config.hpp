@@ -15,6 +15,7 @@
   #include "Util/Env.hpp"
 #endif
 
+#include "../Services/Weather/MetNoService.hpp"
 #include "../Services/Weather/OpenMeteoService.hpp"
 #include "../Services/Weather/OpenWeatherMapService.hpp"
 #include "Services/Weather.hpp"
@@ -155,8 +156,19 @@ struct Weather {
           error_log("OpenMeteo requires coordinates for location.");
           weather.enabled = false;
         }
-      } else {
+      } else if (provider == "metno") {
+        if (std::holds_alternative<weather::Coords>(weather.location)) {
+          const auto& coords = std::get<weather::Coords>(weather.location);
+          weather.service    = std::make_unique<weather::MetNoService>(coords.lat, coords.lon, weather.units);
+        } else {
+          error_log("MetNo requires coordinates for location.");
+          weather.enabled = false;
+        }
+      } else if (provider == "openweathermap") {
         weather.service = std::make_unique<weather::OpenWeatherMapService>(weather.location, weather.apiKey, weather.units);
+      } else {
+        error_log("Unknown weather provider: {}", provider);
+        weather.enabled = false;
       }
     }
 

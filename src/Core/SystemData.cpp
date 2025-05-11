@@ -68,22 +68,23 @@ namespace {
 
 namespace os {
   SystemData::SystemData(const Config& config) {
-    using enum std::launch;
     using package::GetTotalCount;
     using util::types::Future, util::types::Err;
+    using weather::WeatherReport;
+    using enum std::launch;
     using enum util::error::DracErrorCode;
 
-    Future<Result<String>>                 hostFut   = std::async(async, GetHost);
-    Future<Result<String>>                 kernelFut = std::async(async, GetKernelVersion);
-    Future<Result<String>>                 osFut     = std::async(async, GetOSVersion);
-    Future<Result<u64>>                    memFut    = std::async(async, GetMemInfo);
-    Future<Result<String>>                 deFut     = std::async(async, GetDesktopEnvironment);
-    Future<Result<String>>                 wmFut     = std::async(async, GetWindowManager);
-    Future<Result<DiskSpace>>              diskFut   = std::async(async, GetDiskUsage);
-    Future<Result<String>>                 shellFut  = std::async(async, GetShell);
-    Future<Result<u64>>                    pkgFut    = std::async(async, GetTotalCount);
-    Future<Result<MediaInfo>>              npFut     = std::async(config.nowPlaying.enabled ? async : deferred, GetNowPlaying);
-    Future<Result<weather::WeatherReport>> wthrFut   = std::async(config.weather.enabled ? async : deferred, [&config]() -> Result<weather::WeatherReport> {
+    Future<Result<String>>        hostFut   = std::async(async, GetHost);
+    Future<Result<String>>        kernelFut = std::async(async, GetKernelVersion);
+    Future<Result<String>>        osFut     = std::async(async, GetOSVersion);
+    Future<Result<u64>>           memFut    = std::async(async, GetMemInfo);
+    Future<Result<String>>        deFut     = std::async(async, GetDesktopEnvironment);
+    Future<Result<String>>        wmFut     = std::async(async, GetWindowManager);
+    Future<Result<DiskSpace>>     diskFut   = std::async(async, GetDiskUsage);
+    Future<Result<String>>        shellFut  = std::async(async, GetShell);
+    Future<Result<u64>>           pkgFut    = std::async(async, GetTotalCount);
+    Future<Result<MediaInfo>>     npFut     = std::async(config.nowPlaying.enabled ? async : deferred, GetNowPlaying);
+    Future<Result<WeatherReport>> wthrFut   = std::async(config.weather.enabled ? async : deferred, [&config]() -> Result<WeatherReport> {
       return config.weather.enabled && config.weather.service
           ? config.weather.service->getWeatherInfo()
           : Err(DracError(ApiUnavailable, "Weather API disabled"));
