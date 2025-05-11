@@ -20,8 +20,8 @@ using util::types::MediaInfo, util::types::String, util::types::Result;
 @end
   #else
 extern "C++" {
-  fn GetCurrentPlayingInfo() -> Result<MediaInfo, DracError>;
-  fn GetMacOSVersion() -> Result<String, DracError>;
+  fn GetCurrentPlayingInfo() -> Result<MediaInfo>;
+  fn GetMacOSVersion() -> Result<String>;
 }
   #endif
 #endif

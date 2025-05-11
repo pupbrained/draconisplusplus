@@ -249,7 +249,7 @@
               };
             };
 
-            devShell = mkShell.override {inherit stdenv;} rec {
+            devShell = mkShell.override {inherit stdenv;} {
               packages =
                 [
                   alejandra
@@ -273,11 +273,15 @@
 
               LD_LIBRARY_PATH = "${lib.makeLibraryPath deps}";
               NIX_ENFORCE_NO_NATIVE = 0;
-              SDKROOT = lib.optionalString stdenv.isDarwin "${pkgs.pkgsStatic.apple-sdk_15}/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk";
-              NIX_CFLAGS_COMPILE = lib.optionalString stdenv.isDarwin "-isysroot ${SDKROOT}";
-              NIX_CXXFLAGS_COMPILE = lib.optionalString stdenv.isDarwin "-isysroot ${SDKROOT}";
-              NIX_OBJCFLAGS_COMPILE = lib.optionalString stdenv.isDarwin "-isysroot ${SDKROOT}";
-              NIX_OBJCXXFLAGS_COMPILE = lib.optionalString stdenv.isDarwin "-isysroot ${SDKROOT}";
+
+              shellHook = lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
+                export SDKROOT=${pkgs.pkgsStatic.apple-sdk_15}/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+                export DEVELOPER_DIR=${pkgs.pkgsStatic.apple-sdk_15}
+                export NIX_CFLAGS_COMPILE="-isysroot $SDKROOT"
+                export NIX_CXXFLAGS_COMPILE="-isysroot $SDKROOT"
+                export NIX_OBJCFLAGS_COMPILE="-isysroot $SDKROOT"
+                export NIX_OBJCXXFLAGS_COMPILE="-isysroot $SDKROOT"
+              '';
             };
           }
     );
