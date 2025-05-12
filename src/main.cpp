@@ -45,13 +45,13 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
       return EXIT_FAILURE;
     }
 
-    bool   verbose     = parser.get<bool>("-V").value_or(false) || parser.get<bool>("--verbose").value_or(false);
-    Result<String> logLevelStr = verbose ? "debug" : parser.get<String>("--log-level");
-
     {
       using matchit::match, matchit::is, matchit::_;
       using util::logging::LogLevel;
       using enum util::logging::LogLevel;
+
+      bool           verbose     = parser.get<bool>("-V").value_or(false) || parser.get<bool>("--verbose").value_or(false);
+      Result<String> logLevelStr = verbose ? "debug" : parser.get<String>("--log-level");
 
       LogLevel minLevel = match(logLevelStr)(
         is | "debug" = Debug,
@@ -69,11 +69,10 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
     }
   }
 
-  const Config& config = Config::getInstance();
-
-  const os::SystemData data = os::SystemData(config);
-
   {
+    const Config&        config = Config::getInstance();
+    const os::SystemData data   = os::SystemData(config);
+
     using ftxui::Element, ftxui::Screen, ftxui::Render;
     using ftxui::Dimension::Full, ftxui::Dimension::Fit;
 
