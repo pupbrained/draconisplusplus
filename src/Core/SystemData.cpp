@@ -20,16 +20,14 @@ namespace {
   using util::types::i32, util::types::CStr;
 
   fn getOrdinalSuffix(const i32 day) -> CStr {
-    using matchit::match, matchit::is, matchit::_, matchit::or_;
+    using matchit::match, matchit::is, matchit::_, matchit::in;
 
-    if (day == 11 || day == 12 || day == 13)
-      return "th";
-
-    return match(day % 10)(
-      is | 1 = "st",
-      is | 2 = "nd",
-      is | 3 = "rd",
-      is | _ = "th"
+    return match(day)(
+      is | in(11, 13)    = "th",
+      is | (_ % 10 == 1) = "st",
+      is | (_ % 10 == 2) = "nd",
+      is | (_ % 10 == 3) = "rd",
+      is | _             = "th"
     );
   }
 
