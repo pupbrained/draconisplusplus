@@ -40,13 +40,13 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
       .help("Enable verbose logging. Overrides --log-level.")
       .flag();
 
-    if (Result result = parser.parse_args(argc, argv); !result) {
+    if (Result<> result = parser.parse_args(argc, argv); !result) {
       error_at(result.error());
       return EXIT_FAILURE;
     }
 
     bool   verbose     = parser.get<bool>("-V").value_or(false) || parser.get<bool>("--verbose").value_or(false);
-    Result logLevelStr = verbose ? "debug" : parser.get<String>("--log-level");
+    Result<String> logLevelStr = verbose ? "debug" : parser.get<String>("--log-level");
 
     {
       using matchit::match, matchit::is, matchit::_;
