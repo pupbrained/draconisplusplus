@@ -1,5 +1,6 @@
 #include "UI.hpp"
 
+#include "OS/OperatingSystem.hpp"
 #include "Util/Types.hpp"
 
 namespace ui {
@@ -101,13 +102,11 @@ namespace ui {
     }};
     // clang-format on
 
-    fn GetDistroIcon() -> Option<StringView> {
+    fn GetDistroIcon(StringView distro) -> Option<StringView> {
       using namespace matchit;
 
-      const Result<String> distro = os::GetOSVersion();
-
       for (const auto& [distroName, distroIcon] : distro_icons)
-        if (distro->contains(distroName))
+        if (distro.contains(distroName))
           return distroIcon;
 
       return None;
@@ -190,7 +189,7 @@ namespace ui {
       if (data.osVersion) {
         systemInfoRows.push_back({
 #ifdef __linux__
-          .icon = GetDistroIcon().value_or(osIcon),
+          .icon = GetDistroIcon(*data.osVersion).value_or(osIcon),
 #else
           .icon = osIcon,
 #endif
