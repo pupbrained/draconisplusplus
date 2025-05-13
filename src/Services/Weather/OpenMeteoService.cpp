@@ -2,13 +2,13 @@
 
 #include "OpenMeteoService.hpp"
 
-#include <chrono>
-#include <curl/curl.h>
-#include <curl/easy.h>
-#include <format>
-#include <glaze/json/read.hpp>
-#include <sstream>
-#include <string>
+#include <chrono>              // std::chrono::{system_clock, minutes, seconds}
+#include <ctime>               // std::tm, std::timegm
+#include <curl/curl.h>         // CURL, CURLcode, CURLOPT_*, CURLE_OK
+#include <curl/easy.h>         // curl_easy_init, curl_easy_setopt, curl_easy_perform, curl_easy_strerror, curl_easy_cleanup
+#include <format>              // std::format
+#include <glaze/json/read.hpp> // glz::read
+#include <sstream>             // std::istringstream
 
 #include "Util/Caching.hpp"
 #include "Util/Error.hpp"
@@ -60,31 +60,31 @@ struct glz::meta<weather::OpenMeteoResponse::CurrentWeather> : weather::CurrentW
 namespace {
   using glz::opts;
   using util::error::DracError, util::error::DracErrorCode;
-  using util::types::usize, util::types::Err;
+  using util::types::usize, util::types::Err, util::types::String;
 
   constexpr opts glazeOpts = { .error_on_unknown_keys = false };
 
-  fn WriteCallback(void* contents, size_t size, size_t nmemb, std::string* str) -> size_t {
-    size_t totalSize = size * nmemb;
+  fn WriteCallback(void* contents, usize size, usize nmemb, String* str) -> usize {
+    usize totalSize = size * nmemb;
     str->append(static_cast<char*>(contents), totalSize);
     return totalSize;
   }
 
-  fn parse_iso8601_to_epoch(const std::string& iso8601) -> usize {
+  fn parse_iso8601_to_epoch(const String& iso8601) -> usize {
     std::tm            time = {};
     std::istringstream stream(iso8601);
     stream >> std::get_time(&time, "%Y-%m-%dT%H:%M");
     if (stream.fail())
       return 0;
 #ifdef _WIN32
-    return static_cast<util::types::usize>(_mkgmtime(&time));
+    return static_cast<usize>(_mkgmtime(&time));
 #else
-    return static_cast<util::types::usize>(timegm(&time));
+    return static_cast<usize>(timegm(&time));
 #endif
   }
 } // namespace
 
-OpenMeteoService::OpenMeteoService(double lat, double lon, std::string units)
+OpenMeteoService::OpenMeteoService(f64 lat, f64 lon, String units)
   : m_lat(lat), m_lon(lon), m_units(std::move(units)) {}
 
 fn OpenMeteoService::getWeatherInfo() const -> util::types::Result<WeatherReport> {

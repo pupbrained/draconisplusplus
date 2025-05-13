@@ -3,6 +3,7 @@
 #include "MetNoService.hpp"
 
 #include <chrono>              // std::chrono::{system_clock, minutes, seconds}
+#include <ctime>               // std::tm, std::timegm
 #include <curl/curl.h>         // CURL, CURLcode, CURLOPT_*, CURLE_OK
 #include <curl/easy.h>         // curl_easy_init, curl_easy_setopt, curl_easy_perform, curl_easy_strerror, curl_easy_cleanup
 #include <format>              // std::format
@@ -216,9 +217,9 @@ namespace {
       return 0;
 
 #ifdef _WIN32
-    return static_cast<util::types::usize>(_mkgmtime(&time));
+    return static_cast<usize>(_mkgmtime(&time));
 #else
-    return static_cast<util::types::usize>(timegm(&time));
+    return static_cast<usize>(timegm(&time));
 #endif
   }
 } // namespace
