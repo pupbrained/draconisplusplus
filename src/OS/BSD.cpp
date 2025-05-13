@@ -484,8 +484,8 @@ namespace os {
       return Err(DracError(std::format("Failed to get filesystem stats for '/' (statvfs call failed)")));
 
     return DiskSpace {
-      .used_bytes  = (stat.f_blocks * stat.f_frsize) - (stat.f_bfree * stat.f_frsize),
-      .total_bytes = stat.f_blocks * stat.f_frsize,
+      .usedBytes  = (stat.f_blocks * stat.f_frsize) - (stat.f_bfree * stat.f_frsize),
+      .totalBytes = stat.f_blocks * stat.f_frsize,
     };
   }
 } // namespace os
