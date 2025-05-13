@@ -1,5 +1,9 @@
 #define NOMINMAX
 
+#ifdef __HAIKU__
+  #define _DEFAULT_SOURCE
+#endif
+
 #include "OpenMeteoService.hpp"
 
 #include <chrono>              // std::chrono::{system_clock, minutes, seconds}
@@ -78,8 +82,6 @@ namespace {
       return 0;
 #ifdef _WIN32
     return static_cast<usize>(_mkgmtime(&time));
-#elifdef __HAIKU__
-    return static_cast<usize>(gmtime(&time));
 #else
     return static_cast<usize>(timegm(&time));
 #endif

@@ -1,5 +1,9 @@
 #define NOMINMAX
 
+#ifdef __HAIKU__
+  #define _DEFAULT_SOURCE
+#endif
+
 #include "MetNoService.hpp"
 
 #include <chrono>              // std::chrono::{system_clock, minutes, seconds}
