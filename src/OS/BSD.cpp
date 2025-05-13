@@ -57,39 +57,40 @@ namespace {
   }
   #endif
 
+  #ifdef HAVE_XCB
   fn GetX11WindowManager() -> Result<String> {
     using namespace xcb;
+    using namespace matchit;
+    using enum ConnError;
+    using util::types::StringView;
 
     const DisplayGuard conn;
 
     if (!conn)
-      if (const i32 err = connection_has_error(conn.get()))
-        return Err(DracError(DracErrorCode::ApiUnavailable, [&] -> String {
-          if (const Option<ConnError> connErr = getConnError(err)) {
-            switch (*connErr) {
-              case Generic:         return "Stream/Socket/Pipe Error";
-              case ExtNotSupported: return "Extension Not Supported";
-              case MemInsufficient: return "Insufficient Memory";
-              case ReqLenExceed:    return "Request Length Exceeded";
-              case ParseErr:        return "Display String Parse Error";
-              case InvalidScreen:   return "Invalid Screen";
-              case FdPassingFailed: return "FD Passing Failed";
-              default:              return std::format("Unknown Error Code ({})", err);
-            }
-          }
-
-          return std::format("Unknown Error Code ({})", err);
-        }()));
+      if (const i32 err = ConnectionHasError(conn.get()))
+        return Err(
+          DracError(
+            DracErrorCode::ApiUnavailable,
+            match(err)(
+              is | Generic         = "Stream/Socket/Pipe Error",
+              is | ExtNotSupported = "Extension Not Supported",
+              is | MemInsufficient = "Insufficient Memory",
+              is | ReqLenExceed    = "Request Length Exceeded",
+              is | ParseErr        = "Display String Parse Error",
+              is | InvalidScreen   = "Invalid Screen",
+              is | FdPassingFailed = "FD Passing Failed",
+              is | _               = std::format("Unknown Error Code ({})", err)
+            )
+          )
+        );
 
     fn internAtom = [&conn](const StringView name) -> Result<atom_t> {
-      const ReplyGuard<intern_atom_reply_t> reply(
-        intern_atom_reply(conn.get(), intern_atom(conn.get(), 0, static_cast<u16>(name.size()), name.data()), nullptr)
-      );
+      using util::types::u16;
+
+      const ReplyGuard<intern_atom_reply_t> reply(InternAtomReply(conn.get(), InternAtom(conn.get(), 0, static_cast<u16>(name.size()), name.data()), nullptr));
 
       if (!reply)
-        return Err(
-          DracError(DracErrorCode::PlatformSpecific, std::format("Failed to get X11 atom reply for '{}'", name))
-        );
+        return Err(DracError(DracErrorCode::PlatformSpecific, std::format("Failed to get X11 atom reply for '{}'", name)));
 
       return reply->atom;
     };
@@ -111,30 +112,35 @@ namespace {
       return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to get X11 atoms"));
     }
 
-    const ReplyGuard<get_property_reply_t> wmWindowReply(get_property_reply(
+    const ReplyGuard<get_property_reply_t> wmWindowReply(GetPropertyReply(
       conn.get(),
-      get_property(conn.get(), 0, conn.rootScreen()->root, *supportingWmCheckAtom, ATOM_WINDOW, 0, 1),
+      GetProperty(conn.get(), 0, conn.rootScreen()->root, *supportingWmCheckAtom, ATOM_WINDOW, 0, 1),
       nullptr
     ));
 
     if (!wmWindowReply || wmWindowReply->type != ATOM_WINDOW || wmWindowReply->format != 32 ||
-        get_property_value_length(wmWindowReply.get()) == 0)
+        GetPropertyValueLength(wmWindowReply.get()) == 0)
       return Err(DracError(DracErrorCode::NotFound, "Failed to get _NET_SUPPORTING_WM_CHECK property"));
 
-    const window_t wmRootWindow = *static_cast<window_t*>(get_property_value(wmWindowReply.get()));
+    const window_t wmRootWindow = *static_cast<window_t*>(GetPropertyValue(wmWindowReply.get()));
 
-    const ReplyGuard<get_property_reply_t> wmNameReply(get_property_reply(
-      conn.get(), get_property(conn.get(), 0, wmRootWindow, *wmNameAtom, *utf8StringAtom, 0, 1024), nullptr
+    const ReplyGuard<get_property_reply_t> wmNameReply(GetPropertyReply(
+      conn.get(), GetProperty(conn.get(), 0, wmRootWindow, *wmNameAtom, *utf8StringAtom, 0, 1024), nullptr
     ));
 
-    if (!wmNameReply || wmNameReply->type != *utf8StringAtom || get_property_value_length(wmNameReply.get()) == 0)
+    if (!wmNameReply || wmNameReply->type != *utf8StringAtom || GetPropertyValueLength(wmNameReply.get()) == 0)
       return Err(DracError(DracErrorCode::NotFound, "Failed to get _NET_WM_NAME property"));
 
-    const char* nameData = static_cast<const char*>(get_property_value(wmNameReply.get()));
-    const usize length   = get_property_value_length(wmNameReply.get());
+    const char* nameData = static_cast<const char*>(GetPropertyValue(wmNameReply.get()));
+    const usize length   = GetPropertyValueLength(wmNameReply.get());
 
     return String(nameData, length);
   }
+  #else
+  fn GetX11WindowManager() -> Result<String> {
+    return Err(DracError(DracErrorCode::NotSupported, "XCB (X11) support not available"));
+  }
+  #endif
 
   fn GetWaylandCompositor() -> Result<String> {
   #ifndef __FreeBSD__
@@ -491,13 +497,7 @@ namespace package {
   }
   #else
   fn GetPkgNgCount() -> Result<u64> {
-    const PackageManagerInfo pkgInfo = {
-      .id         = "pkgng",
-      .dbPath     = "/var/db/pkg/local.sqlite",
-      .countQuery = "SELECT COUNT(*) FROM packages",
-    };
-
-    return GetCountFromDb(pkgInfo);
+    return GetCountFromDb("pkgng", "/var/db/pkg/local.sqlite", "SELECT COUNT(*) FROM packages");
   }
   #endif
 } // namespace package
