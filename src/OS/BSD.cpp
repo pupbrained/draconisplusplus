@@ -44,7 +44,7 @@ namespace {
     mib.at(3) = KERN_PROC_PATHNAME;
 
     if (sysctl(mib.data(), 4, exePathBuf.data(), &size, nullptr, 0) == -1)
-      return Err(DracError::withErrno(std::format("sysctl KERN_PROC_PATHNAME failed for pid {}", pid)));
+      return Err(DracError(std::format("sysctl KERN_PROC_PATHNAME failed for pid {}", pid)));
 
     if (size == 0 || exePathBuf[0] == '\0')
       return Err(
@@ -156,7 +156,7 @@ namespace {
     socklen_t len = sizeof(cred);
 
     if (getsockopt(fileDescriptor, SOL_SOCKET, LOCAL_PEERCRED, &cred, &len) == -1)
-      return Err(DracError::withErrno("Failed to get socket credentials (LOCAL_PEERCRED)"));
+      return Err(DracError("Failed to get socket credentials (LOCAL_PEERCRED)"));
 
     peerPid = cred.cr_pid;
 
@@ -224,7 +224,7 @@ namespace os {
     utsname uts;
 
     if (uname(&uts) == -1)
-      return Err(DracError::withErrno(std::format("Failed to open {} and uname() call also failed", path)));
+      return Err(DracError(std::format("Failed to open {} and uname() call also failed", path)));
 
     String osName = uts.sysname;
 
@@ -436,7 +436,7 @@ namespace os {
 
     if (result == -1) {
       if (sysctlbyname("hw.model", buffer.data(), &size, nullptr, 0) == -1)
-        return Err(DracError::withErrno("kenv smbios.system.product failed and sysctl hw.model also failed"));
+        return Err(DracError("kenv smbios.system.product failed and sysctl hw.model also failed"));
 
       buffer.at(std::min(size, buffer.size() - 1)) = '\0';
       return String(buffer.data());
@@ -449,7 +449,7 @@ namespace os {
 
   #elifdef __NetBSD__
     if (sysctlbyname("machdep.dmi.system-product", buffer.data(), &size, nullptr, 0) == -1)
-      return Err(DracError::withErrno(std::format("sysctlbyname failed for")));
+      return Err(DracError(std::format("sysctlbyname failed for")));
 
     buffer[std::min(size, buffer.size() - 1)] = '\0';
   #endif
@@ -463,7 +463,7 @@ namespace os {
     utsname uts;
 
     if (uname(&uts) == -1)
-      return Err(DracError::withErrno("uname call failed"));
+      return Err(DracError("uname call failed"));
 
     if (std::strlen(uts.release) == 0)
       return Err(DracError(DracErrorCode::ParseError, "uname returned null kernel release"));
@@ -475,7 +475,7 @@ namespace os {
     struct statvfs stat;
 
     if (statvfs("/", &stat) == -1)
-      return Err(DracError::withErrno(std::format("Failed to get filesystem stats for '/' (statvfs call failed)")));
+      return Err(DracError(std::format("Failed to get filesystem stats for '/' (statvfs call failed)")));
 
     return DiskSpace {
       .used_bytes  = (stat.f_blocks * stat.f_frsize) - (stat.f_bfree * stat.f_frsize),
