@@ -15,14 +15,16 @@
   #include "Util/Env.hpp"
 #endif
 
-#include "../Services/Weather/MetNoService.hpp"
-#include "../Services/Weather/OpenMeteoService.hpp"
-#include "../Services/Weather/OpenWeatherMapService.hpp"
 #include "Services/Weather.hpp"
+
 #include "Util/Definitions.hpp"
 #include "Util/Error.hpp"
 #include "Util/Logging.hpp"
 #include "Util/Types.hpp"
+
+#include "../Services/Weather/MetNoService.hpp"
+#include "../Services/Weather/OpenMeteoService.hpp"
+#include "../Services/Weather/OpenWeatherMapService.hpp"
 
 using util::error::DracError;
 using util::types::CStr, util::types::String, util::types::Array, util::types::Option, util::types::Result;

@@ -9,22 +9,22 @@
 #include "Util/Types.hpp"
 // clang-format on
 
-namespace xcb {
-  using util::types::u8, util::types::i32, util::types::CStr, util::types::None;
+namespace XCB {
+  using util::types::u8, util::types::u16, util::types::i32, util::types::u32, util::types::CStr, util::types::None;
 
-  using connection_t = xcb_connection_t;
-  using setup_t      = xcb_setup_t;
-  using screen_t     = xcb_screen_t;
-  using window_t     = xcb_window_t;
-  using atom_t       = xcb_atom_t;
+  using Connection = xcb_connection_t;
+  using Setup      = xcb_setup_t;
+  using Screen     = xcb_screen_t;
+  using Window     = xcb_window_t;
+  using Atom       = xcb_atom_t;
 
-  using generic_error_t       = xcb_generic_error_t;
-  using intern_atom_cookie_t  = xcb_intern_atom_cookie_t;
-  using intern_atom_reply_t   = xcb_intern_atom_reply_t;
-  using get_property_cookie_t = xcb_get_property_cookie_t;
-  using get_property_reply_t  = xcb_get_property_reply_t;
+  using GenericError  = xcb_generic_error_t;
+  using IntAtomCookie = xcb_intern_atom_cookie_t;
+  using IntAtomReply  = xcb_intern_atom_reply_t;
+  using GetPropCookie = xcb_get_property_cookie_t;
+  using GetPropReply  = xcb_get_property_reply_t;
 
-  constexpr atom_t ATOM_WINDOW = XCB_ATOM_WINDOW; ///< Window atom
+  constexpr Atom ATOM_WINDOW = XCB_ATOM_WINDOW; ///< Window atom
 
   /**
    * @brief Enum representing different types of connection errors
@@ -54,7 +54,7 @@ namespace xcb {
    * @param screenp Pointer to an integer that will store the screen number
    * @return A pointer to the connection object
    */
-  inline fn Connect(const char* displayname, int* screenp) -> connection_t* {
+  inline fn Connect(CStr displayname, i32* screenp) -> Connection* {
     return xcb_connect(displayname, screenp);
   }
 
@@ -66,7 +66,7 @@ namespace xcb {
    *
    * @param conn The connection object to disconnect from
    */
-  inline fn Disconnect(connection_t* conn) -> void {
+  inline fn Disconnect(Connection* conn) -> void {
     xcb_disconnect(conn);
   }
 
@@ -79,7 +79,7 @@ namespace xcb {
    * @param conn The connection object to check
    * @return 1 if the connection has an error, 0 otherwise
    */
-  inline fn ConnectionHasError(connection_t* conn) -> int {
+  inline fn ConnectionHasError(Connection* conn) -> i32 {
     return xcb_connection_has_error(conn);
   }
 
@@ -94,8 +94,7 @@ namespace xcb {
    * @param name The name of the atom
    * @return The cookie for the atom
    */
-  inline fn InternAtom(connection_t* conn, const uint8_t only_if_exists, const uint16_t name_len, const char* name)
-    -> intern_atom_cookie_t {
+  inline fn InternAtom(Connection* conn, const u8 only_if_exists, const u16 name_len, CStr name) -> IntAtomCookie {
     return xcb_intern_atom(conn, only_if_exists, name_len, name);
   }
 
@@ -110,8 +109,7 @@ namespace xcb {
    * @param err The pointer to the generic error
    * @return The reply for the atom
    */
-  inline fn InternAtomReply(connection_t* conn, const intern_atom_cookie_t cookie, generic_error_t** err)
-    -> intern_atom_reply_t* {
+  inline fn InternAtomReply(Connection* conn, const IntAtomCookie cookie, GenericError** err) -> IntAtomReply* {
     return xcb_intern_atom_reply(conn, cookie, err);
   }
 
@@ -128,14 +126,14 @@ namespace xcb {
    * @param type The type
    */
   inline fn GetProperty(
-    connection_t*  conn,
-    const uint8_t  _delete,
-    const window_t window,
-    const atom_t   property,
-    const atom_t   type,
-    const uint32_t long_offset,
-    const uint32_t long_length
-  ) -> get_property_cookie_t {
+    Connection*  conn,
+    const u8     _delete,
+    const Window window,
+    const Atom   property,
+    const Atom   type,
+    const u32    long_offset,
+    const u32    long_length
+  ) -> GetPropCookie {
     return xcb_get_property(conn, _delete, window, property, type, long_offset, long_length);
   }
 
@@ -150,8 +148,7 @@ namespace xcb {
    * @param err The pointer to the generic error
    * @return The reply for the property
    */
-  inline fn GetPropertyReply(connection_t* conn, const get_property_cookie_t cookie, generic_error_t** err)
-    -> get_property_reply_t* {
+  inline fn GetPropertyReply(Connection* conn, const GetPropCookie cookie, GenericError** err) -> GetPropReply* {
     return xcb_get_property_reply(conn, cookie, err);
   }
 
@@ -161,7 +158,7 @@ namespace xcb {
    * @param reply The reply for the property
    * @return The value length for the property
    */
-  inline fn GetPropertyValueLength(const get_property_reply_t* reply) -> int {
+  inline fn GetPropertyValueLength(const GetPropReply* reply) -> i32 {
     return xcb_get_property_value_length(reply);
   }
 
@@ -171,7 +168,7 @@ namespace xcb {
    * @param reply The reply for the property
    * @return The value for the property
    */
-  inline fn GetPropertyValue(const get_property_reply_t* reply) -> void* {
+  inline fn GetPropertyValue(const GetPropReply* reply) -> void* {
     return xcb_get_property_value(reply);
   }
 
@@ -180,15 +177,16 @@ namespace xcb {
    * Automatically handles resource acquisition and cleanup
    */
   class DisplayGuard {
-    connection_t* m_connection = nullptr; ///< The connection to the display
+    Connection* m_connection = nullptr; ///< The connection to the display
 
    public:
     /**
      * Opens an XCB connection
      * @param name Display name (nullptr for default)
      */
-    explicit DisplayGuard(const util::types::CStr name = nullptr)
+    explicit DisplayGuard(const CStr name = nullptr)
       : m_connection(Connect(name, nullptr)) {}
+
     ~DisplayGuard() {
       if (m_connection)
         Disconnect(m_connection);
@@ -229,7 +227,7 @@ namespace xcb {
      * @brief Get the connection to the display
      * @return The connection to the display
      */
-    [[nodiscard]] fn get() const -> connection_t* {
+    [[nodiscard]] fn get() const -> Connection* {
       return m_connection;
     }
 
@@ -237,7 +235,7 @@ namespace xcb {
      * @brief Get the setup for the display
      * @return The setup for the display
      */
-    [[nodiscard]] fn setup() const -> const setup_t* {
+    [[nodiscard]] fn setup() const -> const Setup* {
       return m_connection ? xcb_get_setup(m_connection) : nullptr;
     }
 
@@ -245,8 +243,9 @@ namespace xcb {
      * @brief Get the root screen for the display
      * @return The root screen for the display
      */
-    [[nodiscard]] fn rootScreen() const -> screen_t* {
-      const setup_t* setup = this->setup();
+    [[nodiscard]] fn rootScreen() const -> Screen* {
+      const Setup* setup = this->setup();
+
       return setup ? xcb_setup_roots_iterator(setup).data : nullptr;
     }
   };
@@ -335,6 +334,6 @@ namespace xcb {
       return *m_reply;
     }
   };
-} // namespace xcb
+} // namespace XCB
 
 #endif // __linux__ || __FreeBSD__ || __DragonFly__ || __NetBSD__

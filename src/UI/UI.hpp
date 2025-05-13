@@ -3,8 +3,10 @@
 #include <ftxui/dom/elements.hpp> // ftxui::Element
 #include <ftxui/screen/color.hpp> // ftxui::Color
 
-#include "Config/Config.hpp"
 #include "Core/SystemData.hpp"
+
+#include "Config/Config.hpp"
+
 #include "Util/Types.hpp"
 
 namespace ui {

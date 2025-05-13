@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Services/Weather.hpp"
+
 #include "Util/Error.hpp"
 
 namespace weather {

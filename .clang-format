@@ -23,16 +23,22 @@ ContinuationIndentWidth: 2
 Cpp11BracedListStyle: false
 IncludeBlocks: Regroup
 IncludeCategories:
-  # 1. System headers (<iostream>, <vector>, etc.)
   - Regex: '^<.*>$'
     Priority: 1
-  # 2. Project headers starting with "src/"
-  - Regex: '^"src/.*"'
+  - Regex: '^"Config/.*"'
     Priority: 2
-  # 3. All other quoted headers (including same-directory like "system_data.h")
-  #    This acts as a fallback for quoted includes not matching the above.
-  - Regex: '^".*"'
+  - Regex: '^"Core/.*"'
     Priority: 3
+  - Regex: '^"Services/.*"'
+    Priority: 4
+  - Regex: '^"UI/.*"'
+    Priority: 5
+  - Regex: '^"Util/.*"'
+    Priority: 6
+  - Regex: '^"Wrappers/.*"'
+    Priority: 7
+  - Regex: '^".*"$'
+    Priority: 8
 IndentExternBlock: Indent
 IndentPPDirectives: BeforeHash
 NamespaceIndentation: All

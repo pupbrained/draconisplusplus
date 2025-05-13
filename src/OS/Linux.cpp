@@ -1,32 +1,34 @@
 #ifdef __linux__
 
 // clang-format off
-#include <climits>               // PATH_MAX
-#include <cstring>               // std::strlen
-#include <expected>              // std::{unexpected, expected}
-#include <filesystem>            // std::filesystem::{current_path, directory_entry, directory_iterator, etc.}
-#include <format>                // std::{format, format_to_n}
-#include <fstream>               // std::ifstream
-#include <glaze/beve/read.hpp>   // glz::read_beve
-#include <glaze/beve/write.hpp>  // glz::write_beve
-#include <limits>                // std::numeric_limits
-#include <matchit.hpp>           // matchit::{is, is_not, is_any, etc.}
-#include <string>                // std::{getline, string (String)}
-#include <string_view>           // std::string_view (StringView)
-#include <sys/socket.h>          // ucred, getsockopt, SOL_SOCKET, SO_PEERCRED
-#include <sys/statvfs.h>         // statvfs
-#include <sys/sysinfo.h>         // sysinfo
-#include <sys/utsname.h>         // utsname, uname
-#include <unistd.h>              // readlink
-#include <utility>               // std::move
+#include <climits>              // PATH_MAX
+#include <cstring>              // std::strlen
+#include <expected>             // std::{unexpected, expected}
+#include <filesystem>           // std::filesystem::{current_path, directory_entry, directory_iterator, etc.}
+#include <format>               // std::{format, format_to_n}
+#include <fstream>              // std::ifstream
+#include <glaze/beve/read.hpp>  // glz::read_beve
+#include <glaze/beve/write.hpp> // glz::write_beve
+#include <limits>               // std::numeric_limits
+#include <matchit.hpp>          // matchit::{is, is_not, is_any, etc.}
+#include <string>               // std::{getline, string (String)}
+#include <string_view>          // std::string_view (StringView)
+#include <sys/socket.h>         // ucred, getsockopt, SOL_SOCKET, SO_PEERCRED
+#include <sys/statvfs.h>        // statvfs
+#include <sys/sysinfo.h>        // sysinfo
+#include <sys/utsname.h>        // utsname, uname
+#include <unistd.h>             // readlink
+#include <utility>              // std::move
 
 #include "Services/PackageCounting.hpp"
+
 #include "Util/Caching.hpp"
 #include "Util/Definitions.hpp"
 #include "Util/Env.hpp"
 #include "Util/Error.hpp"
 #include "Util/Logging.hpp"
 #include "Util/Types.hpp"
+
 #include "Wrappers/DBus.hpp"
 #include "Wrappers/Wayland.hpp"
 #include "Wrappers/XCB.hpp"
@@ -40,7 +42,7 @@ using util::types::String, util::types::Result, util::types::Err, util::types::u
 namespace {
   #ifdef HAVE_XCB
   fn GetX11WindowManager() -> Result<String> {
-    using namespace xcb;
+    using namespace XCB;
     using namespace matchit;
     using enum ConnError;
     using util::types::StringView;
@@ -65,10 +67,10 @@ namespace {
           )
         );
 
-    fn internAtom = [&conn](const StringView name) -> Result<atom_t> {
+    fn internAtom = [&conn](const StringView name) -> Result<Atom> {
       using util::types::u16;
 
-      const ReplyGuard<intern_atom_reply_t> reply(InternAtomReply(conn.get(), InternAtom(conn.get(), 0, static_cast<u16>(name.size()), name.data()), nullptr));
+      const ReplyGuard<IntAtomReply> reply(InternAtomReply(conn.get(), InternAtom(conn.get(), 0, static_cast<u16>(name.size()), name.data()), nullptr));
 
       if (!reply)
         return Err(DracError(DracErrorCode::PlatformSpecific, std::format("Failed to get X11 atom reply for '{}'", name)));
@@ -76,9 +78,9 @@ namespace {
       return reply->atom;
     };
 
-    const Result<atom_t> supportingWmCheckAtom = internAtom("_NET_SUPPORTING_WM_CHECK");
-    const Result<atom_t> wmNameAtom            = internAtom("_NET_WM_NAME");
-    const Result<atom_t> utf8StringAtom        = internAtom("UTF8_STRING");
+    const Result<Atom> supportingWmCheckAtom = internAtom("_NET_SUPPORTING_WM_CHECK");
+    const Result<Atom> wmNameAtom            = internAtom("_NET_WM_NAME");
+    const Result<Atom> utf8StringAtom        = internAtom("UTF8_STRING");
 
     if (!supportingWmCheckAtom || !wmNameAtom || !utf8StringAtom) {
       if (!supportingWmCheckAtom)
@@ -93,7 +95,7 @@ namespace {
       return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to get X11 atoms"));
     }
 
-    const ReplyGuard<get_property_reply_t> wmWindowReply(GetPropertyReply(
+    const ReplyGuard<GetPropReply> wmWindowReply(GetPropertyReply(
       conn.get(),
       GetProperty(conn.get(), 0, conn.rootScreen()->root, *supportingWmCheckAtom, ATOM_WINDOW, 0, 1),
       nullptr
@@ -103,9 +105,9 @@ namespace {
         GetPropertyValueLength(wmWindowReply.get()) == 0)
       return Err(DracError(DracErrorCode::NotFound, "Failed to get _NET_SUPPORTING_WM_CHECK property"));
 
-    const window_t wmRootWindow = *static_cast<window_t*>(GetPropertyValue(wmWindowReply.get()));
+    const Window wmRootWindow = *static_cast<Window*>(GetPropertyValue(wmWindowReply.get()));
 
-    const ReplyGuard<get_property_reply_t> wmNameReply(GetPropertyReply(
+    const ReplyGuard<GetPropReply> wmNameReply(GetPropertyReply(
       conn.get(), GetProperty(conn.get(), 0, wmRootWindow, *wmNameAtom, *utf8StringAtom, 0, 1024), nullptr
     ));
 
@@ -127,7 +129,7 @@ namespace {
   fn GetWaylandCompositor() -> Result<String> {
     using util::types::i32, util::types::Array, util::types::isize, util::types::StringView;
 
-    const wl::DisplayGuard display;
+    const Wayland::DisplayGuard display;
 
     if (!display)
       return Err(DracError(DracErrorCode::NotFound, "Failed to connect to display (is Wayland running?)"));
@@ -226,9 +228,7 @@ namespace os {
           value = value.substr(1, value.length() - 2);
 
         if (value.empty())
-          return Err(
-            DracError(DracErrorCode::ParseError, std::format("PRETTY_NAME value is empty or only quotes in /etc/os-release"))
-          );
+          return Err(DracError(DracErrorCode::ParseError, std::format("PRETTY_NAME value is empty or only quotes in /etc/os-release")));
 
         return value;
       }
@@ -257,7 +257,7 @@ namespace os {
 
   fn GetNowPlaying() -> Result<MediaInfo> {
   #ifdef HAVE_DBUS
-    using namespace dbus;
+    using namespace DBus;
 
     Result<Connection> connectionResult = Connection::busGet(DBUS_BUS_SESSION);
     if (!connectionResult)
@@ -286,9 +286,7 @@ namespace os {
       MessageIter subIter = iter.recurse();
 
       if (!subIter.isValid())
-        return Err(
-          DracError(DracErrorCode::ParseError, "Invalid DBus ListNames reply format: Could not recurse into array")
-        );
+        return Err(DracError(DracErrorCode::ParseError, "Invalid DBus ListNames reply format: Could not recurse into array"));
 
       while (subIter.getArgType() != DBUS_TYPE_INVALID) {
         if (Option<String> name = subIter.getString())

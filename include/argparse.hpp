@@ -1005,48 +1005,46 @@ namespace argparse {
      */
     template <class F, class... Args>
     fn action(F&& callable, Args&&... bound_args)
-      -> Argument&
-      requires(std::is_invocable_v<F, Args..., const String>)
-    {
-      using RawReturnType = std::invoke_result_t<F, Args..., const String>;
+      -> Argument& requires(std::is_invocable_v<F, Args..., const String>) {
+        using RawReturnType = std::invoke_result_t<F, Args..., const String>;
 
-      if constexpr (std::is_void_v<RawReturnType>) {
-        m_actions.emplace_back<void_action>(
-          [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<> {
-            details::apply_plus_one(f, tup, opt);
-            return {};
-          }
-        );
-      } else if constexpr (argparse::details::is_specialization_v<RawReturnType, Result> && std::is_void_v<typename RawReturnType::value_type>) {
-        m_actions.emplace_back<void_action>(
-          [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<> {
-            return details::apply_plus_one(f, tup, opt);
-          }
-        );
-      } else if constexpr (argparse::details::is_specialization_v<RawReturnType, Result>) {
-        m_actions.emplace_back<valued_action>(
-          [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<ArgValue> {
-            RawReturnType result = details::apply_plus_one(f, tup, opt);
-            if (result) {
-              if constexpr (!std::is_void_v<typename RawReturnType::value_type>) {
-                return result.value();
-              } else {
-                return ArgValue {};
-              }
-            } else {
-              return Err(result.error());
+        if constexpr (std::is_void_v<RawReturnType>) {
+          m_actions.emplace_back<void_action>(
+            [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<> {
+              details::apply_plus_one(f, tup, opt);
+              return {};
             }
-          }
-        );
-      } else {
-        m_actions.emplace_back<valued_action>(
-          [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<ArgValue> {
-            return details::apply_plus_one(f, tup, opt);
-          }
-        );
+          );
+        } else if constexpr (argparse::details::is_specialization_v<RawReturnType, Result> && std::is_void_v<typename RawReturnType::value_type>) {
+          m_actions.emplace_back<void_action>(
+            [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<> {
+              return details::apply_plus_one(f, tup, opt);
+            }
+          );
+        } else if constexpr (argparse::details::is_specialization_v<RawReturnType, Result>) {
+          m_actions.emplace_back<valued_action>(
+            [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<ArgValue> {
+              RawReturnType result = details::apply_plus_one(f, tup, opt);
+              if (result) {
+                if constexpr (!std::is_void_v<typename RawReturnType::value_type>) {
+                  return result.value();
+                } else {
+                  return ArgValue {};
+                }
+              } else {
+                return Err(result.error());
+              }
+            }
+          );
+        } else {
+          m_actions.emplace_back<valued_action>(
+            [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<ArgValue> {
+              return details::apply_plus_one(f, tup, opt);
+            }
+          );
+        }
+        return *this;
       }
-      return *this;
-    }
 
     /**
      * @brief Store the argument value into a boolean variable
@@ -1055,7 +1053,7 @@ namespace argparse {
      * @details If no default or implicit value is set, configures the argument as a flag
      */
     fn store_into(bool& var)
-      -> Argument& {
+      ->Argument& {
       if ((!m_default_value.has_value()) && (!m_implicit_value.has_value()))
         flag();
 
@@ -1077,9 +1075,7 @@ namespace argparse {
      * @return Reference to this argument for method chaining
      */
     template <typename T>
-    fn store_into(T& var) -> Argument&
-      requires(std::is_integral_v<T>)
-    {
+    fn store_into(T& var) -> Argument& requires(std::is_integral_v<T>) {
       if (m_default_value.has_value())
         var = std::get<T>(m_default_value.value());
 
@@ -1103,9 +1099,7 @@ namespace argparse {
      * @return Reference to this argument for method chaining
      */
     template <typename T>
-    fn store_into(T& var) -> Argument&
-      requires(std::is_floating_point_v<T>)
-    {
+    fn store_into(T& var)->Argument& requires(std::is_floating_point_v<T>) {
       if (m_default_value.has_value())
         var = std::get<T>(m_default_value.value());
 
@@ -1128,7 +1122,7 @@ namespace argparse {
      * @return Reference to this argument for method chaining
      */
     fn store_into(String& var)
-      -> Argument& {
+      ->Argument& {
       if (m_default_value.has_value())
         var = std::get<String>(m_default_value.value());
 
@@ -1291,9 +1285,7 @@ namespace argparse {
      *          - 'g'/'G': General format
      */
     template <char Shape, typename T>
-    fn scan() -> Argument&
-      requires(std::is_arithmetic_v<T>)
-    {
+    fn scan() -> Argument& requires(std::is_arithmetic_v<T>) {
       static_assert(!(std::is_const_v<T> || std::is_volatile_v<T>), "T should not be cv-qualified");
 
       fn is_one_of = [](char c, auto... x) constexpr {
@@ -1382,7 +1374,7 @@ namespace argparse {
      * @return Reference to this argument for method chaining
      */
     fn nargs(const usize num_args)
-      -> Argument& {
+      ->Argument& {
       m_num_args_range = NArgsRange { num_args, num_args };
       return *this;
     }
@@ -1574,8 +1566,7 @@ namespace argparse {
           if (m_implicit_value.has_value())
             m_values.emplace_back(*m_implicit_value);
 
-          for (usize i = 0; i < m_actions.size(); ++i) {
-            auto&    action = m_actions[i];
+          for (auto& action : m_actions) {
             Result<> action_call_result;
             std::visit([&](auto& f) {
               if constexpr (std::is_same_v<decltype(f({})), Result<ArgValue>>) {
@@ -1658,8 +1649,7 @@ namespace argparse {
         };
 
         if (!dry_run) {
-          for (usize i = 0; i < m_actions.size(); ++i) {
-            auto&    action       = m_actions[i];
+          for (auto& action : m_actions) {
             Result<> apply_result = std::visit(ActionApply { start, end, *this }, action);
             if (!apply_result)
               return Err(apply_result.error());
@@ -2117,7 +2107,7 @@ namespace argparse {
       };
 
       fn consume_digits = [=](StringView sd) -> StringView {
-        const auto it = std::ranges::find_if_not(sd, is_digit);
+        const auto* const it = std::ranges::find_if_not(sd, is_digit);
 
         return sd.substr(static_cast<usize>(it - std::begin(sd)));
       };

@@ -7,12 +7,15 @@
 #include <matchit.hpp> // matchit::{match, is, in, _}
 
 #include "Config/Config.hpp"
-#include "OS/OperatingSystem.hpp"
+
 #include "Services/PackageCounting.hpp"
 #include "Services/Weather.hpp"
+
 #include "Util/Definitions.hpp"
 #include "Util/Error.hpp"
 #include "Util/Types.hpp"
+
+#include "OS/OperatingSystem.hpp"
 
 using util::error::DracError, util::error::DracErrorCode;
 

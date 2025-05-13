@@ -3,6 +3,7 @@
 #include <format> // std::{formatter, format_to}
 
 #include "Services/Weather.hpp"
+
 #include "Util/Definitions.hpp"
 #include "Util/Error.hpp"
 #include "Util/Types.hpp"

@@ -10,9 +10,12 @@
   #include <iostream> // std::cout
 #endif
 
-#include "Config/Config.hpp"
 #include "Core/SystemData.hpp"
+
+#include "Config/Config.hpp"
+
 #include "UI/UI.hpp"
+
 #include "Util/Definitions.hpp"
 #include "Util/Logging.hpp"
 #include "Util/Types.hpp"

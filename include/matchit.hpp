@@ -729,7 +729,8 @@ namespace matchit {
     template <typename Unary, typename Pattern>
     class App {
      public:
-      constexpr App(Unary&& unary, const Pattern& pattern) : mUnary { std::move(unary) }, mPattern { pattern } {}
+      constexpr App(Unary&& unary, const Pattern& pattern)
+        : mUnary { std::move(unary) }, mPattern { pattern } {}
 
       [[nodiscard]] constexpr fn unary() const -> const Unary& {
         return mUnary;
@@ -1086,7 +1087,8 @@ namespace matchit {
      public:
       constexpr Id() = default;
 
-      constexpr Id(const Id& id) : mBlock(BlockVT { &id.block() }) {}
+      constexpr Id(const Id& id)
+        : mBlock(BlockVT { &id.block() }) {}
 
       // non-const to inform users not to mark Id as const.
       template <typename Pattern>

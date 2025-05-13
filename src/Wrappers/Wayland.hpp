@@ -10,34 +10,66 @@
 #include "Util/Types.hpp"
 // clang-format on
 
-struct wl_display;
+namespace Wayland {
+  using util::types::i32, util::types::CStr, util::types::None;
 
-namespace wl {
-  using display = wl_display;
+  using Display = wl_display;
 
-  inline fn Connect(const char* name) -> display* {
+  /**
+   * @brief Connect to a Wayland display
+   *
+   * This function establishes a connection to a Wayland display. It takes a
+   * display name as an argument.
+   *
+   * @param name The name of the display to connect to (or nullptr for default)
+   * @return A pointer to the Wayland display object
+   */
+  inline fn Connect(CStr name) -> Display* {
     return wl_display_connect(name);
   }
-  inline fn Disconnect(display* display) -> void {
+
+  /**
+   * @brief Disconnect from a Wayland display
+   *
+   * This function disconnects from a Wayland display.
+   *
+   * @param display The Wayland display object to disconnect from
+   * @return void
+   */
+  inline fn Disconnect(Display* display) -> void {
     wl_display_disconnect(display);
   }
-  inline fn GetFd(display* display) -> int {
+
+  /**
+   * @brief Get the file descriptor for a Wayland display
+   *
+   * This function retrieves the file descriptor for a Wayland display.
+   *
+   * @param display The Wayland display object
+   * @return The file descriptor for the Wayland display
+   */
+  inline fn GetFd(Display* display) -> i32 {
     return wl_display_get_fd(display);
   }
 
   /**
-   * RAII wrapper for Wayland display connections
-   * Automatically handles resource acquisition and cleanup
+   * @brief RAII wrapper for Wayland display connections
+   *
+   * This class manages the connection to a Wayland display. It automatically
+   * handles resource acquisition and cleanup.
    */
   class DisplayGuard {
-    display* m_display;
+    Display* m_display; ///< The Wayland display object
 
    public:
     /**
-     * Opens a Wayland display connection
+     * @brief Constructor
+     *
+     * This constructor sets up a custom logging handler for Wayland and
+     * establishes a connection to the Wayland display.
      */
     DisplayGuard() {
-      wl_log_set_handler_client([](const char* fmt, va_list args) -> void {
+      wl_log_set_handler_client([](CStr fmt, va_list args) -> void {
         using util::types::i32, util::types::StringView;
 
         va_list argsCopy;
@@ -71,6 +103,11 @@ namespace wl {
       m_display = Connect(nullptr);
     }
 
+    /**
+     * @brief Destructor
+     *
+     * This destructor disconnects from the Wayland display if it is valid.
+     */
     ~DisplayGuard() {
       if (m_display)
         Disconnect(m_display);
@@ -83,6 +120,15 @@ namespace wl {
     // Movable
     DisplayGuard(DisplayGuard&& other) noexcept
       : m_display(std::exchange(other.m_display, nullptr)) {}
+
+    /**
+     * @brief Move assignment operator
+     *
+     * This operator transfers ownership of the Wayland display connection.
+     *
+     * @param other The other DisplayGuard object to move from
+     * @return A reference to this object
+     */
     fn operator=(DisplayGuard&& other) noexcept -> DisplayGuard& {
       if (this != &other) {
         if (m_display)
@@ -94,17 +140,40 @@ namespace wl {
       return *this;
     }
 
+    /**
+     * @brief Check if the display guard is valid
+     *
+     * This function checks if the display guard is valid (i.e., if it holds a
+     * valid Wayland display connection).
+     *
+     * @return True if the display guard is valid, false otherwise
+     */
     [[nodiscard]] explicit operator bool() const {
       return m_display != nullptr;
     }
 
-    [[nodiscard]] fn get() const -> display* {
+    /**
+     * @brief Get the Wayland display connection
+     *
+     * This function retrieves the underlying Wayland display connection.
+     *
+     * @return The Wayland display connection
+     */
+    [[nodiscard]] fn get() const -> Display* {
       return m_display;
     }
-    [[nodiscard]] fn fd() const -> util::types::i32 {
+
+    /**
+     * @brief Get the file descriptor for the Wayland display
+     *
+     * This function retrieves the file descriptor for the Wayland display.
+     *
+     * @return The file descriptor for the Wayland display
+     */
+    [[nodiscard]] fn fd() const -> i32 {
       return GetFd(m_display);
     }
   };
-} // namespace wl
+} // namespace Wayland
 
 #endif // __linux__ || __FreeBSD__ || __DragonFly__ || __NetBSD__

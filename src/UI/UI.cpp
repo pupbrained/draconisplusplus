@@ -1,7 +1,8 @@
 #include "UI.hpp"
 
-#include "OS/OperatingSystem.hpp"
 #include "Util/Types.hpp"
+
+#include "OS/OperatingSystem.hpp"
 
 namespace ui {
   using namespace ftxui;
