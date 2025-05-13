@@ -1,7 +1,7 @@
 #define NOMINMAX
 
 #ifdef __HAIKU__
-  #define _DEFAULT_SOURCE
+  #define _DEFAULT_SOURCE // exposes timegm
 #endif
 
 #include "OpenMeteoService.hpp"

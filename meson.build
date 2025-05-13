@@ -155,10 +155,11 @@ elif host_system != 'serenity' and host_system != 'haiku'
   xdmcp_dep = dependency('xdmcp', required: false)
   wayland_dep = dependency('wayland-client', required: false)
 
-  platform_deps += [
-    dependency('SQLiteCpp'),
-    dependency('pugixml'),
-  ]
+  platform_deps += dependency('SQLiteCpp')
+
+  if host_system == 'linux'
+    platform_deps += dependency('pugixml')
+  endif
 
   if dbus_dep.found()
     platform_deps += dbus_dep

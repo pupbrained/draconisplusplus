@@ -1,9 +1,6 @@
 #ifdef __linux__
 
 // clang-format off
-#include <SQLiteCpp/Database.h>  // SQLite::{Database, OPEN_READONLY}
-#include <SQLiteCpp/Exception.h> // SQLite::Exception
-#include <SQLiteCpp/Statement.h> // SQLite::Statement
 #include <climits>               // PATH_MAX
 #include <cstring>               // std::strlen
 #include <expected>              // std::{unexpected, expected}
@@ -14,7 +11,6 @@
 #include <glaze/beve/write.hpp>  // glz::write_beve
 #include <limits>                // std::numeric_limits
 #include <matchit.hpp>           // matchit::{is, is_not, is_any, etc.}
-#include <pugixml.hpp>           // pugi::xml_document
 #include <string>                // std::{getline, string (String)}
 #include <string_view>           // std::string_view (StringView)
 #include <sys/socket.h>          // ucred, getsockopt, SOL_SOCKET, SO_PEERCRED
