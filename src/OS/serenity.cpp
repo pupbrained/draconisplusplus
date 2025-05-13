@@ -16,16 +16,16 @@
 #include <sys/types.h>            // uid_t
 #include <sys/utsname.h>          // utsname, uname
 #include <unistd.h>               // getuid, gethostname
-#include <unordered_set>					// std::unordered_set
+#include <unordered_set>          // std::unordered_set
 
-#include "src/core/package.hpp"
-#include "src/util/defs.hpp"
-#include "src/util/error.hpp"
-#include "src/util/helpers.hpp"
-#include "src/util/logging.hpp"
-#include "src/util/types.hpp"
+#include "Services/PackageCounting.hpp"
+#include "Util/Definitions.hpp"
+#include "Util/Error.hpp"
+#include "Util/Env.hpp"
+#include "Util/Logging.hpp"
+#include "Util/Types.hpp"
 
-#include "os.hpp"
+#include "OperatingSystem.hpp"
 // clang-format on
 
 using namespace util::types;
@@ -72,7 +72,7 @@ namespace os {
     utsname uts;
 
     if (uname(&uts) == -1)
-      return Err(DracError::withErrno("uname call failed for OS Version"));
+      return Err(DracError("uname call failed for OS Version"));
 
     return uts.sysname;
   }
@@ -142,7 +142,7 @@ namespace os {
     Array<char, HOST_NAME_MAX> hostname_buffer;
 
     if (gethostname(hostname_buffer.data(), hostname_buffer.size()) != 0)
-      return Err(DracError::withErrno("gethostname() failed: {}"));
+      return Err(DracError("gethostname() failed: {}"));
 
     return String(hostname_buffer.data());
   }
@@ -151,21 +151,22 @@ namespace os {
     utsname uts;
 
     if (uname(&uts) == -1)
-      return Err(DracError::withErrno("uname call failed for Kernel Version"));
+      return Err(DracError("uname call failed for Kernel Version"));
 
     return uts.release;
   }
 
   fn GetDiskUsage() -> Result<DiskSpace> {
     struct statvfs stat;
+
     if (statvfs("/", &stat) == -1)
-      return Err(DracError::withErrno("statvfs call failed for '/'"));
+      return Err(DracError("statvfs call failed for '/'"));
 
-    const u64 total_bytes = static_cast<u64>(stat.f_blocks) * stat.f_frsize;
-    const u64 free_bytes  = static_cast<u64>(stat.f_bfree) * stat.f_frsize;
-    const u64 used_bytes  = total_bytes - free_bytes;
+    const u64 totalBytes = static_cast<u64>(stat.f_blocks) * stat.f_frsize;
+    const u64 freeBytes  = static_cast<u64>(stat.f_bfree) * stat.f_frsize;
+    const u64 usedBytes  = totalBytes - freeBytes;
 
-    return DiskSpace { .used_bytes = used_bytes, .total_bytes = total_bytes };
+    return DiskSpace { .usedBytes = used_bytes, .totalBytes = total_bytes };
   }
 } // namespace os
 
