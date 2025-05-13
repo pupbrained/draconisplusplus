@@ -127,7 +127,7 @@ namespace os {
     struct statvfs stat;
 
     if (statvfs("/boot", &stat) == -1)
-      return Err(DracError::withErrno(std::format("Failed to get filesystem stats for '/boot' (statvfs call failed)")));
+      return Err(DracError(std::format("Failed to get filesystem stats for '/boot' (statvfs call failed)")));
 
     return DiskSpace {
       .used_bytes  = (stat.f_blocks * stat.f_frsize) - (stat.f_bfree * stat.f_frsize),

@@ -78,6 +78,8 @@ namespace {
       return 0;
 #ifdef _WIN32
     return static_cast<usize>(_mkgmtime(&time));
+#elifdef __HAIKU__
+    return static_cast<usize>(gmtime(&time));
 #else
     return static_cast<usize>(timegm(&time));
 #endif
