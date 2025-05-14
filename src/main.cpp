@@ -10,9 +10,9 @@
   #include <iostream> // std::cout
 #endif
 
-#include "Core/SystemData.hpp"
-
 #include "Config/Config.hpp"
+
+#include "Core/SystemData.hpp"
 
 #include "UI/UI.hpp"
 
