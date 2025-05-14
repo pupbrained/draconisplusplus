@@ -72,9 +72,9 @@ namespace {
   }
 
   template <usize sz>
-  fn FindShellInProcessTree(const DWORD startPid, const Array<Pair<StringView, StringView>, sz>& shellMap) -> Option<String> {
+  fn FindShellInProcessTree(const DWORD startPid, const Array<Pair<StringView, StringView>, sz>& shellMap) -> Result<String> {
     if (startPid == 0)
-      return None;
+      return Err(DracError(DracErrorCode::PlatformSpecific, "Start PID is 0"));
 
     std::unordered_map<DWORD, ProcessData> processMap;
 
@@ -82,8 +82,7 @@ namespace {
     HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 
     if (hSnap == INVALID_HANDLE_VALUE) {
-      error_log("FindShellInProcessTree: Failed snapshot, error {}", GetLastError());
-      return None;
+      return Err(DracError(DracErrorCode::PlatformSpecific, std::format("Failed snapshot, error {}", GetLastError())));
     }
 
     PROCESSENTRY32 pe32;
@@ -110,7 +109,7 @@ namespace {
           ProcessData { .parentPid = pe32.th32ParentProcessID, .baseExeNameLower = std::move(baseName) };
       } while (Process32Next(hSnap, &pe32));
     } else
-      error_log("FindShellInProcessTree: Process32First failed, error {}", GetLastError());
+      return Err(DracError(DracErrorCode::PlatformSpecific, std::format("Process32First failed, error {}", GetLastError())));
 
     CloseHandle(hSnap);
 
@@ -140,12 +139,12 @@ namespace {
     }
 
     if (depth >= maxDepth)
-      error_log("FindShellInProcessTree: Reached max depth limit ({}) walking parent PIDs from {}", maxDepth, startPid);
+      return Err(DracError(DracErrorCode::PlatformSpecific, std::format("Reached max depth limit ({}) walking parent PIDs from {}", maxDepth, startPid)));
 
-    return None;
+    return Err(DracError(DracErrorCode::NotFound, "Shell not found"));
   }
 
-  fn GetBuildNumber() -> Option<u64> {
+  fn GetBuildNumber() -> Result<u64> {
     try {
       using namespace winrt::Windows::System::Profile;
       const auto           versionInfo   = AnalyticsInfo::VersionInfo();
@@ -156,10 +155,10 @@ namespace {
         return (versionUl >> 16) & 0xFFFF;
       }
     } catch (const winrt::hresult_error& e) {
-      debug_log("WinRT error getting build number: {}", winrt::to_string(e.message()));
-    } catch (const Exception& e) { debug_log("Standard exception getting build number: {}", e.what()); }
+      return Err(DracError(e));
+    } catch (const Exception& e) { return Err(DracError(e)); }
 
-    return None;
+    return Err(DracError(DracErrorCode::NotFound, "Failed to get build number"));
   }
 } // namespace
 
@@ -206,7 +205,7 @@ namespace os {
       if (productName.empty())
         return Err(DracError(DracErrorCode::NotFound, "ProductName not found in registry"));
 
-      if (const Option<u64> buildNumberOpt = GetBuildNumber()) {
+      if (const Result<u64> buildNumberOpt = GetBuildNumber()) {
         if (const u64 buildNumber = *buildNumberOpt; buildNumber >= 22000) {
           if (const size_t pos = productName.find("Windows 10"); pos != String::npos) {
             const bool startBoundary = (pos == 0 || !isalnum(static_cast<u8>(productName[pos - 1])));
@@ -318,15 +317,18 @@ namespace os {
           return String { iter->second };
       }
 
-      const DWORD currentPid = GetCurrentProcessId();
-      if (const Option<String> msysShell = FindShellInProcessTree(currentPid, msysShellMap))
+      const DWORD          currentPid = GetCurrentProcessId();
+      const Result<String> msysShell  = FindShellInProcessTree(currentPid, msysShellMap);
+
+      if (msysShell)
         return *msysShell;
 
-      return "MSYS2 Environment";
+      return Err(msysShell.error());
     }
 
     const DWORD currentPid = GetCurrentProcessId();
-    if (const Option<String> windowsShell = FindShellInProcessTree(currentPid, windowsShellMap))
+
+    if (const Result<String> windowsShell = FindShellInProcessTree(currentPid, windowsShellMap))
       return *windowsShell;
 
     return Err(DracError(DracErrorCode::NotFound, "Shell not found"));
@@ -338,7 +340,7 @@ namespace os {
     if (GetDiskFreeSpaceExW(L"C:\\", nullptr, &totalBytes, &freeBytes))
       return DiskSpace { .usedBytes = totalBytes.QuadPart - freeBytes.QuadPart, .totalBytes = totalBytes.QuadPart };
 
-    return Err(DracError(util::error::DracErrorCode::NotFound, "Failed to get disk usage"));
+    return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to get disk usage"));
   }
 } // namespace os
 

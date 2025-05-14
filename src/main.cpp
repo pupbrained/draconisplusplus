@@ -22,10 +22,62 @@
 
 using util::types::i32, util::types::Exception;
 
+namespace {
+  void PrintDoctorReport(const os::SystemData& data) {
+    std::vector<std::pair<std::string, util::error::DracError>> failures;
+
+    // Check each data point. The names used here should be user-friendly.
+    if (!data.date.has_value())
+      failures.emplace_back("Date", data.date.error());
+    if (!data.host.has_value())
+      failures.emplace_back("Host", data.host.error());
+    if (!data.kernelVersion.has_value())
+      failures.emplace_back("KernelVersion", data.kernelVersion.error());
+    if (!data.osVersion.has_value())
+      failures.emplace_back("OSVersion", data.osVersion.error());
+    if (!data.memInfo.has_value())
+      failures.emplace_back("MemoryInfo", data.memInfo.error());
+    if (!data.desktopEnv.has_value())
+      failures.emplace_back("DesktopEnvironment", data.desktopEnv.error());
+    if (!data.windowMgr.has_value())
+      failures.emplace_back("WindowManager", data.windowMgr.error());
+    if (!data.diskUsage.has_value())
+      failures.emplace_back("DiskUsage", data.diskUsage.error());
+    if (!data.shell.has_value())
+      failures.emplace_back("Shell", data.shell.error());
+    if (!data.packageCount.has_value())
+      failures.emplace_back("PackageCount", data.packageCount.error());
+    if (!data.nowPlaying.has_value())
+      failures.emplace_back("NowPlaying", data.nowPlaying.error());
+    if (!data.weather.has_value())
+      failures.emplace_back("Weather", data.weather.error());
+
+    const unsigned int totalPossibleReadouts = 12;
+
+#ifdef __cpp_lib_print
+    std::println("We've collected a total of {} readouts including {} failed read(s) and 0 read(s) resulting in a warning.\n", totalPossibleReadouts, failures.size());
+
+    for (const auto& fail : failures)
+      std::println("Readout \"{}\" failed with message: {}", fail.first, fail.second.message);
+#else
+    std::cout << "We've collected a total of " << totalPossibleReadouts
+              << " readouts including " << failures.size()
+              << " failed read(s) and 0 read(s) resulting in a warning.\n\n";
+
+    for (const auto& fail : failures)
+      std::cout << "Readout \"" << fail.first << "\" failed with message: " << fail.second.message << "\n";
+
+    std::cout << std::flush;
+#endif
+  }
+} // namespace
+
 fn main(const i32 argc, char* argv[]) -> i32 try {
 #ifdef _WIN32
   winrt::init_apartment();
 #endif
+
+  bool doctorMode = false;
 
   {
     using argparse::ArgumentParser;
@@ -43,10 +95,17 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
       .help("Enable verbose logging. Overrides --log-level.")
       .flag();
 
+    parser
+      .add_argument("-d", "--doctor")
+      .help("Enable doctor mode. This will run a series of checks to ensure the system is healthy.")
+      .flag();
+
     if (Result<> result = parser.parse_args(argc, argv); !result) {
       error_at(result.error());
       return EXIT_FAILURE;
     }
+
+    doctorMode = parser.get<bool>("-d").value_or(false) || parser.get<bool>("--doctor").value_or(false);
 
     {
       using matchit::match, matchit::is, matchit::_;
@@ -75,6 +134,11 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
   {
     const Config&        config = Config::getInstance();
     const os::SystemData data   = os::SystemData(config);
+
+    if (doctorMode) {
+      PrintDoctorReport(data);
+      return EXIT_SUCCESS;
+    }
 
     using ftxui::Element, ftxui::Screen, ftxui::Render;
     using ftxui::Dimension::Full, ftxui::Dimension::Fit;
