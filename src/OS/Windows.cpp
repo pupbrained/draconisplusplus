@@ -215,8 +215,9 @@ namespace os {
               productName.replace(pos, 10, "Windows 11");
           }
         }
-      } else
-        debug_log("Warning: Could not get build number via WinRT; Win11 detection might be inaccurate.");
+      } else {
+        debug_at(buildNumberOpt.error());
+      }
 
       return displayVersion.empty() ? productName : productName + " " + displayVersion;
     } catch (const std::exception& e) { return Err(DracError(e)); }

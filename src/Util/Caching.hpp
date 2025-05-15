@@ -70,7 +70,7 @@ namespace util::cache {
 
     if (std::error_code existsEc; !fs::exists(cachePath, existsEc) || existsEc) {
       if (existsEc)
-        warn_log("Error checking existence of cache file '{}': {}", cachePath.string(), existsEc.message());
+        debug_log("Error checking existence of cache file '{}': {}", cachePath.string(), existsEc.message());
 
       return Err(DracError(DracErrorCode::NotFound, "Cache file not found: " + cachePath.string()));
     }

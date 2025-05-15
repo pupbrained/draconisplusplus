@@ -345,7 +345,6 @@ namespace os {
       MessageIter entryIter = dictIter.recurse();
 
       if (!entryIter.isValid()) {
-        debug_log("Warning: Could not recurse into dict entry, skipping.");
         if (!dictIter.next())
           break;
         continue;
@@ -354,7 +353,6 @@ namespace os {
       Option<String> key = entryIter.getString();
 
       if (!key) {
-        debug_log("Warning: Could not get key string from dict entry, skipping.");
         if (!dictIter.next())
           break;
         continue;
@@ -380,8 +378,7 @@ namespace os {
         if (valueVariantIter.getArgType() == DBUS_TYPE_ARRAY && valueVariantIter.getElementType() == DBUS_TYPE_STRING) {
           if (MessageIter artistArrayIter = valueVariantIter.recurse(); artistArrayIter.isValid())
             artist = artistArrayIter.getString();
-        } else
-          debug_log("Warning: Artist value was not an array of strings as expected.");
+        }
       }
 
       if (!dictIter.next())
@@ -551,19 +548,14 @@ namespace package {
         const system_clock::time_point cacheTimePoint = system_clock::time_point(seconds(timestamp));
 
         if (cacheTimePoint.time_since_epoch() >= dbModTime.time_since_epoch()) {
-          debug_log("Using valid {} package count cache (DB file unchanged since {}). Count: {}", pmId, std::format("{:%F %T %Z}", floor<seconds>(cacheTimePoint)), cachedCount);
           return cachedCount;
         }
-
-        debug_log("{} package count cache stale (DB file modified).", pmId);
       }
     } else {
       if (cachedDataResult.error().code != DracErrorCode::NotFound)
         debug_at(cachedDataResult.error());
       debug_log("{} package count cache not found or unreadable.", pmId);
     }
-
-    debug_log("Fetching fresh {} package count from file: {}", pmId, apkDbPath.string());
 
     std::ifstream file(apkDbPath);
     if (!file.is_open())

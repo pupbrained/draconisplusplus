@@ -339,7 +339,6 @@ namespace os {
     while (dictIter.getArgType() == DBUS_TYPE_DICT_ENTRY) {
       MessageIter entryIter = dictIter.recurse();
       if (!entryIter.isValid()) {
-        debug_log("Warning: Could not recurse into dict entry, skipping.");
         if (!dictIter.next())
           break;
         continue;
@@ -347,7 +346,6 @@ namespace os {
 
       Option<String> key = entryIter.getString();
       if (!key) {
-        debug_log("Warning: Could not get key string from dict entry, skipping.");
         if (!dictIter.next())
           break;
         continue;
@@ -372,8 +370,6 @@ namespace os {
         if (valueVariantIter.getArgType() == DBUS_TYPE_ARRAY && valueVariantIter.getElementType() == DBUS_TYPE_STRING) {
           if (MessageIter artistArrayIter = valueVariantIter.recurse(); artistArrayIter.isValid())
             artist = artistArrayIter.getString();
-        } else {
-          debug_log("Warning: Artist value was not an array of strings as expected.");
         }
       }
 

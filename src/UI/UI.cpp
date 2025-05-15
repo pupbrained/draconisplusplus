@@ -1,8 +1,9 @@
+#include "ftxui/dom/elements.hpp"
 #define NOMINMAX
 
-#include "UI.hpp"
-
 #include "Util/Types.hpp"
+
+#include "UI.hpp"
 
 namespace ui {
   using namespace ftxui;
@@ -117,12 +118,10 @@ namespace ui {
     fn CreateColorCircles() -> Element {
       auto colorView =
         std::views::iota(0, 16) | std::views::transform([](i32 colorIndex) {
-          return ftxui::hbox(
-            {
-              ftxui::text("◯") | ftxui::bold | ftxui::color(static_cast<ftxui::Color::Palette256>(colorIndex)),
-              ftxui::text(" "),
-            }
-          );
+          return ftxui::hbox({
+            ftxui::text("◯") | ftxui::bold | ftxui::color(static_cast<ftxui::Color::Palette256>(colorIndex)),
+            ftxui::text(" "),
+          });
         });
 
       return hbox(Elements(std::ranges::begin(colorView), std::ranges::end(colorView)));
@@ -222,8 +221,6 @@ namespace ui {
       if (data.packageCount) {
         if (*data.packageCount > 0)
           systemInfoRows.push_back({ .icon = packageIcon, .label = "Packages", .value = std::format("{}", *data.packageCount) });
-        else
-          debug_log("Package count is 0, skipping");
       }
 
       bool addedDe = false;
@@ -299,20 +296,16 @@ namespace ui {
       }
 
       fn createStandardRow = [&](const RowInfo& row, const usize sectionRequiredVisualWidth) {
-        return hbox(
-          {
-            hbox(
-              {
-                text(String(row.icon)) | color(ui::DEFAULT_THEME.icon),
-                text(String(row.label)) | color(ui::DEFAULT_THEME.label),
-              }
-            ) |
-              size(WIDTH, EQUAL, static_cast<int>(sectionRequiredVisualWidth)),
-            filler(),
-            text(row.value) | color(ui::DEFAULT_THEME.value),
-            text(" "),
-          }
-        );
+        return hbox({
+          hbox({
+            text(String(row.icon)) | color(ui::DEFAULT_THEME.icon),
+            text(String(row.label)) | color(ui::DEFAULT_THEME.label),
+          }) |
+            size(WIDTH, EQUAL, static_cast<int>(sectionRequiredVisualWidth)),
+          filler(),
+          text(row.value) | color(ui::DEFAULT_THEME.value),
+          text(" "),
+        });
       };
 
       Elements content;
@@ -344,16 +337,14 @@ namespace ui {
         content.push_back(separator() | color(ui::DEFAULT_THEME.border));
 
       if (nowPlayingActive) {
-        content.push_back(hbox(
-          {
-            text(String(musicIcon)) | color(ui::DEFAULT_THEME.icon),
-            text("Playing") | color(ui::DEFAULT_THEME.label),
-            text(" "),
-            filler(),
-            paragraphAlignRight(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, paragraphLimit),
-            text(" "),
-          }
-        ));
+        content.push_back(hbox({
+          text(String(musicIcon)) | color(ui::DEFAULT_THEME.icon),
+          text("Playing") | color(ui::DEFAULT_THEME.label),
+          text(" "),
+          filler(),
+          paragraphAlignJustify(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, paragraphLimit),
+          text(" "),
+        }));
       }
 
       return vbox(content) | borderRounded | color(Color::White);

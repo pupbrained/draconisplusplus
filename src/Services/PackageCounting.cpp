@@ -25,7 +25,7 @@
 
 namespace {
   namespace fs = std::filesystem;
-  using std::chrono::system_clock, std::chrono::seconds, std::chrono::floor, std::chrono::duration_cast;
+  using std::chrono::system_clock, std::chrono::seconds, std::chrono::duration_cast;
   using util::cache::ReadCache, util::cache::WriteCache;
   using util::error::DracError, util::error::DracErrorCode;
   using util::types::Err, util::types::Exception, util::types::Result, util::types::String, util::types::u64, util::types::i64, util::types::Option;
@@ -64,21 +64,13 @@ namespace {
         else {
           if (const system_clock::time_point cacheTimePoint = system_clock::time_point(seconds(timestamp));
               cacheTimePoint.time_since_epoch() >= dirModTime.time_since_epoch()) {
-            debug_log(
-              "Using valid {} directory count cache (Dir '{}' unchanged since {}). Count: {}",
-              pmId,
-              dirPath.string(),
-              std::format("{:%F %T %Z}", floor<seconds>(cacheTimePoint)),
-              cachedCount
-            );
             return cachedCount;
           }
         }
       }
     } else if (cachedDataResult.error().code != DracErrorCode::NotFound) {
       debug_at(cachedDataResult.error());
-    } else
-      debug_log("{} directory count cache not found or unreadable", pmId, pmId);
+    }
 
     fsErrCode.clear();
 
@@ -197,26 +189,16 @@ namespace package {
       const fs::file_time_type dbModTime = fs::last_write_time(dbPath, errc);
 
       if (errc) {
-        warn_log(
-          "Could not get modification time for '{}': {}. Invalidating {} cache.", dbPath.string(), errc.message(), pmId
-        );
+        return Err(DracError(DracErrorCode::IoError, "Filesystem error checking Apk DB: " + errc.message()));
       } else {
         if (const system_clock::time_point cacheTimePoint = system_clock::time_point(seconds(timestamp));
             cacheTimePoint.time_since_epoch() >= dbModTime.time_since_epoch()) {
-          debug_log(
-            "Using valid {} package count cache (DB file unchanged since {}). Count: {}",
-            pmId,
-            std::format("{:%F %T %Z}", floor<seconds>(cacheTimePoint)),
-            count
-          );
           return count;
         }
-        debug_log("{} package count cache stale (DB file modified).", pmId);
       }
     } else {
       if (cachedDataResult.error().code != DracErrorCode::NotFound)
         debug_at(cachedDataResult.error());
-      debug_log("{} package count cache not found or unreadable.", pmId);
     }
 
     debug_log("Fetching fresh {} package count from database: {}", pmId, dbPath.string());
@@ -225,9 +207,6 @@ namespace package {
     try {
       std::error_code existsErr;
       if (!fs::exists(dbPath, existsErr) || existsErr) {
-        if (existsErr) {
-          warn_log("Error checking existence of {} DB '{}': {}", pmId, dbPath.string(), existsErr.message());
-        }
         return Err(
           DracError(DracErrorCode::NotFound, std::format("{} database not found at '{}'", pmId, dbPath.string()))
         );
@@ -288,7 +267,6 @@ namespace package {
         if (!fsErrCode) {
           if (const system_clock::time_point cacheTimePoint = system_clock::time_point(seconds(timestamp));
               cacheTimePoint.time_since_epoch() >= plistModTime.time_since_epoch()) {
-            debug_log("Using valid {} plist count cache (file '{}' unchanged since {}). Count: {}", pmId, plistPath.string(), std::format("{:%F %T %Z}", std::chrono::floor<std::chrono::seconds>(cacheTimePoint)), cachedCount);
             return cachedCount;
           }
         } else {
@@ -452,7 +430,6 @@ namespace package {
         if (Result<u64> result = fut.get()) {
           totalCount += *result;
           oneSucceeded = true;
-          debug_log("Added {} packages. Current total: {}", *result, totalCount);
         } else
           match(result.error().code)(
             is | or_(NotFound, ApiUnavailable, NotSupported) = [&] -> void { debug_at(result.error()); },
@@ -466,7 +443,6 @@ namespace package {
     if (!oneSucceeded && totalCount == 0)
       return Err(DracError(DracErrorCode::NotFound, "No package managers found or none reported counts."));
 
-    debug_log("Final total package count: {}", totalCount);
     return totalCount;
   }
 } // namespace package

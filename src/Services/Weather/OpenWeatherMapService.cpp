@@ -86,7 +86,6 @@ namespace {
   }
 
   fn MakeApiRequest(const weather::String& url) -> Result<WeatherReport> {
-    debug_log("Making API request to URL: {}", url);
     CURL*           curl = curl_easy_init();
     weather::String responseBuffer;
 
@@ -131,8 +130,6 @@ fn OpenWeatherMapService::getWeatherInfo() const -> Result<WeatherReport> {
 
     if (const duration<double> cacheAge = system_clock::now() - system_clock::time_point(seconds(dataVal.timestamp)); cacheAge < 60min)
       return dataVal;
-
-    debug_log("Cache expired");
   } else {
     using matchit::match, matchit::is, matchit::_;
     using enum DracErrorCode;

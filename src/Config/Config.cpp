@@ -76,10 +76,8 @@ location = "London"    # Your city name
     if (!possiblePaths.empty()) {
       const fs::path defaultDir = possiblePaths[0].parent_path();
 
-      if (std::error_code errc; !fs::exists(defaultDir, errc) || !errc) {
+      if (std::error_code errc; !fs::exists(defaultDir, errc) || errc) {
         create_directories(defaultDir, errc);
-        if (errc)
-          warn_log("Warning: Failed to create config directory: {}", errc.message());
       }
 
       return possiblePaths[0];
@@ -154,14 +152,10 @@ fn Config::getInstance() -> Config {
 
     const bool exists = fs::exists(configPath, errc);
 
-    if (errc)
-      warn_log("Failed to check if config file exists at {}: {}. Assuming it doesn't.", configPath.string(), errc.message());
-
     if (!exists) {
       info_log("Config file not found at {}, creating defaults.", configPath.string());
 
       if (!CreateDefaultConfig(configPath)) {
-        warn_log("Failed to create default config file at {}. Using in-memory defaults.", configPath.string());
         return {};
       }
     }
