@@ -28,7 +28,7 @@ namespace {
     });
   }
 
-  fn Capitalize(std::string_view sview) -> Option<String> {
+  fn Capitalize(StringView sview) -> Option<String> {
     if (sview.empty())
       return None;
 
@@ -102,11 +102,12 @@ namespace os {
     for (const kinfo_proc& procInfo : processes) {
       StringView comm(procInfo.kp_proc.p_comm);
 
-      for (const auto& wmName : knownWms)
+      for (const StringView& wmName : knownWms)
         if (StrEqualsIgnoreCase(comm, wmName)) {
-          const auto capitalized = Capitalize(comm);
-          return capitalized ? Result<String>(*capitalized)
-                             : Err(DracError(DracErrorCode::ParseError, "Failed to capitalize window manager name"));
+          if (const Option<String> capitalized = Capitalize(comm))
+            return *capitalized;
+
+          return Err(DracError(DracErrorCode::ParseError, "Failed to capitalize window manager name"));
         }
     }
 
@@ -332,7 +333,7 @@ namespace package {
       "/usr/local/Cellar",
     };
 
-    if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>("homebrew_total")) {
+    if (const Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>("homebrew_total")) {
       const auto& [cachedCount, timestamp] = *cachedDataResult;
 
       bool cacheValid = true;
@@ -349,10 +350,8 @@ namespace package {
         }
       }
 
-      if (cacheValid) {
-        debug_log("Using valid Homebrew total count cache. Count: {}", cachedCount);
+      if (cacheValid)
         return cachedCount;
-      }
     }
 
     u64 count = 0;

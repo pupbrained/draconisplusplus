@@ -190,18 +190,15 @@ namespace package {
 
       if (errc) {
         return Err(DracError(DracErrorCode::IoError, "Filesystem error checking Apk DB: " + errc.message()));
-      } else {
-        if (const system_clock::time_point cacheTimePoint = system_clock::time_point(seconds(timestamp));
-            cacheTimePoint.time_since_epoch() >= dbModTime.time_since_epoch()) {
-          return count;
-        }
       }
-    } else {
-      if (cachedDataResult.error().code != DracErrorCode::NotFound)
-        debug_at(cachedDataResult.error());
-    }
 
-    debug_log("Fetching fresh {} package count from database: {}", pmId, dbPath.string());
+      if (const system_clock::time_point cacheTimePoint = system_clock::time_point(seconds(timestamp));
+          cacheTimePoint.time_since_epoch() >= dbModTime.time_since_epoch()) {
+        return count;
+      }
+    } else if (cachedDataResult.error().code != DracErrorCode::NotFound)
+      debug_at(cachedDataResult.error());
+
     u64 count = 0;
 
     try {
@@ -236,8 +233,6 @@ namespace package {
       error_log("Unknown error occurred accessing {} DB '{}'", pmId, dbPath.string());
       return Err(DracError(DracErrorCode::Other, std::format("Unknown error occurred accessing {} DB", pmId)));
     }
-
-    debug_log("Successfully fetched {} package count: {}.", pmId, count);
 
     const i64 timestampEpochSeconds = duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
 
@@ -275,8 +270,6 @@ namespace package {
       }
     } else if (cachedDataResult.error().code != DracErrorCode::NotFound) {
       debug_at(cachedDataResult.error());
-    } else {
-      debug_log("{} plist count cache not found or unreadable", pmId);
     }
 
     xml_document     doc;

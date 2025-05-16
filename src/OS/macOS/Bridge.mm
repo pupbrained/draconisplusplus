@@ -31,7 +31,13 @@ using MRMediaRemoteGetNowPlayingInfoFunction =
   );
 
   if (!urlRef) {
-    completion(nil, [NSError errorWithDomain:@"com.draconis.error" code:1 userInfo:@{ NSLocalizedDescriptionKey : @"Failed to create CFURL for MediaRemote framework" }]);
+    completion(nil, [NSError errorWithDomain:@"com.draconis.error"
+                                        code:1
+                                    userInfo:@{
+                                      NSLocalizedDescriptionKey : @"Failed to create CFURL for MediaRemote framework",
+                                      NSLocalizedFailureReasonErrorKey : @"The MediaRemote framework path could not be resolved",
+                                      NSLocalizedRecoverySuggestionErrorKey : @"Ensure the MediaRemote framework exists at /System/Library/PrivateFrameworks/MediaRemote.framework"
+                                    }]);
     return;
   }
 
@@ -40,7 +46,13 @@ using MRMediaRemoteGetNowPlayingInfoFunction =
   CFRelease(urlRef);
 
   if (!bundleRef) {
-    completion(nil, [NSError errorWithDomain:@"com.draconis.error" code:1 userInfo:@{ NSLocalizedDescriptionKey : @"Failed to create bundle for MediaRemote framework" }]);
+    completion(nil, [NSError errorWithDomain:@"com.draconis.error"
+                                        code:2
+                                    userInfo:@{
+                                      NSLocalizedDescriptionKey : @"Failed to create bundle for MediaRemote framework",
+                                      NSLocalizedFailureReasonErrorKey : @"The MediaRemote framework could not be loaded",
+                                      NSLocalizedRecoverySuggestionErrorKey : @"Ensure you have the necessary permissions to access the MediaRemote framework"
+                                    }]);
     return;
   }
 
@@ -50,7 +62,13 @@ using MRMediaRemoteGetNowPlayingInfoFunction =
 
   if (!mrMediaRemoteGetNowPlayingInfo) {
     CFRelease(bundleRef);
-    completion(nil, [NSError errorWithDomain:@"com.draconis.error" code:1 userInfo:@{ NSLocalizedDescriptionKey : @"Failed to get MRMediaRemoteGetNowPlayingInfo function pointer" }]);
+    completion(nil, [NSError errorWithDomain:@"com.draconis.error"
+                                        code:3
+                                    userInfo:@{
+                                      NSLocalizedDescriptionKey : @"Failed to get MRMediaRemoteGetNowPlayingInfo function pointer",
+                                      NSLocalizedFailureReasonErrorKey : @"The MediaRemote framework does not export the required function",
+                                      NSLocalizedRecoverySuggestionErrorKey : @"This may indicate an incompatible macOS version or missing permissions"
+                                    }]);
     return;
   }
 
@@ -63,7 +81,13 @@ using MRMediaRemoteGetNowPlayingInfoFunction =
     dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
     ^(NSDictionary* information) {
       if (!information) {
-        completion(nil, [NSError errorWithDomain:@"com.draconis.error" code:1 userInfo:@ { NSLocalizedDescriptionKey : @"No now playing information" }]);
+        completion(nil, [NSError errorWithDomain:@"com.draconis.error"
+                                            code:4
+                                        userInfo:@ {
+                                          NSLocalizedDescriptionKey : @"No now playing information",
+                                          NSLocalizedFailureReasonErrorKey : @"No media is currently playing or the media player is not accessible",
+                                          NSLocalizedRecoverySuggestionErrorKey : @"Try playing media in a supported application"
+                                        }]);
         return;
       }
 
@@ -122,13 +146,28 @@ extern "C++" {
 
     [Bridge fetchCurrentPlayingMetadata:^(NSDictionary* __nullable information, NSError* __nullable error) {
       if (error) {
-        result = Err(DracError(DracErrorCode::InternalError, [error.localizedDescription UTF8String]));
+        using matchit::match, matchit::is, matchit::or_, matchit::_;
+
+        DracErrorCode errorCode = match(error.code)(
+          is | or_(1, 4) = DracErrorCode::NotFound,
+          is | or_(2, 3) = DracErrorCode::ApiUnavailable,
+          is | _         = DracErrorCode::PlatformSpecific
+        );
+
+        result = Err(DracError(
+          errorCode,
+          String([NSString stringWithFormat:@"%@ - %@", error.localizedDescription, error.localizedFailureReason].UTF8String)
+        ));
+
         dispatch_semaphore_signal(semaphore);
         return;
       }
 
       if (!information) {
-        result = Err(DracError(DracErrorCode::InternalError, "No metadata"));
+        result = Err(DracError(
+          DracErrorCode::NotFound,
+          "No media metadata available - no media is currently playing"
+        ));
         dispatch_semaphore_signal(semaphore);
         return;
       }
@@ -157,7 +196,7 @@ extern "C++" {
 
     return version
       ? Result<String>(String([version UTF8String]))
-      : Err(DracError(DracErrorCode::InternalError, "Failed to get macOS version"));
+      : Err(DracError(DracErrorCode::PlatformSpecific, "Failed to get macOS version"));
   }
   // NOLINTEND(misc-use-internal-linkage)
 }

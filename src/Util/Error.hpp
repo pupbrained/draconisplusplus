@@ -1,6 +1,7 @@
 #pragma once
 
 #include <expected>        // std::{unexpected, expected}
+#include <format>          // std::format
 #include <matchit.hpp>     // matchit::{match, is, or_, _}
 #include <source_location> // std::source_location
 #include <system_error>    // std::error_code
@@ -9,35 +10,65 @@
   #include <guiddef.h>    // GUID
   #include <winerror.h>   // error values
   #include <winrt/base.h> // winrt::hresult_error
-#else
-  #include <format> // std::format
 #endif
 
 #include "Util/Types.hpp"
 
+namespace util::error {
+  using types::u8;
+
+  /**
+   * @enum DracErrorCode
+   * @brief Error codes for general OS-level operations.
+   */
+  enum class DracErrorCode : u8 {
+    ApiUnavailable,   ///< A required OS service/API is unavailable or failed unexpectedly at runtime.
+    InternalError,    ///< An error occurred within the application's OS abstraction code logic.
+    InvalidArgument,  ///< An invalid argument was passed to a function or method.
+    IoError,          ///< General I/O error (filesystem, pipes, etc.).
+    NetworkError,     ///< A network-related error occurred (e.g., DNS resolution, connection failure).
+    NotFound,         ///< A required resource (file, registry key, device, API endpoint) was not found.
+    NotSupported,     ///< The requested operation is not supported on this platform, version, or configuration.
+    Other,            ///< A generic or unclassified error originating from the OS or an external library.
+    OutOfMemory,      ///< The system ran out of memory or resources to complete the operation.
+    ParseError,       ///< Failed to parse data obtained from the OS (e.g., file content, API output).
+    PermissionDenied, ///< Insufficient permissions to perform the operation.
+    PlatformSpecific, ///< An unmapped error specific to the underlying OS platform occurred (check message).
+    Timeout,          ///< An operation timed out (e.g., waiting for IPC reply).
+  };
+} // namespace util::error
+
+template <>
+struct std::formatter<::util::error::DracErrorCode> : std::formatter<::util::types::StringView> {
+  template <typename FormatContext>
+  fn format(::util::error::DracErrorCode code, FormatContext& ctx) const {
+    using enum ::util::error::DracErrorCode;
+    using matchit::match, matchit::is, matchit::or_, matchit::_;
+
+    ::util::types::StringView name = match(code)(
+      is | ApiUnavailable   = "ApiUnavailable",
+      is | InternalError    = "InternalError",
+      is | InvalidArgument  = "InvalidArgument",
+      is | IoError          = "IoError",
+      is | NetworkError     = "NetworkError",
+      is | NotFound         = "NotFound",
+      is | NotSupported     = "NotSupported",
+      is | Other            = "Other",
+      is | OutOfMemory      = "OutOfMemory",
+      is | ParseError       = "ParseError",
+      is | PermissionDenied = "PermissionDenied",
+      is | PlatformSpecific = "PlatformSpecific",
+      is | Timeout          = "Timeout",
+      is | _                = "Unknown"
+    );
+
+    return formatter<::util::types::StringView>::format(name, ctx);
+  }
+};
+
 namespace util {
   namespace error {
-    using types::u8, types::i32, types::String, types::StringView, types::Exception;
-
-    /**
-     * @enum DracErrorCode
-     * @brief Error codes for general OS-level operations.
-     */
-    enum class DracErrorCode : u8 {
-      ApiUnavailable,   ///< A required OS service/API is unavailable or failed unexpectedly at runtime.
-      InternalError,    ///< An error occurred within the application's OS abstraction code logic.
-      InvalidArgument,  ///< An invalid argument was passed to a function or method.
-      IoError,          ///< General I/O error (filesystem, pipes, etc.).
-      NetworkError,     ///< A network-related error occurred (e.g., DNS resolution, connection failure).
-      NotFound,         ///< A required resource (file, registry key, device, API endpoint) was not found.
-      NotSupported,     ///< The requested operation is not supported on this platform, version, or configuration.
-      Other,            ///< A generic or unclassified error originating from the OS or an external library.
-      OutOfMemory,      ///< The system ran out of memory or resources to complete the operation.
-      ParseError,       ///< Failed to parse data obtained from the OS (e.g., file content, API output).
-      PermissionDenied, ///< Insufficient permissions to perform the operation.
-      PlatformSpecific, ///< An unmapped error specific to the underlying OS platform occurred (check message).
-      Timeout,          ///< An operation timed out (e.g., waiting for IPC reply).
-    };
+    using types::String, types::Exception;
 
     /**
      * @struct DracError

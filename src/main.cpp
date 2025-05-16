@@ -26,7 +26,8 @@ namespace {
   void PrintDoctorReport(const os::SystemData& data) {
     std::vector<std::pair<std::string, util::error::DracError>> failures;
 
-    // Check each data point. The names used here should be user-friendly.
+    failures.reserve(12);
+
     if (!data.date.has_value())
       failures.emplace_back("Date", data.date.error());
     if (!data.host.has_value())
@@ -58,7 +59,7 @@ namespace {
     std::println("We've collected a total of {} readouts including {} failed read(s) and 0 read(s) resulting in a warning.\n", totalPossibleReadouts, failures.size());
 
     for (const auto& fail : failures)
-      std::println("Readout \"{}\" failed with message: {}", fail.first, fail.second.message);
+      std::println("Readout \"{}\" failed with message: {} (code: {})", fail.first, fail.second.message, fail.second.code);
 #else
     std::cout << "We've collected a total of " << totalPossibleReadouts
               << " readouts including " << failures.size()
