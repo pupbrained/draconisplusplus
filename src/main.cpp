@@ -23,8 +23,10 @@
 using util::types::i32, util::types::Exception;
 
 namespace {
-  void PrintDoctorReport(const os::SystemData& data) {
-    std::vector<std::pair<std::string, util::error::DracError>> failures;
+  fn PrintDoctorReport(const os::SystemData& data) -> void {
+    using util::types::u8, util::types::Vec, util::types::Pair;
+
+    Vec<Pair<String, DracError>> failures;
 
     failures.reserve(12);
 
@@ -53,19 +55,19 @@ namespace {
     if (!data.weather.has_value())
       failures.emplace_back("Weather", data.weather.error());
 
-    const unsigned int totalPossibleReadouts = 12;
+    const u8 totalPossibleReadouts = 12;
 
 #ifdef __cpp_lib_print
     std::println("We've collected a total of {} readouts including {} failed read(s) and 0 read(s) resulting in a warning.\n", totalPossibleReadouts, failures.size());
 
-    for (const auto& fail : failures)
+    for (const var& fail : failures)
       std::println("Readout \"{}\" failed with message: {} (code: {})", fail.first, fail.second.message, fail.second.code);
 #else
     std::cout << "We've collected a total of " << totalPossibleReadouts
               << " readouts including " << failures.size()
               << " failed read(s) and 0 read(s) resulting in a warning.\n\n";
 
-    for (const auto& fail : failures)
+    for (const var& fail : failures)
       std::cout << "Readout \"" << fail.first << "\" failed with message: " << fail.second.message << "\n";
 
     std::cout << std::flush;

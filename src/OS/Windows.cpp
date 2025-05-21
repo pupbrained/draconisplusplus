@@ -352,9 +352,7 @@ namespace package {
     const fs::path chocoPath = fs::path(GetEnv("ChocolateyInstall").value_or("C:\\ProgramData\\chocolatey")) / "lib";
 
     if (!fs::exists(chocoPath) || !fs::is_directory(chocoPath))
-      return Err(
-        DracError(DracErrorCode::NotFound, std::format("Chocolatey directory not found: {}", chocoPath.string()))
-      );
+      return Err(DracError(DracErrorCode::NotFound, std::format("Chocolatey directory not found: {}", chocoPath.string())));
 
     return GetCountFromDirectory("Chocolatey", chocoPath);
   }

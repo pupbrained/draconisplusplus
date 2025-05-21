@@ -81,8 +81,7 @@ namespace package {
    * @param fileExtensionFilter Only count files with this extension (e.g., ".list").
    * @return Result containing the count (u64) or a DracError. Defaults subtractOne to false.
    */
-  fn GetCountFromDirectory(const String& pmId, const fs::path& dirPath, const String& fileExtensionFilter)
-    -> Result<u64>;
+  fn GetCountFromDirectory(const String& pmId, const fs::path& dirPath, const String& fileExtensionFilter) -> Result<u64>;
 
   /**
    * @brief Gets package count by iterating entries in a directory, optionally subtracting one.
@@ -102,11 +101,35 @@ namespace package {
   fn GetCountFromDirectory(const String& pmId, const fs::path& dirPath) -> Result<u64>;
 
 #ifdef __linux__
+  /**
+   * @brief Counts installed packages using APK.
+   * @return Result containing the count (u64) or a DracError.
+   */
   fn CountApk() -> Result<u64>;
+  /**
+   * @brief Counts installed packages using Dpkg.
+   * @return Result containing the count (u64) or a DracError.
+   */
   fn CountDpkg() -> Result<u64>;
+  /**
+   * @brief Counts installed packages using Moss.
+   * @return Result containing the count (u64) or a DracError.
+   */
   fn CountMoss() -> Result<u64>;
+  /**
+   * @brief Counts installed packages using Pacman.
+   * @return Result containing the count (u64) or a DracError.
+   */
   fn CountPacman() -> Result<u64>;
+  /**
+   * @brief Counts installed packages using Rpm.
+   * @return Result containing the count (u64) or a DracError.
+   */
   fn CountRpm() -> Result<u64>;
+  /**
+   * @brief Counts installed packages using Xbps.
+   * @return Result containing the count (u64) or a DracError.
+   */
   fn CountXbps() -> Result<u64>;
 
   /**
@@ -117,24 +140,62 @@ namespace package {
    */
   fn GetCountFromPlist(const String& pmId, const std::filesystem::path& plistPath) -> Result<u64>;
 #elifdef __APPLE__
+  /**
+   * @brief Counts installed packages using Homebrew.
+   * @return Result containing the count (u64) or a DracError.
+   */
   fn GetHomebrewCount() -> Result<u64>;
+  /**
+   * @brief Counts installed packages using MacPorts.
+   * @return Result containing the count (u64) or a DracError.
+   */
   fn GetMacPortsCount() -> Result<u64>;
 #elifdef _WIN32
+  /**
+   * @brief Counts installed packages using WinGet.
+   * @return Result containing the count (u64) or a DracError.
+   */
   fn CountWinGet() -> Result<u64>;
+  /**
+   * @brief Counts installed packages using Chocolatey.
+   * @return Result containing the count (u64) or a DracError.
+   */
   fn CountChocolatey() -> Result<u64>;
+  /**
+   * @brief Counts installed packages using Scoop.
+   * @return Result containing the count (u64) or a DracError.
+   */
   fn CountScoop() -> Result<u64>;
 #elif defined(__FreeBSD__) || defined(__DragonFly__)
+  /**
+   * @brief Counts installed packages using PkgNg.
+   * @return Result containing the count (u64) or a DracError.
+   */
   fn GetPkgNgCount() -> Result<u64>;
 #elifdef __NetBSD__
+  /**
+   * @brief Counts installed packages using PkgSrc.
+   * @return Result containing the count (u64) or a DracError.
+   */
   fn GetPkgSrcCount() -> Result<u64>;
 #elifdef __HAIKU__
-  fn GetHaikuCount() -> Result<u64>;
-#elifdef __serenity__
+  /**
+   * @brief Counts installed packages using Haiku.
+   * @return Result containing the count (u64) or a DracError.
+   */
   fn GetSerenityCount() -> Result<u64>;
 #endif
 
 #if defined(__linux__) || defined(__APPLE__)
+  /**
+   * @brief Counts installed packages using Nix.
+   * @return Result containing the count (u64) or a DracError.
+   */
   fn CountNix() -> Result<u64>;
 #endif
+  /**
+   * @brief Counts installed packages using Cargo.
+   * @return Result containing the count (u64) or a DracError.
+   */
   fn CountCargo() -> Result<u64>;
 } // namespace package

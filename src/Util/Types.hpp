@@ -32,6 +32,8 @@ namespace util::types {
   using StringView = std::string_view; ///< Non-owning view of a string.
   using CStr       = const char*;      ///< Pointer to a null-terminated C-style string.
 
+  using AnyPtr = void*; ///< A type-erased pointer.
+
   using Exception = std::exception; ///< Standard exception type.
 
   using Mutex     = std::mutex;             ///< Mutex type for synchronization.

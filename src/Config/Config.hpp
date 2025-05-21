@@ -16,15 +16,14 @@
 #endif
 
 #include "Services/Weather.hpp"
+#include "Services/Weather/MetNoService.hpp"
+#include "Services/Weather/OpenMeteoService.hpp"
+#include "Services/Weather/OpenWeatherMapService.hpp"
 
 #include "Util/Definitions.hpp"
 #include "Util/Error.hpp"
 #include "Util/Logging.hpp"
 #include "Util/Types.hpp"
-
-#include "../Services/Weather/MetNoService.hpp"
-#include "../Services/Weather/OpenMeteoService.hpp"
-#include "../Services/Weather/OpenWeatherMapService.hpp"
 
 using util::error::DracError;
 using util::types::CStr, util::types::String, util::types::Array, util::types::Option, util::types::Result;
@@ -50,7 +49,6 @@ struct General {
    */
   static fn getDefaultName() -> String {
 #ifdef _WIN32
-    // Try to get the username using GetUserNameA
     Array<char, 256> username;
 
     DWORD size = username.size();
@@ -129,7 +127,6 @@ struct Weather {
     weather.showTownName = tbl["show_town_name"].value_or(false);
     weather.units        = tbl["units"].value_or("metric");
 
-    // Read provider (default to "openweathermap" if not set)
     String provider = tbl["provider"].value_or("openweathermap");
 
     if (const toml::node_view<const toml::node> location = tbl["location"]) {
@@ -187,8 +184,15 @@ struct Config {
   Weather    weather;    ///< Weather configuration settings.`
   NowPlaying nowPlaying; ///< Now Playing configuration settings.
 
+  /**
+   * @brief Default constructor for Config.
+   */
   Config() = default;
 
+  /**
+   * @brief Constructs a Config instance from a TOML table.
+   * @param tbl The TOML table to parse, containing [general], [weather], and [now_playing].
+   */
   explicit Config(const toml::table& tbl);
 
   /**

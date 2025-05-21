@@ -17,7 +17,7 @@ namespace fs = std::filesystem;
 
 namespace {
   using util::types::Vec, util::types::CStr, util::types::Exception;
-  constexpr const char* defaultConfigTemplate = R"cfg(# Draconis++ Configuration File
+  constexpr const char* defaultConfigTemplate = R"toml(# Draconis++ Configuration File
 
 # General settings
 [general]
@@ -39,7 +39,7 @@ location = "London"    # Your city name
 # [weather.location]
 # lat = 51.5074
 # lon = -0.1278
-  )cfg";
+  )toml";
 
   fn GetConfigPath() -> fs::path {
     using util::helpers::GetEnv;
