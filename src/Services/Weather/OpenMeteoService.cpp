@@ -1,10 +1,10 @@
 #define NOMINMAX
 
+#include "OpenMeteoService.hpp"
+
 #ifdef __HAIKU__
   #define _DEFAULT_SOURCE // exposes timegm
 #endif
-
-#include "OpenMeteoService.hpp"
 
 #include <chrono>              // std::chrono::{system_clock, minutes, seconds}
 #include <ctime>               // std::tm, std::timegm
@@ -12,7 +12,8 @@
 #include <curl/easy.h>         // curl_easy_init, curl_easy_setopt, curl_easy_perform, curl_easy_strerror, curl_easy_cleanup
 #include <format>              // std::format
 #include <glaze/json/read.hpp> // glz::read
-#include <sstream>             // std::istringstream
+
+#include "Services/Weather.hpp"
 
 #include "Util/Caching.hpp"
 #include "Util/Error.hpp"
@@ -24,62 +25,84 @@ using weather::WeatherReport;
 namespace weather {
   using util::types::f64, util::types::i32, util::types::String;
 
-  struct OpenMeteoResponse {
-    struct CurrentWeather {
+  struct Response {
+    struct Current {
       f64    temperature;
       i32    weathercode;
       String time;
     } currentWeather;
   };
 
-  struct OpenMeteoGlaze {
-    using T = OpenMeteoResponse;
+  struct ResponseG {
+    using T = Response;
 
-    // clang-format off
-    static constexpr auto value = glz::object(
-      "current_weather", &T::currentWeather
-    );
-    // clang-format on
+    static constexpr auto value = glz::object("current_weather", &T::currentWeather);
   };
 
-  struct CurrentWeatherGlaze {
-    using T = OpenMeteoResponse::CurrentWeather;
+  struct CurrentG {
+    using T = Response::Current;
 
     // clang-format off
     static constexpr auto value = glz::object(
       "temperature", &T::temperature,
       "weathercode", &T::weathercode,
-      "time", &T::time
+      "time",        &T::time
     );
     // clang-format on
   };
 } // namespace weather
 
-template <>
-struct glz::meta<weather::OpenMeteoResponse> : weather::OpenMeteoGlaze {};
+namespace glz {
+  using weather::Response, weather::ResponseG, weather::CurrentG;
 
-template <>
-struct glz::meta<weather::OpenMeteoResponse::CurrentWeather> : weather::CurrentWeatherGlaze {};
+  template <>
+  struct meta<Response> : ResponseG {};
+  template <>
+  struct meta<Response::Current> : CurrentG {};
+} // namespace glz
 
 namespace {
-  using glz::opts;
   using util::error::DracError, util::error::DracErrorCode;
-  using util::types::usize, util::types::Err, util::types::String;
+  using util::types::usize, util::types::Err, util::types::String, util::types::Result, util::types::StringView;
 
-  constexpr opts glazeOpts = { .error_on_unknown_keys = false };
-
-  fn WriteCallback(void* contents, usize size, usize nmemb, String* str) -> usize {
-    usize totalSize = size * nmemb;
+  fn WriteCallback(void* contents, const usize size, const usize nmemb, String* str) -> usize {
+    const usize totalSize = size * nmemb;
     str->append(static_cast<char*>(contents), totalSize);
     return totalSize;
   }
 
-  fn parse_iso8601_to_epoch(const String& iso8601) -> usize {
-    std::tm            time = {};
-    std::istringstream stream(iso8601);
-    stream >> std::get_time(&time, "%Y-%m-%dT%H:%M");
-    if (stream.fail())
-      return 0;
+  fn parse_iso8601_to_epoch(const StringView iso8601) -> Result<usize> {
+    using util::types::i32;
+
+    if (iso8601.size() != 20)
+      return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse ISO8601 time, expected 20 characters, got {}", iso8601.size())));
+
+    std::tm time = {};
+
+    i32 year = 0, mon = 0, mday = 0, hour = 0, min = 0, sec = 0;
+
+    fn parseInt = [](StringView sview, i32& out) -> bool {
+      auto [ptr, ec] = std::from_chars(sview.data(), sview.data() + sview.size(), out);
+
+      return ec == std::errc() && ptr == sview.data() + sview.size();
+    };
+
+    if (!parseInt(iso8601.substr(0, 4), year) ||
+        !parseInt(iso8601.substr(5, 2), mon) ||
+        !parseInt(iso8601.substr(8, 2), mday) ||
+        !parseInt(iso8601.substr(11, 2), hour) ||
+        !parseInt(iso8601.substr(14, 2), min) ||
+        !parseInt(iso8601.substr(17, 2), sec)) {
+      return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse ISO8601 time: {}", String(iso8601))));
+    }
+
+    time.tm_year = year - 1900;
+    time.tm_mon  = mon - 1;
+    time.tm_mday = mday;
+    time.tm_hour = hour;
+    time.tm_min  = min;
+    time.tm_sec  = sec;
+
 #ifdef _WIN32
     return static_cast<usize>(_mkgmtime(&time));
 #else
@@ -88,21 +111,26 @@ namespace {
   }
 } // namespace
 
-OpenMeteoService::OpenMeteoService(f64 lat, f64 lon, String units)
+OpenMeteoService::OpenMeteoService(const f64 lat, const f64 lon, String units)
   : m_lat(lat), m_lon(lon), m_units(std::move(units)) {}
 
-fn OpenMeteoService::getWeatherInfo() const -> util::types::Result<WeatherReport> {
-  using glz::error_ctx, glz::error_code, glz::read, glz::format_error;
+fn OpenMeteoService::getWeatherInfo() const -> Result<WeatherReport> {
+  using glz::error_ctx, glz::read, glz::error_code;
   using util::cache::ReadCache, util::cache::WriteCache;
-  using util::types::Array, util::types::String, util::types::Result, util::types::None;
+  using util::types::Array, util::types::None, util::types::StringView;
 
   if (Result<WeatherReport> data = ReadCache<WeatherReport>("weather")) {
-    using std::chrono::system_clock, std::chrono::minutes, std::chrono::seconds;
+    using std::chrono::system_clock, std::chrono::minutes, std::chrono::seconds, std::chrono::duration;
 
     const WeatherReport& dataVal = *data;
 
-    if (const auto cacheAge = system_clock::now() - system_clock::time_point(seconds(dataVal.timestamp)); cacheAge < minutes(60))
+    if (const duration<double> cacheAge = system_clock::now() - system_clock::time_point(seconds(dataVal.timestamp)); cacheAge < minutes(60))
       return dataVal;
+  } else {
+    if (const DracError& err = data.error(); err.code == DracErrorCode::NotFound)
+      debug_at(err);
+    else
+      error_at(err);
   }
 
   String url = std::format(
@@ -129,12 +157,12 @@ fn OpenMeteoService::getWeatherInfo() const -> util::types::Result<WeatherReport
   if (res != CURLE_OK)
     return Err(DracError(DracErrorCode::ApiUnavailable, std::format("cURL error: {}", curl_easy_strerror(res))));
 
-  OpenMeteoResponse apiResp {};
+  Response apiResp {};
 
-  if (error_ctx errc = read<glazeOpts>(apiResp, responseBuffer); errc)
-    return Err(DracError(DracErrorCode::ParseError, "Failed to parse Open-Meteo JSON response"));
+  if (error_ctx errc = read<glz::opts { .error_on_unknown_keys = false }>(apiResp, responseBuffer); errc.ec != error_code::none)
+    return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer))));
 
-  static constexpr Array<const char*, 9> CODE_DESC = {
+  static constexpr Array<StringView, 9> CODE_DESC = {
     "clear sky",
     "mainly clear",
     "partly cloudy",
@@ -146,14 +174,19 @@ fn OpenMeteoService::getWeatherInfo() const -> util::types::Result<WeatherReport
     "thunderstorm"
   };
 
+  Result<usize> timestamp = parse_iso8601_to_epoch(apiResp.currentWeather.time);
+
+  if (!timestamp)
+    return Err(timestamp.error());
+
   WeatherReport out = {
     .temperature = apiResp.currentWeather.temperature,
     .name        = None,
-    .description = CODE_DESC.at(apiResp.currentWeather.weathercode),
-    .timestamp   = parse_iso8601_to_epoch(apiResp.currentWeather.time),
+    .description = String(CODE_DESC.at(apiResp.currentWeather.weathercode)),
+    .timestamp   = *timestamp,
   };
 
-  if (Result<> writeResult = WriteCache("weather", out); !writeResult)
+  if (Result writeResult = WriteCache("weather", out); !writeResult)
     return Err(writeResult.error());
 
   return out;

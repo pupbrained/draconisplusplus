@@ -5,6 +5,8 @@
 #include "IWeatherService.hpp"
 
 namespace weather {
+  using util::types::StringView;
+
   class OpenWeatherMapService : public IWeatherService {
    public:
     OpenWeatherMapService(std::variant<String, Coords> location, String apiKey, String units);

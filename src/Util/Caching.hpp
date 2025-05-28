@@ -42,6 +42,7 @@ namespace util::cache {
       if (errc)
         return Err(DracError(DracErrorCode::IoError, "Failed to check existence of cache directory: " + errc.message()));
 
+      debug_log("Creating cache directory: {}", cacheDir.string());
       fs::create_directories(cacheDir, errc);
 
       if (errc)
@@ -51,6 +52,7 @@ namespace util::cache {
     if (errc)
       return Err(DracError(DracErrorCode::IoError, "Failed to get system temporary directory: " + errc.message()));
 
+    debug_log("Cache path for key '{}': {}", cache_key, (cacheDir / (cache_key + "_cache.beve")).string());
     return cacheDir / (cache_key + "_cache.beve");
   }
 
@@ -72,46 +74,59 @@ namespace util::cache {
       if (existsEc)
         debug_log("Error checking existence of cache file '{}': {}", cachePath.string(), existsEc.message());
 
+      debug_log("Cache file not found: {}", cachePath.string());
       return Err(DracError(DracErrorCode::NotFound, "Cache file not found: " + cachePath.string()));
     }
 
     std::ifstream ifs(cachePath, std::ios::binary);
-    if (!ifs.is_open())
+    if (!ifs.is_open()) {
+      debug_log("Failed to open cache file for reading: {}", cachePath.string());
       return Err(DracError(DracErrorCode::IoError, "Failed to open cache file for reading: " + cachePath.string()));
+    }
 
     try {
       const String content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
       ifs.close();
 
-      if (content.empty())
+      if (content.empty()) {
+        debug_log("BEVE cache file is empty: {}", cachePath.string());
         return Err(DracError(DracErrorCode::ParseError, "BEVE cache file is empty: " + cachePath.string()));
+      }
 
       static_assert(std::is_default_constructible_v<T>, "Cache type T must be default constructible for Glaze.");
       T result {};
 
       if (glz::error_ctx glazeErr = glz::read_beve(result, content); glazeErr.ec != glz::error_code::none) {
+        using util::types::i32;
+
+        debug_log("BEVE parse error reading cache '{}' (code {}): {}", cachePath.string(), static_cast<i32>(glazeErr.ec), glz::format_error(glazeErr, content));
+
         return Err(DracError(
           DracErrorCode::ParseError,
           std::format(
             "BEVE parse error reading cache '{}' (code {}): {}",
             cachePath.string(),
-            static_cast<int>(glazeErr.ec),
+            static_cast<i32>(glazeErr.ec),
             glz::format_error(glazeErr, content)
           )
         ));
       }
 
+      debug_log("Successfully read cache file: {}", cachePath.string());
       return result;
     } catch (const std::ios_base::failure& e) {
+      debug_log("Filesystem error reading cache file {}: {}", cachePath.string(), e.what());
       return Err(DracError(
         DracErrorCode::IoError, std::format("Filesystem error reading cache file {}: {}", cachePath.string(), e.what())
       ));
     } catch (const Exception& e) {
+      debug_log("Standard exception reading cache file {}: {}", cachePath.string(), e.what());
       return Err(DracError(
         DracErrorCode::InternalError,
         std::format("Standard exception reading cache file {}: {}", cachePath.string(), e.what())
       ));
     } catch (...) {
+      debug_log("Unknown error reading cache file: {}", cachePath.string());
       return Err(DracError(DracErrorCode::Other, "Unknown error reading cache file: " + cachePath.string()));
     }
   }
@@ -134,18 +149,21 @@ namespace util::cache {
     tempPath += ".tmp";
 
     try {
+      using util::types::i32;
+
       String binaryBuffer;
 
       using DecayedT           = std::decay_t<T>;
       DecayedT dataToSerialize = data;
 
       if (glz::error_ctx glazeErr = glz::write_beve(dataToSerialize, binaryBuffer); glazeErr) {
+        debug_log("BEVE serialization error writing cache for key '{}' (code {}): {}", cache_key, static_cast<i32>(glazeErr.ec), glz::format_error(glazeErr, binaryBuffer));
         return Err(DracError(
           DracErrorCode::ParseError,
           std::format(
             "BEVE serialization error writing cache for key '{}' (code {}): {}",
             cache_key,
-            static_cast<int>(glazeErr.ec),
+            static_cast<i32>(glazeErr.ec),
             glz::format_error(glazeErr, binaryBuffer)
           )
         ));
@@ -153,12 +171,15 @@ namespace util::cache {
 
       {
         std::ofstream ofs(tempPath, std::ios::binary | std::ios::trunc);
-        if (!ofs.is_open())
+        if (!ofs.is_open()) {
+          debug_log("Failed to open temporary cache file: {}", tempPath.string());
           return Err(DracError(DracErrorCode::IoError, "Failed to open temporary cache file: " + tempPath.string()));
+        }
 
         ofs.write(binaryBuffer.data(), static_cast<isize>(binaryBuffer.size()));
 
         if (!ofs) {
+          debug_log("Failed to write to temporary cache file: {}", tempPath.string());
           std::error_code removeEc;
           fs::remove(tempPath, removeEc);
           return Err(DracError(DracErrorCode::IoError, "Failed to write to temporary cache file: " + tempPath.string()));
@@ -168,6 +189,7 @@ namespace util::cache {
       std::error_code renameEc;
       fs::rename(tempPath, cachePath, renameEc);
       if (renameEc) {
+        debug_log("Failed to replace cache file '{}' with temporary file '{}': {}", cachePath.string(), tempPath.string(), renameEc.message());
         std::error_code removeEc;
         fs::remove(tempPath, removeEc);
         return Err(DracError(
@@ -181,14 +203,17 @@ namespace util::cache {
         ));
       }
 
+      debug_log("Successfully wrote cache file: {}", cachePath.string());
       return {};
     } catch (const std::ios_base::failure& e) {
+      debug_log("Filesystem error writing cache file {}: {}", tempPath.string(), e.what());
       std::error_code removeEc;
       fs::remove(tempPath, removeEc);
       return Err(DracError(
         DracErrorCode::IoError, std::format("Filesystem error writing cache file {}: {}", tempPath.string(), e.what())
       ));
     } catch (const Exception& e) {
+      debug_log("Standard exception writing cache file {}: {}", tempPath.string(), e.what());
       std::error_code removeEc;
       fs::remove(tempPath, removeEc);
       return Err(DracError(
@@ -196,6 +221,7 @@ namespace util::cache {
         std::format("Standard exception writing cache file {}: {}", tempPath.string(), e.what())
       ));
     } catch (...) {
+      debug_log("Unknown error writing cache file: {}", tempPath.string());
       std::error_code removeEc;
       fs::remove(tempPath, removeEc);
       return Err(DracError(DracErrorCode::Other, "Unknown error writing cache file: " + tempPath.string()));

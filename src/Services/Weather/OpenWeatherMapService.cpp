@@ -9,6 +9,7 @@
 #include <glaze/core/meta.hpp>
 #include <glaze/json/read.hpp>
 #include <matchit.hpp>
+#include <utility>
 #include <variant>
 
 #include "Util/Caching.hpp"
@@ -20,17 +21,19 @@ using weather::OpenWeatherMapService;
 using weather::WeatherReport;
 
 namespace weather {
-  using util::types::f64, util::types::i64, util::types::String, util::types::Vec;
+  using util::types::f64, util::types::i64, util::types::StringView, util::types::Vec;
+  using util::types::String;
 
   struct OWMResponse {
     struct Main {
       f64 temp;
-    } main;
+    };
 
     struct Weather {
       String description;
     };
 
+    Main         main;
     Vec<Weather> weather;
     String       name;
     i64          dt;
@@ -39,60 +42,61 @@ namespace weather {
   struct OWMMainGlaze {
     using T = OWMResponse::Main;
 
-    static constexpr auto value = glz::object("temp", &T::temp);
+    static constexpr Object value = glz::object("temp", &T::temp);
   };
 
   struct OWMWeatherGlaze {
     using T = OWMResponse::Weather;
 
-    static constexpr auto value = glz::object("description", &T::description);
+    static constexpr Object value = glz::object("description", &T::description);
   };
 
   struct OWMResponseGlaze {
     using T = OWMResponse;
 
     // clang-format off
-    static constexpr auto value = glz::object(
-      "main", &T::main,
+    static constexpr Object value = glz::object(
+      "main",    &T::main,
       "weather", &T::weather,
-      "name", &T::name,
-      "dt", &T::dt
+      "name",    &T::name,
+      "dt",      &T::dt
     );
     // clang-format on
   };
 } // namespace weather
 
-template <>
-struct glz::meta<weather::OWMResponse::Main> : weather::OWMMainGlaze {};
+namespace glz {
+  using weather::OWMResponse, weather::OWMMainGlaze, weather::OWMWeatherGlaze, weather::OWMResponseGlaze;
 
-template <>
-struct glz::meta<weather::OWMResponse::Weather> : weather::OWMWeatherGlaze {};
-
-template <>
-struct glz::meta<weather::OWMResponse> : weather::OWMResponseGlaze {};
+  template <>
+  struct meta<OWMResponse::Main> : OWMMainGlaze {};
+  template <>
+  struct meta<OWMResponse::Weather> : OWMWeatherGlaze {};
+  template <>
+  struct meta<OWMResponse> : OWMResponseGlaze {};
+} // namespace glz
 
 namespace {
-  using glz::opts, glz::error_ctx, glz::error_code, glz::read, glz::format_error;
   using util::error::DracError, util::error::DracErrorCode;
-  using util::types::usize, util::types::Err, util::types::Exception, util::types::Result;
-  using namespace util::cache;
+  using util::types::usize, util::types::Err, util::types::Result, util::types::String, util::types::StringView;
 
-  constexpr opts glaze_opts = { .error_on_unknown_keys = false };
-
-  fn WriteCallback(void* contents, const usize size, const usize nmemb, weather::String* str) -> usize {
+  fn WriteCallback(void* contents, const usize size, const usize nmemb, String* str) -> usize {
     const usize totalSize = size * nmemb;
     str->append(static_cast<char*>(contents), totalSize);
     return totalSize;
   }
 
-  fn MakeApiRequest(const weather::String& url) -> Result<WeatherReport> {
-    CURL*           curl = curl_easy_init();
-    weather::String responseBuffer;
+  fn MakeApiRequest(const String& url) -> Result<WeatherReport> {
+    using glz::error_ctx, glz::read, glz::error_code;
+    using util::types::None, util::types::Option;
+
+    CURL*  curl = curl_easy_init();
+    String responseBuffer;
 
     if (!curl)
       return Err(DracError(DracErrorCode::ApiUnavailable, "Failed to initialize cURL"));
 
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_URL, url.data());
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseBuffer);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10);
@@ -104,15 +108,16 @@ namespace {
     if (res != CURLE_OK)
       return Err(DracError(DracErrorCode::ApiUnavailable, std::format("cURL error: {}", curl_easy_strerror(res))));
 
-    weather::OWMResponse owm;
-    if (const error_ctx errc = read<glaze_opts>(owm, responseBuffer); errc.ec != error_code::none)
+    weather::OWMResponse owmResponse;
+
+    if (const error_ctx errc = read<glz::opts { .error_on_unknown_keys = false }>(owmResponse, responseBuffer); errc.ec != error_code::none)
       return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer))));
 
     WeatherReport report = {
-      .temperature = owm.main.temp,
-      .name        = owm.name.empty() ? std::nullopt : util::types::Option<std::string>(owm.name),
-      .description = !owm.weather.empty() ? owm.weather[0].description : "",
-      .timestamp   = static_cast<usize>(owm.dt),
+      .temperature = owmResponse.main.temp,
+      .name        = owmResponse.name.empty() ? None : Option<String>(owmResponse.name),
+      .description = !owmResponse.weather.empty() ? owmResponse.weather[0].description : "",
+      .timestamp   = static_cast<usize>(owmResponse.dt),
     };
 
     return report;
@@ -123,30 +128,27 @@ OpenWeatherMapService::OpenWeatherMapService(std::variant<String, Coords> locati
   : m_location(std::move(location)), m_apiKey(std::move(apiKey)), m_units(std::move(units)) {}
 
 fn OpenWeatherMapService::getWeatherInfo() const -> Result<WeatherReport> {
-  using namespace std::chrono;
+  using util::cache::ReadCache, util::cache::WriteCache;
 
   if (Result<WeatherReport> data = ReadCache<WeatherReport>("weather")) {
+    using std::chrono::system_clock, std::chrono::seconds, std::chrono::minutes, std::chrono::duration;
+
     const WeatherReport& dataVal = *data;
 
-    if (const duration<double> cacheAge = system_clock::now() - system_clock::time_point(seconds(dataVal.timestamp)); cacheAge < 60min)
+    if (const duration<double> cacheAge = system_clock::now() - system_clock::time_point(seconds(dataVal.timestamp)); cacheAge < minutes(60))
       return dataVal;
   } else {
-    using matchit::match, matchit::is, matchit::_;
-    using enum DracErrorCode;
-
-    DracError err = data.error();
-
-    match(err.code)(
-      is | NotFound = [&] { debug_at(err); },
-      is | _        = [&] { error_at(err); }
-    );
+    if (const DracError& err = data.error(); err.code == DracErrorCode::NotFound)
+      debug_at(err);
+    else
+      error_at(err);
   }
 
   fn handleApiResult = [](const Result<WeatherReport>& result) -> Result<WeatherReport> {
     if (!result)
       return Err(result.error());
 
-    if (Result<> writeResult = WriteCache("weather", *result); !writeResult)
+    if (Result writeResult = WriteCache("weather", *result); !writeResult)
       return Err(writeResult.error());
 
     return *result;
@@ -157,10 +159,9 @@ fn OpenWeatherMapService::getWeatherInfo() const -> Result<WeatherReport> {
 
     const auto& city = std::get<String>(m_location);
 
-    char* escaped = curl_easy_escape(nullptr, city.c_str(), static_cast<i32>(city.length()));
+    char* escaped = curl_easy_escape(nullptr, city.data(), static_cast<i32>(city.length()));
 
-    const String apiUrl =
-      std::format("https://api.openweathermap.org/data/2.5/weather?q={}&appid={}&units={}", escaped, m_apiKey, m_units);
+    const String apiUrl = std::format("https://api.openweathermap.org/data/2.5/weather?q={}&appid={}&units={}", escaped, m_apiKey, m_units);
 
     curl_free(escaped);
 
@@ -170,12 +171,10 @@ fn OpenWeatherMapService::getWeatherInfo() const -> Result<WeatherReport> {
   if (std::holds_alternative<Coords>(m_location)) {
     const auto& [lat, lon] = std::get<Coords>(m_location);
 
-    const String apiUrl = std::format(
-      "https://api.openweathermap.org/data/2.5/weather?lat={:.3f}&lon={:.3f}&appid={}&units={}", lat, lon, m_apiKey, m_units
-    );
+    const String apiUrl = std::format("https://api.openweathermap.org/data/2.5/weather?lat={:.3f}&lon={:.3f}&appid={}&units={}", lat, lon, m_apiKey, m_units);
 
     return handleApiResult(MakeApiRequest(apiUrl));
   }
 
-  return util::types::Err(util::error::DracError(util::error::DracErrorCode::ParseError, "Invalid location type in configuration."));
+  return Err(DracError(DracErrorCode::ParseError, "Invalid location type in configuration."));
 }

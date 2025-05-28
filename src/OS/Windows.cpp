@@ -209,7 +209,8 @@ namespace os {
         if (const u64 buildNumber = *buildNumberOpt; buildNumber >= 22000) {
           if (const size_t pos = productName.find("Windows 10"); pos != String::npos) {
             const bool startBoundary = (pos == 0 || !isalnum(static_cast<u8>(productName[pos - 1])));
-            const bool endBoundary   = (pos + 10 == productName.length() || !isalnum(static_cast<u8>(productName[pos + 10])));
+            // ReSharper disable once CppTooWideScopeInitStatement
+            const bool endBoundary = (pos + 10 == productName.length() || !isalnum(static_cast<u8>(productName[pos + 10])));
 
             if (startBoundary && endBoundary)
               productName.replace(pos, 10, "Windows 11");

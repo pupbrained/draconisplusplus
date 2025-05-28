@@ -292,15 +292,15 @@ namespace util::logging {
     ::util::logging::LogImpl(                                                                           \
       ::util::logging::LogLevel::Debug, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__ \
     )
-  #define debug_at(error_obj) ::util::logging::LogError(::util::logging::LogLevel::Debug, error_obj);
+  #define debug_at(error_obj) ::util::logging::LogError(::util::logging::LogLevel::Debug, error_obj)
 #else
   #define debug_log(...) ((void)0)
   #define debug_at(...)  ((void)0)
 #endif
 
-#define info_at(error_obj)  ::util::logging::LogError(::util::logging::LogLevel::Info, error_obj);
-#define warn_at(error_obj)  ::util::logging::LogError(::util::logging::LogLevel::Warn, error_obj);
-#define error_at(error_obj) ::util::logging::LogError(::util::logging::LogLevel::Error, error_obj);
+#define info_at(error_obj)  ::util::logging::LogError(::util::logging::LogLevel::Info, error_obj)
+#define warn_at(error_obj)  ::util::logging::LogError(::util::logging::LogLevel::Warn, error_obj)
+#define error_at(error_obj) ::util::logging::LogError(::util::logging::LogLevel::Error, error_obj)
 
 #ifdef NDEBUG
   #define info_log(fmt, ...)  ::util::logging::LogImpl(::util::logging::LogLevel::Info, fmt __VA_OPT__(, ) __VA_ARGS__)

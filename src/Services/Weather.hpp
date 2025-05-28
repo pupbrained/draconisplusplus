@@ -7,7 +7,7 @@
 
 namespace weather {
   using glz::detail::Object, glz::object;
-  using util::types::String, util::types::Vec, util::types::f64, util::types::usize;
+  using util::types::String, util::types::Vec, util::types::f64, util::types::usize, util::types::Option;
 
   /**
    * @struct WeatherReport
@@ -16,10 +16,10 @@ namespace weather {
    * Contains temperature, conditions, and timestamp.
    */
   struct WeatherReport {
-    f64                         temperature; ///< Degrees (C/F)
-    util::types::Option<String> name;        ///< Optional town/city name (may be missing for some providers)
-    String                      description; ///< Weather description (e.g., "clear sky", "rain")
-    usize                       timestamp;   ///< Seconds since epoch
+    f64            temperature; ///< Degrees (C/F)
+    Option<String> name;        ///< Optional town/city name (may be missing for some providers)
+    String         description; ///< Weather description (e.g., "clear sky", "rain")
+    usize          timestamp;   ///< Seconds since epoch
   };
 
   struct WeatherReportGlaze {
@@ -28,9 +28,9 @@ namespace weather {
     // clang-format off
     static constexpr Object value = object(
       "temperature", &T::temperature,
-      "name", &T::name,
+      "name",        &T::name,
       "description", &T::description,
-      "timestamp", &T::timestamp
+      "timestamp",   &T::timestamp
     );
     // clang-format on
   };
@@ -39,7 +39,12 @@ namespace weather {
     f64 lat;
     f64 lon;
   };
+
 } // namespace weather
 
-template <>
-struct glz::meta<weather::WeatherReport> : weather::WeatherReportGlaze {};
+namespace glz {
+  using weather::WeatherReport, weather::WeatherReportGlaze;
+
+  template <>
+  struct meta<WeatherReport> : WeatherReportGlaze {};
+} // namespace glz

@@ -55,13 +55,13 @@ namespace {
     if (!data.weather.has_value())
       failures.emplace_back("Weather", data.weather.error());
 
-    const u8 totalPossibleReadouts = 12;
+    constexpr u8 totalPossibleReadouts = 12;
 
 #ifdef __cpp_lib_print
     std::println("We've collected a total of {} readouts including {} failed read(s) and 0 read(s) resulting in a warning.\n", totalPossibleReadouts, failures.size());
 
-    for (const var& fail : failures)
-      std::println("Readout \"{}\" failed with message: {} (code: {})", fail.first, fail.second.message, fail.second.code);
+    for (const auto& [readout, err] : failures)
+      std::println("Readout \"{}\" failed with message: {} (code: {})", readout, err.message, err.code);
 #else
     std::cout << "We've collected a total of " << totalPossibleReadouts
               << " readouts including " << failures.size()
@@ -115,10 +115,10 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
       using util::logging::LogLevel;
       using enum util::logging::LogLevel;
 
-      bool           verbose     = parser.get<bool>("-V").value_or(false) || parser.get<bool>("--verbose").value_or(false);
+      const bool     verbose     = parser.get<bool>("-V").value_or(false) || parser.get<bool>("--verbose").value_or(false);
       Result<String> logLevelStr = verbose ? "debug" : parser.get<String>("--log-level");
 
-      LogLevel minLevel = match(logLevelStr)(
+      const LogLevel minLevel = match(logLevelStr)(
         is | "debug" = Debug,
         is | "info"  = Info,
         is | "warn"  = Warn,
