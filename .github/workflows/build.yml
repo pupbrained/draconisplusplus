@@ -29,6 +29,8 @@ jobs:
         uses: cachix/cachix-action@v12
         with:
           name: pupbrained
+          signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
       - name: Nix Build and Push Packages
         run: |
           nix build .#glibc-generic --no-link --print-out-paths | cachix push pupbrained
