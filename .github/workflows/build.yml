@@ -1,0 +1,14 @@
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: wimpysworld/nothing-but-nix@main
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+      - name: Run Nix
+        run: |
+          nix --version
