@@ -19,16 +19,10 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          path: ./.github/actions/this
-      - name: Purge
-        uses: ./.github/actions/this
-        with:
-          hatchet-protocol: ${{ matrix.hatchet-protocol }}
-          witness-carnage: true
-      - uses: DeterminateSystems/determinate-nix-action@main
+      - uses: actions/checkout@v4
+      - uses: wimpysworld/nothing-but-nix@main
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
       - name: Nix
         run: |
           nix --version
