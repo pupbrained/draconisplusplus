@@ -1,19 +1,21 @@
-name: Test
+name: Build
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: true
 
 jobs:
-  test-ubuntu:
-    name: Test ${{ matrix.os }} with ${{ matrix.hatchet-protocol }}
-    runs-on: ${{ matrix.os }}
+  build-ubuntu:
+    name: Build Ubuntu
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
-        os: [ubuntu-22.04, ubuntu-24.04]
-        hatchet-protocol: [holster, carve, cleave, rampage]
+        os: [ubuntu-24.04]
       fail-fast: false
     permissions:
       contents: read
@@ -23,7 +25,17 @@ jobs:
       - uses: wimpysworld/nothing-but-nix@main
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
-      - name: Nix
+      - name: Install Cachix
+        uses: cachix/cachix-action@v12
+        with:
+          name: pupbrained
+      - name: Nix Build and Push Packages
         run: |
-          nix --version
-          echo "Hello Nix" | nix run "https://flakehub.com/f/NixOS/nixpkgs/*#neo-cowsay"
+          nix build .#glibc-generic --no-link --print-out-paths | cachix push pupbrained
+          nix build .#glibc-native --no-link --print-out-paths | cachix push pupbrained
+          nix build .#musl-generic --no-link --print-out-paths | cachix push pupbrained
+          nix build .#musl-native --no-link --print-out-paths | cachix push pupbrained
+      - name: Nix Develop and Push Dev Shell
+        run: |
+          nix develop --profile dev-profile -c true
+          cachix push pupbrained dev-profile
