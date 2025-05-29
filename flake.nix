@@ -16,167 +16,26 @@
   }:
     utils.lib.eachDefaultSystem (
       system:
-        if system == "x86_64-linux"
-        then let
-          pkgs = import nixpkgs {inherit system;};
-          muslPkgs = import nixpkgs {
-            system = "x86_64-linux-musl";
-            overlays = [
-              (self: super: {
-                mimalloc = super.mimalloc.overrideAttrs (oldAttrs: {
-                  cmakeFlags =
-                    (oldAttrs.cmakeFlags or [])
-                    ++ [(self.lib.cmakeBool "MI_LIBC_MUSL" true)];
-
-                  postPatch = ''
-                    sed -i '\|<linux/prctl.h>|s|^|// |' src/prim/unix/prim.c
-                  '';
-                });
-              })
-            ];
-          };
-
-          llvmPackages = muslPkgs.llvmPackages_20;
-
-          stdenv =
-            muslPkgs.stdenvAdapters.useMoldLinker
-            llvmPackages.libcxxStdenv;
-
-          glaze = (muslPkgs.glaze.override {inherit stdenv;}).overrideAttrs (oldAttrs: {
-            cmakeFlags =
-              (oldAttrs.cmakeFlags or [])
-              ++ [
-                "-Dglaze_DEVELOPER_MODE=OFF"
-                "-Dglaze_BUILD_EXAMPLES=OFF"
-              ];
-
-            doCheck = false;
-
-            enableAvx2 = stdenv.hostPlatform.isx86;
-          });
-
-          mkOverridden = buildSystem: pkg: ((pkg.override {inherit stdenv;}).overrideAttrs (oldAttrs: {
-            "${buildSystem}Flags" =
-              (oldAttrs."${buildSystem}Flags" or [])
-              ++ (
-                if buildSystem == "meson"
-                then ["-Ddefault_library=static"]
-                else if buildSystem == "cmake"
-                then [
-                  "-D${pkgs.lib.toUpper pkg.pname}_BUILD_EXAMPLES=OFF"
-                  "-D${pkgs.lib.toUpper pkg.pname}_BUILD_TESTS=OFF"
-                  "-DBUILD_SHARED_LIBS=OFF"
-                ]
-                else throw "Invalid build system: ${buildSystem}"
-              );
-          }));
-
-          deps = with pkgs.pkgsStatic; [
-            curlMinimal
-            dbus
-            glaze
-            llvmPackages.libcxx
-            openssl
-            sqlite
-            wayland
-            xorg.libXau
-            xorg.libXdmcp
-            xorg.libxcb
-
-            (mkOverridden "cmake" ftxui)
-            (mkOverridden "cmake" pugixml)
-            (mkOverridden "cmake" sqlitecpp)
-            (mkOverridden "meson" tomlplusplus)
-          ];
-        in {
-          packages = rec {
-            draconisplusplus = stdenv.mkDerivation {
-              name = "draconis++";
-              version = "0.1.0";
-              src = self;
-
-              nativeBuildInputs = with muslPkgs; [
-                cmake
-                meson
-                ninja
-                pkg-config
-              ];
-
-              buildInputs = deps;
-
-              configurePhase = ''
-                meson setup build --buildtype release
-              '';
-
-              buildPhase = ''
-                meson compile -C build
-              '';
-
-              installPhase = ''
-                mkdir -p $out/bin
-                mv build/draconis++ $out/bin/draconis++
-              '';
-
-              NIX_ENFORCE_NO_NATIVE = 0;
-              meta.staticExecutable = true;
-            };
-
-            draconisplusplus-generic = draconisplusplus.overrideAttrs {NIX_ENFORCE_NO_NATIVE = 1;};
-
-            default = draconisplusplus;
-          };
-
-          devShell = muslPkgs.mkShell.override {inherit stdenv;} {
-            packages =
-              (with pkgs; [
-                bear
-                cachix
-                cmake
-              ])
-              ++ (with muslPkgs; [
-                llvmPackages_20.clang-tools
-                meson
-                ninja
-                pkg-config
-                (pkgs.writeScriptBin "build" "meson compile -C build")
-                (pkgs.writeScriptBin "clean" "meson setup build --wipe")
-                (pkgs.writeScriptBin "run" "meson compile -C build && build/draconis++")
-              ])
-              ++ deps;
-
-            NIX_ENFORCE_NO_NATIVE = 0;
-          };
-
-          formatter = treefmt-nix.lib.mkWrapper pkgs {
-            projectRootFile = "flake.nix";
-            programs = {
-              alejandra.enable = true;
-              deadnix.enable = true;
-              clang-format = {
-                enable = true;
-                package = pkgs.llvmPackages.clang-tools;
-              };
-            };
-          };
-        }
-        else let
+        let
+          # This pkgs is for the devShell and formatter (glibc based)
           pkgs = import nixpkgs {inherit system;};
 
-          llvmPackages = pkgs.llvmPackages_20;
+          llvmPackages = pkgs.llvmPackages_20; # Used by devShell and formatter
 
-          stdenv = with pkgs;
+          stdenv = with pkgs; # stdenv for devShell
             (
               if hostPlatform.isLinux
               then stdenvAdapters.useMoldLinker
               else lib.id
             )
-            llvmPackages.libcxxStdenv;
+            llvmPackages.stdenv;
 
-          deps = with pkgs;
+          # Deps for devShell, taken from the old "glibc" (else) branch
+          devShellDeps = with pkgs;
             [
               (glaze.override {enableAvx2 = hostPlatform.isx86;})
             ]
-            ++ (with pkgsStatic; [
+            ++ (with pkgs.pkgsStatic; [
               curl
               ftxui
               sqlitecpp
@@ -187,12 +46,12 @@
             ++ darwinPkgs
             ++ linuxPkgs;
 
-          darwinPkgs = nixpkgs.lib.optionals stdenv.isDarwin (with pkgs.pkgsStatic; [
+          darwinPkgs = nixpkgs.lib.optionals pkgs.stdenv.isDarwin (with pkgs.pkgsStatic; [
             libiconv
             apple-sdk_15
           ]);
 
-          linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs;
+          linuxPkgs = nixpkgs.lib.optionals pkgs.stdenv.isLinux (with pkgs;
             [
               valgrind
             ]
@@ -202,87 +61,60 @@
               xorg.libxcb
               wayland
             ]));
+
         in
-          with pkgs; {
-            packages = rec {
-              draconisplusplus = stdenv.mkDerivation {
-                name = "draconis++";
-                version = "0.1.0";
-                src = self;
+        {
+          # Packages are now defined in nix/default.nix
+          # We pass the necessary inputs to it.
+          packages = import ./nix { inherit nixpkgs self system; };
 
-                nativeBuildInputs = [
-                  cmake
-                  meson
-                  ninja
-                  pkg-config
-                ];
+          # devShell always uses glibc based environment
+          devShell = pkgs.mkShell.override {inherit stdenv;} {
+            packages =
+              (with pkgs; [
+                alejandra
+                bear
+                llvmPackages.clang-tools
+                cmake
+                include-what-you-use
+                lldb
+                hyperfine
+                meson
+                ninja
+                nvfetcher
+                pkg-config
+                unzip
 
-                buildInputs = deps;
+                (writeScriptBin "build" "meson compile -C build")
+                (writeScriptBin "clean" "meson setup build --wipe")
+                (writeScriptBin "run" "meson compile -C build && build/draconis++")
+              ])
+              ++ devShellDeps; # Add the specific dependencies for devShell
 
-                configurePhase = ''
-                  meson setup build --buildtype release
-                '';
+            LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath devShellDeps; # Ensure this uses the devShellDeps
+            NIX_ENFORCE_NO_NATIVE = 0; # For devShell, allow native
 
-                buildPhase = ''
-                  meson compile -C build
-                '';
+            shellHook = pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
+              export SDKROOT=${pkgs.pkgsStatic.apple-sdk_15}/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+              export DEVELOPER_DIR=${pkgs.pkgsStatic.apple-sdk_15}
+              export NIX_CFLAGS_COMPILE="-isysroot $SDKROOT"
+              export NIX_CXXFLAGS_COMPILE="-isysroot $SDKROOT"
+              export NIX_OBJCFLAGS_COMPILE="-isysroot $SDKROOT"
+              export NIX_OBJCXXFLAGS_COMPILE="-isysroot $SDKROOT"
+            '';
+          };
 
-                installPhase = ''
-                  mkdir -p $out/bin
-                  mv build/draconis++ $out/bin/draconis++
-                '';
+          formatter = treefmt-nix.lib.mkWrapper pkgs {
+            projectRootFile = "flake.nix";
+            programs = {
+              alejandra.enable = true;
+              deadnix.enable = true;
+              clang-format = {
+                enable = true;
+                package = pkgs.llvmPackages.clang-tools; # Ensure this uses the glibc pkgs
               };
-
-              default = draconisplusplus;
             };
-
-            formatter = treefmt-nix.lib.mkWrapper pkgs {
-              projectRootFile = "flake.nix";
-              programs = {
-                alejandra.enable = true;
-                deadnix.enable = true;
-
-                clang-format = {
-                  enable = true;
-                  package = pkgs.llvmPackages.clang-tools;
-                };
-              };
-            };
-
-            devShell = mkShell.override {inherit stdenv;} {
-              packages =
-                [
-                  alejandra
-                  bear
-                  llvmPackages.clang-tools
-                  cmake
-                  include-what-you-use
-                  lldb
-                  hyperfine
-                  meson
-                  ninja
-                  nvfetcher
-                  pkg-config
-                  unzip
-
-                  (writeScriptBin "build" "meson compile -C build")
-                  (writeScriptBin "clean" "meson setup build --wipe")
-                  (writeScriptBin "run" "meson compile -C build && build/draconis++")
-                ]
-                ++ deps;
-
-              LD_LIBRARY_PATH = "${lib.makeLibraryPath deps}";
-              NIX_ENFORCE_NO_NATIVE = 0;
-
-              shellHook = lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
-                export SDKROOT=${pkgs.pkgsStatic.apple-sdk_15}/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
-                export DEVELOPER_DIR=${pkgs.pkgsStatic.apple-sdk_15}
-                export NIX_CFLAGS_COMPILE="-isysroot $SDKROOT"
-                export NIX_CXXFLAGS_COMPILE="-isysroot $SDKROOT"
-                export NIX_OBJCFLAGS_COMPILE="-isysroot $SDKROOT"
-                export NIX_OBJCXXFLAGS_COMPILE="-isysroot $SDKROOT"
-              '';
-            };
-          }
+          };
+        }
     );
 }

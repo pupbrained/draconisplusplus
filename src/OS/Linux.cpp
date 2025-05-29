@@ -39,6 +39,12 @@
 using util::error::DracError, util::error::DracErrorCode;
 using util::types::String, util::types::Result, util::types::Err, util::types::usize;
 
+// clang-format off
+#ifdef __GLIBC__
+extern "C" fn issetugid() -> usize { return 0; } // NOLINT(readability-identifier-naming) - glibc function stub
+#endif
+// clang-format on
+
 namespace {
   #ifdef HAVE_XCB
   fn GetX11WindowManager() -> Result<String> {

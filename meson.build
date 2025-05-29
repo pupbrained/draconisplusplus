@@ -5,6 +5,7 @@ project(
   'draconis++',
   'cpp',
   version: '0.1.0',
+  meson_version: '>=1.1',
   default_options: [
     'default_library=static',
     'buildtype=debugoptimized',
@@ -214,7 +215,7 @@ objc_args = []
 
 if host_system == 'darwin'
   objc_args += ['-fobjc-arc']
-elif host_system == 'linux'
+elif host_system == 'linux' and get_option('build_for_musl') == true
   link_args += ['-static']
 elif host_system == 'haiku'
   link_args += ['-lpackage', '-lbe']

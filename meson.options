@@ -1,0 +1,1 @@
+option('build_for_musl', type: 'boolean', value: false)
