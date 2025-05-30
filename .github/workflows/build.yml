@@ -23,8 +23,8 @@ jobs:
     steps:
       - name: Install Node.js
         run: |
-          sudo apt-get update
-          sudo apt-get install -y nodejs npm
+          apt-get update
+          apt-get install -y nodejs npm
       - uses: actions/checkout@v4
       - uses: wimpysworld/nothing-but-nix@main
         with:
