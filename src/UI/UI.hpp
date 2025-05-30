@@ -10,14 +10,14 @@
 #include "Util/Types.hpp"
 
 namespace ui {
-  using ftxui::Color::Palette16;
+  using ftxui::Color;
   using util::types::StringView;
 
   struct Theme {
-    Palette16 icon;
-    Palette16 label;
-    Palette16 value;
-    Palette16 border;
+    Color::Palette16 icon;
+    Color::Palette16 label;
+    Color::Palette16 value;
+    Color::Palette16 border;
   };
 
   extern const Theme DEFAULT_THEME;
