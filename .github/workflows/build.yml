@@ -28,6 +28,9 @@ jobs:
           witness-carnage: true
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
+        with:
+          extra-conf: |
+            build-dir = /nix/tmp
       - name: Install Cachix
         uses: cachix/cachix-action@v12
         with:
@@ -37,9 +40,7 @@ jobs:
       - name: Nix Build and Push Packages
         run: |
           nix build .#glibc-generic --no-link --print-out-paths | cachix push pupbrained
-          nix build .#glibc-native --no-link --print-out-paths | cachix push pupbrained
           nix build .#musl-generic --no-link --print-out-paths | cachix push pupbrained
-          nix build .#musl-native --no-link --print-out-paths | cachix push pupbrained
       - name: Nix Develop and Push Dev Shell
         run: |
           nix develop --profile dev-profile -c true
