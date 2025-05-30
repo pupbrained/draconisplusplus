@@ -3,7 +3,7 @@
 #include "IWeatherService.hpp"
 
 namespace weather {
-  class OpenMeteoService : public IWeatherService {
+  class OpenMeteoService final : public IWeatherService {
    public:
     OpenMeteoService(f64 lat, f64 lon, String units = "metric");
     [[nodiscard]] fn getWeatherInfo() const -> Result<WeatherReport> override;

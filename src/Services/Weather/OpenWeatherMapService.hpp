@@ -7,7 +7,7 @@
 namespace weather {
   using util::types::StringView;
 
-  class OpenWeatherMapService : public IWeatherService {
+  class OpenWeatherMapService final : public IWeatherService {
    public:
     OpenWeatherMapService(std::variant<String, Coords> location, String apiKey, String units);
     fn getWeatherInfo() const -> Result<WeatherReport> override;

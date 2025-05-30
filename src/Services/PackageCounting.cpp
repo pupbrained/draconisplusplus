@@ -40,7 +40,9 @@ namespace {
 
     std::error_code fsErrCode;
 
-    if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(pmId)) {
+    const String cacheKey = std::format("pkg_count_{}", pmId);
+
+    if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(cacheKey)) {
       const auto& [cachedCount, timestamp] = *cachedDataResult;
 
       if (!fs::exists(dirPath, fsErrCode) || fsErrCode)
@@ -181,7 +183,7 @@ namespace package {
     using util::error::DracError, util::error::DracErrorCode;
     using util::types::Exception, util::types::i64;
 
-    const String cacheKey = "pkg_count_" + pmId;
+    const String cacheKey = std::format("pkg_count_{}", pmId);
 
     if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(cacheKey)) {
       const auto& [count, timestamp] = *cachedDataResult;
@@ -202,17 +204,14 @@ namespace package {
     u64 count = 0;
 
     try {
-      std::error_code existsErr;
-      if (!fs::exists(dbPath, existsErr) || existsErr) {
+      if (std::error_code existsErr; !fs::exists(dbPath, existsErr) || existsErr)
         return Err(
           DracError(DracErrorCode::NotFound, std::format("{} database not found at '{}'", pmId, dbPath.string()))
         );
-      }
 
       const SQLite::Database database(dbPath.string(), SQLite::OPEN_READONLY);
-      SQLite::Statement      queryStmt(database, countQuery);
 
-      if (queryStmt.executeStep()) {
+      if (SQLite::Statement queryStmt(database, countQuery); queryStmt.executeStep()) {
         const i64 countInt64 = queryStmt.getColumn(0).getInt64();
         if (countInt64 < 0)
           return Err(
@@ -252,12 +251,11 @@ namespace package {
     using util::error::DracError, util::error::DracErrorCode;
     using util::types::i64, util::types::StringView;
 
-    const String    cacheKey = "pkg_count_" + pmId;
-    std::error_code fsErrCode;
+    const String cacheKey = "pkg_count_" + pmId;
 
     if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(cacheKey)) {
       const auto& [cachedCount, timestamp] = *cachedDataResult;
-      if (fs::exists(plistPath, fsErrCode) && !fsErrCode) {
+      if (std::error_code fsErrCode; fs::exists(plistPath, fsErrCode) && !fsErrCode) {
         const fs::file_time_type plistModTime = fs::last_write_time(plistPath, fsErrCode);
         if (!fsErrCode) {
           if (const system_clock::time_point cacheTimePoint = system_clock::time_point(seconds(timestamp));
@@ -272,13 +270,12 @@ namespace package {
       debug_at(cachedDataResult.error());
     }
 
-    xml_document     doc;
-    xml_parse_result result = doc.load_file(plistPath.c_str());
+    xml_document doc;
 
-    if (!result)
+    if (const xml_parse_result result = doc.load_file(plistPath.c_str()); !result)
       return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse plist file '{}': {}", plistPath.string(), result.description())));
 
-    xml_node dict = doc.child("plist").child("dict");
+    const xml_node dict = doc.child("plist").child("dict");
 
     if (!dict)
       return Err(DracError(DracErrorCode::ParseError, std::format("No <dict> in plist file '{}'.", plistPath.string())));
@@ -289,9 +286,7 @@ namespace package {
       if (StringView(node.name()) != "key")
         continue;
 
-      const StringView keyName = node.child_value();
-
-      if (keyName == "_XBPS_ALTERNATIVES_")
+      if (const StringView keyName = node.child_value(); keyName == "_XBPS_ALTERNATIVES_")
         continue;
 
       xml_node pkgDict = node.next_sibling("dict");
@@ -302,13 +297,11 @@ namespace package {
       bool isInstalled = false;
 
       for (xml_node pkgNode = pkgDict.first_child(); pkgNode; pkgNode = pkgNode.next_sibling())
-        if (StringView(pkgNode.name()) == "key" && StringView(pkgNode.child_value()) == "state") {
-          xml_node stateValue = pkgNode.next_sibling("string");
-          if (stateValue && StringView(stateValue.child_value()) == "installed") {
+        if (StringView(pkgNode.name()) == "key" && StringView(pkgNode.child_value()) == "state")
+          if (xml_node stateValue = pkgNode.next_sibling("string"); stateValue && StringView(stateValue.child_value()) == "installed") {
             isInstalled = true;
             break;
           }
-        }
 
       if (isInstalled)
         ++count;
@@ -319,8 +312,10 @@ namespace package {
 
     const i64               timestampEpochSeconds = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     const PkgCountCacheData dataToCache(count, timestampEpochSeconds);
+
     if (Result writeResult = WriteCache(cacheKey, dataToCache); !writeResult)
       debug_at(writeResult.error());
+
     return count;
   }
 #endif // __linux__
@@ -386,7 +381,6 @@ namespace package {
          std::async(std::launch::async, CountPacman),
          std::async(std::launch::async, CountRpm),
          std::async(std::launch::async, CountXbps),
-    //  std::async(std::launch::async, CountZypper),
 #elifdef __APPLE__
           std::async(std::launch::async, GetHomebrewCount),
           std::async(std::launch::async, GetMacPortsCount),

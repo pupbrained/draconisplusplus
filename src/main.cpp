@@ -85,7 +85,7 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
   {
     using argparse::ArgumentParser;
 
-    ArgumentParser parser("draconis", "0.1.0");
+    ArgumentParser parser("draconis", DRACONISPLUSPLUS_VERSION);
 
     parser
       .add_argument("--log-level")
@@ -100,10 +100,10 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
 
     parser
       .add_argument("-d", "--doctor")
-      .help("Enable doctor mode. This will run a series of checks to ensure the system is healthy.")
+      .help("Reports any failed readouts and their error messages.")
       .flag();
 
-    if (Result<> result = parser.parse_args(argc, argv); !result) {
+    if (Result result = parser.parse_args(argc, argv); !result) {
       error_at(result.error());
       return EXIT_FAILURE;
     }

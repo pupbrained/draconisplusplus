@@ -526,9 +526,7 @@ namespace package {
     const fs::path apkDbPath = "/lib/apk/db/installed";
     const String   cacheKey  = "pkg_count_" + pmId;
 
-    std::error_code fsErrCode;
-
-    if (!fs::exists(apkDbPath, fsErrCode)) {
+    if (std::error_code fsErrCode; !fs::exists(apkDbPath, fsErrCode)) {
       if (fsErrCode) {
         warn_log("Filesystem error checking for Apk DB at '{}': {}", apkDbPath.string(), fsErrCode.message());
         return Err(DracError(DracErrorCode::IoError, "Filesystem error checking Apk DB: " + fsErrCode.message()));
@@ -551,11 +549,10 @@ namespace package {
         );
       } else {
         using std::chrono::system_clock, std::chrono::seconds, std::chrono::floor;
-        const system_clock::time_point cacheTimePoint = system_clock::time_point(seconds(timestamp));
 
-        if (cacheTimePoint.time_since_epoch() >= dbModTime.time_since_epoch()) {
+        if (const system_clock::time_point cacheTimePoint = system_clock::time_point(seconds(timestamp));
+            cacheTimePoint.time_since_epoch() >= dbModTime.time_since_epoch())
           return cachedCount;
-        }
       }
     } else {
       if (cachedDataResult.error().code != DracErrorCode::NotFound)
@@ -567,11 +564,11 @@ namespace package {
     if (!file.is_open())
       return Err(DracError(DracErrorCode::IoError, std::format("Failed to open Apk database file '{}'", apkDbPath.string())));
 
-    String line;
-
     u64 count = 0;
 
     try {
+      String line;
+
       while (std::getline(file, line))
         if (line.empty())
           count++;
@@ -600,7 +597,7 @@ namespace package {
   }
 
   fn CountDpkg() -> Result<u64> {
-    return GetCountFromDirectory("Dpkg", fs::current_path().root_path() / "var" / "lib" / "dpkg" / "info", ".list"s);
+    return GetCountFromDirectory("dpkg", fs::current_path().root_path() / "var" / "lib" / "dpkg" / "info", ".list"s);
   }
 
   fn CountMoss() -> Result<u64> {
@@ -614,7 +611,7 @@ namespace package {
   }
 
   fn CountPacman() -> Result<u64> {
-    return GetCountFromDirectory("Pacman", fs::current_path().root_path() / "var" / "lib" / "pacman" / "local", true);
+    return GetCountFromDirectory("pacman", fs::current_path().root_path() / "var" / "lib" / "pacman" / "local", true);
   }
 
   fn CountRpm() -> Result<u64> {
@@ -630,13 +627,12 @@ namespace package {
       return Err(DracError(DracErrorCode::NotFound, std::format("Xbps database path '{}' does not exist", xbpsDbPath)));
 
     fs::path plistPath;
-    for (const fs::directory_entry& entry : fs::directory_iterator(xbpsDbPath)) {
-      const String filename = entry.path().filename().string();
-      if (filename.starts_with("pkgdb-") && filename.ends_with(".plist")) {
+
+    for (const fs::directory_entry& entry : fs::directory_iterator(xbpsDbPath))
+      if (const String filename = entry.path().filename().string(); filename.starts_with("pkgdb-") && filename.ends_with(".plist")) {
         plistPath = entry.path();
         break;
       }
-    }
 
     if (plistPath.empty())
       return Err(DracError(DracErrorCode::NotFound, "No Xbps database found"));

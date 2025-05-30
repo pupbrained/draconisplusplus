@@ -27,7 +27,7 @@ struct BytesToGiB {
    * @brief Constructor for BytesToGiB.
    * @param value The byte value to be converted.
    */
-  explicit constexpr BytesToGiB(u64 value)
+  explicit constexpr BytesToGiB(const u64 value)
     : value(value) {}
 };
 

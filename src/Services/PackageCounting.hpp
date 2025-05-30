@@ -22,7 +22,7 @@ namespace package {
     i64 timestampEpochSeconds {};
 
     PkgCountCacheData() = default;
-    PkgCountCacheData(u64 count, i64 timestampEpochSeconds)
+    PkgCountCacheData(const u64 count, const i64 timestampEpochSeconds)
       : count(count), timestampEpochSeconds(timestampEpochSeconds) {}
 
     // NOLINTBEGIN(readability-identifier-naming)
@@ -54,7 +54,9 @@ namespace package {
 
   /**
    * @brief Gets package count from a database using SQLite.
-   * @param pmInfo Information about the package manager database.
+   * @param pmId Identifier for the package manager (for logging/cache).
+   * @param dbPath Path to the SQLite database file.
+   * @param countQuery SQL query to count packages (e.g., "SELECT COUNT(*) FROM packages").
    * @return Result containing the count (u64) or a DracError.
    */
   fn GetCountFromDb(const String& pmId, const fs::path& dbPath, const String& countQuery) -> Result<u64>;

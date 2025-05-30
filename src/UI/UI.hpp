@@ -3,37 +3,40 @@
 #include <ftxui/dom/elements.hpp> // ftxui::Element
 #include <ftxui/screen/color.hpp> // ftxui::Color
 
-#include "Core/SystemData.hpp"
-
 #include "Config/Config.hpp"
+
+#include "Core/SystemData.hpp"
 
 #include "Util/Types.hpp"
 
 namespace ui {
+  using ftxui::Color::Palette16;
+  using util::types::StringView;
+
   struct Theme {
-    ftxui::Color::Palette16 icon;
-    ftxui::Color::Palette16 label;
-    ftxui::Color::Palette16 value;
-    ftxui::Color::Palette16 border;
+    Palette16 icon;
+    Palette16 label;
+    Palette16 value;
+    Palette16 border;
   };
 
   extern const Theme DEFAULT_THEME;
 
   struct Icons {
-    util::types::StringView user;
-    util::types::StringView palette;
-    util::types::StringView calendar;
-    util::types::StringView host;
-    util::types::StringView kernel;
-    util::types::StringView os;
-    util::types::StringView memory;
-    util::types::StringView weather;
-    util::types::StringView music;
-    util::types::StringView disk;
-    util::types::StringView shell;
-    util::types::StringView package;
-    util::types::StringView desktop;
-    util::types::StringView windowManager;
+    StringView user;
+    StringView palette;
+    StringView calendar;
+    StringView host;
+    StringView kernel;
+    StringView os;
+    StringView memory;
+    StringView weather;
+    StringView music;
+    StringView disk;
+    StringView shell;
+    StringView package;
+    StringView desktopEnvironment;
+    StringView windowManager;
   };
 
   extern const Icons ICON_TYPE;

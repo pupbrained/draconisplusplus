@@ -1,9 +1,10 @@
-#include "ftxui/dom/elements.hpp"
 #define NOMINMAX
+
+#include "UI.hpp"
 
 #include "Util/Types.hpp"
 
-#include "UI.hpp"
+#include "ftxui/dom/elements.hpp"
 
 namespace ui {
   using namespace ftxui;
@@ -17,20 +18,20 @@ namespace ui {
   };
 
   [[maybe_unused]] static constexpr Icons NONE = {
-    .user          = "",
-    .palette       = "",
-    .calendar      = "",
-    .host          = "",
-    .kernel        = "",
-    .os            = "",
-    .memory        = "",
-    .weather       = "",
-    .music         = "",
-    .disk          = "",
-    .shell         = "",
-    .package       = "",
-    .desktop       = "",
-    .windowManager = "",
+    .user               = "",
+    .palette            = "",
+    .calendar           = "",
+    .host               = "",
+    .kernel             = "",
+    .os                 = "",
+    .memory             = "",
+    .weather            = "",
+    .music              = "",
+    .disk               = "",
+    .shell              = "",
+    .package            = "",
+    .desktopEnvironment = "",
+    .windowManager      = "",
   };
 
   [[maybe_unused]] static constexpr Icons NERD = {
@@ -50,31 +51,31 @@ namespace ui {
 #else
     .os = "   ",
 #endif
-    .memory        = "   ",
-    .weather       = "   ",
-    .music         = "   ",
-    .disk          = " 󰋊  ",
-    .shell         = "   ",
-    .package       = " 󰏖  ",
-    .desktop       = " 󰇄  ",
-    .windowManager = "   ",
+    .memory             = "   ",
+    .weather            = "   ",
+    .music              = "   ",
+    .disk               = " 󰋊  ",
+    .shell              = "   ",
+    .package            = " 󰏖  ",
+    .desktopEnvironment = " 󰇄  ",
+    .windowManager      = "   ",
   };
 
   [[maybe_unused]] static constexpr Icons EMOJI = {
-    .user          = " 👤 ",
-    .palette       = " 🎨 ",
-    .calendar      = " 📅 ",
-    .host          = " 💻 ",
-    .kernel        = " 🫀 ",
-    .os            = " 🤖 ",
-    .memory        = " 🧠 ",
-    .weather       = " 🌈 ",
-    .music         = " 🎵 ",
-    .disk          = " 💾 ",
-    .shell         = " 💲 ",
-    .package       = " 📦 ",
-    .desktop       = " 🖥️ ",
-    .windowManager = " 🪟 ",
+    .user               = " 👤 ",
+    .palette            = " 🎨 ",
+    .calendar           = " 📅 ",
+    .host               = " 💻 ",
+    .kernel             = " 🫀 ",
+    .os                 = " 🤖 ",
+    .memory             = " 🧠 ",
+    .weather            = " 🌈 ",
+    .music              = " 🎵 ",
+    .disk               = " 💾 ",
+    .shell              = " 💲 ",
+    .package            = " 📦 ",
+    .desktopEnvironment = " 🖥️ ",
+    .windowManager      = " 🪟 ",
   };
 
   constexpr inline Icons ICON_TYPE = NERD;
@@ -104,7 +105,7 @@ namespace ui {
     }};
     // clang-format on
 
-    fn GetDistroIcon(StringView distro) -> Option<StringView> {
+    fn GetDistroIcon(const StringView distro) -> Option<StringView> {
       using namespace matchit;
 
       for (const auto& [distroName, distroIcon] : distro_icons)
@@ -140,7 +141,7 @@ namespace ui {
       for (const RowInfo& row : rows) maxWidth = std::max(maxWidth, get_visual_width_sv(row.label));
 
       return maxWidth;
-    };
+    }
 
     fn CreateInfoBox(const Config& config, const os::SystemData& data) -> Element {
       const String&  name    = config.general.name;

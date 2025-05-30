@@ -218,7 +218,7 @@ namespace {
 
     i32 year = 0, mon = 0, mday = 0, hour = 0, min = 0, sec = 0;
 
-    fn parseInt = [](StringView sview, i32& out) -> bool {
+    fn parseInt = [](const StringView sview, i32& out) -> bool {
       auto [ptr, ec] = std::from_chars(sview.data(), sview.data() + sview.size(), out);
 
       return ec == std::errc() && ptr == sview.data() + sview.size();
