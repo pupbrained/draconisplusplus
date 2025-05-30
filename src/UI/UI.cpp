@@ -105,9 +105,7 @@ namespace ui {
     }};
     // clang-format on
 
-    fn GetDistroIcon(const StringView distro) -> Option<StringView> {
-      using namespace matchit;
-
+    fn GetDistroIcon(StringView distro) -> Option<StringView> {
       for (const auto& [distroName, distroIcon] : distro_icons)
         if (distro.contains(distroName))
           return distroIcon;

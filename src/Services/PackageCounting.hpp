@@ -22,15 +22,18 @@ namespace package {
     i64 timestampEpochSeconds {};
 
     PkgCountCacheData() = default;
-    PkgCountCacheData(const u64 count, const i64 timestampEpochSeconds)
-      : count(count), timestampEpochSeconds(timestampEpochSeconds) {}
+    PkgCountCacheData(u64 count, i64 timestampEpochSeconds) : count(count), timestampEpochSeconds(timestampEpochSeconds) {}
 
     // NOLINTBEGIN(readability-identifier-naming)
     struct [[maybe_unused]] glaze {
       using T = PkgCountCacheData;
 
-      static constexpr glz::detail::Object value =
-        glz::object("count", &T::count, "timestamp", &T::timestampEpochSeconds);
+      // clang-format off
+      static constexpr glz::detail::Object value = glz::object(
+        "count",     &T::count,
+        "timestamp", &T::timestampEpochSeconds
+      );
+      // clang-format on
     };
     // NOLINTEND(readability-identifier-naming)
   };
