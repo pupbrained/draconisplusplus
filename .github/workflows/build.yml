@@ -34,7 +34,3 @@ jobs:
         run: |
           nix build .#glibc-generic --no-link --print-out-paths | cachix push pupbrained
           nix build .#musl-generic --no-link --print-out-paths | cachix push pupbrained
-      - name: Nix Develop and Push Dev Shell
-        run: |
-          nix develop --profile dev-profile -c true
-          cachix push pupbrained dev-profile
