@@ -22,10 +22,6 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
-      - uses: wimpysworld/nothing-but-nix@main
-        with:
-          hatchet-protocol: 'holster'
-          witness-carnage: true
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
       - name: Install Cachix
