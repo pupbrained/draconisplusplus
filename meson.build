@@ -11,7 +11,6 @@ project(
     'buildtype=debugoptimized',
     'b_vscrt=mt',
     'b_lto=true',
-    'b_pgo=true',
     'b_ndebug=if-release',
     'warning_level=3',
   ],
