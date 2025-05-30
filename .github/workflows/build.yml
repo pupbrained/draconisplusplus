@@ -22,9 +22,10 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
-      - uses: nixbuild/nix-quick-install-action@v30
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
         with:
-          nix_conf: |
+          extra-conf: |
             keep-env-derivations = true
             keep-outputs = true
       - name: Restore and save Nix store
