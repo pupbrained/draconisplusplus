@@ -21,10 +21,6 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - name: Install Node.js
-        run: |
-          apt-get update
-          apt-get install -y nodejs npm
       - uses: actions/checkout@v4
       - uses: wimpysworld/nothing-but-nix@main
         with:
