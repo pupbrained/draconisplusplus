@@ -8,8 +8,6 @@
 
 #include <chrono>              // std::chrono::{system_clock, minutes, seconds}
 #include <ctime>               // std::tm, std::timegm
-#include <curl/curl.h>         // CURL, CURLcode, CURLOPT_*, CURLE_OK
-#include <curl/easy.h>         // curl_easy_init, curl_easy_setopt, curl_easy_perform, curl_easy_strerror, curl_easy_cleanup
 #include <format>              // std::format
 #include <glaze/json/read.hpp> // glz::read
 
@@ -18,6 +16,8 @@
 #include "Util/Caching.hpp"
 #include "Util/Error.hpp"
 #include "Util/Types.hpp"
+
+#include "Wrappers/Curl.hpp"
 
 using weather::OpenMeteoService;
 using weather::WeatherReport;
@@ -36,14 +36,14 @@ namespace weather {
   struct ResponseG {
     using T = Response;
 
-    static constexpr auto value = glz::object("current_weather", &T::currentWeather);
+    static constexpr Object value = glz::object("current_weather", &T::currentWeather);
   };
 
   struct CurrentG {
     using T = Response::Current;
 
     // clang-format off
-    static constexpr auto value = glz::object(
+    static constexpr Object value = glz::object(
       "temperature", &T::temperature,
       "weathercode", &T::weathercode,
       "time",        &T::time
@@ -64,12 +64,6 @@ namespace glz {
 namespace {
   using util::error::DracError, util::error::DracErrorCode;
   using util::types::usize, util::types::Err, util::types::String, util::types::Result, util::types::StringView;
-
-  fn WriteCallback(void* contents, const usize size, const usize nmemb, String* str) -> usize {
-    const usize totalSize = size * nmemb;
-    str->append(static_cast<char*>(contents), totalSize);
-    return totalSize;
-  }
 
   fn parse_iso8601_to_epoch(const StringView iso8601) -> Result<usize> {
     using util::types::i32;
@@ -115,6 +109,7 @@ OpenMeteoService::OpenMeteoService(const f64 lat, const f64 lon, String units)
   : m_lat(lat), m_lon(lon), m_units(std::move(units)) {}
 
 fn OpenMeteoService::getWeatherInfo() const -> Result<WeatherReport> {
+  using Curl::Easy, Curl::EasyOptions;
   using glz::error_ctx, glz::read, glz::error_code;
   using util::cache::ReadCache, util::cache::WriteCache;
   using util::types::Array, util::types::None, util::types::StringView;
@@ -140,22 +135,26 @@ fn OpenMeteoService::getWeatherInfo() const -> Result<WeatherReport> {
     m_units == "imperial" ? "fahrenheit" : "celsius"
   );
 
-  CURL* curl = curl_easy_init();
-  if (!curl)
-    return Err(DracError(DracErrorCode::ApiUnavailable, "Failed to initialize cURL"));
-
   String responseBuffer;
-  curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseBuffer);
-  curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10);
-  curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5);
 
-  CURLcode res = curl_easy_perform(curl);
-  curl_easy_cleanup(curl);
+  // clang-format off
+  Easy curl({
+    .url             = url,
+    .writeBuffer     = &responseBuffer,
+    .timeoutS        = 10L,
+    .connectTimeoutS = 5L
+  });
+  // clang-format on
 
-  if (res != CURLE_OK)
-    return Err(DracError(DracErrorCode::ApiUnavailable, std::format("cURL error: {}", curl_easy_strerror(res))));
+  if (!curl) {
+    if (Option<DracError> initError = curl.getInitializationError())
+      return Err(*initError);
+
+    return Err(DracError(DracErrorCode::ApiUnavailable, "Failed to initialize cURL (Easy handle is invalid after construction)"));
+  }
+
+  if (Result res = curl.perform(); !res)
+    return Err(res.error());
 
   Response apiResp {};
 

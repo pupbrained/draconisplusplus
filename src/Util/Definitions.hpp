@@ -7,3 +7,6 @@
 
 /// Macro alias for trailing return type functions.
 #define fn auto
+
+#define Ok \
+  {}

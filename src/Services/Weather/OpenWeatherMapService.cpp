@@ -3,8 +3,6 @@
 #include "OpenWeatherMapService.hpp"
 
 #include <chrono>
-#include <curl/curl.h>
-#include <curl/easy.h>
 #include <format>
 #include <glaze/core/meta.hpp>
 #include <glaze/json/read.hpp>
@@ -15,6 +13,8 @@
 #include "Util/Error.hpp"
 #include "Util/Logging.hpp"
 #include "Util/Types.hpp"
+
+#include "Wrappers/Curl.hpp"
 
 using weather::OpenWeatherMapService;
 using weather::WeatherReport;
@@ -76,36 +76,33 @@ namespace glz {
 } // namespace glz
 
 namespace {
+  using Curl::Easy;
   using util::error::DracError, util::error::DracErrorCode;
   using util::types::usize, util::types::Err, util::types::Result, util::types::String, util::types::StringView;
-
-  fn WriteCallback(void* contents, const usize size, const usize nmemb, String* str) -> usize {
-    const usize totalSize = size * nmemb;
-    str->append(static_cast<char*>(contents), totalSize);
-    return totalSize;
-  }
 
   fn MakeApiRequest(const String& url) -> Result<WeatherReport> {
     using glz::error_ctx, glz::read, glz::error_code;
     using util::types::None, util::types::Option;
 
-    CURL*  curl = curl_easy_init();
     String responseBuffer;
 
-    if (!curl)
-      return Err(DracError(DracErrorCode::ApiUnavailable, "Failed to initialize cURL"));
+    // clang-format off
+    Easy curl({
+      .url = url,
+      .writeBuffer = &responseBuffer,
+      .timeoutS = 10L,
+      .connectTimeoutS = 5L
+    });
+    // clang-format on
 
-    curl_easy_setopt(curl, CURLOPT_URL, url.data());
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseBuffer);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10);
-    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5);
+    if (!curl) {
+      if (Option<DracError> initError = curl.getInitializationError())
+        return Err(*initError);
+      return Err(DracError(DracErrorCode::ApiUnavailable, "Failed to initialize cURL (Easy handle is invalid after construction)"));
+    }
 
-    const CURLcode res = curl_easy_perform(curl);
-    curl_easy_cleanup(curl);
-
-    if (res != CURLE_OK)
-      return Err(DracError(DracErrorCode::ApiUnavailable, std::format("cURL error: {}", curl_easy_strerror(res))));
+    if (Result res = curl.perform(); !res)
+      return Err(res.error());
 
     weather::OWMResponse owmResponse;
 
@@ -158,11 +155,11 @@ fn OpenWeatherMapService::getWeatherInfo() const -> Result<WeatherReport> {
 
     const auto& city = std::get<String>(m_location);
 
-    char* escaped = curl_easy_escape(nullptr, city.data(), static_cast<i32>(city.length()));
+    Result<String> escapedUrl = Easy::escape(city);
+    if (!escapedUrl)
+      return Err(escapedUrl.error());
 
-    const String apiUrl = std::format("https://api.openweathermap.org/data/2.5/weather?q={}&appid={}&units={}", escaped, m_apiKey, m_units);
-
-    curl_free(escaped);
+    const String apiUrl = std::format("https://api.openweathermap.org/data/2.5/weather?q={}&appid={}&units={}", *escapedUrl, m_apiKey, m_units);
 
     return handleApiResult(MakeApiRequest(apiUrl));
   }
