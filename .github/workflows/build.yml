@@ -24,13 +24,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: wimpysworld/nothing-but-nix@main
         with:
-          hatchet-protocol: 'rampage'
+          hatchet-protocol: 'holster'
           witness-carnage: true
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
-        with:
-          extra-conf: |
-            build-dir = /nix/tmp
       - name: Install Cachix
         uses: cachix/cachix-action@v12
         with:
