@@ -19,6 +19,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Add custom tools to PATH
+        run: echo "/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:$PATH" >> $GITHUB_ENV
+
       - name: Build glibc-generic package
         id: build_glibc
         run: echo "path=$(nix build .#glibc-generic --no-link --print-out-paths)" >> $GITHUB_OUTPUT
@@ -75,7 +78,7 @@ jobs:
 
       - name: Setup Meson Build in Persistent Directory
         run: >
-          meson setup "${{ steps.paths.outputs.build_dir }}" . --buildtype=release
+          meson setup "${{ steps.paths.outputs.build_dir }}" --buildtype=release
           -Dc_args="-fuse-ld=lld"
           -Dcpp_args="-fuse-ld=lld"
           -Dc_link_args="-fuse-ld=lld"
