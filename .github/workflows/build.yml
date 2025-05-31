@@ -60,13 +60,13 @@ jobs:
         run: cachix push pupbrained ${{ steps.build_musl.outputs.path }}
 
       - name: Upload Nix glibc-generic Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: nix-build-glibc-generic
           path: ${{ steps.build_glibc.outputs.path }}
 
       - name: Upload Nix musl-generic Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: nix-build-musl-generic
           path: ${{ steps.build_musl.outputs.path }}
@@ -76,11 +76,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Setup Meson Build
-        run: meson setup build --buildtype=release
+        run: >
+          meson setup build --buildtype=release
+          -Dc_args="-fuse-ld=lld"
+          -Dcpp_args="-fuse-ld=lld"
+          -Dc_link_args="-fuse-ld=lld"
+          -Dcpp_link_args="-fuse-ld=lld"
       - name: Compile with Meson
         run: meson compile -C build
       - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: windows-build
           path: build/
