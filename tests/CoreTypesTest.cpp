@@ -1,5 +1,4 @@
 #include <format> // Required for std::format
-#include <objidlbase.h>
 #include <string>
 
 #include "Core/SystemData.hpp" // For BytesToGiB
@@ -59,5 +58,3 @@ TEST_F(CoreTypesTest, BytesToGiB_RoundingNearBoundary) {
   std::string formattedRoundUp = std::format("{}", dataSizeRoundUp);
   EXPECT_EQ(formattedRoundUp, "0.01GiB");
 }
-
-
