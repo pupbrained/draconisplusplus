@@ -68,7 +68,6 @@
             src = self;
 
             nativeBuildInputs = with pkgs; [
-              cmake
               meson
               ninja
               pkg-config
@@ -108,7 +107,6 @@
             src = self;
 
             nativeBuildInputs = with muslPkgs; [
-              cmake
               meson
               ninja
               pkg-config
