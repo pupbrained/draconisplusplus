@@ -12,7 +12,7 @@ concurrency:
 jobs:
   linux:
     name: Linux
-    runs-on: [native]
+    runs-on: native-linux
     permissions:
       contents: read
       id-token: write
@@ -52,7 +52,7 @@ jobs:
           path: ${{ steps.build_musl.outputs.path }}/bin/draconis++
   windows:
     name: Windows
-    runs-on: [native]
+    runs-on: native
     steps:
       - uses: actions/checkout@v4
         with:
