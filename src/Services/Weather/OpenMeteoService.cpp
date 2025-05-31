@@ -6,11 +6,12 @@
   #define _DEFAULT_SOURCE // exposes timegm
 #endif
 
-#include <chrono>              // std::chrono::{system_clock, minutes, seconds}
-#include <format>              // std::format
-#include <glaze/json/read.hpp> // glz::read
+#include <chrono> // std::chrono::{system_clock, minutes, seconds}
+#include <format> // std::format
+// glz::read is included via DataTransferObjects.hpp
 
 #include "Services/Weather.hpp"
+#include "Services/Weather/DataTransferObjects.hpp"
 #include "Services/Weather/WeatherUtils.hpp"
 
 #include "Util/Caching.hpp"
@@ -21,45 +22,7 @@
 
 using weather::OpenMeteoService;
 using weather::WeatherReport;
-
-namespace weather {
-  using util::types::f64, util::types::i32, util::types::String;
-
-  struct Response {
-    struct Current {
-      f64    temperature;
-      i32    weathercode;
-      String time;
-    } currentWeather;
-  };
-
-  struct ResponseG {
-    using T = Response;
-
-    static constexpr Object value = glz::object("current_weather", &T::currentWeather);
-  };
-
-  struct CurrentG {
-    using T = Response::Current;
-
-    // clang-format off
-    static constexpr Object value = glz::object(
-      "temperature", &T::temperature,
-      "weathercode", &T::weathercode,
-      "time",        &T::time
-    );
-    // clang-format on
-  };
-} // namespace weather
-
-namespace glz {
-  using weather::Response, weather::ResponseG, weather::CurrentG;
-
-  template <>
-  struct meta<Response> : ResponseG {};
-  template <>
-  struct meta<Response::Current> : CurrentG {};
-} // namespace glz
+// DTOs and their Glaze meta definitions are now in Services/Weather/DataTransferObjects.hpp
 
 OpenMeteoService::OpenMeteoService(const f64 lat, const f64 lon, String units)
   : m_lat(lat), m_lon(lon), m_units(std::move(units)) {}
@@ -112,7 +75,7 @@ fn OpenMeteoService::getWeatherInfo() const -> Result<WeatherReport> {
   if (Result res = curl.perform(); !res)
     return Err(res.error());
 
-  Response apiResp {};
+  weather::dto::openmeteo::Response apiResp {};
 
   if (error_ctx errc = read<glz::opts { .error_on_unknown_keys = false }>(apiResp, responseBuffer); errc.ec != error_code::none)
     return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer))));

@@ -230,7 +230,7 @@ endif
 #  Static Library   #
 # ----------------- #
 lib = static_library(
-  'libdraconis++',
+  'draconis++',
   lib_all_sources,
   include_directories: [project_internal_includes, project_public_includes],
   dependencies: lib_deps,

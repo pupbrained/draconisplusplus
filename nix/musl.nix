@@ -66,7 +66,7 @@ let
     curlMinimal
     dbus
     glaze
-    gtest
+    (mkOverridden "cmake" gtest)
     llvmPackages_20.libcxx
     openssl
     sqlite

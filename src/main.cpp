@@ -67,7 +67,7 @@ namespace {
               << " readouts including " << failures.size()
               << " failed read(s) and 0 read(s) resulting in a warning.\n\n";
 
-    for (const var& fail : failures)
+    for (const auto& fail : failures)
       std::cout << "Readout \"" << fail.first << "\" failed with message: " << fail.second.message << "\n";
 
     std::cout << std::flush;

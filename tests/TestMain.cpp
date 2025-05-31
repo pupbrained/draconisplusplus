@@ -1,6 +1,11 @@
 #include "gtest/gtest.h"
 
-auto main(int argc, char **argv) -> int {
-  ::testing::InitGoogleTest(&argc, argv);
+#include "Util/Definitions.hpp"
+#include "Util/Types.hpp"
+
+using util::types::i32;
+
+fn main(i32 argc, char** argv) -> i32 {
+  testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
