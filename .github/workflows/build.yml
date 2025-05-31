@@ -22,22 +22,26 @@ jobs:
       - name: Build glibc-generic package
         id: build_glibc
         run: echo "path=$(nix build .#glibc-generic --no-link --print-out-paths)" >> $GITHUB_OUTPUT
+        shell: fish
 
       - name: Push glibc-generic to Cachix
         run: cachix push pupbrained ${{ steps.build_glibc.outputs.path }}
         env:
           CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
-          CACHIX_SIGNING_KEY: ${{ secrets.CACHIX_SIGNING_KEY }} # Only if you are using a signing key
+          CACHIX_SIGNING_KEY: ${{ secrets.CACHIX_SIGNING_KEY }}
+          shell: fish
 
       - name: Build musl-generic package
         id: build_musl
         run: echo "path=$(nix build .#musl-generic --no-link --print-out-paths)" >> $GITHUB_OUTPUT
+        shell: fish
 
       - name: Push musl-generic to Cachix
         run: cachix push pupbrained ${{ steps.build_musl.outputs.path }}
         env:
           CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
-          CACHIX_SIGNING_KEY: ${{ secrets.CACHIX_SIGNING_KEY }} # Only if you are using a signing key
+          CACHIX_SIGNING_KEY: ${{ secrets.CACHIX_SIGNING_KEY }}
+        shell: fish
 
       - name: Upload Nix glibc-generic Artifact
         uses: actions/upload-artifact@v3
