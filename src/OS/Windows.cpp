@@ -163,12 +163,12 @@ namespace {
 } // namespace
 
 namespace os {
-  fn GetMemInfo() -> Result<u64> {
+  fn GetMemInfo() -> Result<ResourceUsage> {
     MEMORYSTATUSEX memInfo;
     memInfo.dwLength = sizeof(MEMORYSTATUSEX);
 
     if (GlobalMemoryStatusEx(&memInfo))
-      return memInfo.ullTotalPhys;
+      return ResourceUsage { .usedBytes = memInfo.ullTotalPhys - memInfo.ullAvailPhys, .totalBytes = memInfo.ullTotalPhys };
 
     return Err(DracError(DracErrorCode::PlatformSpecific, std::format("GlobalMemoryStatusEx failed with error code {}", GetLastError())));
   }
@@ -336,11 +336,11 @@ namespace os {
     return Err(DracError(DracErrorCode::NotFound, "Shell not found"));
   }
 
-  fn GetDiskUsage() -> Result<DiskSpace> {
+  fn GetDiskUsage() -> Result<ResourceUsage> {
     ULARGE_INTEGER freeBytes, totalBytes;
 
-    if (GetDiskFreeSpaceExW(L"C:\\", nullptr, &totalBytes, &freeBytes))
-      return DiskSpace { .usedBytes = totalBytes.QuadPart - freeBytes.QuadPart, .totalBytes = totalBytes.QuadPart };
+    if (GetDiskFreeSpaceExW(L"C:\\\\", nullptr, &totalBytes, &freeBytes))
+      return ResourceUsage { .usedBytes = totalBytes.QuadPart - freeBytes.QuadPart, .totalBytes = totalBytes.QuadPart };
 
     return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to get disk usage"));
   }
