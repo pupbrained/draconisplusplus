@@ -61,13 +61,13 @@ jobs:
           $persistentBuildDir = "C:\persistent_builds\${{ github.event.repository.name }}"
           echo "Persistent Build Directory will be: $persistentBuildDir"
           echo "build_dir=$persistentBuildDir" | Add-Content -Path $env:GITHUB_OUTPUT
-        shell: pwsh
+        shell: powershell
 
       - uses: actions/checkout@v4
 
       - name: Ensure Persistent Build Directory Exists
         run: New-Item -ItemType Directory -Force -Path "${{ steps.paths.outputs.build_dir }}"
-        shell: pwsh
+        shell: powershell
 
       - name: Setup Meson Build in Persistent Directory
         run: >
@@ -76,11 +76,11 @@ jobs:
           -Dcpp_args="-fuse-ld=lld"
           -Dc_link_args="-fuse-ld=lld"
           -Dcpp_link_args="-fuse-ld=lld"
-        shell: pwsh
+        shell: powershell
 
       - name: Compile with Meson in Persistent Directory
         run: meson compile -C "${{ steps.paths.outputs.build_dir }}"
-        shell: pwsh
+        shell: powershell
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
