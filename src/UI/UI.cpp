@@ -201,7 +201,7 @@ namespace ui {
         systemInfoRows.push_back({ .icon = kernelIcon, .label = "Kernel", .value = *data.kernelVersion });
 
       if (data.memInfo)
-        systemInfoRows.push_back({ .icon = memoryIcon, .label = "RAM", .value = std::format("{}", BytesToGiB(*data.memInfo)) });
+        systemInfoRows.push_back({ .icon = memoryIcon, .label = "RAM", .value = std::format("{}/{}", BytesToGiB(data.memInfo->usedBytes), BytesToGiB(data.memInfo->totalBytes)) });
       else if (!data.memInfo.has_value())
         debug_at(data.memInfo.error());
 
@@ -301,6 +301,7 @@ namespace ui {
             text(String(row.label)) | color(ui::DEFAULT_THEME.label),
           }) |
             size(WIDTH, EQUAL, static_cast<int>(sectionRequiredVisualWidth)),
+          text(" "), // Ensure at least one space
           filler(),
           text(row.value) | color(ui::DEFAULT_THEME.value),
           text(" "),

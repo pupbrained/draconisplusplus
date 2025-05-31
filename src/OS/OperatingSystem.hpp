@@ -14,13 +14,13 @@
  * (found in linux.cpp, windows.cpp, macos.cpp).
  */
 namespace os {
-  using util::types::u64, util::types::String, util::types::Result, util::types::MediaInfo, util::types::DiskSpace;
+  using util::types::u64, util::types::String, util::types::Result, util::types::MediaInfo, util::types::ResourceUsage;
 
   /**
    * @brief Get the total amount of physical RAM installed in the system.
    * @return A Result containing the total RAM in bytes (u64) on success.
    */
-  fn GetMemInfo() -> Result<u64>;
+  fn GetMemInfo() -> Result<ResourceUsage>;
 
   /**
    * @brief Gets structured metadata about the currently playing media.
@@ -80,5 +80,5 @@ namespace os {
    * @details Uses statvfs on Linux/macOS, GetDiskFreeSpaceExW on Windows.
    * @return A Result containing the DiskSpace struct (used/total bytes) on success.
    */
-  fn GetDiskUsage() -> Result<DiskSpace>;
+  fn GetDiskUsage() -> Result<ResourceUsage>;
 } // namespace os

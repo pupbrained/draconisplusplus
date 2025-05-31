@@ -25,9 +25,11 @@
 
 namespace {
   namespace fs = std::filesystem;
-  using std::chrono::system_clock, std::chrono::seconds, std::chrono::duration_cast;
+  using std::chrono::system_clock, std::chrono::seconds, std::chrono::hours, std::chrono::duration_cast;
   using util::cache::ReadCache, util::cache::WriteCache;
   using util::error::DracError, util::error::DracErrorCode;
+
+  constexpr auto CACHE_EXPIRY_DURATION = std::chrono::hours(24);
   using util::types::Err, util::types::Exception, util::types::Result, util::types::String, util::types::u64, util::types::i64, util::types::Option;
 
   fn GetCountFromDirectoryImpl(
@@ -44,34 +46,18 @@ namespace {
 
     if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(cacheKey)) {
       const auto& [cachedCount, timestamp] = *cachedDataResult;
+      const auto cacheTimePoint = system_clock::time_point(seconds(timestamp));
 
-      if (!fs::exists(dirPath, fsErrCode) || fsErrCode)
-        warn_log(
-          "Error checking existence for directory '{}' before cache validation: {}, Invalidating {} cache",
-          dirPath.string(),
-          fsErrCode.message(),
-          pmId
-        );
-      else {
-        fsErrCode.clear();
-        const fs::file_time_type dirModTime = fs::last_write_time(dirPath, fsErrCode);
-
-        if (fsErrCode)
-          warn_log(
-            "Could not get modification time for directory '{}': {}. Invalidating {} cache",
-            dirPath.string(),
-            fsErrCode.message(),
-            pmId
-          );
-        else {
-          if (const system_clock::time_point cacheTimePoint = system_clock::time_point(seconds(timestamp));
-              cacheTimePoint.time_since_epoch() >= dirModTime.time_since_epoch()) {
-            return cachedCount;
-          }
-        }
+      if ((system_clock::now() - cacheTimePoint) < CACHE_EXPIRY_DURATION) {
+        return cachedCount; // Cache is valid and not expired
       }
-    } else if (cachedDataResult.error().code != DracErrorCode::NotFound) {
-      debug_at(cachedDataResult.error());
+      // Cache expired, fall through to recalculate
+    } else { // ReadCache failed
+      if (cachedDataResult.error().code != DracErrorCode::NotFound) {
+        // Log error if ReadCache failed for a reason other than NotFound
+        debug_at(cachedDataResult.error());
+      }
+      // Fall through to recalculate for NotFound or after logging other errors
     }
 
     fsErrCode.clear();
@@ -144,7 +130,7 @@ namespace {
 
     const PkgCountCacheData dataToCache(count, timestampEpochSeconds);
 
-    if (Result writeResult = WriteCache(pmId, dataToCache); !writeResult)
+    if (Result writeResult = WriteCache(cacheKey, dataToCache); !writeResult)
       debug_at(writeResult.error());
 
     return count;
@@ -186,20 +172,20 @@ namespace package {
     const String cacheKey = std::format("pkg_count_{}", pmId);
 
     if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(cacheKey)) {
-      const auto& [count, timestamp] = *cachedDataResult;
-      std::error_code          errc;
-      const fs::file_time_type dbModTime = fs::last_write_time(dbPath, errc);
+      const auto& [cachedDbCount, timestamp] = *cachedDataResult;
+      const auto cacheTimePoint = system_clock::time_point(seconds(timestamp));
 
-      if (errc) {
-        return Err(DracError(DracErrorCode::IoError, "Filesystem error checking Apk DB: " + errc.message()));
+      if ((system_clock::now() - cacheTimePoint) < CACHE_EXPIRY_DURATION) {
+        return cachedDbCount; // Cache is valid and not expired
       }
-
-      if (const system_clock::time_point cacheTimePoint = system_clock::time_point(seconds(timestamp));
-          cacheTimePoint.time_since_epoch() >= dbModTime.time_since_epoch()) {
-        return count;
+      // Cache expired, fall through to recalculate
+    } else { // ReadCache failed
+      if (cachedDataResult.error().code != DracErrorCode::NotFound) {
+        // Log error if ReadCache failed for a reason other than NotFound
+        debug_at(cachedDataResult.error());
       }
-    } else if (cachedDataResult.error().code != DracErrorCode::NotFound)
-      debug_at(cachedDataResult.error());
+      // Fall through to recalculate for NotFound or after logging other errors
+    }
 
     u64 count = 0;
 
@@ -254,20 +240,19 @@ namespace package {
     const String cacheKey = "pkg_count_" + pmId;
 
     if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(cacheKey)) {
-      const auto& [cachedCount, timestamp] = *cachedDataResult;
-      if (std::error_code fsErrCode; fs::exists(plistPath, fsErrCode) && !fsErrCode) {
-        const fs::file_time_type plistModTime = fs::last_write_time(plistPath, fsErrCode);
-        if (!fsErrCode) {
-          if (const system_clock::time_point cacheTimePoint = system_clock::time_point(seconds(timestamp));
-              cacheTimePoint.time_since_epoch() >= plistModTime.time_since_epoch()) {
-            return cachedCount;
-          }
-        } else {
-          warn_log("Could not get modification time for '{}': {}. Invalidating {} cache.", plistPath.string(), fsErrCode.message(), pmId);
-        }
+      const auto& [cachedPlistCount, timestamp] = *cachedDataResult;
+      const auto cacheTimePoint = system_clock::time_point(seconds(timestamp));
+
+      if ((system_clock::now() - cacheTimePoint) < CACHE_EXPIRY_DURATION) {
+        return cachedPlistCount; // Cache is valid and not expired
       }
-    } else if (cachedDataResult.error().code != DracErrorCode::NotFound) {
-      debug_at(cachedDataResult.error());
+      // Cache expired, fall through to recalculate
+    } else { // ReadCache failed
+      if (cachedDataResult.error().code != DracErrorCode::NotFound) {
+        // Log error if ReadCache failed for a reason other than NotFound
+        debug_at(cachedDataResult.error());
+      }
+      // Fall through to recalculate for NotFound or after logging other errors
     }
 
     xml_document doc;

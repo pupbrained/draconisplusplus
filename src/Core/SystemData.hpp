@@ -11,7 +11,7 @@
 struct Config;
 
 using util::types::u64, util::types::f64, util::types::String, util::types::Option, util::types::Result,
-  util::types::MediaInfo, util::types::DiskSpace;
+  util::types::MediaInfo, util::types::ResourceUsage;
 
 /**
  * @struct BytesToGiB
@@ -78,10 +78,10 @@ namespace os {
     Result<String>                 host;          ///< Host/product family (e.g., "MacBook Air").
     Result<String>                 kernelVersion; ///< OS kernel version (e.g., "6.14.4").
     Result<String>                 osVersion;     ///< OS pretty name (e.g., "Ubuntu 24.04.2 LTS").
-    Result<u64>                    memInfo;       ///< Total physical RAM in bytes.
+    Result<ResourceUsage>          memInfo;       ///< Total physical RAM in bytes.
     Result<String>                 desktopEnv;    ///< Desktop environment (e.g., "KDE").
     Result<String>                 windowMgr;     ///< Window manager (e.g., "KWin").
-    Result<DiskSpace>              diskUsage;     ///< Used/Total disk space for root filesystem.
+    Result<ResourceUsage>          diskUsage;     ///< Used/Total disk space for root filesystem.
     Result<String>                 shell;         ///< Name of the current user shell (e.g., "zsh").
     Result<u64>                    packageCount;  ///< Total number of packages installed.
     Result<MediaInfo>              nowPlaying;    ///< Result of fetching media info.

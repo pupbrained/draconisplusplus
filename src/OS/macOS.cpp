@@ -1,7 +1,7 @@
 #ifdef __APPLE__
 
 // clang-format off
-#include <chrono>        // std::chrono::{system_clock, seconds}
+#include <chrono>        // std::chrono::{system_clock, seconds, hours, duration_cast}
 #include <flat_map>      // std::flat_map
 #include <sys/statvfs.h> // statvfs
 #include <sys/sysctl.h>  // {CTL_KERN, KERN_PROC, KERN_PROC_ALL, kinfo_proc, sysctl, sysctlbyname}
@@ -17,7 +17,7 @@
 // clang-format on
 
 using namespace util::types;
-using std::chrono::system_clock, std::chrono::seconds;
+using std::chrono::system_clock, std::chrono::seconds, std::chrono::hours, std::chrono::duration_cast;
 using util::error::DracError, util::error::DracErrorCode;
 using util::helpers::GetEnv;
 
@@ -325,34 +325,33 @@ namespace os {
 }; // namespace os
 
 namespace package {
+  constexpr auto CACHE_EXPIRY_DURATION_HOMEBREW = std::chrono::hours(24);
+
   fn GetHomebrewCount() -> Result<u64> {
     using util::cache::ReadCache, util::cache::WriteCache;
+
+    const String cacheKey = "homebrew_total";
+
+    if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(cacheKey)) {
+      const auto& [cachedCount, timestamp] = *cachedDataResult;
+      const auto cacheTimePoint = system_clock::time_point(seconds(timestamp));
+
+      if ((system_clock::now() - cacheTimePoint) < CACHE_EXPIRY_DURATION_HOMEBREW) {
+        return cachedCount; // Cache is valid and not expired
+      }
+      // Cache expired, fall through to recalculate
+    } else { // ReadCache failed
+      if (cachedDataResult.error().code != DracErrorCode::NotFound) {
+        // Log error if ReadCache failed for a reason other than NotFound
+        debug_at(cachedDataResult.error());
+      }
+      // Fall through to recalculate for NotFound or after logging other errors
+    }
 
     Array<fs::path, 2> cellarPaths {
       "/opt/homebrew/Cellar",
       "/usr/local/Cellar",
     };
-
-    if (const Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>("homebrew_total")) {
-      const auto& [cachedCount, timestamp] = *cachedDataResult;
-
-      bool cacheValid = true;
-      for (const fs::path& cellarPath : cellarPaths) {
-        if (std::error_code errc; fs::exists(cellarPath, errc) && !errc) {
-          const fs::file_time_type dirModTime = fs::last_write_time(cellarPath, errc);
-          if (!errc) {
-            const system_clock::time_point cacheTimePoint = system_clock::time_point(seconds(timestamp));
-            if (cacheTimePoint.time_since_epoch() < dirModTime.time_since_epoch()) {
-              cacheValid = false;
-              break;
-            }
-          }
-        }
-      }
-
-      if (cacheValid)
-        return cachedCount;
-    }
 
     u64 count = 0;
 
@@ -383,7 +382,7 @@ namespace package {
     const i64 timestampEpochSeconds = duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
 
     const PkgCountCacheData dataToCache(count, timestampEpochSeconds);
-    if (Result writeResult = WriteCache("homebrew_total", dataToCache); !writeResult)
+    if (Result writeResult = WriteCache(cacheKey, dataToCache); !writeResult)
       debug_at(writeResult.error());
 
     return count;

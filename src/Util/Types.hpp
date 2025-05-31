@@ -110,14 +110,14 @@ namespace util::types {
   using Future = std::future<Tp>;
 
   /**
-   * @struct DiskSpace
-   * @brief Represents disk usage information.
+   * @struct ResourceUsage
+   * @brief Represents usage information for a resource (disk space, RAM, etc.).
    *
-   * Used as the success type for os::GetDiskUsage.
+   * Used to report usage statistics for various system resources.
    */
-  struct DiskSpace {
-    u64 usedBytes;  ///< Currently used disk space in bytes.
-    u64 totalBytes; ///< Total disk space in bytes.
+  struct ResourceUsage {
+    u64 usedBytes;  ///< Currently used resource space in bytes.
+    u64 totalBytes; ///< Total resource space in bytes.
   };
 
   /**

@@ -213,6 +213,7 @@ namespace {
 
 namespace os {
   using util::helpers::GetEnv;
+  using util::types::ResourceUsage;
 
   fn GetOSVersion() -> Result<String> {
     using util::types::StringView;
@@ -243,22 +244,22 @@ namespace os {
     return Err(DracError(DracErrorCode::NotFound, "PRETTY_NAME line not found in /etc/os-release"));
   }
 
-  fn GetMemInfo() -> Result<u64> {
+  fn GetMemInfo() -> Result<ResourceUsage> {
     struct sysinfo info;
 
     if (sysinfo(&info) != 0)
       return Err(DracError("sysinfo call failed"));
 
-    const u64 totalRam = info.totalram;
-    const u64 memUnit  = info.mem_unit;
-
-    if (memUnit == 0)
+    if (info.mem_unit == 0)
       return Err(DracError(DracErrorCode::InternalError, "sysinfo returned mem_unit of zero"));
 
-    if (totalRam > std::numeric_limits<u64>::max() / memUnit)
+    if (info.totalram > (std::numeric_limits<u64>::max() / info.mem_unit))
       return Err(DracError(DracErrorCode::InternalError, "Potential overflow calculating total RAM"));
 
-    return info.totalram * info.mem_unit;
+    return ResourceUsage {
+      .usedBytes  = (info.totalram - info.freeram) * info.mem_unit,
+      .totalBytes = info.totalram * info.mem_unit,
+    };
   }
 
   fn GetNowPlaying() -> Result<MediaInfo> {
@@ -503,13 +504,13 @@ namespace os {
     return uts.release;
   }
 
-  fn GetDiskUsage() -> Result<DiskSpace> {
+  fn GetDiskUsage() -> Result<ResourceUsage> {
     struct statvfs stat;
 
     if (statvfs("/", &stat) == -1)
       return Err(DracError("Failed to get filesystem stats for '/' (statvfs call failed)"));
 
-    return DiskSpace {
+    return ResourceUsage {
       .usedBytes  = (stat.f_blocks * stat.f_frsize) - (stat.f_bfree * stat.f_frsize),
       .totalBytes = stat.f_blocks * stat.f_frsize,
     };
@@ -518,6 +519,9 @@ namespace os {
 
 namespace package {
   using namespace std::string_literals;
+  using std::chrono::system_clock, std::chrono::seconds, std::chrono::hours, std::chrono::duration_cast;
+
+  constexpr auto CACHE_EXPIRY_DURATION_APK = std::chrono::hours(24);
 
   fn CountApk() -> Result<u64> {
     using namespace util::cache;
@@ -526,38 +530,28 @@ namespace package {
     const fs::path apkDbPath = "/lib/apk/db/installed";
     const String   cacheKey  = "pkg_count_" + pmId;
 
+    if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(cacheKey)) {
+      const auto& [cachedCount, timestamp] = *cachedDataResult;
+      const auto cacheTimePoint = system_clock::time_point(seconds(timestamp));
+
+      if ((system_clock::now() - cacheTimePoint) < CACHE_EXPIRY_DURATION_APK) {
+        return cachedCount; // Cache is valid and not expired
+      }
+      // Cache expired, fall through to recalculate
+    } else { // ReadCache failed
+      if (cachedDataResult.error().code != DracErrorCode::NotFound) {
+        // Log error if ReadCache failed for a reason other than NotFound
+        debug_at(cachedDataResult.error());
+      }
+      // Fall through to recalculate for NotFound or after logging other errors
+    }
+
     if (std::error_code fsErrCode; !fs::exists(apkDbPath, fsErrCode)) {
       if (fsErrCode) {
         warn_log("Filesystem error checking for Apk DB at '{}': {}", apkDbPath.string(), fsErrCode.message());
         return Err(DracError(DracErrorCode::IoError, "Filesystem error checking Apk DB: " + fsErrCode.message()));
       }
-
       return Err(DracError(DracErrorCode::NotFound, std::format("Apk database path '{}' does not exist", apkDbPath.string())));
-    }
-
-    if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(cacheKey)) {
-      const auto& [cachedCount, timestamp] = *cachedDataResult;
-      std::error_code          modTimeErrCode;
-      const fs::file_time_type dbModTime = fs::last_write_time(apkDbPath, modTimeErrCode);
-
-      if (modTimeErrCode) {
-        warn_log(
-          "Could not get modification time for '{}': {}. Invalidating {} cache.",
-          apkDbPath.string(),
-          modTimeErrCode.message(),
-          pmId
-        );
-      } else {
-        using std::chrono::system_clock, std::chrono::seconds, std::chrono::floor;
-
-        if (const system_clock::time_point cacheTimePoint = system_clock::time_point(seconds(timestamp));
-            cacheTimePoint.time_since_epoch() >= dbModTime.time_since_epoch())
-          return cachedCount;
-      }
-    } else {
-      if (cachedDataResult.error().code != DracErrorCode::NotFound)
-        debug_at(cachedDataResult.error());
-      debug_log("{} package count cache not found or unreadable.", pmId);
     }
 
     std::ifstream file(apkDbPath);
