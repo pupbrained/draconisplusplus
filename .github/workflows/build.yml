@@ -56,24 +56,8 @@ jobs:
     runs-on: [native]
     steps:
       - uses: actions/checkout@v4
-
-      - name: Cache Meson downloaded dependencies
-        uses: actions/cache@v4
-        id: cache-meson-deps
         with:
-          path: ~/.cache/meson/dist-cache
-          key: ${{ runner.os }}-meson-deps-${{ hashFiles('**/meson.build', '**/meson_options.txt', '**/subprojects/*.wrap') }}
-          restore-keys: |
-            ${{ runner.os }}-meson-deps-
-
-      - name: Cache Meson build directory
-        uses: actions/cache@v4
-        id: cache-meson-build
-        with:
-          path: build
-          key: ${{ runner.os }}-meson-build-${{ hashFiles('**/meson.build', '**/meson_options.txt', '**/subprojects/*.wrap', 'src/**') }}
-          restore-keys: |
-            ${{ runner.os }}-meson-build-
+          clean: false
 
       - name: Setup Meson Build
         run: >
