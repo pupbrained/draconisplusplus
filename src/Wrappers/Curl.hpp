@@ -164,7 +164,7 @@ namespace Curl {
       if (res != CURLE_OK)
         return Err(DracError(DracErrorCode::PlatformSpecific, std::format("curl_easy_setopt failed: {}", curl_easy_strerror(res))));
 
-      return Ok;
+      return {};
     }
 
     /**
@@ -183,7 +183,7 @@ namespace Curl {
       if (res != CURLE_OK)
         return Err(DracError(DracErrorCode::ApiUnavailable, std::format("curl_easy_perform failed: {}", curl_easy_strerror(res))));
 
-      return Ok;
+      return {};
     }
 
     /**
@@ -206,7 +206,7 @@ namespace Curl {
       if (res != CURLE_OK)
         return Err(DracError(DracErrorCode::PlatformSpecific, std::format("curl_easy_getinfo failed: {}", curl_easy_strerror(res))));
 
-      return Ok;
+      return {};
     }
 
     /**
@@ -378,7 +378,7 @@ namespace Curl {
       if (res != CURLM_OK)
         return Err(DracError(DracErrorCode::PlatformSpecific, std::format("curl_multi_add_handle failed: {}", curl_multi_strerror(res))));
 
-      return Ok;
+      return {};
     }
 
     /**
@@ -401,7 +401,7 @@ namespace Curl {
       if (res != CURLM_OK) // CURLM_BAD_EASY_HANDLE is a possible error if handle was not in multi stack
         return Err(DracError(DracErrorCode::PlatformSpecific, std::format("curl_multi_remove_handle failed: {}", curl_multi_strerror(res))));
 
-      return Ok;
+      return {};
     }
 
     /**
@@ -421,7 +421,7 @@ namespace Curl {
       if (res != CURLM_OK && res != CURLM_CALL_MULTI_PERFORM)
         return Err(DracError(DracErrorCode::PlatformSpecific, std::format("curl_multi_perform failed: {}", curl_multi_strerror(res))));
 
-      return Ok;
+      return {};
     }
 
     /**
@@ -459,7 +459,7 @@ namespace Curl {
       if (res != CURLM_OK)
         return Err(DracError(DracErrorCode::PlatformSpecific, std::format("curl_multi_poll failed: {}", curl_multi_strerror(res))));
 
-      return Ok;
+      return {};
     }
 
     /**
@@ -483,7 +483,7 @@ namespace Curl {
       if (res != CURLM_OK)
         return Err(DracError(DracErrorCode::PlatformSpecific, std::format("curl_multi_wait failed: {}", curl_multi_strerror(res))));
 
-      return Ok;
+      return {};
     }
   };
 
@@ -498,7 +498,7 @@ namespace Curl {
     if (res != CURLE_OK)
       return Err(DracError(DracErrorCode::PlatformSpecific, std::format("curl_global_init failed: {}", curl_easy_strerror(res))));
 
-    return Ok;
+    return {};
   }
 
   /**
