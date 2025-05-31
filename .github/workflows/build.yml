@@ -63,13 +63,13 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: nix-build-glibc-generic
-          path: ${{ steps.build_glibc.outputs.path }}
+          path: ${{ steps.build_glibc.outputs.path }}/bin/draconis++
 
       - name: Upload Nix musl-generic Artifact
         uses: actions/upload-artifact@v3
         with:
           name: nix-build-musl-generic
-          path: ${{ steps.build_musl.outputs.path }}
+          path: ${{ steps.build_musl.outputs.path }}/bin/draconis++
   windows:
     name: Windows
     runs-on: [native]
@@ -88,4 +88,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: windows-build
-          path: build/
+          path: build/draconis++.exe
