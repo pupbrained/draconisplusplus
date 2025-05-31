@@ -12,23 +12,12 @@ concurrency:
 jobs:
   linux:
     name: Linux
-    runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        os: [ubuntu-24.04]
-      fail-fast: false
+    runs-on: [native]
     permissions:
       contents: read
       id-token: write
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Nix
-        uses: DeterminateSystems/nix-installer-action@main
-        with:
-          extra-conf: |
-            keep-env-derivations = true
-            keep-outputs = true
 
       - name: Install Cachix
         uses: cachix/cachix-action@v12
@@ -36,15 +25,6 @@ jobs:
           name: pupbrained
           signingKey: "${{ secrets.CACHIX_SIGNING_KEY }}"
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
-
-      - name: Restore Nix store from CI Cache
-        uses: actions/cache@v4
-        id: nix-store-cache
-        with:
-          path: /nix/store
-          key: nix-store-${{ runner.os }}-${{ hashFiles('flake.lock') }}
-          restore-keys: |
-            nix-store-${{ runner.os }}-
 
       - name: Build glibc-generic package
         id: build_glibc
@@ -91,7 +71,7 @@ jobs:
         id: cache-meson-build
         with:
           path: build
-          key: ${{ runner.os }}-meson-build-${{ hashFiles('**/meson.build', '**/meson_options.txt', '**/subprojects/*.wrap', 'src/**') }} # Add more source file patterns if needed
+          key: ${{ runner.os }}-meson-build-${{ hashFiles('**/meson.build', '**/meson_options.txt', '**/subprojects/*.wrap', 'src/**') }}
           restore-keys: |
             ${{ runner.os }}-meson-build-
 
