@@ -2,8 +2,7 @@
 {
   pkgs,
   nixpkgs,
-  self,
-  ...
+  self
 }:
 # system is x86_64-linux-musl
 let
@@ -67,6 +66,7 @@ let
     curlMinimal
     dbus
     glaze
+    gtest
     llvmPackages_20.libcxx
     openssl
     sqlite
@@ -110,6 +110,13 @@ let
       buildPhase = ''
         meson compile -C build
       '';
+
+      checkPhase = ''
+        echo "Running tests..."
+        meson test -C build --print-errorlogs
+      '';
+
+      doCheck = true;
 
       installPhase = ''
         mkdir -p $out/bin

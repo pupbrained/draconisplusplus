@@ -29,7 +29,10 @@
           llvmPackages.stdenv;
 
         devShellDeps = with pkgs;
-          [(glaze.override {enableAvx2 = hostPlatform.isx86;})]
+          [
+            (glaze.override {enableAvx2 = hostPlatform.isx86;})
+            gtest
+          ]
           ++ (with pkgsStatic; [
             curl
             ftxui
@@ -57,6 +60,91 @@
       in {
         packages = import ./nix {inherit nixpkgs self system;};
 
+        checks = {
+          # Test using glibc build environment
+          test-glibc = stdenv.mkDerivation {
+            name = "draconis++-tests-glibc";
+            version = "0.1.0";
+            src = self;
+
+            nativeBuildInputs = with pkgs; [
+              cmake
+              meson
+              ninja
+              pkg-config
+            ];
+
+            buildInputs = devShellDeps;
+
+            buildPhase = ''
+              meson setup build --buildtype=debugoptimized
+              meson compile -C build
+            '';
+
+            checkPhase = ''
+              echo "Running tests with glibc..."
+              meson test -C build --print-errorlogs
+            '';
+
+            installPhase = ''
+              mkdir -p $out
+              echo "Tests passed successfully" > $out/test-results
+            '';
+
+            doCheck = true;
+          };
+        } // (pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
+          # Test using musl build environment (Linux only)
+          test-musl = let
+            muslPkgs = import nixpkgs {
+              system = "x86_64-linux";
+              crossSystem = {
+                config = "x86_64-unknown-linux-musl";
+              };
+            };
+          in muslPkgs.stdenv.mkDerivation {
+            name = "draconis++-tests-musl";
+            version = "0.1.0";
+            src = self;
+
+            nativeBuildInputs = with muslPkgs; [
+              cmake
+              meson
+              ninja
+              pkg-config
+            ];
+
+            buildInputs = with muslPkgs.pkgsStatic; [
+              curl
+              gtest
+              ftxui
+              sqlitecpp
+              tomlplusplus
+              dbus
+              pugixml
+              xorg.libxcb
+              wayland
+            ];
+
+            buildPhase = ''
+              meson setup build --buildtype=debugoptimized -Dbuild_for_musl=true
+              meson compile -C build
+            '';
+
+            checkPhase = ''
+              echo "Running tests with musl..."
+              meson test -C build --print-errorlogs
+            '';
+
+            installPhase = ''
+              mkdir -p $out
+              echo "Tests passed successfully" > $out/test-results
+            '';
+
+            doCheck = true;
+          };
+        });
+
         devShell = pkgs.mkShell.override {inherit stdenv;} {
           packages =
             (with pkgs; [
@@ -76,6 +164,7 @@
               (writeScriptBin "build" "meson compile -C build")
               (writeScriptBin "clean" "meson setup build --wipe")
               (writeScriptBin "run" "meson compile -C build && build/draconis++")
+              (writeScriptBin "test" "meson test -C build --print-errorlogs")
             ])
             ++ devShellDeps;
 

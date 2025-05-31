@@ -96,16 +96,18 @@ project_public_includes = include_directories('include', is_system: true)
 # ------- #
 #  Files  #
 # ------- #
-base_sources = files(
+lib_base_sources = files(
   'src/Config/Config.cpp',
   'src/Core/SystemData.cpp',
   'src/Services/PackageCounting.cpp',
   'src/Services/Weather/MetNoService.cpp',
   'src/Services/Weather/OpenMeteoService.cpp',
   'src/Services/Weather/OpenWeatherMapService.cpp',
+  'src/Services/Weather/WeatherUtils.cpp',
   'src/UI/UI.cpp',
-  'src/main.cpp',
 )
+
+main_app_sources = files('src/main.cpp')
 
 platform_sources = {
   'darwin': ['src/OS/macOS.cpp', 'src/OS/macOS/bridge.mm'],
@@ -118,7 +120,8 @@ platform_sources = {
   'windows': ['src/OS/Windows.cpp'],
 }
 
-sources = base_sources + files(platform_sources.get(host_system, []))
+lib_platform_sources = files(platform_sources.get(host_system, []))
+lib_all_sources = lib_base_sources + lib_platform_sources
 
 # --------------------- #
 #  Dependencies Config  #
@@ -203,8 +206,7 @@ if not glaze_dep.found()
   glaze_dep = glaze_proj.dependency('glaze_glaze', include_type: 'system')
 endif
 
-# Combine all dependencies
-deps = common_deps + platform_deps + ftxui_dep + glaze_dep
+lib_deps = common_deps + platform_deps + ftxui_dep + glaze_dep
 
 # ------------------------- #
 #  Link/ObjC Configuration  #
@@ -224,15 +226,60 @@ elif host_system == 'haiku'
   link_args += ['-lpackage', '-lbe']
 endif
 
+# ----------------- #
+#  Static Library   #
+# ----------------- #
+lib = static_library(
+  'libdraconis++',
+  lib_all_sources,
+  include_directories: [project_internal_includes, project_public_includes],
+  dependencies: lib_deps,
+  objc_args: objc_args,
+  install: false,
+)
+
 # ------------------- #
 #  Executable Target  #
 # ------------------- #
 executable(
   'draconis++',
-  sources,
+  main_app_sources,
   include_directories: [project_internal_includes, project_public_includes],
-  objc_args: objc_args,
+  link_with: lib,
+  dependencies: lib_deps,
   link_args: link_args,
-  dependencies: deps,
+  objc_args: objc_args,
   install: true,
 )
+
+# ----------------- #
+#  Testing Support  #
+# ----------------- #
+gtest_dep = dependency('gtest', fallback: ['gtest', 'gtest_dep'], main: true, required: false)
+
+if gtest_dep.found()
+  test_sources = files(
+    'tests/ConfigTest.cpp',
+    'tests/CoreTypesTest.cpp',
+    'tests/LoggingUtilsTest.cpp',
+    'tests/TestMain.cpp',
+    'tests/WeatherServiceTest.cpp',
+  )
+
+  tests = executable(
+    'tests',
+    test_sources,
+    include_directories: [project_internal_includes, project_public_includes],
+    link_with: lib,
+    dependencies: [gtest_dep] + lib_deps,
+    link_args: link_args,
+    objc_args: objc_args,
+  )
+
+  test(
+    'tests',
+    tests,
+    args: ['--gtest_color=yes', '--gtest_print_time=1'],
+    protocol: 'gtest',
+  )
+endif

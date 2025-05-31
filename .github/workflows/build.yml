@@ -22,9 +22,17 @@ jobs:
       - name: Add custom tools to PATH
         run: echo "/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:$PATH" >> $GITHUB_PATH
 
-      - name: Build package
+      - name: Build and test package
         id: build
         run: echo "path=$(nix build .#musl-generic --no-link --print-out-paths)" >> $GITHUB_OUTPUT
+
+      - name: Run tests
+        run: |
+          nix develop --command bash -c "
+            meson setup build --buildtype=release -Dbuild_for_musl=true
+            meson compile -C build
+            meson test -C build --print-errorlogs
+          "
 
       - name: Push to Cachix
         run: cachix push pupbrained ${{ steps.build.outputs.path }}
@@ -103,6 +111,10 @@ jobs:
 
       - name: Compile with Meson in Persistent Build Directory
         run: meson compile -C "${{ steps.paths.outputs.build_dir }}"
+        shell: powershell
+
+      - name: Run tests
+        run: meson test -C "${{ steps.paths.outputs.build_dir }}" --print-errorlogs
         shell: powershell
 
       - name: Upload Build Artifacts

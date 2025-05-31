@@ -6,12 +6,11 @@
 
 #include "MetNoService.hpp"
 
-#include <charconv>
 #include <chrono>              // std::chrono::{system_clock, minutes, seconds}
-#include <ctime>               // std::tm, std::timegm
 #include <format>              // std::format
 #include <glaze/json/read.hpp> // glz::read
-#include <unordered_map>       // std::unordered_map
+
+#include "Services/Weather/WeatherUtils.hpp"
 
 #include "Util/Caching.hpp"
 #include "Util/Error.hpp"
@@ -140,115 +139,14 @@ namespace glz {
   struct meta<Response> : ResponseG {};
 } // namespace glz
 
-namespace {
-  using util::error::DracError, util::error::DracErrorCode;
-  using util::types::usize, util::types::Err, util::types::String, util::types::StringView, util::types::Result;
-
-  fn SYMBOL_DESCRIPTIONS() -> const std::unordered_map<StringView, StringView>& {
-    static const std::unordered_map<StringView, StringView> MAP = {
-      // Clear / Fair
-      {             "clearsky",               "clear sky" },
-      {                 "fair",                    "fair" },
-      {         "partlycloudy",           "partly cloudy" },
-      {               "cloudy",                  "cloudy" },
-      {                  "fog",                     "fog" },
-
-      // Rain
-      {            "lightrain",              "light rain" },
-      {     "lightrainshowers",      "light rain showers" },
-      {  "lightrainandthunder",  "light rain and thunder" },
-      {                 "rain",                    "rain" },
-      {          "rainshowers",            "rain showers" },
-      {       "rainandthunder",        "rain and thunder" },
-      {            "heavyrain",              "heavy rain" },
-      {     "heavyrainshowers",      "heavy rain showers" },
-      {  "heavyrainandthunder",  "heavy rain and thunder" },
-
-      // Sleet
-      {           "lightsleet",             "light sleet" },
-      {    "lightsleetshowers",     "light sleet showers" },
-      { "lightsleetandthunder", "light sleet and thunder" },
-      {                "sleet",                   "sleet" },
-      {         "sleetshowers",           "sleet showers" },
-      {      "sleetandthunder",       "sleet and thunder" },
-      {           "heavysleet",             "heavy sleet" },
-      {    "heavysleetshowers",     "heavy sleet showers" },
-      { "heavysleetandthunder", "heavy sleet and thunder" },
-
-      // Snow
-      {            "lightsnow",              "light snow" },
-      {     "lightsnowshowers",      "light snow showers" },
-      {  "lightsnowandthunder",  "light snow and thunder" },
-      {                 "snow",                    "snow" },
-      {          "snowshowers",            "snow showers" },
-      {       "snowandthunder",        "snow and thunder" },
-      {            "heavysnow",              "heavy snow" },
-      {     "heavysnowshowers",      "heavy snow showers" },
-      {  "heavysnowandthunder",  "heavy snow and thunder" },
-    };
-
-    return MAP;
-  }
-
-  fn strip_time_of_day(const StringView& symbol) -> StringView {
-    using util::types::Array, util::types::StringView;
-
-    static constexpr Array<StringView, 3> SUFFIXES = { "_day", "_night", "_polartwilight" };
-
-    for (const StringView& suffix : SUFFIXES)
-      if (symbol.size() > suffix.size() && symbol.ends_with(suffix))
-        return symbol.substr(0, symbol.size() - suffix.size());
-
-    return symbol;
-  }
-
-  fn parse_iso8601_to_epoch(const StringView iso8601) -> Result<usize> {
-    using util::types::i32;
-
-    if (iso8601.size() != 20)
-      return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse ISO8601 time, expected 20 characters, got {}", iso8601.size())));
-
-    std::tm time = {};
-
-    i32 year = 0, mon = 0, mday = 0, hour = 0, min = 0, sec = 0;
-
-    fn parseInt = [](const StringView sview, i32& out) -> bool {
-      auto [ptr, ec] = std::from_chars(sview.data(), sview.data() + sview.size(), out);
-
-      return ec == std::errc() && ptr == sview.data() + sview.size();
-    };
-
-    if (!parseInt(iso8601.substr(0, 4), year) ||
-        !parseInt(iso8601.substr(5, 2), mon) ||
-        !parseInt(iso8601.substr(8, 2), mday) ||
-        !parseInt(iso8601.substr(11, 2), hour) ||
-        !parseInt(iso8601.substr(14, 2), min) ||
-        !parseInt(iso8601.substr(17, 2), sec)) {
-      return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse ISO8601 time: {}", String(iso8601))));
-    }
-
-    time.tm_year = year - 1900;
-    time.tm_mon  = mon - 1;
-    time.tm_mday = mday;
-    time.tm_hour = hour;
-    time.tm_min  = min;
-    time.tm_sec  = sec;
-
-#ifdef _WIN32
-    return static_cast<usize>(_mkgmtime(&time));
-#else
-    return static_cast<usize>(timegm(&time));
-#endif
-  }
-} // namespace
-
 MetNoService::MetNoService(const f64 lat, const f64 lon, String units)
   : m_lat(lat), m_lon(lon), m_units(std::move(units)) {}
 
 fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
   using glz::error_ctx, glz::read, glz::error_code;
   using util::cache::ReadCache, util::cache::WriteCache;
-  using util::types::None;
+  using util::error::DracError, util::error::DracErrorCode;
+  using util::types::None, util::types::Err, util::types::StringView;
 
   if (Result<WeatherReport> data = ReadCache<WeatherReport>("weather")) {
     using std::chrono::system_clock, std::chrono::minutes, std::chrono::seconds, std::chrono::duration;
@@ -303,11 +201,13 @@ fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
 
   String symbolCode = data.next1Hours ? data.next1Hours->summary.symbolCode : "";
 
-  if (!symbolCode.empty())
-    if (auto iter = SYMBOL_DESCRIPTIONS().find(strip_time_of_day(symbolCode)); iter != SYMBOL_DESCRIPTIONS().end())
+  if (!symbolCode.empty()) {
+    const StringView strippedSymbol = weather::utils::StripTimeOfDayFromSymbol(symbolCode);
+    if (auto iter = weather::utils::GetMetnoSymbolDescriptions().find(strippedSymbol); iter != weather::utils::GetMetnoSymbolDescriptions().end())
       symbolCode = iter->second;
+  }
 
-  Result<usize> timestamp = parse_iso8601_to_epoch(time);
+  Result<usize> timestamp = weather::utils::ParseIso8601ToEpoch(time);
 
   if (!timestamp)
     return Err(timestamp.error());

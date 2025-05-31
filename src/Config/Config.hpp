@@ -36,7 +36,7 @@ using Location = std::variant<String, weather::Coords>;
  * @brief Holds general configuration settings.
  */
 struct General {
-  String name; ///< Default display name, retrieved from the system.
+  String name = getDefaultName(); ///< Default display name, retrieved from the system.
 
   /**
    * @brief Retrieves the default name for the user.
@@ -75,8 +75,13 @@ struct General {
    * @return A General instance with the parsed values, or defaults otherwise.
    */
   static fn fromToml(const toml::table& tbl) -> General {
-    const toml::node_view<const toml::node> nameNode = tbl["name"];
-    return { .name = nameNode ? *nameNode.value<String>() : getDefaultName() };
+    General gen;
+
+    if (const toml::node_view<const toml::node> nameNode = tbl["name"])
+      if (auto nameVal = nameNode.value<String>())
+        gen.name = *nameVal;
+
+    return gen;
   }
 };
 
@@ -118,25 +123,25 @@ struct Weather {
   static fn fromToml(const toml::table& tbl) -> Weather {
     Weather weather;
 
-    const Option<String> apiKey = tbl["api_key"].value<String>();
-    weather.enabled             = tbl["enabled"].value_or<bool>(false) && apiKey;
+    const Option<String> apiKeyOpt = tbl["api_key"].value<String>();
+    weather.enabled                = tbl["enabled"].value_or<bool>(false) && apiKeyOpt;
 
     if (!weather.enabled)
       return weather;
 
-    weather.apiKey       = *apiKey;
+    weather.apiKey       = *apiKeyOpt;
     weather.showTownName = tbl["show_town_name"].value_or(false);
     weather.units        = tbl["units"].value_or("metric");
 
     String provider = tbl["provider"].value_or("openweathermap");
 
-    if (const toml::node_view<const toml::node> location = tbl["location"]) {
-      if (location.is_string())
-        weather.location = *location.value<String>();
-      else if (location.is_table())
+    if (const toml::node_view<const toml::node> locationNode = tbl["location"]) {
+      if (locationNode.is_string())
+        weather.location = *locationNode.value<String>();
+      else if (locationNode.is_table())
         weather.location = weather::Coords {
-          .lat = *location.as_table()->get("lat")->value<double>(),
-          .lon = *location.as_table()->get("lon")->value<double>(),
+          .lat = *locationNode.as_table()->get("lat")->value<double>(),
+          .lon = *locationNode.as_table()->get("lon")->value<double>(),
         };
       else {
         error_log("Invalid location format in config.");
@@ -182,7 +187,7 @@ struct Weather {
  */
 struct Config {
   General    general;    ///< General configuration settings.
-  Weather    weather;    ///< Weather configuration settings.`
+  Weather    weather;    ///< Weather configuration settings.
   NowPlaying nowPlaying; ///< Now Playing configuration settings.
 
   /**

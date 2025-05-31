@@ -16,6 +16,7 @@ let
   deps = with pkgs;
     [
       (glaze.override {enableAvx2 = hostPlatform.isx86;})
+      gtest
     ]
     ++ (with pkgs.pkgsStatic; [ # Assuming pkgsStatic is desired for these
       curl
@@ -66,6 +67,13 @@ let
     buildPhase = ''
       meson compile -C build
     '';
+
+    checkPhase = ''
+      echo "Running tests..."
+      meson test -C build --print-errorlogs
+    '';
+
+    doCheck = true;
 
     installPhase = ''
       mkdir -p $out/bin
