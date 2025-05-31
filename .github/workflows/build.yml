@@ -22,37 +22,21 @@ jobs:
       - name: Add custom tools to PATH
         run: echo "/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:$PATH" >> $GITHUB_PATH
 
-      - name: Build glibc-generic package
-        id: build_glibc
-        run: echo "path=$(nix build .#glibc-generic --no-link --print-out-paths)" >> $GITHUB_OUTPUT
-
-      - name: Push glibc-generic to Cachix
-        run: cachix push pupbrained ${{ steps.build_glibc.outputs.path }}
-        env:
-          CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
-          CACHIX_SIGNING_KEY: ${{ secrets.CACHIX_SIGNING_KEY }}
-
-      - name: Build musl-generic package
-        id: build_musl
+      - name: Build package
+        id: build
         run: echo "path=$(nix build .#musl-generic --no-link --print-out-paths)" >> $GITHUB_OUTPUT
 
-      - name: Push musl-generic to Cachix
-        run: cachix push pupbrained ${{ steps.build_musl.outputs.path }}
+      - name: Push to Cachix
+        run: cachix push pupbrained ${{ steps.build.outputs.path }}
         env:
           CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
           CACHIX_SIGNING_KEY: ${{ secrets.CACHIX_SIGNING_KEY }}
-
-      - name: Upload Nix glibc-generic Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: nix-build-glibc-generic
-          path: ${{ steps.build_glibc.outputs.path }}/bin/draconis++
 
       - name: Upload Nix musl-generic Artifact
         uses: actions/upload-artifact@v3
         with:
-          name: nix-build-musl-generic
-          path: ${{ steps.build_musl.outputs.path }}/bin/draconis++
+          name: linux-build
+          path: ${{ steps.build.outputs.path }}/bin/draconis++
   windows:
     name: Windows
     runs-on: [native]
