@@ -109,7 +109,6 @@ OpenMeteoService::OpenMeteoService(const f64 lat, const f64 lon, String units)
   : m_lat(lat), m_lon(lon), m_units(std::move(units)) {}
 
 fn OpenMeteoService::getWeatherInfo() const -> Result<WeatherReport> {
-  using Curl::Easy, Curl::EasyOptions;
   using glz::error_ctx, glz::read, glz::error_code;
   using util::cache::ReadCache, util::cache::WriteCache;
   using util::types::Array, util::types::None, util::types::StringView;
@@ -138,11 +137,11 @@ fn OpenMeteoService::getWeatherInfo() const -> Result<WeatherReport> {
   String responseBuffer;
 
   // clang-format off
-  Easy curl({
+  Curl::Easy curl({
     .url             = url,
     .writeBuffer     = &responseBuffer,
-    .timeoutS        = 10L,
-    .connectTimeoutS = 5L
+    .timeoutSecs        = 10L,
+    .connectTimeoutSecs = 5L
   });
   // clang-format on
 

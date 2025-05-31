@@ -76,7 +76,6 @@ namespace glz {
 } // namespace glz
 
 namespace {
-  using Curl::Easy;
   using util::error::DracError, util::error::DracErrorCode;
   using util::types::usize, util::types::Err, util::types::Result, util::types::String, util::types::StringView;
 
@@ -87,11 +86,11 @@ namespace {
     String responseBuffer;
 
     // clang-format off
-    Easy curl({
+    Curl::Easy curl({
       .url = url,
       .writeBuffer = &responseBuffer,
-      .timeoutS = 10L,
-      .connectTimeoutS = 5L
+      .timeoutSecs = 10L,
+      .connectTimeoutSecs = 5L
     });
     // clang-format on
 
@@ -155,7 +154,7 @@ fn OpenWeatherMapService::getWeatherInfo() const -> Result<WeatherReport> {
 
     const auto& city = std::get<String>(m_location);
 
-    Result<String> escapedUrl = Easy::escape(city);
+    Result<String> escapedUrl = Curl::Easy::escape(city);
     if (!escapedUrl)
       return Err(escapedUrl.error());
 

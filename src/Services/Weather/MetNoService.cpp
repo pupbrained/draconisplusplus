@@ -246,7 +246,6 @@ MetNoService::MetNoService(const f64 lat, const f64 lon, String units)
   : m_lat(lat), m_lon(lon), m_units(std::move(units)) {}
 
 fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
-  using Curl::Easy, Curl::EasyOptions;
   using glz::error_ctx, glz::read, glz::error_code;
   using util::cache::ReadCache, util::cache::WriteCache;
   using util::types::None;
@@ -268,11 +267,11 @@ fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
   String responseBuffer;
 
   // clang-format off
-  Easy curl({
+  Curl::Easy curl({
     .url             = std::format("https://api.met.no/weatherapi/locationforecast/2.0/compact?lat={:.4f}&lon={:.4f}", m_lat, m_lon),
     .writeBuffer     = &responseBuffer,
-    .timeoutS        = 10L,
-    .connectTimeoutS = 5L,
+    .timeoutSecs        = 10L,
+    .connectTimeoutSecs = 5L,
     .userAgent       = "draconisplusplus/" DRACONISPLUSPLUS_VERSION " git.pupbrained.xyz/draconisplusplus"
   });
   // clang-format on

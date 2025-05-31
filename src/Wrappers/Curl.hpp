@@ -15,11 +15,11 @@ namespace Curl {
    * @brief Options for initializing a Curl::Easy handle.
    */
   struct EasyOptions {
-    Option<String> url             = None;    ///< URL to set for the transfer
-    String*        writeBuffer     = nullptr; ///< Pointer to a string buffer to store the response
-    Option<i64>    timeoutS        = None;    ///< Timeout for the entire request in seconds
-    Option<i64>    connectTimeoutS = None;    ///< Timeout for the connection phase in seconds
-    Option<String> userAgent       = None;    ///< User-agent string
+    Option<String> url                = None;    ///< URL to set for the transfer
+    String*        writeBuffer        = nullptr; ///< Pointer to a string buffer to store the response
+    Option<i64>    timeoutSecs        = None;    ///< Timeout for the entire request in seconds
+    Option<i64>    connectTimeoutSecs = None;    ///< Timeout for the connection phase in seconds
+    Option<String> userAgent          = None;    ///< User-agent string
   };
 
   /**
@@ -66,14 +66,14 @@ namespace Curl {
           return;
         }
 
-      if (options.timeoutS)
-        if (Result res = setTimeout(*options.timeoutS); !res) {
+      if (options.timeoutSecs)
+        if (Result res = setTimeout(*options.timeoutSecs); !res) {
           m_initError = res.error();
           return;
         }
 
-      if (options.connectTimeoutS)
-        if (Result res = setConnectTimeout(*options.connectTimeoutS); !res) {
+      if (options.connectTimeoutSecs)
+        if (Result res = setConnectTimeout(*options.connectTimeoutSecs); !res) {
           m_initError = res.error();
           return;
         }
