@@ -214,8 +214,12 @@ objc_args = []
 
 if host_system == 'darwin'
   objc_args += ['-fobjc-arc']
-elif host_system == 'linux' and get_option('build_for_musl') == true
-  link_args += ['-static']
+elif host_system == 'linux'
+  if get_option('build_for_musl') == true
+    link_args += ['-static']
+  else
+    link_args += ['-static-libgcc', '-static-libstdc++']
+  endif
 elif host_system == 'haiku'
   link_args += ['-lpackage', '-lbe']
 endif
