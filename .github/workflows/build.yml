@@ -20,19 +20,17 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Add custom tools to PATH
-        run: echo "/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:$PATH" >> $GITHUB_ENV
+        run: echo "/run/current-system/sw/bin:/nix/var/nix/profiles/default/bin:$PATH" >> $GITHUB_PATH
 
       - name: Build glibc-generic package
         id: build_glibc
         run: echo "path=$(nix build .#glibc-generic --no-link --print-out-paths)" >> $GITHUB_OUTPUT
-        shell: fish
 
       - name: Push glibc-generic to Cachix
         run: cachix push pupbrained ${{ steps.build_glibc.outputs.path }}
         env:
           CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
           CACHIX_SIGNING_KEY: ${{ secrets.CACHIX_SIGNING_KEY }}
-          shell: fish
 
       - name: Build musl-generic package
         id: build_musl
@@ -44,7 +42,6 @@ jobs:
         env:
           CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
           CACHIX_SIGNING_KEY: ${{ secrets.CACHIX_SIGNING_KEY }}
-        shell: fish
 
       - name: Upload Nix glibc-generic Artifact
         uses: actions/upload-artifact@v3
@@ -78,7 +75,7 @@ jobs:
 
       - name: Setup Meson Build in Persistent Directory
         run: >
-          meson setup "${{ steps.paths.outputs.build_dir }}" --buildtype=release
+          meson setup "${{ steps.paths.outputs.build_dir }}" "${{ github.workspace }}" --buildtype=release --reconfigure
           -Dc_args="-fuse-ld=lld"
           -Dcpp_args="-fuse-ld=lld"
           -Dc_link_args="-fuse-ld=lld"
