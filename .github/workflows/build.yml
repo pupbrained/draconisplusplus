@@ -54,23 +54,36 @@ jobs:
     name: Windows
     runs-on: native
     steps:
-      - uses: actions/checkout@v4
-        with:
-          clean: false
+      - name: Display Workspace Info & Define Persistent Path
+        id: paths
+        run: |
+          echo "GITHUB_WORKSPACE (source checkout location): ${{ github.workspace }}"
+          $persistentBuildDir = "C:\persistent_builds\${{ github.event.repository.name }}"
+          echo "Persistent Build Directory will be: $persistentBuildDir"
+          echo "build_dir=$persistentBuildDir" | Add-Content -Path $env:GITHUB_OUTPUT
+        shell: pwsh
 
-      - name: Setup Meson Build
+      - uses: actions/checkout@v4
+
+      - name: Ensure Persistent Build Directory Exists
+        run: New-Item -ItemType Directory -Force -Path "${{ steps.paths.outputs.build_dir }}"
+        shell: pwsh
+
+      - name: Setup Meson Build in Persistent Directory
         run: >
-          meson setup build --buildtype=release
+          meson setup "${{ steps.paths.outputs.build_dir }}" . --buildtype=release
           -Dc_args="-fuse-ld=lld"
           -Dcpp_args="-fuse-ld=lld"
           -Dc_link_args="-fuse-ld=lld"
           -Dcpp_link_args="-fuse-ld=lld"
+        shell: pwsh
 
-      - name: Compile with Meson
-        run: meson compile -C build
+      - name: Compile with Meson in Persistent Directory
+        run: meson compile -C "${{ steps.paths.outputs.build_dir }}"
+        shell: pwsh
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
         with:
           name: windows-build
-          path: build/draconis++.exe
+          path: "${{ steps.paths.outputs.build_dir }}\\draconis++.exe"
