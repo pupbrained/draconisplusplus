@@ -26,13 +26,8 @@ jobs:
         id: build
         run: echo "path=$(nix build .#musl-generic --no-link --print-out-paths)" >> $GITHUB_OUTPUT
 
-      - name: Run tests
-        run: |
-          nix develop --command bash -c "
-            meson setup build --buildtype=release -Dbuild_for_musl=true
-            meson compile -C build
-            meson test -C build --print-errorlogs
-          "
+      - name: Check build
+        run: nix flake check
 
       - name: Push to Cachix
         run: cachix push pupbrained ${{ steps.build.outputs.path }}
@@ -100,7 +95,7 @@ jobs:
           git log -1 --oneline
         shell: powershell
 
-      - name: Setup Meson Build with Persistent Source and Build Dirs
+      - name: Setup Build
         run: >
           meson setup "${{ steps.paths.outputs.build_dir }}" "${{ steps.paths.outputs.source_dir }}" --buildtype=release
           -Dc_args="-fuse-ld=lld"
@@ -109,7 +104,7 @@ jobs:
           -Dcpp_link_args="-fuse-ld=lld"
         shell: powershell
 
-      - name: Compile with Meson in Persistent Build Directory
+      - name: Compile
         run: meson compile -C "${{ steps.paths.outputs.build_dir }}"
         shell: powershell
 
