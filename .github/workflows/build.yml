@@ -45,14 +45,42 @@ jobs:
           name: pupbrained
           signingKey: "${{ secrets.CACHIX_SIGNING_KEY }}"
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
-      - name: Nix Build and Push Packages
-        run: |
-          nix build .#glibc-generic --no-link --print-out-paths | cachix push pupbrained
-          nix build .#musl-generic --no-link --print-out-paths | cachix push pupbrained
+      - name: Build glibc-generic package
+        id: build_glibc
+        run: echo "path=$(nix build .#glibc-generic --no-link --print-out-paths)" >> $GITHUB_OUTPUT
+
+      - name: Push glibc-generic to Cachix
+        run: cachix push pupbrained ${{ steps.build_glibc.outputs.path }}
+
+      - name: Build musl-generic package
+        id: build_musl
+        run: echo "path=$(nix build .#musl-generic --no-link --print-out-paths)" >> $GITHUB_OUTPUT
+
+      - name: Push musl-generic to Cachix
+        run: cachix push pupbrained ${{ steps.build_musl.outputs.path }}
+
+      - name: Upload Nix glibc-generic Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nix-build-glibc-generic
+          path: ${{ steps.build_glibc.outputs.path }}
+
+      - name: Upload Nix musl-generic Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nix-build-musl-generic
+          path: ${{ steps.build_musl.outputs.path }}
   windows:
     name: Windows
     runs-on: [native]
     steps:
       - uses: actions/checkout@v4
-      - name: List directory contents
-        run: dir
+      - name: Setup Meson Build
+        run: meson setup build --buildtype=release
+      - name: Compile with Meson
+        run: meson compile -C build
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: build/
