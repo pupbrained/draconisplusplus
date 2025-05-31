@@ -10,12 +10,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-ubuntu:
-    name: Build Ubuntu
+  linux:
+    name: Linux
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        os: [ ubuntu-24.04 ]
+        os: [ubuntu-24.04]
       fail-fast: false
     permissions:
       contents: read
@@ -43,9 +43,16 @@ jobs:
         uses: cachix/cachix-action@v12
         with:
           name: pupbrained
-          signingKey: '${{ secrets.CACHIX_SIGNING_KEY }}'
-          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+          signingKey: "${{ secrets.CACHIX_SIGNING_KEY }}"
+          authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
       - name: Nix Build and Push Packages
         run: |
           nix build .#glibc-generic --no-link --print-out-paths | cachix push pupbrained
           nix build .#musl-generic --no-link --print-out-paths | cachix push pupbrained
+  windows:
+    name: Windows
+    runs-on: [native]
+    steps:
+      - uses: actions/checkout@v4
+      - name: List directory contents
+        run: dir
