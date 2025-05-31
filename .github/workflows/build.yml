@@ -35,7 +35,6 @@ jobs:
       - name: Build musl-generic package
         id: build_musl
         run: echo "path=$(nix build .#musl-generic --no-link --print-out-paths)" >> $GITHUB_OUTPUT
-        shell: fish
 
       - name: Push musl-generic to Cachix
         run: cachix push pupbrained ${{ steps.build_musl.outputs.path }}
@@ -56,35 +55,45 @@ jobs:
           path: ${{ steps.build_musl.outputs.path }}/bin/draconis++
   windows:
     name: Windows
-    runs-on: native
+    runs-on: [native]
     steps:
-      - name: Display Workspace Info & Define Persistent Path
+      - name: Define Persistent Paths and Ensure Directories Exist
         id: paths
         run: |
-          echo "GITHUB_WORKSPACE (source checkout location): ${{ github.workspace }}"
-          $persistentBuildDir = "C:\persistent_builds\${{ github.event.repository.name }}"
-          echo "Persistent Build Directory will be: $persistentBuildDir"
-          echo "build_dir=$persistentBuildDir" | Add-Content -Path $env:GITHUB_OUTPUT
-        shell: powershell
+          $repoName = "${{ github.event.repository.name }}" # Or use a fixed name if you prefer for your project
+          $persistentSourcePath = "C:\persistent_checkout\${{ github.run_id }}_${{ github.run_attempt }}_$repoName"
+          $persistentBuildPath = "C:\persistent_builds\$repoName" # Build path can be more stable across re-runs
 
-      - uses: actions/checkout@v4
+          Write-Host "Persistent Source Directory will be: $persistentSourcePath"
+          Write-Host "Persistent Build Directory: $persistentBuildPath"
 
-      - name: Ensure Persistent Build Directory Exists
-        run: New-Item -ItemType Directory -Force -Path "${{ steps.paths.outputs.build_dir }}"
-        shell: powershell
+          echo "source_dir=$persistentSourcePath" | Add-Content -Path $env:GITHUB_OUTPUT
+          echo "build_dir=$persistentBuildPath" | Add-Content -Path $env:GITHUB_OUTPUT
 
-      - name: Setup Meson Build in Persistent Directory
+          # Ensure the target directories exist (New-Item -Force creates parent dirs if needed)
+          New-Item -ItemType Directory -Force -Path $persistentSourcePath | Out-Null
+          New-Item -ItemType Directory -Force -Path $persistentBuildPath | Out-Null
+        shell: pwsh
+
+      - name: Checkout/Update Code in Persistent Source Directory
+        uses: actions/checkout@v4
+        with:
+          path: ${{ steps.paths.outputs.source_dir }}
+          clean: false
+          fetch-depth: 0
+
+      - name: Setup Meson Build with Persistent Source and Build Dirs
         run: >
-          meson setup "${{ steps.paths.outputs.build_dir }}" "${{ github.workspace }}" --buildtype=release --reconfigure
+          meson setup "${{ steps.paths.outputs.build_dir }}" "${{ steps.paths.outputs.source_dir }}" --buildtype=release
           -Dc_args="-fuse-ld=lld"
           -Dcpp_args="-fuse-ld=lld"
           -Dc_link_args="-fuse-ld=lld"
           -Dcpp_link_args="-fuse-ld=lld"
-        shell: powershell
+        shell: pwsh
 
-      - name: Compile with Meson in Persistent Directory
+      - name: Compile with Meson in Persistent Build Directory
         run: meson compile -C "${{ steps.paths.outputs.build_dir }}"
-        shell: powershell
+        shell: pwsh
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
