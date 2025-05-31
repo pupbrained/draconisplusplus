@@ -73,7 +73,7 @@ jobs:
           # Ensure the target directories exist (New-Item -Force creates parent dirs if needed)
           New-Item -ItemType Directory -Force -Path $persistentSourcePath | Out-Null
           New-Item -ItemType Directory -Force -Path $persistentBuildPath | Out-Null
-        shell: pwsh
+        shell: powershell
 
       - name: Checkout/Update Code in Persistent Source Directory
         uses: actions/checkout@v4
@@ -89,11 +89,11 @@ jobs:
           -Dcpp_args="-fuse-ld=lld"
           -Dc_link_args="-fuse-ld=lld"
           -Dcpp_link_args="-fuse-ld=lld"
-        shell: pwsh
+        shell: powershell
 
       - name: Compile with Meson in Persistent Build Directory
         run: meson compile -C "${{ steps.paths.outputs.build_dir }}"
-        shell: pwsh
+        shell: powershell
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
