@@ -26,12 +26,12 @@ option('precompiled_config', type: 'boolean', value: true)
 
 # Option: enable_nowplaying
 # Description: Enable nowplaying functionality.
-option('enable_nowplaying', type: 'boolean', value: true)
+option('enable_nowplaying', type: 'boolean', value: false)
 
 # Option: enable_weather
 # Description: Enable fetching weather data.
-option('enable_weather', type: 'boolean', value: true)
+option('enable_weather', type: 'boolean', value: false)
 
 # Option: enable_packagecount
 # Description: Enable getting package count.
-option('enable_packagecount', type: 'boolean', value: true)
+option('enable_packagecount', type: 'boolean', value: false)

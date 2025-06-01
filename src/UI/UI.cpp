@@ -142,8 +142,10 @@ namespace ui {
     }
 
     fn CreateInfoBox(const Config& config, const os::SystemData& data) -> Element {
-      const String&  name    = config.general.name;
+      const String& name = config.general.name;
+#if DRAC_ENABLE_WEATHER
       const Weather& weather = config.weather;
+#endif
 
       // clang-format off
       const auto& [
@@ -171,16 +173,18 @@ namespace ui {
       if (data.date)
         initialRows.push_back({ .icon = calendarIcon, .label = "Date", .value = *data.date });
 
-      if (weather.enabled && data.weather) {
+#if DRAC_ENABLE_WEATHER
+      if (config.weather.enabled && data.weather) {
         const weather::WeatherReport& weatherInfo = *data.weather;
 
-        String weatherValue = weather.showTownName && weatherInfo.name
-          ? std::format("{}°F in {}", std::lround(weatherInfo.temperature), *weatherInfo.name)
-          : std::format("{}°F, {}", std::lround(weatherInfo.temperature), weatherInfo.description);
+        String weatherValue = config.weather.showTownName && weatherInfo.name
+          ? std::format("{}°{} in {}", std::lround(weatherInfo.temperature), config.weather.units == "metric" ? "C" : "F", *weatherInfo.name)
+          : std::format("{}°{}, {}", std::lround(weatherInfo.temperature), config.weather.units == "metric" ? "C" : "F", weatherInfo.description);
 
         initialRows.push_back({ .icon = weatherIcon, .label = "Weather", .value = std::move(weatherValue) });
-      } else if (weather.enabled && !data.weather.has_value())
-        debug_at(data.weather.error());
+      } else if (config.weather.enabled && !data.weather.has_value())
+        error_at(data.weather.error());
+#endif
 
       if (data.host && !data.host->empty())
         systemInfoRows.push_back({ .icon = hostIcon, .label = "Host", .value = *data.host });
@@ -236,12 +240,16 @@ namespace ui {
       bool   nowPlayingActive = false;
       String npText;
 
+#if DRAC_ENABLE_NOWPLAYING
       if (config.nowPlaying.enabled && data.nowPlaying) {
         const String title  = data.nowPlaying->title.value_or("Unknown Title");
         const String artist = data.nowPlaying->artist.value_or("Unknown Artist");
         npText              = artist + " - " + title;
         nowPlayingActive    = true;
       }
+#else
+      // Keep nowPlayingActive false and npText empty if DRAC_ENABLE_NOWPLAYING is not defined
+#endif
 
       usize maxContentWidth = 0;
 
@@ -301,7 +309,7 @@ namespace ui {
             text(String(row.label)) | color(ui::DEFAULT_THEME.label),
           }) |
             size(WIDTH, EQUAL, static_cast<int>(sectionRequiredVisualWidth)),
-          text(" "), // Ensure at least one space
+          text(" "),
           filler(),
           text(row.value) | color(ui::DEFAULT_THEME.value),
           text(" "),
@@ -342,7 +350,7 @@ namespace ui {
           text("Playing") | color(ui::DEFAULT_THEME.label),
           text(" "),
           filler(),
-          paragraphAlignJustify(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, paragraphLimit),
+          paragraphAlignRight(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, paragraphLimit),
           text(" "),
         }));
       }

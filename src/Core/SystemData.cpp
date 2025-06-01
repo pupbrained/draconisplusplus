@@ -85,26 +85,26 @@ namespace os {
     Future<Result<String>>        wmFut     = std::async(async, GetWindowManager);
     Future<Result<ResourceUsage>> diskFut   = std::async(async, GetDiskUsage);
     Future<Result<String>>        shellFut  = std::async(async, GetShell);
-    Future<Result<u64>>           pkgFut;
+#if DRAC_ENABLE_PACKAGECOUNT
+    Future<Result<u64>> pkgFut;
 
-#ifdef PRECOMPILED_CONFIG
-  #if DRAC_ENABLE_PACKAGECOUNT
+  #ifdef PRECOMPILED_CONFIG
     pkgFut = std::async(async, GetTotalCount);
   #else
-    pkgFut = std::async(std::launch::deferred, []() -> Result<u64> {
-      return Err(DracError(DracErrorCode::NotSupported, "Package counting disabled by precompiled configuration"));
-    });
-  #endif
-#else
     pkgFut = std::async(async, GetTotalCount);
-#endif
+  #endif
+#endif // DRAC_ENABLE_PACKAGECOUNT
 
-    Future<Result<MediaInfo>>     npFut   = std::async(config.nowPlaying.enabled ? async : deferred, GetNowPlaying);
+#if DRAC_ENABLE_NOWPLAYING
+    Future<Result<MediaInfo>> npFut = std::async(config.nowPlaying.enabled ? async : deferred, GetNowPlaying);
+#endif // DRAC_ENABLE_NOWPLAYING
+#if DRAC_ENABLE_WEATHER
     Future<Result<WeatherReport>> wthrFut = std::async(config.weather.enabled ? async : deferred, [&config]() -> Result<WeatherReport> {
       return config.weather.enabled && config.weather.service
         ? config.weather.service->getWeatherInfo()
         : Err(DracError(ApiUnavailable, "Weather API disabled"));
     });
+#endif // DRAC_ENABLE_WEATHER
 
     this->date          = getDate();
     this->host          = hostFut.get();
@@ -115,8 +115,20 @@ namespace os {
     this->windowMgr     = wmFut.get();
     this->diskUsage     = diskFut.get();
     this->shell         = shellFut.get();
-    this->packageCount  = pkgFut.get();
-    this->weather       = config.weather.enabled ? wthrFut.get() : Err(DracError(ApiUnavailable, "Weather API disabled"));
-    this->nowPlaying    = config.nowPlaying.enabled ? npFut.get() : Err(DracError(ApiUnavailable, "Now Playing API disabled"));
+#if DRAC_ENABLE_PACKAGECOUNT
+    this->packageCount = pkgFut.get();
+#else
+    this->packageCount = Err(DracError(NotSupported, "Package counting disabled at compile time"));
+#endif // DRAC_ENABLE_PACKAGECOUNT
+#if DRAC_ENABLE_WEATHER
+    this->weather = config.weather.enabled ? wthrFut.get() : Err(DracError(ApiUnavailable, "Weather API disabled"));
+#else
+    this->weather = Err(DracError(NotSupported, "Weather support disabled at compile time"));
+#endif // DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_NOWPLAYING
+    this->nowPlaying = config.nowPlaying.enabled ? npFut.get() : Err(DracError(ApiUnavailable, "Now Playing API disabled"));
+#else
+    this->nowPlaying = Err(DracError(NotSupported, "Now Playing support disabled at compile time"));
+#endif // DRAC_ENABLE_NOWPLAYING
   }
 } // namespace os

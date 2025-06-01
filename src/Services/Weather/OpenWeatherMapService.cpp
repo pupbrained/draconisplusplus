@@ -9,6 +9,7 @@
 #include <variant>
 
 #include "Services/Weather/DataTransferObjects.hpp"
+
 #include "Util/Caching.hpp"
 #include "Util/Error.hpp"
 #include "Util/Logging.hpp"
@@ -52,6 +53,26 @@ namespace {
 
     if (const error_ctx errc = read<glz::opts { .error_on_unknown_keys = false }>(owmResponse, responseBuffer); errc.ec != error_code::none)
       return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer))));
+
+    // Check for OpenWeatherMap API error codes
+    if (owmResponse.cod && *owmResponse.cod != 200) {
+      String apiErrorMessage = "OpenWeatherMap API error";
+      if (owmResponse.message && !owmResponse.message->empty()) {
+        apiErrorMessage += std::format(" ({}): {}", *owmResponse.cod, *owmResponse.message);
+      } else {
+        apiErrorMessage += std::format(" (Code: {})", *owmResponse.cod);
+      }
+      // Map to specific DracErrorCodes if desired
+      DracErrorCode dErrorCode = DracErrorCode::ApiUnavailable; // General API issue
+      if (*owmResponse.cod == 401)
+        dErrorCode = DracErrorCode::PermissionDenied; // Authentication error
+      else if (*owmResponse.cod == 404)
+        dErrorCode = DracErrorCode::NotFound; // Location not found
+      else if (*owmResponse.cod == 429)
+        dErrorCode = DracErrorCode::ApiUnavailable; // Rate limited, treat as temporarily unavailable
+
+      return Err(DracError(dErrorCode, apiErrorMessage));
+    }
 
     WeatherReport report = {
       .temperature = owmResponse.main.temp,

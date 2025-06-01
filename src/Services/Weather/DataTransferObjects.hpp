@@ -73,13 +73,15 @@ namespace weather {
           String description;
         };
 
-        Main         main;
-        Vec<Weather> weather;
-        String       name;
-        i64          dt;
+        Main           main;
+        Vec<Weather>   weather;
+        String         name;
+        i64            dt;
+        Option<i32>    cod;
+        Option<String> message;
       };
     } // namespace owm
-  }   // namespace dto
+  } // namespace dto
 } // namespace weather
 
 namespace glz {
@@ -161,6 +163,6 @@ namespace glz {
   template <>
   struct meta<weather::dto::owm::OWMResponse> {
     using T                     = weather::dto::owm::OWMResponse;
-    static constexpr auto value = object("main", &T::main, "weather", &T::weather, "name", &T::name, "dt", &T::dt);
+    static constexpr auto value = object("main", &T::main, "weather", &T::weather, "name", &T::name, "dt", &T::dt, "cod", &T::cod, "message", &T::message);
   };
 } // namespace glz

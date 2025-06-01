@@ -25,29 +25,6 @@ namespace fs = std::filesystem;
 #ifndef PRECOMPILED_CONFIG
 namespace {
   using util::types::Vec, util::types::CStr, util::types::Exception;
-  constexpr const char* defaultConfigTemplate = R"toml(# Draconis++ Configuration File
-
-# General settings
-[general]
-name = "{}" # Your display name
-
-# Now Playing integration
-[now_playing]
-enabled = false # Set to true to enable media integration
-
-# Weather settings
-[weather]
-enabled = false        # Set to true to enable weather display
-show_town_name = false # Show location name in weather display
-api_key = ""           # Your weather API key
-units = "metric"       # Use "metric" for °C or "imperial" for °F
-location = "London"    # Your city name
-
-# Alternatively, you can specify coordinates instead of a city name:
-# [weather.location]
-# lat = 51.5074
-# lon = -0.1278
-  )toml";
 
   fn GetConfigPath() -> fs::path {
     using util::helpers::GetEnv;
@@ -112,11 +89,41 @@ location = "London"    # Your city name
       }
 
       try {
-        const String defaultName = General::getDefaultName();
+        const String defaultName   = General::getDefaultName();
+        String       configContent = std::format(R"toml(# Draconis++ Configuration File
 
-        const String formattedConfig = std::vformat(defaultConfigTemplate, std::make_format_args(defaultName));
+# General settings
+[general]
+name = "{}" # Your display name
+)toml",
+                                           defaultName);
 
-        file << formattedConfig;
+  #if DRAC_ENABLE_NOWPLAYING
+        configContent += R"toml(
+# Now Playing integration
+[now_playing]
+enabled = false # Set to true to enable media integration
+)toml";
+  #endif
+
+  #if DRAC_ENABLE_WEATHER
+        configContent += R"toml(
+# Weather settings
+[weather]
+enabled = false        # Set to true to enable weather display
+show_town_name = false # Show location name in weather display
+api_key = ""           # Your weather API key
+units = "metric"       # Use "metric" for °C or "imperial" for °F
+location = "London"    # Your city name
+
+# Alternatively, you can specify coordinates instead of a city name:
+# [weather.location]
+# lat = 51.5074
+# lon = -0.1278
+)toml";
+  #endif
+
+        file << configContent;
       } catch (const std::format_error& fmtErr) {
         error_log("Failed to format default config string: {}", fmtErr.what());
         return false;
@@ -146,12 +153,17 @@ location = "London"    # Your city name
 Config::Config([[maybe_unused]] const toml::table& tbl) {
 #ifndef PRECOMPILED_CONFIG
   const toml::node_view genTbl = tbl["general"];
-  const toml::node_view npTbl  = tbl["now_playing"];
-  const toml::node_view wthTbl = tbl["weather"];
+  this->general                = genTbl.is_table() ? General::fromToml(*genTbl.as_table()) : General {};
 
-  this->general    = genTbl.is_table() ? General::fromToml(*genTbl.as_table()) : General {};
-  this->nowPlaying = npTbl.is_table() ? NowPlaying::fromToml(*npTbl.as_table()) : NowPlaying {};
-  this->weather    = wthTbl.is_table() ? Weather::fromToml(*wthTbl.as_table()) : Weather {};
+  #if DRAC_ENABLE_NOWPLAYING
+  const toml::node_view npTbl = tbl["now_playing"];
+  this->nowPlaying            = npTbl.is_table() ? NowPlaying::fromToml(*npTbl.as_table()) : NowPlaying {};
+  #endif // DRAC_ENABLE_NOWPLAYING
+
+  #if DRAC_ENABLE_WEATHER
+  const toml::node_view wthTbl = tbl["weather"];
+  this->weather                = wthTbl.is_table() ? Weather::fromToml(*wthTbl.as_table()) : Weather {};
+  #endif // DRAC_ENABLE_WEATHER
 #else
   std::unreachable();
 #endif // PRECOMPILED_CONFIG
@@ -217,19 +229,23 @@ fn Config::getInstance() -> Config {
     error_log("Failed to initialize precompiled weather service for the configured provider.");
     cfg.weather.enabled = false;
   }
-  #else  // DRAC_ENABLE_WEATHER is not defined
+  #else                     // DRAC_ENABLE_WEATHER is not defined
+    #if DRAC_ENABLE_WEATHER // Guard access to weather members
   cfg.weather.enabled = false;
   cfg.weather.service = nullptr;
-  #endif // DRAC_ENABLE_WEATHER
+    #endif                  // DRAC_ENABLE_WEATHER (inner)
+  #endif                    // DRAC_ENABLE_WEATHER (outer)
 
   // NowPlaying section
   #if DRAC_ENABLE_NOWPLAYING
   cfg.nowPlaying.enabled = true;
   debug_log("Precompiled: NowPlaying is ENABLED via DRAC_ENABLE_NOWPLAYING.");
   #else
+    #if DRAC_ENABLE_NOWPLAYING // Guard access to nowPlaying members
   cfg.nowPlaying.enabled = false;
+    #endif                     // DRAC_ENABLE_NOWPLAYING (inner)
   debug_log("Precompiled: NowPlaying is DISABLED via DRAC_ENABLE_NOWPLAYING.");
-  #endif // DRAC_ENABLE_NOWPLAYING
+  #endif                       // DRAC_ENABLE_NOWPLAYING (outer)
 
   debug_log("Using precompiled configuration.");
   return cfg;

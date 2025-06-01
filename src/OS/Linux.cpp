@@ -517,6 +517,7 @@ namespace os {
   }
 } // namespace os
 
+  #ifdef DRAC_ENABLE_PACKAGECOUNT
 namespace package {
   using namespace std::string_literals;
   using std::chrono::system_clock, std::chrono::seconds, std::chrono::hours, std::chrono::duration_cast;
@@ -612,7 +613,7 @@ namespace package {
     return GetCountFromDb("rpm", "/var/lib/rpm/rpmdb.sqlite", "SELECT COUNT(*) FROM Installtid");
   }
 
-  #ifdef HAVE_PUGIXML
+    #ifdef HAVE_PUGIXML
   fn CountXbps() -> Result<u64> {
     using util::types::CStr;
 
@@ -634,7 +635,8 @@ namespace package {
 
     return GetCountFromPlist("xbps", plistPath);
   }
-  #endif
+    #endif
 } // namespace package
+  #endif
 
 #endif // __linux__

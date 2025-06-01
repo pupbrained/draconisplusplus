@@ -96,16 +96,26 @@ project_public_includes = include_directories('include', is_system: true)
 # ------- #
 #  Files  #
 # ------- #
-lib_base_sources = files(
-  'src/Config/Config.cpp',
-  'src/Core/SystemData.cpp',
-  'src/Services/PackageCounting.cpp',
-  'src/Services/Weather/MetNoService.cpp',
-  'src/Services/Weather/OpenMeteoService.cpp',
-  'src/Services/Weather/OpenWeatherMapService.cpp',
-  'src/Services/Weather/WeatherUtils.cpp',
-  'src/UI/UI.cpp',
-)
+lib_base_sources = [
+  files(
+    'src/Config/Config.cpp',
+    'src/Core/SystemData.cpp',
+    'src/UI/UI.cpp',
+  ),
+]
+
+if get_option('enable_packagecount') == true
+  lib_base_sources += files('src/Services/PackageCounting.cpp')
+endif
+
+if get_option('enable_weather') == true
+  lib_base_sources += files(
+    'src/Services/Weather/MetNoService.cpp',
+    'src/Services/Weather/OpenMeteoService.cpp',
+    'src/Services/Weather/OpenWeatherMapService.cpp',
+    'src/Services/Weather/WeatherUtils.cpp',
+  )
+endif
 
 main_app_sources = files('src/main.cpp')
 
@@ -291,8 +301,11 @@ if gtest_dep.found()
     'tests/CoreTypesTest.cpp',
     'tests/LoggingUtilsTest.cpp',
     'tests/TestMain.cpp',
-    'tests/WeatherServiceTest.cpp',
   )
+
+  if get_option('enable_weather')
+    test_sources += files('tests/WeatherServiceTest.cpp')
+  endif
 
   tests = executable(
     'tests',

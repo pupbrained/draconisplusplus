@@ -28,7 +28,9 @@
 using util::error::DracError;
 using util::types::CStr, util::types::String, util::types::StringView, util::types::Array, util::types::Option, util::types::Result;
 
+#if DRAC_ENABLE_WEATHER
 using Location = std::variant<String, weather::Coords>;
+#endif // DRAC_ENABLE_WEATHER
 
 /**
  * @struct General
@@ -84,6 +86,7 @@ struct General {
   }
 };
 
+#if DRAC_ENABLE_NOWPLAYING
 /**
  * @struct NowPlaying
  * @brief Holds configuration settings for the Now Playing feature.
@@ -100,7 +103,9 @@ struct NowPlaying {
     return { .enabled = tbl["enabled"].value_or(false) };
   }
 };
+#endif // DRAC_ENABLE_NOWPLAYING
 
+#if DRAC_ENABLE_WEATHER
 /**
  * @struct Weather
  * @brief Holds configuration settings for the Weather feature.
@@ -179,15 +184,20 @@ struct Weather {
     return weather;
   }
 };
+#endif // DRAC_ENABLE_WEATHER
 
 /**
  * @struct Config
  * @brief Holds the application configuration settings.
  */
 struct Config {
-  General    general;    ///< General configuration settings.
-  Weather    weather;    ///< Weather configuration settings.
+  General general; ///< General configuration settings.
+#if DRAC_ENABLE_WEATHER
+  Weather weather; ///< Weather configuration settings.
+#endif
+#if DRAC_ENABLE_NOWPLAYING
   NowPlaying nowPlaying; ///< Now Playing configuration settings.
+#endif
 
   /**
    * @brief Default constructor for Config.
