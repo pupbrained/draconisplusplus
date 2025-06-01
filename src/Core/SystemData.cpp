@@ -85,12 +85,25 @@ namespace os {
     Future<Result<String>>        wmFut     = std::async(async, GetWindowManager);
     Future<Result<ResourceUsage>> diskFut   = std::async(async, GetDiskUsage);
     Future<Result<String>>        shellFut  = std::async(async, GetShell);
-    Future<Result<u64>>           pkgFut    = std::async(async, GetTotalCount);
-    Future<Result<MediaInfo>>     npFut     = std::async(config.nowPlaying.enabled ? async : deferred, GetNowPlaying);
-    Future<Result<WeatherReport>> wthrFut   = std::async(config.weather.enabled ? async : deferred, [&config]() -> Result<WeatherReport> {
+    Future<Result<u64>>           pkgFut;
+
+#ifdef PRECOMPILED_CONFIG
+  #if DRAC_ENABLE_PACKAGECOUNT
+    pkgFut = std::async(async, GetTotalCount);
+  #else
+    pkgFut = std::async(std::launch::deferred, []() -> Result<u64> {
+      return Err(DracError(DracErrorCode::NotSupported, "Package counting disabled by precompiled configuration"));
+    });
+  #endif
+#else
+    pkgFut = std::async(async, GetTotalCount);
+#endif
+
+    Future<Result<MediaInfo>>     npFut   = std::async(config.nowPlaying.enabled ? async : deferred, GetNowPlaying);
+    Future<Result<WeatherReport>> wthrFut = std::async(config.weather.enabled ? async : deferred, [&config]() -> Result<WeatherReport> {
       return config.weather.enabled && config.weather.service
-          ? config.weather.service->getWeatherInfo()
-          : Err(DracError(ApiUnavailable, "Weather API disabled"));
+        ? config.weather.service->getWeatherInfo()
+        : Err(DracError(ApiUnavailable, "Weather API disabled"));
     });
 
     this->date          = getDate();

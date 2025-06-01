@@ -26,3 +26,5 @@ result
 subprojects/*
 !subprojects/*.wrap
 subprojects/sqlite3.wrap
+
+config.hpp
