@@ -151,7 +151,6 @@ elif host_system == 'windows'
     cpp.find_library('windowsapp'),
   ]
 elif host_system != 'serenity' and host_system != 'haiku'
-  # Make dbus, x11, and wayland dependencies optional
   dbus_dep = dependency('dbus-1', required: false)
   xcb_dep = dependency('xcb', required: false)
   xau_dep = dependency('xau', required: false)
@@ -160,18 +159,21 @@ elif host_system != 'serenity' and host_system != 'haiku'
 
   platform_deps += dependency('SQLiteCpp')
 
-  if host_system == 'linux'
+  if host_system == 'linux' and get_option('use_pugixml') == true
     platform_deps += dependency('pugixml')
+    add_project_arguments('-DHAVE_PUGIXML', language: 'cpp')
   endif
 
   if dbus_dep.found()
     platform_deps += dbus_dep
     add_project_arguments('-DHAVE_DBUS', language: 'cpp')
   endif
+
   if xcb_dep.found() and xau_dep.found() and xdmcp_dep.found()
     platform_deps += [xcb_dep, xau_dep, xdmcp_dep]
     add_project_arguments('-DHAVE_XCB', language: 'cpp')
   endif
+
   if wayland_dep.found()
     platform_deps += wayland_dep
     add_project_arguments('-DHAVE_WAYLAND', language: 'cpp')

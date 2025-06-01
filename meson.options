@@ -1,1 +1,2 @@
 option('build_for_musl', type: 'boolean', value: false)
+option('use_pugixml', type: 'boolean', value: false)

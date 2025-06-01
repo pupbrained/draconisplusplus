@@ -532,7 +532,7 @@ namespace package {
 
     if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(cacheKey)) {
       const auto& [cachedCount, timestamp] = *cachedDataResult;
-      const auto cacheTimePoint = system_clock::time_point(seconds(timestamp));
+      const auto cacheTimePoint            = system_clock::time_point(seconds(timestamp));
 
       if ((system_clock::now() - cacheTimePoint) < CACHE_EXPIRY_DURATION_APK) {
         return cachedCount; // Cache is valid and not expired
@@ -612,6 +612,7 @@ namespace package {
     return GetCountFromDb("rpm", "/var/lib/rpm/rpmdb.sqlite", "SELECT COUNT(*) FROM Installtid");
   }
 
+  #ifdef HAVE_PUGIXML
   fn CountXbps() -> Result<u64> {
     using util::types::CStr;
 
@@ -633,6 +634,7 @@ namespace package {
 
     return GetCountFromPlist("xbps", plistPath);
   }
+  #endif
 } // namespace package
 
 #endif // __linux__

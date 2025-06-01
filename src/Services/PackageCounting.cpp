@@ -6,7 +6,7 @@
   #include <SQLiteCpp/Statement.h> // SQLite::Statement
 #endif
 
-#ifdef __linux__
+#if defined(__linux__) && defined(HAVE_PUGIXML)
   #include <pugixml.hpp> // pugi::{xml_document, xml_node, xml_parse_result}
 #endif
 
@@ -46,7 +46,7 @@ namespace {
 
     if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(cacheKey)) {
       const auto& [cachedCount, timestamp] = *cachedDataResult;
-      const auto cacheTimePoint = system_clock::time_point(seconds(timestamp));
+      const auto cacheTimePoint            = system_clock::time_point(seconds(timestamp));
 
       if ((system_clock::now() - cacheTimePoint) < CACHE_EXPIRY_DURATION) {
         return cachedCount; // Cache is valid and not expired
@@ -173,7 +173,7 @@ namespace package {
 
     if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(cacheKey)) {
       const auto& [cachedDbCount, timestamp] = *cachedDataResult;
-      const auto cacheTimePoint = system_clock::time_point(seconds(timestamp));
+      const auto cacheTimePoint              = system_clock::time_point(seconds(timestamp));
 
       if ((system_clock::now() - cacheTimePoint) < CACHE_EXPIRY_DURATION) {
         return cachedDbCount; // Cache is valid and not expired
@@ -230,7 +230,7 @@ namespace package {
   }
 #endif // __serenity__ || _WIN32
 
-#ifdef __linux__
+#if defined(__linux__) && defined(HAVE_PUGIXML)
   fn GetCountFromPlist(const String& pmId, const fs::path& plistPath) -> Result<u64> {
     using pugi::xml_document, pugi::xml_node, pugi::xml_parse_result;
     using util::cache::ReadCache, util::cache::WriteCache;
@@ -241,7 +241,7 @@ namespace package {
 
     if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(cacheKey)) {
       const auto& [cachedPlistCount, timestamp] = *cachedDataResult;
-      const auto cacheTimePoint = system_clock::time_point(seconds(timestamp));
+      const auto cacheTimePoint                 = system_clock::time_point(seconds(timestamp));
 
       if ((system_clock::now() - cacheTimePoint) < CACHE_EXPIRY_DURATION) {
         return cachedPlistCount; // Cache is valid and not expired
@@ -333,7 +333,11 @@ namespace package {
     using util::types::Array, util::types::Exception, util::types::Future;
 
 #ifdef __linux__
+  #ifdef HAVE_PUGIXML
     constexpr size_t platformSpecificCount = 6; // Apk, Dpkg, Moss, Pacman, Rpm, Xbps
+  #else
+    constexpr size_t platformSpecificCount = 5; // Apk, Dpkg, Moss, Pacman, Rpm
+  #endif
 #elifdef __APPLE__
     constexpr size_t platformSpecificCount = 2; // Homebrew, MacPorts
 #elifdef _WIN32
@@ -365,7 +369,9 @@ namespace package {
          std::async(std::launch::async, CountMoss),
          std::async(std::launch::async, CountPacman),
          std::async(std::launch::async, CountRpm),
+  #ifdef HAVE_PUGIXML
          std::async(std::launch::async, CountXbps),
+  #endif
 #elifdef __APPLE__
           std::async(std::launch::async, GetHomebrewCount),
           std::async(std::launch::async, GetMacPortsCount),
