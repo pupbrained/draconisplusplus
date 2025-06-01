@@ -24,4 +24,5 @@ extern "C++" {
   fn GetMacOSVersion() -> Result<String>;
 }
   #endif
+
 #endif

@@ -128,9 +128,35 @@ lib_all_sources = lib_base_sources + lib_platform_sources
 # --------------------- #
 common_deps = [
   dependency('libcurl', include_type: 'system', static: true),
-  dependency('tomlplusplus', include_type: 'system', static: true),
   dependency('openssl', include_type: 'system', static: true, required: false),
 ]
+
+if get_option('precompiled_config') == true
+  fs = import('fs')
+
+  add_project_arguments('-DPRECOMPILED_CONFIG', language: ['cpp', 'objcpp'])
+  config_hpp_path = meson.project_source_root() / 'include/Config.hpp'
+
+  if not fs.is_file(config_hpp_path)
+    error(
+      'Option "precompiled_config" is enabled, but "@0@" was not found.'.format(config_hpp_path),
+    )
+  endif
+else
+  common_deps += dependency('tomlplusplus', include_type: 'system', static: true)
+endif
+
+if get_option('enable_nowplaying') == true
+  add_project_arguments('-DDRAC_ENABLE_NOWPLAYING', language: ['cpp', 'objcpp'])
+endif
+
+if get_option('enable_weather') == true
+  add_project_arguments('-DDRAC_ENABLE_WEATHER', language: ['cpp', 'objcpp'])
+endif
+
+if get_option('enable_packagecount') == true
+  add_project_arguments('-DDRAC_ENABLE_PACKAGECOUNT', language: ['cpp', 'objcpp'])
+endif
 
 # Platform-specific dependencies
 platform_deps = []

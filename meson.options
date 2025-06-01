@@ -1,2 +1,37 @@
+# --------------------------------------------------------------------- #
+#                    Draconis++ Global Configuration                    #
+#                                                                       #
+#       Additional configuration can be found in `config.toml` or       #
+#  `include/Config.hpp`, depending on the `precompiled_config` option.  #
+# --------------------------------------------------------------------- #
+
+# Option: build_for_musl
+# Description: Build with musl libc to create fully static executables.
+# Note: This is primarily intended for use with Nix.
 option('build_for_musl', type: 'boolean', value: false)
+
+# Option: use_pugixml
+# Description: Use pugixml to parse XBPS package metadata.
+# Note: This is required for package count functionality on Void Linux.
 option('use_pugixml', type: 'boolean', value: false)
+
+# Option: precompiled_config
+# Description: Use a C header file for precompiled application configuration.
+# Note: Enabling this disables runtime TOML parsing and configuration overriding.
+# TODO: Set to false by default.
+option('precompiled_config', type: 'boolean', value: true)
+
+# All of the below options take precedence over config.toml.
+# They control whether certain features are compiled into the binary.
+
+# Option: enable_nowplaying
+# Description: Enable nowplaying functionality.
+option('enable_nowplaying', type: 'boolean', value: true)
+
+# Option: enable_weather
+# Description: Enable fetching weather data.
+option('enable_weather', type: 'boolean', value: true)
+
+# Option: enable_packagecount
+# Description: Enable getting package count.
+option('enable_packagecount', type: 'boolean', value: true)

@@ -9,8 +9,8 @@
 #endif
 
 namespace weather::utils {
-  using ::util::error::DracError, ::util::error::DracErrorCode;
-  using ::util::types::Array, ::util::types::StringView, ::util::types::Result, ::util::types::usize, ::util::types::Err, ::util::types::String;
+  using util::error::DracError, util::error::DracErrorCode;
+  using util::types::Array, util::types::StringView, util::types::Result, util::types::usize, util::types::Err, util::types::String;
 
   fn StripTimeOfDayFromSymbol(StringView symbol_code) -> StringView {
     static constexpr Array<StringView, 3> SUFFIXES = { "_day", "_night", "_polartwilight" };
@@ -23,7 +23,7 @@ namespace weather::utils {
   }
 
   fn ParseIso8601ToEpoch(StringView iso8601_string) -> Result<usize> {
-    using ::util::types::i32;
+    using util::types::i32;
 
     if (iso8601_string.size() != 20) // "YYYY-MM-DDTHH:MM:SSZ"
       return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse ISO8601 time, expected 20 characters, got {}", iso8601_string.size())));

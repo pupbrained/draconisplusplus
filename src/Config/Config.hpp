@@ -28,7 +28,6 @@
 using util::error::DracError;
 using util::types::CStr, util::types::String, util::types::StringView, util::types::Array, util::types::Option, util::types::Result;
 
-/// Alias for the location type used in Weather config, can be a city name (String) or coordinates (Coords).
 using Location = std::variant<String, weather::Coords>;
 
 /**

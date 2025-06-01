@@ -39,7 +39,6 @@ namespace weather {
     f64 lat;
     f64 lon;
   };
-
 } // namespace weather
 
 namespace glz {
