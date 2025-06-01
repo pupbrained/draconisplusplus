@@ -47,7 +47,7 @@ common_cpp_flags = {
     '-std=c++26',
   ],
   'msvc': [
-    '-DNOMINMAX', '/MT',
+    '/MT',
     '/Zc:__cplusplus',
     '/Zc:preprocessor',
     '/external:W0',
@@ -216,7 +216,6 @@ elif host_system != 'serenity' and host_system != 'haiku'
   endif
 endif
 
-# FTXUI configuration
 ftxui_components = ['ftxui::screen', 'ftxui::dom', 'ftxui::component']
 ftxui_dep = dependency(
   'ftxui',
@@ -254,6 +253,8 @@ objc_args = []
 
 if host_system == 'darwin'
   objc_args += ['-fobjc-arc']
+elif host_system == 'windows'
+  add_project_arguments('-DNOMINMAX', language: ['cpp', 'objcpp'])
 elif host_system == 'linux'
   if get_option('build_for_musl') == true
     link_args += ['-static']

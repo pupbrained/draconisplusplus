@@ -1,12 +1,14 @@
-#include "WeatherUtils.hpp"
+#ifdef DRAC_ENABLE_WEATHER
 
-#include <charconv> // For std::from_chars
-#include <ctime>    // For std::tm, timegm, _mkgmtime
-#include <format>   // For std::format
+  #include "WeatherUtils.hpp"
 
-#ifdef __HAIKU__
-  #define _DEFAULT_SOURCE // exposes timegm
-#endif
+  #include <charconv> // For std::from_chars
+  #include <ctime>    // For std::tm, timegm, _mkgmtime
+  #include <format>   // For std::format
+
+  #ifdef __HAIKU__
+    #define _DEFAULT_SOURCE // exposes timegm
+  #endif
 
 namespace weather::utils {
   using util::error::DracError, util::error::DracErrorCode;
@@ -55,21 +57,21 @@ namespace weather::utils {
     timeStruct.tm_sec   = second;
     timeStruct.tm_isdst = 0; // Explicitly UTC, no daylight saving
 
-#ifdef _WIN32
+  #ifdef _WIN32
     time_t epochTime = _mkgmtime(&timeStruct);
 
     if (epochTime == -1)
       return Err(DracError(DracErrorCode::ParseError, "Failed to convert time to epoch using _mkgmtime (invalid date components or out of range)"));
 
     return static_cast<usize>(epochTime);
-#else
+  #else
     time_t epochTime = timegm(&timeStruct);
 
     if (epochTime == static_cast<time_t>(-1))
       return Err(DracError(DracErrorCode::ParseError, std::format("Failed to convert time to epoch using timegm (invalid date components or out of range)")));
 
     return static_cast<usize>(epochTime);
-#endif
+  #endif
   }
 
   fn GetMetnoSymbolDescriptions() -> const std::unordered_map<StringView, StringView>& {
@@ -154,3 +156,5 @@ namespace weather::utils {
   }
 
 } // namespace weather::utils
+
+#endif // DRAC_ENABLE_WEATHER

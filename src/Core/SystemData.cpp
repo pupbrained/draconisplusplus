@@ -8,8 +8,12 @@
 
 #include "Config/Config.hpp"
 
-#include "Services/PackageCounting.hpp"
-#include "Services/Weather.hpp"
+#ifdef DRAC_ENABLE_PACKAGECOUNT
+  #include "Services/PackageCounting.hpp"
+#endif
+#ifdef DRAC_ENABLE_WEATHER
+  #include "Services/Weather.hpp"
+#endif
 
 #include "Util/Definitions.hpp"
 #include "Util/Error.hpp"
@@ -70,10 +74,14 @@ namespace {
 } // namespace
 
 namespace os {
-  SystemData::SystemData(const Config& config) {
+  SystemData::SystemData([[maybe_unused]] const Config& config) {
+#ifdef DRAC_ENABLE_PACKAGECOUNT
     using package::GetTotalCount;
-    using util::types::Future, util::types::Err;
+#endif // DRAC_ENABLE_PACKAGECOUNT
+#ifdef DRAC_ENABLE_WEATHER
     using weather::WeatherReport;
+#endif // DRAC_ENABLE_WEATHER
+    using util::types::Future, util::types::Err;
     using enum std::launch;
     using enum util::error::DracErrorCode;
 
@@ -117,18 +125,12 @@ namespace os {
     this->shell         = shellFut.get();
 #if DRAC_ENABLE_PACKAGECOUNT
     this->packageCount = pkgFut.get();
-#else
-    this->packageCount = Err(DracError(NotSupported, "Package counting disabled at compile time"));
 #endif // DRAC_ENABLE_PACKAGECOUNT
 #if DRAC_ENABLE_WEATHER
     this->weather = config.weather.enabled ? wthrFut.get() : Err(DracError(ApiUnavailable, "Weather API disabled"));
-#else
-    this->weather = Err(DracError(NotSupported, "Weather support disabled at compile time"));
 #endif // DRAC_ENABLE_WEATHER
 #if DRAC_ENABLE_NOWPLAYING
     this->nowPlaying = config.nowPlaying.enabled ? npFut.get() : Err(DracError(ApiUnavailable, "Now Playing API disabled"));
-#else
-    this->nowPlaying = Err(DracError(NotSupported, "Now Playing support disabled at compile time"));
 #endif // DRAC_ENABLE_NOWPLAYING
   }
 } // namespace os

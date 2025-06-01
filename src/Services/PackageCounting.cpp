@@ -1,31 +1,33 @@
-#include "PackageCounting.hpp"
+#ifdef DRAC_ENABLE_PACKAGECOUNT
 
-#ifdef PRECOMPILED_CONFIG
-  #include "config.hpp"
-#endif
+  #include "PackageCounting.hpp"
 
-#if !defined(__serenity__) && !defined(_WIN32)
-  #include <SQLiteCpp/Database.h>  // SQLite::{Database, OPEN_READONLY}
-  #include <SQLiteCpp/Exception.h> // SQLite::Exception
-  #include <SQLiteCpp/Statement.h> // SQLite::Statement
-#endif
+  #ifdef PRECOMPILED_CONFIG
+    #include "config.hpp"
+  #endif
 
-#if defined(__linux__) && defined(HAVE_PUGIXML)
-  #include <pugixml.hpp> // pugi::{xml_document, xml_node, xml_parse_result}
-#endif
+  #if !defined(__serenity__) && !defined(_WIN32)
+    #include <SQLiteCpp/Database.h>  // SQLite::{Database, OPEN_READONLY}
+    #include <SQLiteCpp/Exception.h> // SQLite::Exception
+    #include <SQLiteCpp/Statement.h> // SQLite::Statement
+  #endif
 
-#include <chrono>       // std::chrono
-#include <filesystem>   // std::filesystem
-#include <format>       // std::format
-#include <future>       // std::{async, future, launch}
-#include <matchit.hpp>  // matchit::{match, is, or_, _}
-#include <system_error> // std::{errc, error_code}
+  #if defined(__linux__) && defined(HAVE_PUGIXML)
+    #include <pugixml.hpp> // pugi::{xml_document, xml_node, xml_parse_result}
+  #endif
 
-#include "Util/Caching.hpp"
-#include "Util/Env.hpp"
-#include "Util/Error.hpp"
-#include "Util/Logging.hpp"
-#include "Util/Types.hpp"
+  #include <chrono>       // std::chrono
+  #include <filesystem>   // std::filesystem
+  #include <format>       // std::format
+  #include <future>       // std::{async, future, launch}
+  #include <matchit.hpp>  // matchit::{match, is, or_, _}
+  #include <system_error> // std::{errc, error_code}
+
+  #include "Util/Caching.hpp"
+  #include "Util/Env.hpp"
+  #include "Util/Error.hpp"
+  #include "Util/Logging.hpp"
+  #include "Util/Types.hpp"
 
 namespace {
   namespace fs = std::filesystem;
@@ -167,7 +169,7 @@ namespace package {
     return GetCountFromDirectoryImpl(pmId, dirPath, None, false);
   }
 
-#if !defined(__serenity__) && !defined(_WIN32)
+  #if !defined(__serenity__) && !defined(_WIN32)
   fn GetCountFromDb(const String& pmId, const fs::path& dbPath, const String& countQuery) -> Result<u64> {
     using util::cache::ReadCache, util::cache::WriteCache;
     using util::error::DracError, util::error::DracErrorCode;
@@ -232,9 +234,9 @@ namespace package {
 
     return count;
   }
-#endif // __serenity__ || _WIN32
+  #endif // __serenity__ || _WIN32
 
-#if defined(__linux__) && defined(HAVE_PUGIXML)
+  #if defined(__linux__) && defined(HAVE_PUGIXML)
   fn GetCountFromPlist(const String& pmId, const fs::path& plistPath) -> Result<u64> {
     using pugi::xml_document, pugi::xml_node, pugi::xml_parse_result;
     using util::cache::ReadCache, util::cache::WriteCache;
@@ -307,13 +309,13 @@ namespace package {
 
     return count;
   }
-#endif // __linux__
+  #endif // __linux__
 
-#if defined(__linux__) || defined(__APPLE__)
+  #if defined(__linux__) || defined(__APPLE__)
   fn CountNix() -> Result<u64> {
     return GetCountFromDb("nix", "/nix/var/nix/db/db.sqlite", "SELECT COUNT(path) FROM ValidPaths WHERE sigs IS NOT NULL");
   }
-#endif // __linux__ || __APPLE__
+  #endif // __linux__ || __APPLE__
 
   fn CountCargo() -> Result<u64> {
     using util::error::DracError, util::error::DracErrorCode;
@@ -336,154 +338,134 @@ namespace package {
     using util::error::DracError;
     using util::types::Exception, util::types::Future;
 
-#ifdef PRECOMPILED_CONFIG
-  #if DRAC_ENABLE_PACKAGECOUNT
+  #ifdef PRECOMPILED_CONFIG
+    #if DRAC_ENABLE_PACKAGECOUNT
     using util::types::Vec;
     Vec<Future<Result<u64>>> futures;
     futures.reserve(8); // Reserve a reasonable amount of space
 
-    // Platform-specific package managers
-    #ifdef __linux__
-    if (config::HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::APK)) {
+      // Platform-specific package managers
+      #ifdef __linux__
+    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::APK))
       futures.emplace_back(std::async(std::launch::async, CountApk));
-    }
-    if (config::HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::DPKG)) {
+    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::DPKG))
       futures.emplace_back(std::async(std::launch::async, CountDpkg));
-    }
-    if (config::HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::MOSS)) {
+    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::MOSS))
       futures.emplace_back(std::async(std::launch::async, CountMoss));
-    }
-    if (config::HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::PACMAN)) {
+    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::PACMAN))
       futures.emplace_back(std::async(std::launch::async, CountPacman));
-    }
-    if (config::HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::RPM)) {
+    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::RPM))
       futures.emplace_back(std::async(std::launch::async, CountRpm));
-    }
-      #ifdef HAVE_PUGIXML
-    if (config::HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::XBPS)) {
+        #ifdef HAVE_PUGIXML
+    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::XBPS))
       futures.emplace_back(std::async(std::launch::async, CountXbps));
-    }
+        #endif
+      #elifdef __APPLE__
+    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::HOMEBREW))
+      futures.emplace_back(std::async(std::launch::async, GetHomebrewCount));
+    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::MACPORTS))
+      futures.emplace_back(std::async(std::launch::async, GetMacPortsCount));
+      #elifdef _WIN32
+    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::WINGET))
+      futures.emplace_back(std::async(std::launch::async, CountWinGet));
+    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::CHOCOLATEY))
+      futures.emplace_back(std::async(std::launch::async, CountChocolatey));
+    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::SCOOP))
+      futures.emplace_back(std::async(std::launch::async, CountScoop));
+      #elif defined(__FreeBSD__) || defined(__DragonFly__)
+    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::PKGNG))
+      futures.emplace_back(std::async(std::launch::async, GetPkgNgCount));
+      #elifdef __NetBSD__
+    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::PKGSRC))
+      futures.emplace_back(std::async(std::launch::async, GetPkgSrcCount));
+      #elifdef __HAIKU__
+    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::HAIKUPKG))
+      futures.emplace_back(std::async(std::launch::async, GetHaikuCount));
+      #elifdef __serenity__
+    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::SERENITY))
+      futures.emplace_back(std::async(std::launch::async, GetSerenityCount));
+      #endif
+
+      // Cross-platform package managers
+      #if defined(__linux__) || defined(__APPLE__) // Nix support
+    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::NIX))
+      futures.emplace_back(std::async(std::launch::async, CountNix));
+      #endif
+    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::CARGO))
+      futures.emplace_back(std::async(std::launch::async, CountCargo));
+
+    if (futures.empty())
+      return Err(DracError(DracErrorCode::NotFound, "No enabled package managers for this platform in precompiled config."));
+    #else // DRAC_ENABLE_PACKAGECOUNT is false
+    return Err(DracError(DracErrorCode::NotSupported, "Package counting disabled by precompiled configuration."));
+    #endif
+  #else
+    using util::types::Array;
+    #ifdef __linux__
+      #ifdef HAVE_PUGIXML
+    constexpr size_t platformSpecificCount = 6; // Apk, Dpkg, Moss, Pacman, Rpm, Xbps
+      #else
+    constexpr size_t platformSpecificCount = 5; // Apk, Dpkg, Moss, Pacman, Rpm
       #endif
     #elifdef __APPLE__
-    if (config::HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::HOMEBREW)) {
-      futures.emplace_back(std::async(std::launch::async, GetHomebrewCount));
-    }
-    if (config::HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::MACPORTS)) {
-      futures.emplace_back(std::async(std::launch::async, GetMacPortsCount));
-    }
-    #elifdef _WIN32
-    if (config::HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::WINGET)) {
-      futures.emplace_back(std::async(std::launch::async, CountWinGet));
-    }
-    if (config::HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::CHOCOLATEY)) {
-      futures.emplace_back(std::async(std::launch::async, CountChocolatey));
-    }
-    if (config::HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::SCOOP)) {
-      futures.emplace_back(std::async(std::launch::async, CountScoop));
-    }
-    #elif defined(__FreeBSD__) || defined(__DragonFly__)
-    if (config::HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::PKGNG)) {
-      futures.emplace_back(std::async(std::launch::async, GetPkgNgCount));
-    }
-    #elifdef __NetBSD__
-    if (config::HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::PKGSRC)) {
-      futures.emplace_back(std::async(std::launch::async, GetPkgSrcCount));
-    }
-    #elifdef __HAIKU__
-    if (config::HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::HAIKUPKG)) {
-      futures.emplace_back(std::async(std::launch::async, GetHaikuCount));
-    }
-    #elifdef __serenity__
-    if (config::HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::SERENITY)) {
-      futures.emplace_back(std::async(std::launch::async, GetSerenityCount));
-    }
-    #endif
-
-    // Cross-platform package managers
-    #if defined(__linux__) || defined(__APPLE__) // Nix support
-    if (config::HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::NIX)) {
-      futures.emplace_back(std::async(std::launch::async, CountNix));
-    }
-    #endif
-    if (config::HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::CARGO)) {
-      futures.emplace_back(std::async(std::launch::async, CountCargo));
-    }
-
-    if (futures.empty()) {
-      // This means DRAC_ENABLE_PACKAGECOUNT was true, but DRAC_ENABLED_PACKAGE_MANAGERS was empty
-      // or resulted in no relevant package managers for the current platform being enabled.
-      return Err(DracError(DracErrorCode::NotFound, "No enabled package managers for this platform in precompiled config."));
-    }
-  #else  // DRAC_ENABLE_PACKAGECOUNT is false
-    return Err(DracError(DracErrorCode::NotSupported, "Package counting disabled by precompiled configuration."));
-  #endif // DRAC_ENABLE_PACKAGECOUNT
-#else    // PRECOMPILED_CONFIG is not defined
-    using util::types::Array;
-  #ifdef __linux__
-    #ifdef HAVE_PUGIXML
-    constexpr size_t platformSpecificCount = 6; // Apk, Dpkg, Moss, Pacman, Rpm, Xbps
-    #else
-    constexpr size_t platformSpecificCount = 5; // Apk, Dpkg, Moss, Pacman, Rpm
-    #endif
-  #elifdef __APPLE__
     constexpr size_t platformSpecificCount = 2; // Homebrew, MacPorts
-  #elifdef _WIN32
+    #elifdef _WIN32
     constexpr size_t platformSpecificCount = 3; // WinGet, Chocolatey, Scoop
-  #elif defined(__FreeBSD__) || defined(__DragonFly__)
+    #elif defined(__FreeBSD__) || defined(__DragonFly__)
     constexpr size_t platformSpecificCount = 1; // GetPkgNgCount
-  #elifdef __NetBSD__
+    #elifdef __NetBSD__
     constexpr size_t platformSpecificCount = 1; // GetPkgSrcCount
-  #elifdef __HAIKU__
+    #elifdef __HAIKU__
     constexpr size_t platformSpecificCount = 1; // GetHaikuCount
-  #elifdef __serenity__
+    #elifdef __serenity__
     constexpr size_t platformSpecificCount = 1; // GetSerenityCount
-  #endif
+    #endif
 
-  #if defined(__linux__) || defined(__APPLE__)
+    #if defined(__linux__) || defined(__APPLE__)
     // platform specific + cargo + nix
     constexpr size_t numFutures = platformSpecificCount + 2;
-  #else
+    #else
     // platform specific + cargo
     constexpr size_t numFutures = platformSpecificCount + 1;
-  #endif
+    #endif
 
     Array<Future<Result<u64>>, numFutures>
       futures = {
         {
-  #ifdef __linux__
+    #ifdef __linux__
          std::async(std::launch::async, CountApk),
          std::async(std::launch::async, CountDpkg),
          std::async(std::launch::async, CountMoss),
          std::async(std::launch::async, CountPacman),
          std::async(std::launch::async, CountRpm),
-    #ifdef HAVE_PUGIXML
+      #ifdef HAVE_PUGIXML
          std::async(std::launch::async, CountXbps),
-    #endif
-  #elifdef __APPLE__
+      #endif
+    #elifdef __APPLE__
           std::async(std::launch::async, GetHomebrewCount),
           std::async(std::launch::async, GetMacPortsCount),
-  #elifdef _WIN32
+    #elifdef _WIN32
           std::async(std::launch::async, CountWinGet),
           std::async(std::launch::async, CountChocolatey),
           std::async(std::launch::async, CountScoop),
-  #elif defined(__FreeBSD__) || defined(__DragonFly__)
+    #elif defined(__FreeBSD__) || defined(__DragonFly__)
           std::async(std::launch::async, GetPkgNgCount),
-  #elifdef __NetBSD__
+    #elifdef __NetBSD__
           std::async(std::launch::async, GetPkgSrcCount),
-  #elifdef __HAIKU__
+    #elifdef __HAIKU__
           std::async(std::launch::async, GetHaikuCount),
-  #elifdef __serenity__
+    #elifdef __serenity__
           std::async(std::launch::async, GetSerenityCount),
-  #endif
+    #endif
 
-  #if defined(__linux__) || defined(__APPLE__)
+    #if defined(__linux__) || defined(__APPLE__)
          std::async(std::launch::async, CountNix),
-  #endif
+    #endif
 
          std::async(std::launch::async, CountCargo),
          }
     };
-#endif // PRECOMPILED_CONFIG
+  #endif // PRECOMPILED_CONFIG
 
     u64  totalCount   = 0;
     bool oneSucceeded = false;
@@ -512,3 +494,5 @@ namespace package {
     return totalCount;
   }
 } // namespace package
+
+#endif // DRAC_ENABLE_PACKAGECOUNT

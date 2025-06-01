@@ -1,7 +1,8 @@
-#define NOMINMAX
-
 #include "UI.hpp"
 
+#include <ranges>
+
+#include "Util/Logging.hpp"
 #include "Util/Types.hpp"
 
 #include "ftxui/dom/elements.hpp"
@@ -18,28 +19,38 @@ namespace ui {
   };
 
   [[maybe_unused]] static constexpr Icons NONE = {
-    .user               = "",
-    .palette            = "",
     .calendar           = "",
+    .desktopEnvironment = "",
+    .disk               = "",
     .host               = "",
     .kernel             = "",
-    .os                 = "",
     .memory             = "",
-    .weather            = "",
-    .music              = "",
-    .disk               = "",
-    .shell              = "",
-    .package            = "",
-    .desktopEnvironment = "",
-    .windowManager      = "",
+#ifdef DRAC_ENABLE_NOWPLAYING
+    .music = "",
+#endif
+    .os = "",
+#ifdef DRAC_ENABLE_PACKAGECOUNT
+    .package = "",
+#endif
+    .palette = "",
+    .shell   = "",
+    .user    = "",
+#ifdef DRAC_ENABLE_WEATHER
+    .weather = "",
+#endif
+    .windowManager = "",
   };
 
   [[maybe_unused]] static constexpr Icons NERD = {
-    .user     = "   ",
-    .palette  = "   ",
-    .calendar = "   ",
-    .host     = " 󰌢  ",
-    .kernel   = "   ",
+    .calendar           = "   ",
+    .desktopEnvironment = " 󰇄  ",
+    .disk               = " 󰋊  ",
+    .host               = " 󰌢  ",
+    .kernel             = "   ",
+    .memory             = "   ",
+#ifdef DRAC_ENABLE_NOWPLAYING
+    .music = "   ",
+#endif
 #ifdef __linux__
     .os = " 󰌽  ",
 #elifdef __APPLE__
@@ -51,31 +62,39 @@ namespace ui {
 #else
     .os = "   ",
 #endif
-    .memory             = "   ",
-    .weather            = "   ",
-    .music              = "   ",
-    .disk               = " 󰋊  ",
-    .shell              = "   ",
-    .package            = " 󰏖  ",
-    .desktopEnvironment = " 󰇄  ",
-    .windowManager      = "   ",
+#ifdef DRAC_ENABLE_PACKAGECOUNT
+    .package = " 󰏖  ",
+#endif
+    .palette = "   ",
+    .shell   = "   ",
+    .user    = "   ",
+#ifdef DRAC_ENABLE_WEATHER
+    .weather = "   ",
+#endif
+    .windowManager = "   ",
   };
 
   [[maybe_unused]] static constexpr Icons EMOJI = {
-    .user               = " 👤 ",
-    .palette            = " 🎨 ",
     .calendar           = " 📅 ",
+    .desktopEnvironment = " 🖥️ ",
+    .disk               = " 💾 ",
     .host               = " 💻 ",
     .kernel             = " 🫀 ",
-    .os                 = " 🤖 ",
     .memory             = " 🧠 ",
-    .weather            = " 🌈 ",
-    .music              = " 🎵 ",
-    .disk               = " 💾 ",
-    .shell              = " 💲 ",
-    .package            = " 📦 ",
-    .desktopEnvironment = " 🖥️ ",
-    .windowManager      = " 🪟 ",
+#ifdef DRAC_ENABLE_NOWPLAYING
+    .music = " 🎵 ",
+#endif
+    .os = " 🤖 ",
+#ifdef DRAC_ENABLE_PACKAGECOUNT
+    .package = " 📦 ",
+#endif
+    .palette = " 🎨 ",
+    .shell   = " 💲 ",
+    .user    = " 👤 ",
+#ifdef DRAC_ENABLE_WEATHER
+    .weather = " 🌈 ",
+#endif
+    .windowManager = " 🪟 ",
   };
 
   constexpr inline Icons ICON_TYPE = NERD;
@@ -143,25 +162,28 @@ namespace ui {
 
     fn CreateInfoBox(const Config& config, const os::SystemData& data) -> Element {
       const String& name = config.general.name;
-#if DRAC_ENABLE_WEATHER
-      const Weather& weather = config.weather;
-#endif
 
       // clang-format off
       const auto& [
-        userIcon,
-        paletteIcon,
         calendarIcon,
+        deIcon,
+        diskIcon,
         hostIcon,
         kernelIcon,
-        osIcon,
         memoryIcon,
-        weatherIcon,
+#ifdef DRAC_ENABLE_NOWPLAYING
         musicIcon,
-        diskIcon,
-        shellIcon,
+#endif
+        osIcon,
+#ifdef DRAC_ENABLE_PACKAGECOUNT
         packageIcon,
-        deIcon,
+#endif
+        paletteIcon,
+        shellIcon,
+        userIcon,
+#ifdef DRAC_ENABLE_WEATHER
+        weatherIcon,
+#endif
         wmIcon
       ] = ui::ICON_TYPE;
       // clang-format on
@@ -221,10 +243,12 @@ namespace ui {
       if (data.shell)
         systemInfoRows.push_back({ .icon = shellIcon, .label = "Shell", .value = *data.shell });
 
+#ifdef DRAC_ENABLE_PACKAGECOUNT
       if (data.packageCount) {
         if (*data.packageCount > 0)
           systemInfoRows.push_back({ .icon = packageIcon, .label = "Packages", .value = std::format("{}", *data.packageCount) });
       }
+#endif
 
       bool addedDe = false;
 
@@ -247,8 +271,6 @@ namespace ui {
         npText              = artist + " - " + title;
         nowPlayingActive    = true;
       }
-#else
-      // Keep nowPlayingActive false and npText empty if DRAC_ENABLE_NOWPLAYING is not defined
 #endif
 
       usize maxContentWidth = 0;

@@ -1,9 +1,11 @@
 #pragma once
 
-#include <glaze/core/common.hpp> // object
-#include <glaze/core/meta.hpp>   // Object
+#ifdef DRAC_ENABLE_WEATHER
 
-#include "Util/Types.hpp"
+  #include <glaze/core/common.hpp> // object
+  #include <glaze/core/meta.hpp>   // Object
+
+  #include "Util/Types.hpp"
 
 namespace weather {
   using glz::detail::Object, glz::object;
@@ -47,3 +49,5 @@ namespace glz {
   template <>
   struct meta<WeatherReport> : WeatherReportGlaze {};
 } // namespace glz
+
+#endif // DRAC_ENABLE_WEATHER

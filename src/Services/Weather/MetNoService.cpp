@@ -1,23 +1,23 @@
-#define NOMINMAX
+#ifdef DRAC_ENABLE_WEATHER
 
-#ifdef __HAIKU__
-  #define _DEFAULT_SOURCE // exposes timegm
-#endif
+  #ifdef __HAIKU__
+    #define _DEFAULT_SOURCE // exposes timegm
+  #endif
 
-#include "MetNoService.hpp"
+  #include "MetNoService.hpp"
 
-#include <chrono> // std::chrono::{system_clock, minutes, seconds}
-#include <format> // std::format
-// glz::read is included via DataTransferObjects.hpp
+  #include <chrono> // std::chrono::{system_clock, minutes, seconds}
+  #include <format> // std::format
+                    // glz::read is included via DataTransferObjects.hpp
 
-#include "Services/Weather/DataTransferObjects.hpp"
-#include "Services/Weather/WeatherUtils.hpp"
+  #include "Services/Weather/DataTransferObjects.hpp"
+  #include "Services/Weather/WeatherUtils.hpp"
 
-#include "Util/Caching.hpp"
-#include "Util/Error.hpp"
-#include "Util/Types.hpp"
+  #include "Util/Caching.hpp"
+  #include "Util/Error.hpp"
+  #include "Util/Types.hpp"
 
-#include "Wrappers/Curl.hpp"
+  #include "Wrappers/Curl.hpp"
 
 using weather::MetNoService;
 using weather::WeatherReport;
@@ -108,3 +108,5 @@ fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
 
   return out;
 }
+
+#endif // DRAC_ENABLE_WEATHER

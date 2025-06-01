@@ -23,19 +23,25 @@ namespace ui {
   extern const Theme DEFAULT_THEME;
 
   struct Icons {
-    StringView user;
-    StringView palette;
     StringView calendar;
+    StringView desktopEnvironment;
+    StringView disk;
     StringView host;
     StringView kernel;
-    StringView os;
     StringView memory;
-    StringView weather;
+#ifdef DRAC_ENABLE_NOWPLAYING
     StringView music;
-    StringView disk;
-    StringView shell;
+#endif
+    StringView os;
+#ifdef DRAC_ENABLE_PACKAGECOUNT
     StringView package;
-    StringView desktopEnvironment;
+#endif
+    StringView palette;
+    StringView shell;
+    StringView user;
+#ifdef DRAC_ENABLE_WEATHER
+    StringView weather;
+#endif
     StringView windowManager;
   };
 

@@ -1,9 +1,11 @@
 #pragma once
 
-#include <unordered_map>
+#ifdef DRAC_ENABLE_WEATHER
 
-#include "Util/Error.hpp"
-#include "Util/Types.hpp"
+  #include <unordered_map>
+
+  #include "Util/Error.hpp"
+  #include "Util/Types.hpp"
 
 namespace weather::utils {
   using util::types::StringView, util::types::Result, util::types::usize, util::types::String;
@@ -35,3 +37,5 @@ namespace weather::utils {
    */
   fn GetOpenmeteoWeatherDescription(int code) -> StringView;
 } // namespace weather::utils
+
+#endif // DRAC_ENABLE_WEATHER

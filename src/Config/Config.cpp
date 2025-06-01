@@ -1,25 +1,31 @@
 #include "Config.hpp"
 
-#include <format>                    // std::{format, format_error}
-#include <toml++/impl/node_view.hpp> // toml::node_view
-#include <toml++/impl/parser.hpp>    // toml::{parse_file, parse_result}
-#include <toml++/impl/table.hpp>     // toml::table
-#include <utility>
+#include <format> // std::{format, format_error}
+
+#ifdef DRAC_ENABLE_WEATHER
+  #include "Services/Weather/MetNoService.hpp"
+  #include "Services/Weather/OpenMeteoService.hpp"
+  #include "Services/Weather/OpenWeatherMapService.hpp"
+#endif
 
 #include "Util/Definitions.hpp"
 #include "Util/Logging.hpp"
 
 #ifndef PRECOMPILED_CONFIG
-  #include <filesystem>   // std::filesystem::{path, operator/, exists, create_directories}
-  #include <fstream>      // std::{ifstream, ofstream, operator<<}
-  #include <system_error> // std::error_code
+  #include <filesystem>                // std::filesystem::{path, operator/, exists, create_directories}
+  #include <fstream>                   // std::{ifstream, ofstream, operator<<}
+  #include <system_error>              // std::error_code
+  #include <toml++/impl/node_view.hpp> // toml::node_view
+  #include <toml++/impl/parser.hpp>    // toml::{parse_file, parse_result}
+  #include <toml++/impl/table.hpp>     // toml::table
+  #include <utility>
 
   #include "Util/Env.hpp"
   #include "Util/Types.hpp"
 
 namespace fs = std::filesystem;
 #else
-  #include "config.hpp" // user-defined config
+  #include "../config.hpp" // user-defined config
 #endif
 
 #ifndef PRECOMPILED_CONFIG
@@ -150,8 +156,8 @@ location = "London"    # Your city name
 } // namespace
 #endif
 
-Config::Config([[maybe_unused]] const toml::table& tbl) {
 #ifndef PRECOMPILED_CONFIG
+Config::Config(const toml::table& tbl) {
   const toml::node_view genTbl = tbl["general"];
   this->general                = genTbl.is_table() ? General::fromToml(*genTbl.as_table()) : General {};
 
@@ -164,10 +170,8 @@ Config::Config([[maybe_unused]] const toml::table& tbl) {
   const toml::node_view wthTbl = tbl["weather"];
   this->weather                = wthTbl.is_table() ? Weather::fromToml(*wthTbl.as_table()) : Weather {};
   #endif // DRAC_ENABLE_WEATHER
-#else
-  std::unreachable();
-#endif // PRECOMPILED_CONFIG
 }
+#endif // PRECOMPILED_CONFIG
 
 fn Config::getInstance() -> Config {
 #ifdef PRECOMPILED_CONFIG
@@ -175,24 +179,22 @@ fn Config::getInstance() -> Config {
 
   cfg.general.name = config::DRAC_USERNAME;
 
-  // Weather section
-  #if DRAC_ENABLE_WEATHER
+  #ifdef DRAC_ENABLE_WEATHER
   cfg.weather.enabled      = true;
-  cfg.weather.apiKey       = config::DRAC_API_KEY; // const char* to String conversion
+  cfg.weather.apiKey       = config::DRAC_API_KEY;
   cfg.weather.showTownName = config::DRAC_SHOW_TOWN_NAME;
 
   if constexpr (config::DRAC_WEATHER_UNIT == config::WeatherUnit::IMPERIAL) {
     cfg.weather.units = "imperial";
-  } else { // METRIC
+  } else {
     cfg.weather.units = "metric";
   }
 
-  cfg.weather.location = config::DRAC_LOCATION; // config::DRAC_LOCATION is already a Location variant
+  cfg.weather.location = config::DRAC_LOCATION;
 
-  // Initialize weather service based on DRAC_WEATHER_PROVIDER
   if constexpr (config::DRAC_WEATHER_PROVIDER == config::WeatherProvider::OPENWEATHERMAP) {
     cfg.weather.service = std::make_unique<weather::OpenWeatherMapService>(
-      config::DRAC_LOCATION, // OpenWeatherMapService constructor takes the variant directly
+      config::DRAC_LOCATION,
       config::DRAC_API_KEY,
       cfg.weather.units
     );
@@ -229,29 +231,17 @@ fn Config::getInstance() -> Config {
     error_log("Failed to initialize precompiled weather service for the configured provider.");
     cfg.weather.enabled = false;
   }
-  #else                     // DRAC_ENABLE_WEATHER is not defined
-    #if DRAC_ENABLE_WEATHER // Guard access to weather members
-  cfg.weather.enabled = false;
-  cfg.weather.service = nullptr;
-    #endif                  // DRAC_ENABLE_WEATHER (inner)
-  #endif                    // DRAC_ENABLE_WEATHER (outer)
+  #endif // DRAC_ENABLE_WEATHER (outer)
 
   // NowPlaying section
-  #if DRAC_ENABLE_NOWPLAYING
+  #ifdef DRAC_ENABLE_NOWPLAYING
   cfg.nowPlaying.enabled = true;
   debug_log("Precompiled: NowPlaying is ENABLED via DRAC_ENABLE_NOWPLAYING.");
-  #else
-    #if DRAC_ENABLE_NOWPLAYING // Guard access to nowPlaying members
-  cfg.nowPlaying.enabled = false;
-    #endif                     // DRAC_ENABLE_NOWPLAYING (inner)
-  debug_log("Precompiled: NowPlaying is DISABLED via DRAC_ENABLE_NOWPLAYING.");
-  #endif                       // DRAC_ENABLE_NOWPLAYING (outer)
+  #endif // DRAC_ENABLE_NOWPLAYING (outer)
 
   debug_log("Using precompiled configuration.");
   return cfg;
-
 #else  // PRECOMPILED_CONFIG is not defined
-  // Existing code to load from toml::parse_file
   try {
     const fs::path configPath = GetConfigPath();
 
@@ -263,7 +253,7 @@ fn Config::getInstance() -> Config {
       info_log("Config file not found at {}, creating defaults.", configPath.string());
 
       if (!CreateDefaultConfig(configPath)) {
-        return {}; // Return default-constructed Config
+        return {};
       }
     }
 
@@ -271,13 +261,13 @@ fn Config::getInstance() -> Config {
 
     debug_log("Config loaded from {}", configPath.string());
 
-    return Config(parsed_config); // Use the TOML-parsing constructor
+    return Config(parsed_config);
   } catch (const Exception& e) {
     debug_log("Config loading failed: {}, using defaults", e.what());
-    return {}; // Return default-constructed Config
+    return {};
   } catch (...) {
     error_log("An unexpected error occurred during config loading. Using in-memory defaults.");
-    return {}; // Return default-constructed Config
+    return {};
   }
 #endif // PRECOMPILED_CONFIG
 }

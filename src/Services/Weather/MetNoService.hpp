@@ -1,6 +1,8 @@
 #pragma once
 
-#include "IWeatherService.hpp"
+#ifdef DRAC_ENABLE_WEATHER
+
+  #include "IWeatherService.hpp"
 
 namespace weather {
   class MetNoService final : public IWeatherService {
@@ -14,3 +16,5 @@ namespace weather {
     String m_units;
   };
 } // namespace weather
+
+#endif // DRAC_ENABLE_WEATHER

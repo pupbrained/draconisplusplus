@@ -1,8 +1,10 @@
-#include <toml++/toml.h> // toml::{parse_result, parse}
+#ifndef PRECOMPILED_CONFIG
 
-#include "Config/Config.hpp"
+  #include <toml++/toml.h> // toml::{parse_result, parse}
 
-#include "gtest/gtest.h"
+  #include "Config/Config.hpp"
+
+  #include "gtest/gtest.h"
 
 class ConfigTest : public testing::Test {};
 
@@ -26,7 +28,7 @@ TEST_F(ConfigTest, GeneralFromToml_DefaultName) {
   EXPECT_FALSE(generalConfig.name.empty());
 }
 
-#if DRAC_ENABLE_NOWPLAYING
+  #if DRAC_ENABLE_NOWPLAYING
 TEST_F(ConfigTest, NowPlayingFromToml_Enabled) {
   toml::parse_result tbl = toml::parse(R"(
     enabled = true
@@ -56,9 +58,9 @@ TEST_F(ConfigTest, NowPlayingFromToml_Default) {
   NowPlaying npConfig = NowPlaying::fromToml(*tbl.as_table());
   EXPECT_FALSE(npConfig.enabled); // Default should be false
 }
-#endif // DRAC_ENABLE_NOWPLAYING
+  #endif // DRAC_ENABLE_NOWPLAYING
 
-#if DRAC_ENABLE_WEATHER
+  #if DRAC_ENABLE_WEATHER
 TEST_F(ConfigTest, WeatherFromToml_BasicEnabled) {
   toml::parse_result tbl = toml::parse(R"(
     enabled = true
@@ -208,7 +210,7 @@ TEST_F(ConfigTest, WeatherFromToml_UnknownProvider) {
   EXPECT_FALSE(weatherConfig.enabled);
   EXPECT_EQ(weatherConfig.service, nullptr);
 }
-#endif
+  #endif
 
 TEST_F(ConfigTest, MainConfigConstructor) {
   toml::parse_result tomlTable = toml::parse(R"(
@@ -230,16 +232,16 @@ TEST_F(ConfigTest, MainConfigConstructor) {
   Config mainConfig(*tomlTable.as_table());
 
   EXPECT_EQ(mainConfig.general.name, "Main Test User");
-#if DRAC_ENABLE_NOWPLAYING
+  #if DRAC_ENABLE_NOWPLAYING
   EXPECT_TRUE(mainConfig.nowPlaying.enabled);
-#endif
-#if DRAC_ENABLE_WEATHER
+  #endif
+  #if DRAC_ENABLE_WEATHER
   EXPECT_TRUE(mainConfig.weather.enabled);
   EXPECT_EQ(mainConfig.weather.apiKey, "main_weather_key");
   ASSERT_TRUE(std::holds_alternative<String>(mainConfig.weather.location));
   EXPECT_EQ(std::get<String>(mainConfig.weather.location), "Main Test City");
   ASSERT_NE(mainConfig.weather.service, nullptr);
-#endif
+  #endif
 }
 
 TEST_F(ConfigTest, MainConfigConstructor_EmptySections) {
@@ -252,12 +254,13 @@ TEST_F(ConfigTest, MainConfigConstructor_EmptySections) {
   Config mainConfig(*tomlTable.as_table());
 
   EXPECT_FALSE(mainConfig.general.name.empty());
-#if DRAC_ENABLE_NOWPLAYING
+  #if DRAC_ENABLE_NOWPLAYING
   EXPECT_FALSE(mainConfig.nowPlaying.enabled);
-#endif
-#if DRAC_ENABLE_WEATHER
+  #endif
+  #if DRAC_ENABLE_WEATHER
   EXPECT_FALSE(mainConfig.weather.enabled);
   EXPECT_TRUE(mainConfig.weather.apiKey.empty());
   EXPECT_EQ(mainConfig.weather.service, nullptr);
-#endif
+  #endif
 }
+#endif // PRECOMPILED_CONFIG

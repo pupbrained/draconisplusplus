@@ -1,8 +1,10 @@
 #pragma once
 
-#include "Services/Weather.hpp"
+#ifdef DRAC_ENABLE_WEATHER
 
-#include "Util/Error.hpp"
+  #include "Services/Weather.hpp"
+
+  #include "Util/Error.hpp"
 
 namespace weather {
   using util::types::Result;
@@ -23,3 +25,5 @@ namespace weather {
     IWeatherService() = default;
   };
 } // namespace weather
+
+#endif // DRAC_ENABLE_WEATHER

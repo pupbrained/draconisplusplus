@@ -1,14 +1,16 @@
 #pragma once
 
+#ifdef DRAC_ENABLE_WEATHER
+
 // clang-format off
 // we need glaze.hpp include before any other includes that might use it
 // because core/meta.hpp complains about not having uint8_t defined otherwise
 #include <glaze/glaze.hpp>
 #include <glaze/core/meta.hpp>
 #include <glaze/json/read.hpp>
-// clang-format on
 
-#include "Util/Types.hpp" // For f64, String, Option, Vec, i32, i64
+#include "Util/Types.hpp"
+// clang-format on
 
 namespace weather {
   namespace dto {
@@ -166,3 +168,5 @@ namespace glz {
     static constexpr auto value = object("main", &T::main, "weather", &T::weather, "name", &T::name, "dt", &T::dt, "cod", &T::cod, "message", &T::message);
   };
 } // namespace glz
+
+#endif // DRAC_ENABLE_WEATHER

@@ -22,11 +22,13 @@ namespace os {
    */
   fn GetMemInfo() -> Result<ResourceUsage>;
 
+#ifdef DRAC_ENABLE_NOWPLAYING
   /**
    * @brief Gets structured metadata about the currently playing media.
    * @return A Result containing the media information (MediaInfo struct) on success.
    */
   fn GetNowPlaying() -> Result<MediaInfo>;
+#endif // DRAC_ENABLE_NOWPLAYING
 
   /**
    * @brief Gets the "pretty" name of the operating system.

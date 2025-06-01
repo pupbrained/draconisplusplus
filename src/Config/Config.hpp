@@ -1,11 +1,5 @@
 #pragma once
 
-#include <memory>                    // std::{make_unique, unique_ptr}
-#include <toml++/impl/node.hpp>      // toml::node
-#include <toml++/impl/node_view.hpp> // toml::node_view
-#include <toml++/impl/table.hpp>     // toml::table
-#include <variant>                   // std::variant
-
 #ifdef _WIN32
   #include <windows.h> // GetUserNameA
 #else
@@ -15,14 +9,28 @@
   #include "Util/Env.hpp"
 #endif
 
-#include "Services/Weather.hpp"
-#include "Services/Weather/MetNoService.hpp"
-#include "Services/Weather/OpenMeteoService.hpp"
-#include "Services/Weather/OpenWeatherMapService.hpp"
+#ifndef PRECOMPILED_CONFIG
+  #include <memory>                    // std::{make_unique, unique_ptr}
+  #include <toml++/impl/node.hpp>      // toml::node
+  #include <toml++/impl/node_view.hpp> // toml::node_view
+  #include <toml++/impl/table.hpp>     // toml::table
+
+  #include "Services/Weather/MetNoService.hpp"
+  #include "Services/Weather/OpenMeteoService.hpp"
+  #include "Services/Weather/OpenWeatherMapService.hpp"
+
+  #include "Util/Logging.hpp"
+#endif // PRECOMPILED_CONFIG
+
+#ifdef DRAC_ENABLE_WEATHER
+  #include <variant>
+
+  #include "Services/Weather.hpp"
+  #include "Services/Weather/IWeatherService.hpp"
+#endif // DRAC_ENABLE_WEATHER
 
 #include "Util/Definitions.hpp"
 #include "Util/Error.hpp"
-#include "Util/Logging.hpp"
 #include "Util/Types.hpp"
 
 using util::error::DracError;
@@ -70,6 +78,7 @@ struct General {
 #endif
   }
 
+#ifndef PRECOMPILED_CONFIG
   /**
    * @brief Parses a TOML table to create a General instance.
    * @param tbl The TOML table to parse, containing [general].
@@ -84,6 +93,7 @@ struct General {
 
     return gen;
   }
+#endif // PRECOMPILED_CONFIG
 };
 
 #if DRAC_ENABLE_NOWPLAYING
@@ -94,6 +104,7 @@ struct General {
 struct NowPlaying {
   bool enabled = false; ///< Flag to enable or disable the Now Playing feature.
 
+  #ifndef PRECOMPILED_CONFIG
   /**
    * @brief Parses a TOML table to create a NowPlaying instance.
    * @param tbl The TOML table to parse, containing [now_playing].
@@ -102,6 +113,7 @@ struct NowPlaying {
   static fn fromToml(const toml::table& tbl) -> NowPlaying {
     return { .enabled = tbl["enabled"].value_or(false) };
   }
+  #endif // PRECOMPILED_CONFIG
 };
 #endif // DRAC_ENABLE_NOWPLAYING
 
@@ -119,6 +131,7 @@ struct Weather {
   bool                                      showTownName = false;   ///< Flag to show the town name in the output.
   std::unique_ptr<weather::IWeatherService> service      = nullptr; ///< Pointer to the weather service.
 
+  #ifndef PRECOMPILED_CONFIG
   /**
    * @brief Parses a TOML table to create a Weather instance.
    * @param tbl The TOML table to parse, containing [weather].
@@ -183,6 +196,7 @@ struct Weather {
 
     return weather;
   }
+  #endif // PRECOMPILED_CONFIG
 };
 #endif // DRAC_ENABLE_WEATHER
 
@@ -204,11 +218,13 @@ struct Config {
    */
   Config() = default;
 
+#ifndef PRECOMPILED_CONFIG
   /**
    * @brief Constructs a Config instance from a TOML table.
    * @param tbl The TOML table to parse, containing [general], [weather], and [now_playing].
    */
   explicit Config(const toml::table& tbl);
+#endif // PRECOMPILED_CONFIG
 
   /**
    * @brief Retrieves the path to the configuration file.

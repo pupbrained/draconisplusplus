@@ -13,7 +13,10 @@
 #include <winrt/Windows.Media.Control.h>
 #include <winrt/Windows.System.Profile.h>
 
-#include "Services/PackageCounting.hpp"
+#ifdef DRAC_ENABLE_PACKAGECOUNT
+  #include "Services/PackageCounting.hpp"
+#endif
+
 #include "Util/Env.hpp"
 #include "Util/Error.hpp"
 #include "Util/Logging.hpp"
@@ -173,6 +176,7 @@ namespace os {
     return Err(DracError(DracErrorCode::PlatformSpecific, std::format("GlobalMemoryStatusEx failed with error code {}", GetLastError())));
   }
 
+  #ifdef DRAC_ENABLE_NOWPLAYING
   fn GetNowPlaying() -> Result<MediaInfo> {
     using namespace winrt::Windows::Media::Control;
     using namespace winrt::Windows::Foundation;
@@ -194,6 +198,7 @@ namespace os {
       return Err(DracError(DracErrorCode::NotFound, "No media session found"));
     } catch (const winrt::hresult_error& e) { return Err(DracError(e)); }
   }
+  #endif // DRAC_ENABLE_NOWPLAYING
 
   fn GetOSVersion() -> Result<String> {
     try {
@@ -346,6 +351,7 @@ namespace os {
   }
 } // namespace os
 
+  #ifdef DRAC_ENABLE_PACKAGECOUNT
 namespace package {
   using util::helpers::GetEnv;
 
@@ -380,5 +386,6 @@ namespace package {
     } catch (const winrt::hresult_error& e) { return Err(DracError(e)); }
   }
 } // namespace package
+  #endif // DRAC_ENABLE_PACKAGECOUNT
 
-#endif
+#endif // _WIN32

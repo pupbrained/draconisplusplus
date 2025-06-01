@@ -1,17 +1,44 @@
 #pragma once
 
-#include <filesystem>            // std::filesystem::path
-#include <glaze/core/common.hpp> // glz::object
-#include <glaze/core/meta.hpp>   // glz::detail::Object
+#ifdef DRAC_ENABLE_PACKAGECOUNT
 
-#include "Util/Definitions.hpp"
-#include "Util/Error.hpp"
-#include "Util/Types.hpp"
+  #include <filesystem>            // std::filesystem::path
+  #include <glaze/core/common.hpp> // glz::object
+  #include <glaze/core/meta.hpp>   // glz::detail::Object
+
+  #include "Util/ConfigData.hpp"
+  #include "Util/Definitions.hpp"
+  #include "Util/Error.hpp"
+  #include "Util/Types.hpp"
 
 namespace package {
   namespace fs = std::filesystem;
+  using config::PackageManager; // Make PackageManager directly usable
   using util::error::DracError;
   using util::types::Future, util::types::i64, util::types::Result, util::types::String, util::types::u64;
+
+  /**
+   * @brief Combines two PackageManager flags using a bitwise OR operation.
+   *
+   * @param pmA The first PackageManager flag.
+   * @param pmB The second PackageManager flag.
+   * @return A new PackageManager value representing the combination of pmA and pmB.
+   */
+  constexpr fn operator|(PackageManager pmA, PackageManager pmB)->PackageManager {
+    return static_cast<PackageManager>(static_cast<unsigned int>(pmA) | static_cast<unsigned int>(pmB));
+  }
+
+  /**
+   * @brief Checks if a specific PackageManager flag is set in a given bitmask.
+   * @note This is an internal helper function for the PackageCounting service.
+   *
+   * @param current_flags The bitmask of currently enabled PackageManager flags.
+   * @param flag_to_check The specific PackageManager flag to check for.
+   * @return `true` if `flag_to_check` is set in `current_flags`, `false` otherwise.
+   */
+  constexpr fn HasPackageManager(PackageManager current_flags, PackageManager flag_to_check) -> bool {
+    return (static_cast<unsigned int>(current_flags) & static_cast<unsigned int>(flag_to_check)) != 0;
+  }
 
   /**
    * @struct PkgCountCacheData
@@ -105,7 +132,7 @@ namespace package {
    */
   fn GetCountFromDirectory(const String& pmId, const fs::path& dirPath) -> Result<u64>;
 
-#ifdef __linux__
+  #ifdef __linux__
   /**
    * @brief Counts installed packages using APK.
    * @return Result containing the count (u64) or a DracError.
@@ -144,7 +171,7 @@ namespace package {
    * @return Result containing the count (u64) or a DracError.
    */
   fn GetCountFromPlist(const String& pmId, const std::filesystem::path& plistPath) -> Result<u64>;
-#elifdef __APPLE__
+  #elifdef __APPLE__
   /**
    * @brief Counts installed packages using Homebrew.
    * @return Result containing the count (u64) or a DracError.
@@ -155,7 +182,7 @@ namespace package {
    * @return Result containing the count (u64) or a DracError.
    */
   fn GetMacPortsCount() -> Result<u64>;
-#elifdef _WIN32
+  #elifdef _WIN32
   /**
    * @brief Counts installed packages using WinGet.
    * @return Result containing the count (u64) or a DracError.
@@ -171,36 +198,38 @@ namespace package {
    * @return Result containing the count (u64) or a DracError.
    */
   fn CountScoop() -> Result<u64>;
-#elif defined(__FreeBSD__) || defined(__DragonFly__)
+  #elif defined(__FreeBSD__) || defined(__DragonFly__)
   /**
    * @brief Counts installed packages using PkgNg.
    * @return Result containing the count (u64) or a DracError.
    */
   fn GetPkgNgCount() -> Result<u64>;
-#elifdef __NetBSD__
+  #elifdef __NetBSD__
   /**
    * @brief Counts installed packages using PkgSrc.
    * @return Result containing the count (u64) or a DracError.
    */
   fn GetPkgSrcCount() -> Result<u64>;
-#elifdef __HAIKU__
+  #elifdef __HAIKU__
   /**
    * @brief Counts installed packages using Haiku.
    * @return Result containing the count (u64) or a DracError.
    */
   fn GetSerenityCount() -> Result<u64>;
-#endif
+  #endif
 
-#if defined(__linux__) || defined(__APPLE__)
+  #if defined(__linux__) || defined(__APPLE__)
   /**
    * @brief Counts installed packages using Nix.
    * @return Result containing the count (u64) or a DracError.
    */
   fn CountNix() -> Result<u64>;
-#endif
+  #endif
   /**
    * @brief Counts installed packages using Cargo.
    * @return Result containing the count (u64) or a DracError.
    */
   fn CountCargo() -> Result<u64>;
 } // namespace package
+
+#endif // DRAC_ENABLE_PACKAGECOUNT

@@ -1,8 +1,10 @@
 #pragma once
 
-#include <variant>
+#ifdef DRAC_ENABLE_WEATHER
 
-#include "IWeatherService.hpp"
+  #include <variant>
+
+  #include "IWeatherService.hpp"
 
 namespace weather {
   using util::types::StringView;
@@ -18,3 +20,5 @@ namespace weather {
     String                       m_units;
   };
 } // namespace weather
+
+#endif // DRAC_ENABLE_WEATHER

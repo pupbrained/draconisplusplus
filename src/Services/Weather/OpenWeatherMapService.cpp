@@ -1,21 +1,21 @@
-#define NOMINMAX
+#ifdef DRAC_ENABLE_WEATHER
 
-#include "OpenWeatherMapService.hpp"
+  #include "OpenWeatherMapService.hpp"
 
-#include <chrono>
-#include <format>
-// <glaze/core/meta.hpp> and <glaze/json/read.hpp> are included via DataTransferObjects.hpp
-#include <utility>
-#include <variant>
+  #include <chrono>
+  #include <format>
+  // <glaze/core/meta.hpp> and <glaze/json/read.hpp> are included via DataTransferObjects.hpp
+  #include <utility>
+  #include <variant>
 
-#include "Services/Weather/DataTransferObjects.hpp"
+  #include "Services/Weather/DataTransferObjects.hpp"
 
-#include "Util/Caching.hpp"
-#include "Util/Error.hpp"
-#include "Util/Logging.hpp"
-#include "Util/Types.hpp"
+  #include "Util/Caching.hpp"
+  #include "Util/Error.hpp"
+  #include "Util/Logging.hpp"
+  #include "Util/Types.hpp"
 
-#include "Wrappers/Curl.hpp"
+  #include "Wrappers/Curl.hpp"
 
 using weather::OpenWeatherMapService;
 using weather::WeatherReport;
@@ -139,3 +139,5 @@ fn OpenWeatherMapService::getWeatherInfo() const -> Result<WeatherReport> {
 
   return Err(DracError(DracErrorCode::ParseError, "Invalid location type in configuration."));
 }
+
+#endif // DRAC_ENABLE_WEATHER
