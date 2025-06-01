@@ -135,7 +135,7 @@ if get_option('precompiled_config') == true
   fs = import('fs')
 
   add_project_arguments('-DPRECOMPILED_CONFIG', language: ['cpp', 'objcpp'])
-  config_hpp_path = meson.project_source_root() / 'include/Config.hpp'
+  config_hpp_path = meson.project_source_root() / 'config.hpp'
 
   if not fs.is_file(config_hpp_path)
     error(
