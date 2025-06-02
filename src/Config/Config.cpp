@@ -2,12 +2,6 @@
 
 #include <format> // std::{format, format_error}
 
-#if DRAC_ENABLE_WEATHER
-  #include "Services/Weather/MetNoService.hpp"
-  #include "Services/Weather/OpenMeteoService.hpp"
-  #include "Services/Weather/OpenWeatherMapService.hpp"
-#endif
-
 #include "Util/Definitions.hpp"
 #include "Util/Logging.hpp"
 
@@ -18,7 +12,6 @@
   #include <toml++/impl/node_view.hpp> // toml::node_view
   #include <toml++/impl/parser.hpp>    // toml::{parse_file, parse_result}
   #include <toml++/impl/table.hpp>     // toml::table
-  #include <utility>
 
   #include "Util/Env.hpp"
   #include "Util/Types.hpp"
@@ -259,11 +252,11 @@ fn Config::getInstance() -> Config {
       }
     }
 
-    const toml::table parsed_config = toml::parse_file(configPath.string());
+    const toml::table parsedConfig = toml::parse_file(configPath.string());
 
     debug_log("Config loaded from {}", configPath.string());
 
-    return Config(parsed_config);
+    return Config(parsedConfig);
   } catch (const Exception& e) {
     debug_log("Config loading failed: {}, using defaults", e.what());
     return {};

@@ -195,7 +195,12 @@ struct Weather {
           weather.enabled = false;
         }
       } else if (provider == "openweathermap") {
-        weather.service = std::make_unique<weather::OpenWeatherMapService>(weather.location, weather.apiKey, weather.units);
+        if (!weather.apiKey) {
+          error_log("OpenWeatherMap requires an API key.");
+          weather.enabled = false;
+        }
+
+        weather.service = std::make_unique<weather::OpenWeatherMapService>(weather.location, *weather.apiKey, weather.units);
       } else {
         error_log("Unknown weather provider: {}", provider);
         weather.enabled = false;

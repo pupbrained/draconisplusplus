@@ -1,4 +1,3 @@
-
 #include "gtest/gtest.h"
 
 class ConfigTest : public testing::Test {};
@@ -32,12 +31,9 @@ TEST_F(ConfigTest, PrecompiledConfigTypes) {
   #include <toml++/toml.h> // toml::{parse_result, parse}
   #include <variant>
 
-  #include "Services/Weather.hpp" // For weather::Coords
-  #include "Services/Weather/MetNoService.hpp"
-  #include "Services/Weather/OpenMeteoService.hpp"
-  #include "Services/Weather/OpenWeatherMapService.hpp"
+  #include "Config/Config.hpp"
 
-  #include "Util/Types.hpp" // For String
+  #include "Services/Weather.hpp" // For weather::Coords
 
 TEST_F(ConfigTest, GeneralFromToml_WithName) {
   toml::parse_result tbl = toml::parse(R"(
@@ -290,7 +286,7 @@ TEST_F(ConfigTest, MainConfigConstructor_EmptySections) {
   #endif
   #if DRAC_ENABLE_WEATHER
   EXPECT_FALSE(mainConfig.weather.enabled);
-  EXPECT_TRUE(mainConfig.weather.apiKey.empty());
+  EXPECT_FALSE(mainConfig.weather.apiKey.has_value());
   EXPECT_EQ(mainConfig.weather.service, nullptr);
   #endif
 }
