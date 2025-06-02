@@ -5,6 +5,11 @@
 #include <flat_map>      // std::flat_map
 #include <sys/statvfs.h> // statvfs
 #include <sys/sysctl.h>  // {CTL_KERN, KERN_PROC, KERN_PROC_ALL, kinfo_proc, sysctl, sysctlbyname}
+#include <mach/mach.h>
+#include <mach/vm_statistics.h>
+#include <mach/mach_types.h>
+#include <mach/mach_init.h>
+#include <mach/mach_host.h>
 
 #include "OperatingSystem.hpp"
 #include "Services/PackageCounting.hpp"
@@ -40,14 +45,32 @@ namespace {
 } // namespace
 
 namespace os {
-  fn GetMemInfo() -> Result<u64> {
-    u64   mem  = 0;
-    usize size = sizeof(mem);
+  fn GetMemInfo() -> Result<ResourceUsage> {
+    u64   totalMem = 0;
+    usize size     = sizeof(totalMem);
 
-    if (sysctlbyname("hw.memsize", &mem, &size, nullptr, 0) == -1)
-      return Err(DracError("Failed to get memory info"));
+    if (sysctlbyname("hw.memsize", &totalMem, &size, nullptr, 0) == -1)
+      return Err(DracError("Failed to get total memory info"));
 
-    return mem;
+    vm_size_t pageSize = 0;
+    host_page_size(mach_host_self(), &pageSize);
+
+    vm_statistics64_data_t vmStats;
+    mach_msg_type_number_t infoCount = sizeof(vmStats) / sizeof(natural_t);
+    mach_port_t            hostPort  = mach_host_self();
+
+    if (host_statistics64(hostPort, HOST_VM_INFO64,
+                          // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+                          reinterpret_cast<host_info64_t>(&vmStats),
+                          &infoCount) != KERN_SUCCESS)
+      return Err(DracError("Failed to get memory statistics"));
+
+    u64 usedMem = (vmStats.active_count + vmStats.wire_count) * pageSize;
+
+    return ResourceUsage {
+      .usedBytes  = usedMem,
+      .totalBytes = totalMem
+    };
   }
 
   fn GetNowPlaying() -> Result<MediaInfo> {
@@ -289,13 +312,13 @@ namespace os {
     return String(iter->second);
   }
 
-  fn GetDiskUsage() -> Result<DiskSpace> {
+  fn GetDiskUsage() -> Result<ResourceUsage> {
     struct statvfs vfs;
 
     if (statvfs("/", &vfs) != 0)
       return Err(DracError("Failed to get disk usage"));
 
-    return DiskSpace {
+    return ResourceUsage {
       .usedBytes  = (vfs.f_blocks - vfs.f_bfree) * vfs.f_frsize,
       .totalBytes = vfs.f_blocks * vfs.f_frsize,
     };
@@ -334,7 +357,7 @@ namespace package {
 
     if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(cacheKey)) {
       const auto& [cachedCount, timestamp] = *cachedDataResult;
-      const auto cacheTimePoint = system_clock::time_point(seconds(timestamp));
+      const auto cacheTimePoint            = system_clock::time_point(seconds(timestamp));
 
       if ((system_clock::now() - cacheTimePoint) < CACHE_EXPIRY_DURATION_HOMEBREW) {
         return cachedCount; // Cache is valid and not expired
