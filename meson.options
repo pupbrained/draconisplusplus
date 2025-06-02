@@ -18,7 +18,6 @@ option('use_pugixml', type: 'boolean', value: false)
 # Option: precompiled_config
 # Description: Use a C header file for precompiled application configuration.
 # Note: Enabling this disables runtime TOML parsing and configuration overriding.
-# TODO: Set to false by default.
 option('precompiled_config', type: 'boolean', value: false)
 
 # All of the below options take precedence over config.toml.

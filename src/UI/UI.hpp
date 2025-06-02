@@ -29,17 +29,17 @@ namespace ui {
     StringView host;
     StringView kernel;
     StringView memory;
-#ifdef DRAC_ENABLE_NOWPLAYING
+#if DRAC_ENABLE_NOWPLAYING
     StringView music;
 #endif
     StringView os;
-#ifdef DRAC_ENABLE_PACKAGECOUNT
+#if DRAC_ENABLE_PACKAGECOUNT
     StringView package;
 #endif
     StringView palette;
     StringView shell;
     StringView user;
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
     StringView weather;
 #endif
     StringView windowManager;

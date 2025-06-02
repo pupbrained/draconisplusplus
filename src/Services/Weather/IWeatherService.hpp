@@ -1,10 +1,12 @@
 #pragma once
 
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
 
-  #include "Services/Weather.hpp"
+// clang-format off
+#include "Services/Weather.hpp"
 
-  #include "Util/Error.hpp"
+#include "Util/Error.hpp"
+// clang-format on
 
 namespace weather {
   using util::types::Result;

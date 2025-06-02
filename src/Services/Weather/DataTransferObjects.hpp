@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
 
 // clang-format off
 // we need glaze.hpp include before any other includes that might use it

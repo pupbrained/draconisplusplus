@@ -2,7 +2,7 @@
 
 #include <format> // std::{formatter, format_to}
 
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
   #include "Services/Weather.hpp"
 #endif
 
@@ -85,13 +85,13 @@ namespace os {
     Result<String>        windowMgr;     ///< Window manager (e.g., "KWin").
     Result<ResourceUsage> diskUsage;     ///< Used/Total disk space for root filesystem.
     Result<String>        shell;         ///< Name of the current user shell (e.g., "zsh").
-#ifdef DRAC_ENABLE_PACKAGECOUNT
+#if DRAC_ENABLE_PACKAGECOUNT
     Result<u64> packageCount; ///< Total number of packages installed.
 #endif
-#ifdef DRAC_ENABLE_NOWPLAYING
+#if DRAC_ENABLE_NOWPLAYING
     Result<MediaInfo> nowPlaying; ///< Result of fetching media info.
 #endif
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
     Result<weather::WeatherReport> weather; ///< Result of fetching weather info.
 #endif
 

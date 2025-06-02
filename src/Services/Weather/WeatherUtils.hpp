@@ -1,11 +1,13 @@
 #pragma once
 
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
 
-  #include <unordered_map>
+// clang-format off
+#include <unordered_map>
 
-  #include "Util/Error.hpp"
-  #include "Util/Types.hpp"
+#include "Util/Error.hpp"
+#include "Util/Types.hpp"
+// clang-format on
 
 namespace weather::utils {
   using util::types::StringView, util::types::Result, util::types::usize, util::types::String;

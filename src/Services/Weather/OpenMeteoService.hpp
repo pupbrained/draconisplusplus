@@ -1,19 +1,23 @@
 #pragma once
 
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
 
-  #include "IWeatherService.hpp"
+// clang-format off
+#include "Util/ConfigData.hpp"
+
+#include "IWeatherService.hpp"
+// clang-format on
 
 namespace weather {
   class OpenMeteoService final : public IWeatherService {
    public:
-    OpenMeteoService(f64 lat, f64 lon, String units = "metric");
+    OpenMeteoService(f64 lat, f64 lon, config::WeatherUnit units);
     [[nodiscard]] fn getWeatherInfo() const -> Result<WeatherReport> override;
 
    private:
-    f64    m_lat;
-    f64    m_lon;
-    String m_units;
+    f64                 m_lat;
+    f64                 m_lon;
+    config::WeatherUnit m_units;
   };
 } // namespace weather
 

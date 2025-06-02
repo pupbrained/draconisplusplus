@@ -1,19 +1,21 @@
 #pragma once
 
-#ifdef DRAC_ENABLE_PACKAGECOUNT
+#if DRAC_ENABLE_PACKAGECOUNT
 
-  #include <filesystem>            // std::filesystem::path
-  #include <glaze/core/common.hpp> // glz::object
-  #include <glaze/core/meta.hpp>   // glz::detail::Object
+// clang-format off
+#include <filesystem>            // std::filesystem::path
+#include <glaze/core/common.hpp> // glz::object
+#include <glaze/core/meta.hpp>   // glz::detail::Object
 
-  #include "Util/ConfigData.hpp"
-  #include "Util/Definitions.hpp"
-  #include "Util/Error.hpp"
-  #include "Util/Types.hpp"
+#include "Util/ConfigData.hpp"
+#include "Util/Definitions.hpp"
+#include "Util/Error.hpp"
+#include "Util/Types.hpp"
+// clang-format on
 
 namespace package {
   namespace fs = std::filesystem;
-  using config::PackageManager; // Make PackageManager directly usable
+  using config::PackageManager;
   using util::error::DracError;
   using util::types::Future, util::types::i64, util::types::Result, util::types::String, util::types::u64;
 

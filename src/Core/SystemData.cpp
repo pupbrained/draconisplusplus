@@ -8,10 +8,10 @@
 
 #include "Config/Config.hpp"
 
-#ifdef DRAC_ENABLE_PACKAGECOUNT
+#if DRAC_ENABLE_PACKAGECOUNT
   #include "Services/PackageCounting.hpp"
 #endif
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
   #include "Services/Weather.hpp"
 #endif
 
@@ -75,10 +75,10 @@ namespace {
 
 namespace os {
   SystemData::SystemData([[maybe_unused]] const Config& config) {
-#ifdef DRAC_ENABLE_PACKAGECOUNT
+#if DRAC_ENABLE_PACKAGECOUNT
     using package::GetTotalCount;
 #endif // DRAC_ENABLE_PACKAGECOUNT
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
     using weather::WeatherReport;
 #endif // DRAC_ENABLE_WEATHER
     using util::types::Future, util::types::Err;

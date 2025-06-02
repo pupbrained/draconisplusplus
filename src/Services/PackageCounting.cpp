@@ -1,33 +1,35 @@
-#ifdef DRAC_ENABLE_PACKAGECOUNT
+#if DRAC_ENABLE_PACKAGECOUNT
 
-  #include "PackageCounting.hpp"
+// clang-format off
+#include "PackageCounting.hpp"
 
-  #ifdef PRECOMPILED_CONFIG
-    #include "config.hpp"
-  #endif
+#ifdef PRECOMPILED_CONFIG
+  #include "config.hpp"
+#endif
 
-  #if !defined(__serenity__) && !defined(_WIN32)
-    #include <SQLiteCpp/Database.h>  // SQLite::{Database, OPEN_READONLY}
-    #include <SQLiteCpp/Exception.h> // SQLite::Exception
-    #include <SQLiteCpp/Statement.h> // SQLite::Statement
-  #endif
+#if !defined(__serenity__) && !defined(_WIN32)
+  #include <SQLiteCpp/Database.h>  // SQLite::{Database, OPEN_READONLY}
+  #include <SQLiteCpp/Exception.h> // SQLite::Exception
+  #include <SQLiteCpp/Statement.h> // SQLite::Statement
+#endif
 
-  #if defined(__linux__) && defined(HAVE_PUGIXML)
-    #include <pugixml.hpp> // pugi::{xml_document, xml_node, xml_parse_result}
-  #endif
+#if defined(__linux__) && defined(HAVE_PUGIXML)
+  #include <pugixml.hpp> // pugi::{xml_document, xml_node, xml_parse_result}
+#endif
 
-  #include <chrono>       // std::chrono
-  #include <filesystem>   // std::filesystem
-  #include <format>       // std::format
-  #include <future>       // std::{async, future, launch}
-  #include <matchit.hpp>  // matchit::{match, is, or_, _}
-  #include <system_error> // std::{errc, error_code}
+#include <chrono>       // std::chrono
+#include <filesystem>   // std::filesystem
+#include <format>       // std::format
+#include <future>       // std::{async, future, launch}
+#include <matchit.hpp>  // matchit::{match, is, or_, _}
+#include <system_error> // std::{errc, error_code}
 
-  #include "Util/Caching.hpp"
-  #include "Util/Env.hpp"
-  #include "Util/Error.hpp"
-  #include "Util/Logging.hpp"
-  #include "Util/Types.hpp"
+#include "Util/Caching.hpp"
+#include "Util/Env.hpp"
+#include "Util/Error.hpp"
+#include "Util/Logging.hpp"
+#include "Util/Types.hpp"
+// clang-format on
 
 namespace {
   namespace fs = std::filesystem;
@@ -466,7 +468,6 @@ namespace package {
          }
     };
   #endif // PRECOMPILED_CONFIG
-
     u64  totalCount   = 0;
     bool oneSucceeded = false;
 

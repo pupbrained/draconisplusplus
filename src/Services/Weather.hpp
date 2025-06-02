@@ -1,11 +1,13 @@
 #pragma once
 
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
 
-  #include <glaze/core/common.hpp> // object
-  #include <glaze/core/meta.hpp>   // Object
+// clang-format off
+#include <glaze/core/common.hpp> // object
+#include <glaze/core/meta.hpp>   // Object
 
-  #include "Util/Types.hpp"
+#include "Util/Types.hpp"
+// clang-format on
 
 namespace weather {
   using glz::detail::Object, glz::object;

@@ -25,17 +25,17 @@ namespace ui {
     .host               = "",
     .kernel             = "",
     .memory             = "",
-#ifdef DRAC_ENABLE_NOWPLAYING
+#if DRAC_ENABLE_NOWPLAYING
     .music = "",
 #endif
     .os = "",
-#ifdef DRAC_ENABLE_PACKAGECOUNT
+#if DRAC_ENABLE_PACKAGECOUNT
     .package = "",
 #endif
     .palette = "",
     .shell   = "",
     .user    = "",
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
     .weather = "",
 #endif
     .windowManager = "",
@@ -48,7 +48,7 @@ namespace ui {
     .host               = " 󰌢  ",
     .kernel             = "   ",
     .memory             = "   ",
-#ifdef DRAC_ENABLE_NOWPLAYING
+#if DRAC_ENABLE_NOWPLAYING
     .music = "   ",
 #endif
 #ifdef __linux__
@@ -62,13 +62,13 @@ namespace ui {
 #else
     .os = "   ",
 #endif
-#ifdef DRAC_ENABLE_PACKAGECOUNT
+#if DRAC_ENABLE_PACKAGECOUNT
     .package = " 󰏖  ",
 #endif
     .palette = "   ",
     .shell   = "   ",
     .user    = "   ",
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
     .weather = "   ",
 #endif
     .windowManager = "   ",
@@ -81,17 +81,17 @@ namespace ui {
     .host               = " 💻 ",
     .kernel             = " 🫀 ",
     .memory             = " 🧠 ",
-#ifdef DRAC_ENABLE_NOWPLAYING
+#if DRAC_ENABLE_NOWPLAYING
     .music = " 🎵 ",
 #endif
     .os = " 🤖 ",
-#ifdef DRAC_ENABLE_PACKAGECOUNT
+#if DRAC_ENABLE_PACKAGECOUNT
     .package = " 📦 ",
 #endif
     .palette = " 🎨 ",
     .shell   = " 💲 ",
     .user    = " 👤 ",
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
     .weather = " 🌈 ",
 #endif
     .windowManager = " 🪟 ",
@@ -171,17 +171,17 @@ namespace ui {
         hostIcon,
         kernelIcon,
         memoryIcon,
-#ifdef DRAC_ENABLE_NOWPLAYING
+#if DRAC_ENABLE_NOWPLAYING
         musicIcon,
 #endif
         osIcon,
-#ifdef DRAC_ENABLE_PACKAGECOUNT
+#if DRAC_ENABLE_PACKAGECOUNT
         packageIcon,
 #endif
         paletteIcon,
         shellIcon,
         userIcon,
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
         weatherIcon,
 #endif
         wmIcon
@@ -200,8 +200,8 @@ namespace ui {
         const weather::WeatherReport& weatherInfo = *data.weather;
 
         String weatherValue = config.weather.showTownName && weatherInfo.name
-          ? std::format("{}°{} in {}", std::lround(weatherInfo.temperature), config.weather.units == "metric" ? "C" : "F", *weatherInfo.name)
-          : std::format("{}°{}, {}", std::lround(weatherInfo.temperature), config.weather.units == "metric" ? "C" : "F", weatherInfo.description);
+          ? std::format("{}°{} in {}", std::lround(weatherInfo.temperature), config.weather.units == config::WeatherUnit::METRIC ? "C" : "F", *weatherInfo.name)
+          : std::format("{}°{}, {}", std::lround(weatherInfo.temperature), config.weather.units == config::WeatherUnit::METRIC ? "C" : "F", weatherInfo.description);
 
         initialRows.push_back({ .icon = weatherIcon, .label = "Weather", .value = std::move(weatherValue) });
       } else if (config.weather.enabled && !data.weather.has_value())
@@ -243,7 +243,7 @@ namespace ui {
       if (data.shell)
         systemInfoRows.push_back({ .icon = shellIcon, .label = "Shell", .value = *data.shell });
 
-#ifdef DRAC_ENABLE_PACKAGECOUNT
+#if DRAC_ENABLE_PACKAGECOUNT
       if (data.packageCount) {
         if (*data.packageCount > 0)
           systemInfoRows.push_back({ .icon = packageIcon, .label = "Packages", .value = std::format("{}", *data.packageCount) });

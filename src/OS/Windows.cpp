@@ -13,7 +13,7 @@
 #include <winrt/Windows.Media.Control.h>
 #include <winrt/Windows.System.Profile.h>
 
-#ifdef DRAC_ENABLE_PACKAGECOUNT
+#if DRAC_ENABLE_PACKAGECOUNT
   #include "Services/PackageCounting.hpp"
 #endif
 
@@ -176,7 +176,7 @@ namespace os {
     return Err(DracError(DracErrorCode::PlatformSpecific, std::format("GlobalMemoryStatusEx failed with error code {}", GetLastError())));
   }
 
-  #ifdef DRAC_ENABLE_NOWPLAYING
+  #if DRAC_ENABLE_NOWPLAYING
   fn GetNowPlaying() -> Result<MediaInfo> {
     using namespace winrt::Windows::Media::Control;
     using namespace winrt::Windows::Foundation;
@@ -351,7 +351,7 @@ namespace os {
   }
 } // namespace os
 
-  #ifdef DRAC_ENABLE_PACKAGECOUNT
+  #if DRAC_ENABLE_PACKAGECOUNT
 namespace package {
   using util::helpers::GetEnv;
 

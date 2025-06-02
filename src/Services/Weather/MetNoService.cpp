@@ -1,30 +1,26 @@
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
 
-  #ifdef __HAIKU__
-    #define _DEFAULT_SOURCE // exposes timegm
-  #endif
+// clang-format off
+#include "MetNoService.hpp"
 
-  #include "MetNoService.hpp"
+#include <chrono> // std::chrono::{system_clock, minutes, seconds}
+#include <format> // std::format
 
-  #include <chrono> // std::chrono::{system_clock, minutes, seconds}
-  #include <format> // std::format
-                    // glz::read is included via DataTransferObjects.hpp
+#include "Services/Weather/DataTransferObjects.hpp"
+#include "Services/Weather/WeatherUtils.hpp"
 
-  #include "Services/Weather/DataTransferObjects.hpp"
-  #include "Services/Weather/WeatherUtils.hpp"
+#include "Util/Caching.hpp"
+#include "Util/Error.hpp"
+#include "Util/Types.hpp"
 
-  #include "Util/Caching.hpp"
-  #include "Util/Error.hpp"
-  #include "Util/Types.hpp"
-
-  #include "Wrappers/Curl.hpp"
+#include "Wrappers/Curl.hpp"
+// clang-format on
 
 using weather::MetNoService;
 using weather::WeatherReport;
-// DTOs and their Glaze meta definitions are now in Services/Weather/DataTransferObjects.hpp
 
-MetNoService::MetNoService(const f64 lat, const f64 lon, String units)
-  : m_lat(lat), m_lon(lon), m_units(std::move(units)) {}
+MetNoService::MetNoService(const f64 lat, const f64 lon, config::WeatherUnit units)
+  : m_lat(lat), m_lon(lon), m_units(units) {}
 
 fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
   using glz::error_ctx, glz::read, glz::error_code;
@@ -80,7 +76,7 @@ fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
 
   f64 temp = data.instant.details.airTemperature;
 
-  if (m_units == "imperial")
+  if (m_units == config::WeatherUnit::IMPERIAL)
     temp = temp * 9.0 / 5.0 + 32.0;
 
   String symbolCode = data.next1Hours ? data.next1Hours->summary.symbolCode : "";

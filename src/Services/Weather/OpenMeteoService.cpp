@@ -1,31 +1,27 @@
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
 
-  #include "OpenMeteoService.hpp"
+// clang-format off
+#include "OpenMeteoService.hpp"
 
-  #ifdef __HAIKU__
-    #define _DEFAULT_SOURCE // exposes timegm
-  #endif
+#include <chrono> // std::chrono::{system_clock, minutes, seconds}
+#include <format> // std::format
 
-  #include <chrono> // std::chrono::{system_clock, minutes, seconds}
-  #include <format> // std::format
-                    // glz::read is included via DataTransferObjects.hpp
+#include "Services/Weather.hpp"
+#include "Services/Weather/DataTransferObjects.hpp"
+#include "Services/Weather/WeatherUtils.hpp"
 
-  #include "Services/Weather.hpp"
-  #include "Services/Weather/DataTransferObjects.hpp"
-  #include "Services/Weather/WeatherUtils.hpp"
+#include "Util/Caching.hpp"
+#include "Util/Error.hpp"
+#include "Util/Types.hpp"
 
-  #include "Util/Caching.hpp"
-  #include "Util/Error.hpp"
-  #include "Util/Types.hpp"
-
-  #include "Wrappers/Curl.hpp"
+#include "Wrappers/Curl.hpp"
+// clang-format on
 
 using weather::OpenMeteoService;
 using weather::WeatherReport;
-// DTOs and their Glaze meta definitions are now in Services/Weather/DataTransferObjects.hpp
 
-OpenMeteoService::OpenMeteoService(const f64 lat, const f64 lon, String units)
-  : m_lat(lat), m_lon(lon), m_units(std::move(units)) {}
+OpenMeteoService::OpenMeteoService(const f64 lat, const f64 lon, config::WeatherUnit units)
+  : m_lat(lat), m_lon(lon), m_units(units) {}
 
 fn OpenMeteoService::getWeatherInfo() const -> Result<WeatherReport> {
   using glz::error_ctx, glz::read, glz::error_code;
@@ -51,7 +47,7 @@ fn OpenMeteoService::getWeatherInfo() const -> Result<WeatherReport> {
     "https://api.open-meteo.com/v1/forecast?latitude={:.4f}&longitude={:.4f}&current_weather=true&temperature_unit={}",
     m_lat,
     m_lon,
-    m_units == "imperial" ? "fahrenheit" : "celsius"
+    m_units == config::WeatherUnit::IMPERIAL ? "fahrenheit" : "celsius"
   );
 
   String responseBuffer;

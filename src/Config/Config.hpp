@@ -22,13 +22,14 @@
   #include "Util/Logging.hpp"
 #endif // PRECOMPILED_CONFIG
 
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
   #include <variant>
 
   #include "Services/Weather.hpp"
   #include "Services/Weather/IWeatherService.hpp"
 #endif // DRAC_ENABLE_WEATHER
 
+#include "Util/ConfigData.hpp"
 #include "Util/Definitions.hpp"
 #include "Util/Error.hpp"
 #include "Util/Types.hpp"
@@ -123,9 +124,9 @@ struct NowPlaying {
  * @brief Holds configuration settings for the Weather feature.
  */
 struct Weather {
-  Location location; ///< Location for weather data, can be a city name or coordinates.
-  String   apiKey;   ///< API key for the weather service.
-  String   units;    ///< Units for temperature, either "metric" or "imperial".
+  Location            location; ///< Location for weather data, can be a city name or coordinates.
+  Option<String>      apiKey;   ///< API key for the weather service.
+  config::WeatherUnit units;    ///< Units for temperature, either "metric" or "imperial".
 
   bool                                      enabled      = false;   ///< Flag to enable or disable the Weather feature.
   bool                                      showTownName = false;   ///< Flag to show the town name in the output.
@@ -146,9 +147,16 @@ struct Weather {
     if (!weather.enabled)
       return weather;
 
-    weather.apiKey       = *apiKeyOpt;
+    weather.apiKey       = apiKeyOpt;
     weather.showTownName = tbl["show_town_name"].value_or(false);
-    weather.units        = tbl["units"].value_or("metric");
+    String unitsStr      = tbl["units"].value_or("metric");
+
+    if (unitsStr == "metric")
+      weather.units = config::WeatherUnit::METRIC;
+    else if (unitsStr == "imperial")
+      weather.units = config::WeatherUnit::IMPERIAL;
+    else
+      error_log("Invalid units: {}", unitsStr);
 
     String provider = tbl["provider"].value_or("openweathermap");
 

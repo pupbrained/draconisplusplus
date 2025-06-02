@@ -2,7 +2,7 @@
 
 #include <format> // std::{format, format_error}
 
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
   #include "Services/Weather/MetNoService.hpp"
   #include "Services/Weather/OpenMeteoService.hpp"
   #include "Services/Weather/OpenWeatherMapService.hpp"
@@ -175,19 +175,21 @@ Config::Config(const toml::table& tbl) {
 
 fn Config::getInstance() -> Config {
 #ifdef PRECOMPILED_CONFIG
+  using util::types::Option, util::types::None;
+
   Config cfg; // Default construct. Members are default-initialized.
 
   cfg.general.name = config::DRAC_USERNAME;
 
-  #ifdef DRAC_ENABLE_WEATHER
+  #if DRAC_ENABLE_WEATHER
   cfg.weather.enabled      = true;
-  cfg.weather.apiKey       = config::DRAC_API_KEY;
+  cfg.weather.apiKey       = config::DRAC_API_KEY == nullptr ? None : Option(config::DRAC_API_KEY);
   cfg.weather.showTownName = config::DRAC_SHOW_TOWN_NAME;
 
   if constexpr (config::DRAC_WEATHER_UNIT == config::WeatherUnit::IMPERIAL) {
-    cfg.weather.units = "imperial";
+    cfg.weather.units = config::WeatherUnit::IMPERIAL;
   } else {
-    cfg.weather.units = "metric";
+    cfg.weather.units = config::WeatherUnit::METRIC;
   }
 
   cfg.weather.location = config::DRAC_LOCATION;
@@ -234,7 +236,7 @@ fn Config::getInstance() -> Config {
   #endif // DRAC_ENABLE_WEATHER (outer)
 
   // NowPlaying section
-  #ifdef DRAC_ENABLE_NOWPLAYING
+  #if DRAC_ENABLE_NOWPLAYING
   cfg.nowPlaying.enabled = true;
   debug_log("Precompiled: NowPlaying is ENABLED via DRAC_ENABLE_NOWPLAYING.");
   #endif // DRAC_ENABLE_NOWPLAYING (outer)

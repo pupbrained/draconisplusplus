@@ -1,14 +1,16 @@
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
 
-  #include "WeatherUtils.hpp"
+// clang-format off
+#include "WeatherUtils.hpp"
 
-  #include <charconv> // For std::from_chars
-  #include <ctime>    // For std::tm, timegm, _mkgmtime
-  #include <format>   // For std::format
+#include <charconv> // For std::from_chars
+#include <ctime>    // For std::tm, timegm, _mkgmtime
+#include <format>   // For std::format
 
-  #ifdef __HAIKU__
-    #define _DEFAULT_SOURCE // exposes timegm
-  #endif
+#ifdef __HAIKU__
+  #define _DEFAULT_SOURCE // exposes timegm
+#endif
+// clang-format on
 
 namespace weather::utils {
   using util::error::DracError, util::error::DracErrorCode;
@@ -27,35 +29,48 @@ namespace weather::utils {
   fn ParseIso8601ToEpoch(StringView iso8601_string) -> Result<usize> {
     using util::types::i32;
 
-    if (iso8601_string.size() != 20) // "YYYY-MM-DDTHH:MM:SSZ"
-      return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse ISO8601 time, expected 20 characters, got {}", iso8601_string.size())));
+    const usize stringLen = iso8601_string.size();
+
+    // Supported lengths:
+    // 20: "YYYY-MM-DDTHH:MM:SSZ"
+    // 16: "YYYY-MM-DDTHH:MM" (seconds assumed 00, UTC assumed)
+    if (stringLen != 20 && stringLen != 16)
+      return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse ISO8601 time \'{}\', unexpected length {}. Expected 16 or 20 characters.", String(iso8601_string), stringLen)));
 
     std::tm timeStruct = {};
-    i32     year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
+    i32     year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0; // Default second to 0
 
     auto parseInt = [](StringView s_view, i32& out_val) -> bool {
       auto [ptr, ec] = std::from_chars(s_view.data(), s_view.data() + s_view.size(), out_val);
       return ec == std::errc() && ptr == s_view.data() + s_view.size();
     };
 
-    if (!parseInt(iso8601_string.substr(0, 4), year) ||    // YYYY
-        !parseInt(iso8601_string.substr(5, 2), month) ||   // MM
-        !parseInt(iso8601_string.substr(8, 2), day) ||     // DD
-        iso8601_string[10] != 'T' ||                       // T separator
-        !parseInt(iso8601_string.substr(11, 2), hour) ||   // HH
-        !parseInt(iso8601_string.substr(14, 2), minute) || // MM
-        !parseInt(iso8601_string.substr(17, 2), second) || // SS
-        iso8601_string[19] != 'Z') {                       // Z for UTC
-      return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse ISO8601 time string: {}", String(iso8601_string))));
-    }
+    // Common parsing for YYYY-MM-DDTHH:MM
+    // Structure: YYYY-MM-DDTHH:MM
+    // Indices:   0123456789012345
+    if (!parseInt(iso8601_string.substr(0, 4), year) || // YYYY
+        iso8601_string[4] != '-' ||
+        !parseInt(iso8601_string.substr(5, 2), month) || // MM
+        iso8601_string[7] != '-' ||
+        !parseInt(iso8601_string.substr(8, 2), day) ||   // DD
+        iso8601_string[10] != 'T' ||                     // T separator
+        !parseInt(iso8601_string.substr(11, 2), hour) || // HH
+        iso8601_string[13] != ':' ||
+        !parseInt(iso8601_string.substr(14, 2), minute) // MM
+    )
+      return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse common date/time components from ISO8601 string: \'{}\'", String(iso8601_string))));
+
+    if (stringLen == 20) // Format: YYYY-MM-DDTHH:MM:SSZ
+      if (iso8601_string[16] != ':' || !parseInt(iso8601_string.substr(17, 2), second) || iso8601_string[19] != 'Z')
+        return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse seconds or UTC zone from 20-character ISO8601 string: \'{}\'", String(iso8601_string))));
 
     timeStruct.tm_year  = year - 1900;
-    timeStruct.tm_mon   = month - 1; // tm_mon is 0-indexed
+    timeStruct.tm_mon   = month - 1;
     timeStruct.tm_mday  = day;
     timeStruct.tm_hour  = hour;
     timeStruct.tm_min   = minute;
     timeStruct.tm_sec   = second;
-    timeStruct.tm_isdst = 0; // Explicitly UTC, no daylight saving
+    timeStruct.tm_isdst = 0;
 
   #ifdef _WIN32
     time_t epochTime = _mkgmtime(&timeStruct);

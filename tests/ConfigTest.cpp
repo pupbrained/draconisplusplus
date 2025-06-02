@@ -1,12 +1,43 @@
-#ifndef PRECOMPILED_CONFIG
 
-  #include <toml++/toml.h> // toml::{parse_result, parse}
-
-  #include "Config/Config.hpp"
-
-  #include "gtest/gtest.h"
+#include "gtest/gtest.h"
 
 class ConfigTest : public testing::Test {};
+
+#ifdef PRECOMPILED_CONFIG
+
+  #include <type_traits> // For std::is_same_v
+
+  #include "config.hpp" // Include the precompiled configuration header
+
+TEST_F(ConfigTest, PrecompiledConfigTypes) {
+  // General
+  EXPECT_TRUE((std::is_same_v<decltype(config::DRAC_USERNAME), const char* const>));
+
+  #if DRAC_ENABLE_WEATHER
+  // Weather
+  EXPECT_TRUE((std::is_same_v<decltype(config::DRAC_WEATHER_PROVIDER), const config::WeatherProvider>));
+  EXPECT_TRUE((std::is_same_v<decltype(config::DRAC_WEATHER_UNIT), const config::WeatherUnit>));
+  EXPECT_TRUE((std::is_same_v<decltype(config::DRAC_SHOW_TOWN_NAME), const bool>));
+  EXPECT_TRUE((std::is_same_v<decltype(config::DRAC_API_KEY), const char* const>));
+  EXPECT_TRUE((std::is_same_v<decltype(config::DRAC_LOCATION), const Location>));
+  #endif // DRAC_ENABLE_WEATHER
+
+  #if DRAC_ENABLE_PACKAGECOUNT
+  // Package Count
+  EXPECT_TRUE((std::is_same_v<decltype(config::DRAC_ENABLED_PACKAGE_MANAGERS), const config::PackageManager>));
+  #endif // DRAC_ENABLE_PACKAGECOUNT
+}
+
+#else
+  #include <toml++/toml.h> // toml::{parse_result, parse}
+  #include <variant>
+
+  #include "Services/Weather.hpp" // For weather::Coords
+  #include "Services/Weather/MetNoService.hpp"
+  #include "Services/Weather/OpenMeteoService.hpp"
+  #include "Services/Weather/OpenWeatherMapService.hpp"
+
+  #include "Util/Types.hpp" // For String
 
 TEST_F(ConfigTest, GeneralFromToml_WithName) {
   toml::parse_result tbl = toml::parse(R"(
@@ -76,7 +107,7 @@ TEST_F(ConfigTest, WeatherFromToml_BasicEnabled) {
   EXPECT_EQ(weatherConfig.apiKey, "test_key");
   ASSERT_TRUE(std::holds_alternative<String>(weatherConfig.location));
   EXPECT_EQ(std::get<String>(weatherConfig.location), "Test City");
-  EXPECT_EQ(weatherConfig.units, "metric");
+  EXPECT_EQ(weatherConfig.units, config::WeatherUnit::METRIC);
   EXPECT_TRUE(weatherConfig.showTownName);
   ASSERT_NE(weatherConfig.service, nullptr);
 }
@@ -214,11 +245,11 @@ TEST_F(ConfigTest, WeatherFromToml_UnknownProvider) {
 
 TEST_F(ConfigTest, MainConfigConstructor) {
   toml::parse_result tomlTable = toml::parse(R"(
-    [general]
-    name = "Main Test User"
+      [general]
+      name = "Main Test User"
 
-    [now_playing]
-    enabled = true
+      [now_playing]
+      enabled = true
 
     [weather]
     enabled = true
@@ -263,4 +294,5 @@ TEST_F(ConfigTest, MainConfigConstructor_EmptySections) {
   EXPECT_EQ(mainConfig.weather.service, nullptr);
   #endif
 }
+
 #endif // PRECOMPILED_CONFIG

@@ -33,13 +33,13 @@ namespace {
     Vec<Pair<String, DracError>> failures;
 
     constexpr u8 totalPossibleReadouts = 9
-#ifdef DRAC_ENABLE_PACKAGECOUNT
+#if DRAC_ENABLE_PACKAGECOUNT
       + 1
 #endif
-#ifdef DRAC_ENABLE_NOWPLAYING
+#if DRAC_ENABLE_NOWPLAYING
       + 1
 #endif
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
       + 1
 #endif
       ;
@@ -64,15 +64,15 @@ namespace {
       failures.emplace_back("DiskUsage", data.diskUsage.error());
     if (!data.shell.has_value())
       failures.emplace_back("Shell", data.shell.error());
-#ifdef DRAC_ENABLE_PACKAGECOUNT
+#if DRAC_ENABLE_PACKAGECOUNT
     if (!data.packageCount.has_value())
       failures.emplace_back("PackageCount", data.packageCount.error());
 #endif
-#ifdef DRAC_ENABLE_NOWPLAYING
+#if DRAC_ENABLE_NOWPLAYING
     if (!data.nowPlaying.has_value())
       failures.emplace_back("NowPlaying", data.nowPlaying.error());
 #endif
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
     if (!data.weather.has_value())
       failures.emplace_back("Weather", data.weather.error());
 #endif

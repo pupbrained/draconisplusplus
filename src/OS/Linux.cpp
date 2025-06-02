@@ -517,7 +517,7 @@ namespace os {
   }
 } // namespace os
 
-  #ifdef DRAC_ENABLE_PACKAGECOUNT
+  #if DRAC_ENABLE_PACKAGECOUNT
 namespace package {
   using namespace std::string_literals;
   using std::chrono::system_clock, std::chrono::seconds, std::chrono::hours, std::chrono::duration_cast;

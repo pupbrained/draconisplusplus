@@ -1,21 +1,22 @@
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
 
-  #include "OpenWeatherMapService.hpp"
+// clang-format off
+#include "OpenWeatherMapService.hpp"
 
-  #include <chrono>
-  #include <format>
-  // <glaze/core/meta.hpp> and <glaze/json/read.hpp> are included via DataTransferObjects.hpp
-  #include <utility>
-  #include <variant>
+#include <chrono>
+#include <format>
+#include <utility>
+#include <variant>
 
-  #include "Services/Weather/DataTransferObjects.hpp"
+#include "Services/Weather/DataTransferObjects.hpp"
 
-  #include "Util/Caching.hpp"
-  #include "Util/Error.hpp"
-  #include "Util/Logging.hpp"
-  #include "Util/Types.hpp"
+#include "Util/Caching.hpp"
+#include "Util/Error.hpp"
+#include "Util/Logging.hpp"
+#include "Util/Types.hpp"
 
-  #include "Wrappers/Curl.hpp"
+#include "Wrappers/Curl.hpp"
+// clang-format on
 
 using weather::OpenWeatherMapService;
 using weather::WeatherReport;
@@ -85,8 +86,8 @@ namespace {
   }
 } // namespace
 
-OpenWeatherMapService::OpenWeatherMapService(std::variant<String, Coords> location, String apiKey, String units)
-  : m_location(std::move(location)), m_apiKey(std::move(apiKey)), m_units(std::move(units)) {}
+OpenWeatherMapService::OpenWeatherMapService(std::variant<String, Coords> location, String apiKey, config::WeatherUnit units)
+  : m_location(std::move(location)), m_apiKey(std::move(apiKey)), m_units(units) {}
 
 fn OpenWeatherMapService::getWeatherInfo() const -> Result<WeatherReport> {
   using util::cache::ReadCache, util::cache::WriteCache;

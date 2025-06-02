@@ -13,6 +13,10 @@
 
 #pragma once
 
+#include <format>
+#include <matchit.hpp>
+
+#include "Util/Definitions.hpp"
 #include "Util/Types.hpp"
 
 namespace config {
@@ -83,3 +87,18 @@ namespace config {
   };
 #endif
 } // namespace config
+
+#if DRAC_ENABLE_WEATHER
+template <>
+struct std::formatter<config::WeatherUnit> {
+  static constexpr auto parse(std::format_parse_context& ctx) {
+    return ctx.begin();
+  }
+
+  static fn format(config::WeatherUnit unit, std::format_context& ctx) {
+    using matchit::match, matchit::is, matchit::_;
+
+    return std::format_to(ctx.out(), "{}", match(unit)(is | config::WeatherUnit::METRIC = "metric", is | config::WeatherUnit::IMPERIAL = "imperial"));
+  }
+};
+#endif

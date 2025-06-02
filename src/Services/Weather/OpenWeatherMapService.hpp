@@ -1,23 +1,27 @@
 #pragma once
 
-#ifdef DRAC_ENABLE_WEATHER
+#if DRAC_ENABLE_WEATHER
 
-  #include <variant>
+// clang-format off
+#include <variant>
 
-  #include "IWeatherService.hpp"
+#include "Util/ConfigData.hpp"
+
+#include "IWeatherService.hpp"
+// clang-format on
 
 namespace weather {
   using util::types::StringView;
 
   class OpenWeatherMapService final : public IWeatherService {
    public:
-    OpenWeatherMapService(std::variant<String, Coords> location, String apiKey, String units);
+    OpenWeatherMapService(std::variant<String, Coords> location, String apiKey, config::WeatherUnit units);
     fn getWeatherInfo() const -> Result<WeatherReport> override;
 
    private:
     std::variant<String, Coords> m_location;
     String                       m_apiKey;
-    String                       m_units;
+    config::WeatherUnit          m_units;
   };
 } // namespace weather
 
