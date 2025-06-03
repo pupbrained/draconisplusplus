@@ -3,7 +3,6 @@
 class ConfigTest : public testing::Test {};
 
 #ifdef PRECOMPILED_CONFIG
-
   #include <type_traits> // For std::is_same_v
 
   #include "config.hpp" // Include the precompiled configuration header
@@ -26,7 +25,6 @@ TEST_F(ConfigTest, PrecompiledConfigTypes) {
   EXPECT_TRUE((std::is_same_v<decltype(config::DRAC_ENABLED_PACKAGE_MANAGERS), const config::PackageManager>));
   #endif // DRAC_ENABLE_PACKAGECOUNT
 }
-
 #else
   #include <toml++/toml.h> // toml::{parse_result, parse}
   #include <variant>
@@ -83,7 +81,7 @@ TEST_F(ConfigTest, NowPlayingFromToml_Default) {
 
   ASSERT_TRUE(tbl.is_table());
   NowPlaying npConfig = NowPlaying::fromToml(*tbl.as_table());
-  EXPECT_FALSE(npConfig.enabled); // Default should be false
+  EXPECT_FALSE(npConfig.enabled);
 }
   #endif // DRAC_ENABLE_NOWPLAYING
 
@@ -97,6 +95,7 @@ TEST_F(ConfigTest, WeatherFromToml_BasicEnabled) {
     show_town_name = true
     provider = "openweathermap"
   )");
+
   ASSERT_TRUE(tbl.is_table());
   Weather weatherConfig = Weather::fromToml(*tbl.as_table());
   EXPECT_TRUE(weatherConfig.enabled);
@@ -125,7 +124,7 @@ TEST_F(ConfigTest, WeatherFromToml_DisabledIfEnabledFalse) {
   toml::parse_result tbl = toml::parse(R"(
     enabled = false
     api_key = "test_key"
-      location = "Test City"
+    location = "Test City"
   )");
 
   ASSERT_TRUE(tbl.is_table());
@@ -137,8 +136,8 @@ TEST_F(ConfigTest, WeatherFromToml_DisabledIfEnabledFalse) {
 TEST_F(ConfigTest, WeatherFromToml_LocationCoords_OpenMeteo) {
   toml::parse_result tbl = toml::parse(R"(
     enabled = true
-    api_key = "dummy_key_not_used_by_openmeteo" # OpenMeteo doesn't use API key from here
     provider = "openmeteo"
+
     [location]
     lat = 12.34
     lon = 56.78
@@ -157,8 +156,8 @@ TEST_F(ConfigTest, WeatherFromToml_LocationCoords_OpenMeteo) {
 TEST_F(ConfigTest, WeatherFromToml_LocationCoords_MetNo) {
   toml::parse_result tbl = toml::parse(R"(
     enabled = true
-    api_key = "dummy_key_not_used_by_metno" # MetNo doesn't use API key from here
     provider = "metno"
+
     [location]
     lat = 43.21
     lon = 87.65
@@ -241,11 +240,11 @@ TEST_F(ConfigTest, WeatherFromToml_UnknownProvider) {
 
 TEST_F(ConfigTest, MainConfigConstructor) {
   toml::parse_result tomlTable = toml::parse(R"(
-      [general]
-      name = "Main Test User"
+    [general]
+    name = "Main Test User"
 
-      [now_playing]
-      enabled = true
+    [now_playing]
+    enabled = true
 
     [weather]
     enabled = true
@@ -292,3 +291,8 @@ TEST_F(ConfigTest, MainConfigConstructor_EmptySections) {
 }
 
 #endif // PRECOMPILED_CONFIG
+
+fn main(int argc, char** argv) -> int {
+  testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}

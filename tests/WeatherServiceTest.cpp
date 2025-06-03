@@ -489,4 +489,9 @@ TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_EmptyName) {
   EXPECT_EQ(response.weather[0].description, "overcast clouds");
 }
 
+fn main(int argc, char** argv) -> int {
+  testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
+
 #endif // DRAC_ENABLE_WEATHER

@@ -141,9 +141,9 @@ common_deps = [
   dependency('openssl', include_type: 'system', static: true, required: false),
 ]
 
-if get_option('precompiled_config') == true
-  fs = import('fs')
+fs = import('fs')
 
+if get_option('precompiled_config') == true
   add_project_arguments('-DPRECOMPILED_CONFIG', language: ['cpp', 'objcpp'])
   config_hpp_path = meson.project_source_root() / 'config.hpp'
 
@@ -294,34 +294,42 @@ executable(
 # ----------------- #
 #  Testing Support  #
 # ----------------- #
-gtest_dep = dependency('gtest', fallback: ['gtest', 'gtest_dep'], main: true, required: false)
+gtest_dep = dependency('gtest', fallback: ['gtest', 'gtest_dep'], main: false, required: false)
 
 if gtest_dep.found()
-  test_sources = files(
+  test_common_args = ['--gtest_color=yes', '--gtest_print_time=1']
+  test_common_includes = [project_internal_includes, project_public_includes]
+  test_common_link_with = [lib]
+  test_common_dependencies = [gtest_dep] + lib_deps
+
+  individual_test_files_paths = [
     'tests/ConfigTest.cpp',
     'tests/CoreTypesTest.cpp',
     'tests/LoggingUtilsTest.cpp',
-    'tests/TestMain.cpp',
-  )
+  ]
 
   if get_option('enable_weather')
-    test_sources += files('tests/WeatherServiceTest.cpp')
+    individual_test_files_paths += ['tests/WeatherServiceTest.cpp']
   endif
 
-  tests = executable(
-    'tests',
-    test_sources,
-    include_directories: [project_internal_includes, project_public_includes],
-    link_with: lib,
-    dependencies: [gtest_dep] + lib_deps,
-    link_args: link_args,
-    objc_args: objc_args,
-  )
+  foreach test_fpath : individual_test_files_paths
+    test_name = fs.stem(test_fpath)
 
-  test(
-    'tests',
-    tests,
-    args: ['--gtest_color=yes', '--gtest_print_time=1'],
-    protocol: 'gtest',
-  )
+    current_test_exe = executable(
+      test_name,
+      files(test_fpath),
+      include_directories: test_common_includes,
+      link_with: test_common_link_with,
+      dependencies: test_common_dependencies,
+      link_args: link_args,
+      objc_args: objc_args,
+    )
+
+    test(
+      test_name,
+      current_test_exe,
+      args: test_common_args,
+      protocol: 'gtest',
+    )
+  endforeach
 endif

@@ -139,72 +139,77 @@ struct Weather {
    * @return A Weather instance with the parsed values, or defaults otherwise.
    */
   static fn fromToml(const toml::table& tbl) -> Weather {
+    using matchit::match, matchit::is, matchit::_;
+
+    #define SET_ERROR(...)       \
+      do {                       \
+        error_log(__VA_ARGS__);  \
+        weather.enabled = false; \
+      } while (false)
+
     Weather weather;
 
-    const Option<String> apiKeyOpt = tbl["api_key"].value<String>();
-    weather.enabled                = tbl["enabled"].value_or<bool>(false) && apiKeyOpt;
+    weather.apiKey  = tbl["api_key"].value<String>();
+    weather.enabled = tbl["enabled"].value_or<bool>(false);
 
     if (!weather.enabled)
       return weather;
 
-    weather.apiKey       = apiKeyOpt;
     weather.showTownName = tbl["show_town_name"].value_or(false);
     String unitsStr      = tbl["units"].value_or("metric");
 
-    if (unitsStr == "metric")
-      weather.units = config::WeatherUnit::METRIC;
-    else if (unitsStr == "imperial")
-      weather.units = config::WeatherUnit::IMPERIAL;
-    else
-      error_log("Invalid units: {}", unitsStr);
+    match(unitsStr)(
+      is | "metric"   = [&]() { weather.units = config::WeatherUnit::METRIC; },
+      is | "imperial" = [&]() { weather.units = config::WeatherUnit::IMPERIAL; },
+      is | _          = [&]() { SET_ERROR("Invalid units: '{}'. Accepted values are 'metric' and 'imperial'.", unitsStr); }
+    );
 
     String provider = tbl["provider"].value_or("openweathermap");
 
     if (const toml::node_view<const toml::node> locationNode = tbl["location"]) {
-      if (locationNode.is_string())
-        weather.location = *locationNode.value<String>();
-      else if (locationNode.is_table())
-        weather.location = weather::Coords {
-          .lat = *locationNode.as_table()->get("lat")->value<double>(),
-          .lon = *locationNode.as_table()->get("lon")->value<double>(),
-        };
-      else {
-        error_log("Invalid location format in config.");
-        weather.enabled = false;
-      }
-    } else {
-      error_log("No location provided in config.");
-      weather.enabled = false;
-    }
+      using matchit::app;
+
+      // clang-format off
+      match(locationNode)(
+        is | app([](const toml::node_view<const toml::node>& node) { return node.is_string(); }, true) = [&]() { weather.location = *locationNode.value<String>(); },
+        is | app([](const toml::node_view<const toml::node>& node) { return node.is_table(); }, true)  = [&]() {
+          weather.location = weather::Coords {
+            .lat = *locationNode.as_table()->get("lat")->value<double>(),
+            .lon = *locationNode.as_table()->get("lon")->value<double>(),
+          };
+        },
+        is | _ = [&]() { SET_ERROR("Invalid location format in config. Accepted values are a string (only if using OpenWeatherMap) or a table with 'lat' and 'lon' keys."); }
+      );
+      // clang-format on
+    } else
+      SET_ERROR("No location provided in config. Accepted values are a string (only if using OpenWeatherMap) or a table with 'lat' and 'lon' keys.");
 
     if (weather.enabled) {
-      if (provider == "openmeteo") {
-        if (std::holds_alternative<weather::Coords>(weather.location)) {
-          const auto& coords = std::get<weather::Coords>(weather.location);
-          weather.service    = std::make_unique<weather::OpenMeteoService>(coords.lat, coords.lon, weather.units);
-        } else {
-          error_log("OpenMeteo requires coordinates for location.");
-          weather.enabled = false;
-        }
-      } else if (provider == "metno") {
-        if (std::holds_alternative<weather::Coords>(weather.location)) {
-          const auto& coords = std::get<weather::Coords>(weather.location);
-          weather.service    = std::make_unique<weather::MetNoService>(coords.lat, coords.lon, weather.units);
-        } else {
-          error_log("MetNo requires coordinates for location.");
-          weather.enabled = false;
-        }
-      } else if (provider == "openweathermap") {
-        if (!weather.apiKey) {
-          error_log("OpenWeatherMap requires an API key.");
-          weather.enabled = false;
-        }
-
-        weather.service = std::make_unique<weather::OpenWeatherMapService>(weather.location, *weather.apiKey, weather.units);
-      } else {
-        error_log("Unknown weather provider: {}", provider);
-        weather.enabled = false;
-      }
+      // clang-format off
+      match(provider)(
+        is | "openmeteo" = [&]() {
+          if (std::holds_alternative<weather::Coords>(weather.location)) {
+            const auto& [lat, lon] = std::get<weather::Coords>(weather.location);
+            weather.service = std::make_unique<weather::OpenMeteoService>(lat, lon, weather.units);
+          } else
+            SET_ERROR("OpenMeteo requires coordinates (lat, lon) for location.");
+        },
+        is | "metno" = [&]() {
+          if (std::holds_alternative<weather::Coords>(weather.location)) {
+            const auto& [lat, lon] = std::get<weather::Coords>(weather.location);
+            weather.service = std::make_unique<weather::MetNoService>(lat, lon, weather.units);
+          } else
+            SET_ERROR("MetNo requires coordinates (lat, lon) for location.");
+        },
+        is | "openweathermap" = [&]() {
+          if (weather.apiKey) 
+            weather.service = std::make_unique<weather::OpenWeatherMapService>(weather.location, *weather.apiKey, weather.units);
+          else
+            SET_ERROR("OpenWeatherMap requires an API key.");
+        },
+        is | _ = [&]() { SET_ERROR("Unknown weather provider: '{}'. Accepted values are 'openmeteo', 'metno', and 'openweathermap'.", provider); }
+      );
+      // clang-format on
     }
 
     return weather;

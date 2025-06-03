@@ -108,3 +108,8 @@ TEST_F(LoggingUtilsTest, Combined_BoldItalicRedText) {
 
   EXPECT_EQ(styledText, expectedFinalText);
 }
+
+fn main(int argc, char** argv) -> int {
+  testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
