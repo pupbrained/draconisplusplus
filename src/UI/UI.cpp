@@ -261,10 +261,10 @@ namespace ui {
         if (!addedDe || (data.desktopEnv && *data.desktopEnv != *data.windowMgr))
           envInfoRows.push_back({ .icon = wmIcon, .label = "WM", .value = *data.windowMgr });
 
+#if DRAC_ENABLE_NOWPLAYING
       bool   nowPlayingActive = false;
       String npText;
 
-#if DRAC_ENABLE_NOWPLAYING
       if (config.nowPlaying.enabled && data.nowPlaying) {
         const String title  = data.nowPlaying->title.value_or("Unknown Title");
         const String artist = data.nowPlaying->artist.value_or("Unknown Artist");
@@ -304,6 +304,7 @@ namespace ui {
       for (const RowInfo& row : envInfoRows)
         maxContentWidth = std::max(maxContentWidth, calculateRowVisualWidth(row, requiredWidthEnvW));
 
+#if DRAC_ENABLE_NOWPLAYING
       const usize targetBoxWidth = maxContentWidth + 2;
 
       usize npFixedWidthLeft  = 0;
@@ -323,6 +324,7 @@ namespace ui {
 
         paragraphLimit = std::max(1, availableForParagraph);
       }
+#endif
 
       fn createStandardRow = [&](const RowInfo& row, const usize sectionRequiredVisualWidth) {
         return hbox({
@@ -363,6 +365,7 @@ namespace ui {
 
       for (const RowInfo& row : envInfoRows) content.push_back(createStandardRow(row, requiredWidthEnvW));
 
+#if DRAC_ENABLE_NOWPLAYING
       if ((section1Present || section2Present || section3Present) && nowPlayingActive)
         content.push_back(separator() | color(ui::DEFAULT_THEME.border));
 
@@ -376,6 +379,7 @@ namespace ui {
           text(" "),
         }));
       }
+#endif
 
       return vbox(content) | borderRounded | color(Color::White);
     }
