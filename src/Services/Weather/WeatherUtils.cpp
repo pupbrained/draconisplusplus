@@ -26,7 +26,7 @@ namespace weather::utils {
     return symbol_code;
   }
 
-  fn ParseIso8601ToEpoch(StringView iso8601_string) -> Result<usize> {
+  fn ParseIso8601ToEpoch(StringView iso8601_string) -> Result<time_t> {
     using util::types::i32;
 
     const usize stringLen = iso8601_string.size();
@@ -85,7 +85,7 @@ namespace weather::utils {
     if (epochTime == static_cast<time_t>(-1))
       return Err(DracError(DracErrorCode::ParseError, std::format("Failed to convert time to epoch using timegm (invalid date components or out of range)")));
 
-    return static_cast<usize>(epochTime);
+    return epochTime;
   #endif
   }
 

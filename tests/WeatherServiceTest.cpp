@@ -1,3 +1,4 @@
+
 #if DRAC_ENABLE_WEATHER
 
 // clang-format off
@@ -16,6 +17,7 @@ using weather::utils::StripTimeOfDayFromSymbol, weather::utils::ParseIso8601ToEp
 
 class WeatherServiceTest : public ::testing::Test {};
 
+// NOLINTBEGIN(modernize-use-trailing-return-type, cert-err58-cpp)
 TEST_F(WeatherServiceTest, StripTimeOfDay_DaySuffix) {
   EXPECT_EQ(StripTimeOfDayFromSymbol("clearsky_day"), "clearsky");
   EXPECT_EQ(StripTimeOfDayFromSymbol("partlycloudy_day"), "partlycloudy");
@@ -50,7 +52,7 @@ TEST_F(WeatherServiceTest, StripTimeOfDay_PartialSuffix) {
 TEST_F(WeatherServiceTest, ParseISO8601ToEpoch_Valid) {
   // Test case: 2023-10-26T10:30:00Z
   // Online epoch converters give 1698316200 for this timestamp
-  Result<usize> result = ParseIso8601ToEpoch("2023-10-26T10:30:00Z");
+  Result<time_t> result = ParseIso8601ToEpoch("2023-10-26T10:30:00Z");
   ASSERT_TRUE(result.has_value());
   EXPECT_EQ(result.value(), 1698316200);
 
@@ -66,19 +68,19 @@ TEST_F(WeatherServiceTest, ParseISO8601ToEpoch_Valid) {
 }
 
 TEST_F(WeatherServiceTest, ParseISO8601ToEpoch_InvalidFormat_TooShort) {
-  Result<usize> result = ParseIso8601ToEpoch("2023-10-26T10:30:00");
+  Result<time_t> result = ParseIso8601ToEpoch("2023-10-26T10:30:00");
   ASSERT_FALSE(result.has_value());
   EXPECT_EQ(result.error().code, DracErrorCode::ParseError);
 }
 
 TEST_F(WeatherServiceTest, ParseISO8601ToEpoch_InvalidFormat_TooLong) {
-  Result<usize> result = ParseIso8601ToEpoch("2023-10-26T10:30:00ZEXTRA");
+  Result<time_t> result = ParseIso8601ToEpoch("2023-10-26T10:30:00ZEXTRA");
   ASSERT_FALSE(result.has_value());
   EXPECT_EQ(result.error().code, DracErrorCode::ParseError);
 }
 
 TEST_F(WeatherServiceTest, ParseISO8601ToEpoch_InvalidFormat_WrongSeparator) {
-  Result<usize> result = ParseIso8601ToEpoch("2023-10-26X10:30:00Z");
+  Result<time_t> result = ParseIso8601ToEpoch("2023-10-26X10:30:00Z");
   ASSERT_FALSE(result.has_value());
   EXPECT_EQ(result.error().code, DracErrorCode::ParseError);
 }
@@ -87,19 +89,19 @@ TEST_F(WeatherServiceTest, ParseISO8601ToEpoch_InvalidValues_BadMonth) {
   // Note: The current implementation doesn't validate date ranges, it only checks format
   // Month 13 might actually be accepted by the system time functions
   // Let's test with a clearly invalid format instead
-  Result<usize> result = ParseIso8601ToEpoch("2023-AB-26T10:30:00Z"); // Non-numeric month
+  Result<time_t> result = ParseIso8601ToEpoch("2023-AB-26T10:30:00Z"); // Non-numeric month
   ASSERT_FALSE(result.has_value());
   EXPECT_EQ(result.error().code, DracErrorCode::ParseError);
 }
 
 TEST_F(WeatherServiceTest, ParseISO8601ToEpoch_InvalidValues_NonNumeric) {
-  Result<usize> result = ParseIso8601ToEpoch("2023-1A-26T10:30:00Z");
+  Result<time_t> result = ParseIso8601ToEpoch("2023-1A-26T10:30:00Z");
   ASSERT_FALSE(result.has_value());
   EXPECT_EQ(result.error().code, DracErrorCode::ParseError);
 }
 
 TEST_F(WeatherServiceTest, ParseISO8601ToEpoch_EmptyString) {
-  Result<usize> result = ParseIso8601ToEpoch("");
+  Result<time_t> result = ParseIso8601ToEpoch("");
   ASSERT_FALSE(result.has_value());
   EXPECT_EQ(result.error().code, DracErrorCode::ParseError);
 }
@@ -436,7 +438,7 @@ TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_MultipleWeatherEntries) {
 
   ASSERT_EQ(result.ec, error_code::none);
   EXPECT_DOUBLE_EQ(response.main.temp, 12.3);
-  ASSERT_EQ(response.weather.size(), 2);
+  ASSERT_EQ(response.weather.size(), 2UL);
   EXPECT_EQ(response.weather[0].description, "light rain");
   EXPECT_EQ(response.weather[1].description, "broken clouds");
   EXPECT_EQ(response.name, "Paris");
@@ -488,6 +490,7 @@ TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_EmptyName) {
   EXPECT_EQ(response.name, "");
   EXPECT_EQ(response.weather[0].description, "overcast clouds");
 }
+// NOLINTEND(modernize-use-trailing-return-type, cert-err58-cpp)
 
 fn main(int argc, char** argv) -> int {
   testing::InitGoogleTest(&argc, argv);

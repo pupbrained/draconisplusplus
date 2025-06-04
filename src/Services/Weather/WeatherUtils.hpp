@@ -24,7 +24,7 @@ namespace weather::utils {
    * @param iso8601 The ISO8601 timestamp string (must be UTC, ending in 'Z').
    * @return A Result containing the epoch timestamp (usize) on success, or a DracError on failure.
    */
-  fn ParseIso8601ToEpoch(StringView iso8601) -> Result<usize>;
+  fn ParseIso8601ToEpoch(StringView iso8601) -> Result<time_t>;
 
   /**
    * @brief Provides a mapping from MetNo weather symbol codes (after time-of-day stripping) to human-readable descriptions.
