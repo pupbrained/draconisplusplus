@@ -224,7 +224,7 @@ in {
     home.packages = [draconisPkg];
 
     xdg.configFile."draconis++/config.toml" = mkIf (cfg.configFormat == "toml") {
-      text = lib.generators.toToml {} {
+      text = pkgs.formats.toml.generate "config.toml" {
         location =
           if lib.isAttrs cfg.location
           then {inherit (cfg.location) lat lon;}
