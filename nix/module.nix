@@ -57,14 +57,20 @@ with lib; let
     '';
 
   configHppDir = pkgs.runCommand "draconis-precompiled-config" {} ''
-    mkdir -p $out/include
-    cp ${configHpp} $out/include/config.hpp
+    mkdir -p $out
+    cp ${configHpp} $out/config.hpp
   '';
 
   draconisWithOverrides = cfg.package.overrideAttrs (oldAttrs: {
     NIX_CXXFLAGS_COMPILE =
       (oldAttrs.NIX_CXXFLAGS_COMPILE or "")
-      + lib.optionalString (cfg.configFormat == "hpp") " -I${configHppDir}/include";
+      + lib.optionalString (cfg.configFormat == "hpp") " -I${configHppDir}";
+
+    postPatch =
+      (oldAttrs.postPatch or "")
+      + lib.optionalString (cfg.configFormat == "hpp") ''
+        find . -type f \( -name "*.cpp" -o -name "*.hpp" \) -exec sed -i 's|#include "../config.hpp"|#include "config.hpp"|g' {} +
+      '';
 
     mesonFlags =
       (oldAttrs.mesonFlags or [])
