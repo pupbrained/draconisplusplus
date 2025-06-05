@@ -64,7 +64,6 @@ with lib; let
     mesonFlags =
       (oldAttrs.mesonFlags or [])
       ++ [
-        (lib.optionalString (cfg.configFormat == "hpp") "-Dcpp_args=-I${configHppDir}")
         (lib.optionalString (cfg.configFormat == "hpp") "-Dprecompiled_config=true")
         (lib.optionalString (cfg.usePugixml) "-Duse_pugixml=true")
         (lib.optionalString (cfg.enableNowPlaying) "-Denable_nowplaying=true")
