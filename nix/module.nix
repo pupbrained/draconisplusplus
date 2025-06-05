@@ -36,6 +36,12 @@ with lib; let
         #include "Util/ConfigData.hpp"
       #endif
 
+      #if DRAC_ENABLE_WEATHER
+        #include "Weather/MetNoService.hpp"
+        #include "Weather/OpenMeteoService.hpp"
+        #include "Weather/OpenWeatherMapService.hpp"
+      #endif
+
       namespace config {
         constexpr const char* DRAC_USERNAME = "${cfg.username}";
 
