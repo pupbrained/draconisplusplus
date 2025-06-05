@@ -82,10 +82,7 @@ with lib; let
     mesonFlags = (oldAttrs.mesonFlags or []) ++ mesonFlagsList;
   });
 
-  draconisPkg =
-    if cfg.configFormat == "hpp" || cfg.usePugixml || !cfg.enableNowPlaying || !cfg.enableWeather || !cfg.enablePackagecount
-    then draconisWithOverrides
-    else cfg.package;
+  draconisPkg = draconisWithOverrides;
 in {
   options.programs.draconisplusplus = {
     enable = mkEnableOption "draconis++";
