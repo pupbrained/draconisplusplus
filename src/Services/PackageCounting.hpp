@@ -20,17 +20,6 @@ namespace package {
   using util::types::Future, util::types::i64, util::types::Result, util::types::String, util::types::u64;
 
   /**
-   * @brief Combines two PackageManager flags using a bitwise OR operation.
-   *
-   * @param pmA The first PackageManager flag.
-   * @param pmB The second PackageManager flag.
-   * @return A new PackageManager value representing the combination of pmA and pmB.
-   */
-  constexpr fn operator|(PackageManager pmA, PackageManager pmB)->PackageManager {
-    return static_cast<PackageManager>(static_cast<unsigned int>(pmA) | static_cast<unsigned int>(pmB));
-  }
-
-  /**
    * @brief Checks if a specific PackageManager flag is set in a given bitmask.
    * @note This is an internal helper function for the PackageCounting service.
    *

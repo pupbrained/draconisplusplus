@@ -33,7 +33,6 @@ with lib; let
 
       #if DRAC_ENABLE_WEATHER || DRAC_ENABLE_PACKAGECOUNT
         #include "Config/Config.hpp"
-        #include "Services/Weather.hpp"
         #include "Util/ConfigData.hpp"
       #endif
 
