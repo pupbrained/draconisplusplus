@@ -56,7 +56,16 @@ with lib; let
       #endif
     '';
 
+  configHppDir = pkgs.runCommand "draconis-precompiled-config" {} ''
+    mkdir -p $out/include
+    cp ${configHppContents} $out/include/config.hpp
+  '';
+
   draconisWithOverrides = cfg.package.overrideAttrs (oldAttrs: {
+    NIX_CXXFLAGS_COMPILE =
+      (oldAttrs.NIX_CXXFLAGS_COMPILE or "")
+      + lib.optionalString (cfg.configFormat == "hpp") " -I${configHppDir}/include";
+
     mesonFlags =
       (oldAttrs.mesonFlags or [])
       ++ [
