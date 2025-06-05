@@ -65,16 +65,11 @@
 
       buildInputs = deps;
 
-      configurePhase = ''
-        meson setup build --buildtype release
-      '';
-
       buildPhase = ''
         meson compile -C build
       '';
 
       checkPhase = ''
-        echo "Running tests..."
         meson test -C build --print-errorlogs
       '';
 

@@ -93,18 +93,17 @@
         pkg-config
       ];
 
-      buildInputs = deps;
+      mesonFlags = [
+        "-Dbuild_for_musl=true"
+      ];
 
-      configurePhase = ''
-        meson setup build --buildtype release -Dbuild_for_musl=true
-      '';
+      buildInputs = deps;
 
       buildPhase = ''
         meson compile -C build
       '';
 
       checkPhase = ''
-        echo "Running tests..."
         meson test -C build --print-errorlogs
       '';
 
