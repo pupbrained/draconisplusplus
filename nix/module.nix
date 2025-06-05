@@ -56,25 +56,16 @@ with lib; let
       #endif
     '';
 
-  configHppDir = pkgs.runCommand "draconis-precompiled-config" {} ''
-    mkdir -p $out
-    cp ${configHpp} $out/config.hpp
-  '';
-
   draconisWithOverrides = cfg.package.overrideAttrs (oldAttrs: {
-    postPatch =
-      (oldAttrs.postPatch or "")
-      + lib.optionalString (cfg.configFormat == "hpp") ''
-        echo "Normalizing config.hpp include paths..."
-        find . -type f \( -name "*.cpp" -o -name "*.hpp" \) -exec sed -i 's|#include "../config.hpp"|#include "config.hpp"|g' {} +
-      '';
+    postPatch = ''
+      cp ${configHpp} ./config.hpp
+    '';
 
     mesonFlags =
       (oldAttrs.mesonFlags or [])
       ++ [
         (lib.optionalString (cfg.configFormat == "hpp") "-Dcpp_args=-I${configHppDir}")
         (lib.optionalString (cfg.configFormat == "hpp") "-Dprecompiled_config=true")
-        (lib.optionalString (cfg.configFormat == "hpp") "-Dprecompiled_config_path=${configHppDir}/config.hpp")
         (lib.optionalString (cfg.usePugixml) "-Duse_pugixml=true")
         (lib.optionalString (cfg.enableNowPlaying) "-Denable_nowplaying=true")
         (lib.optionalString (cfg.enableWeather) "-Denable_weather=true")

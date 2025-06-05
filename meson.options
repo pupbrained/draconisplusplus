@@ -20,10 +20,6 @@ option('use_pugixml', type: 'boolean', value: false)
 # Note: Enabling this disables runtime TOML parsing and configuration overriding.
 option('precompiled_config', type: 'boolean', value: false)
 
-# Option: precompiled_config_path
-# Description: Path to the precompiled configuration header file.
-option('precompiled_config_path', type: 'string', value: '')
-
 # All of the below options take precedence over config.toml.
 # They control whether certain features are compiled into the binary.
 
