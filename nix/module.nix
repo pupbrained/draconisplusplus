@@ -85,7 +85,7 @@ with lib; let
     then draconisWithOverrides
     else cfg.package;
 in {
-  options.programs.draconis = {
+  options.programs.draconisplusplus = {
     enable = mkEnableOption "draconis++";
 
     package = mkOption {
