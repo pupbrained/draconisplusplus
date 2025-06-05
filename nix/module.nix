@@ -81,11 +81,6 @@ with lib; let
     buildMesonFlags;
 
   draconisWithOverrides = cfg.package.overrideAttrs (oldAttrs: {
-    src =
-      if cfg.configFormat == "hpp"
-      then cfg.sourcePath
-      else oldAttrs.src;
-
     configurePhase =
       (lib.strings.trim oldAttrs.configurePhase)
       + ''
@@ -105,12 +100,6 @@ in {
       type = types.package;
       default = defaultPackage;
       description = "The base draconis++ package. Used directly if 'configFormat' is 'toml', or as a base for overriding if 'configFormat' is 'hpp'.";
-    };
-
-    sourcePath = mkOption {
-      type = types.path;
-      default = null;
-      description = "The path to the draconis++ source code. Required when `configFormat` is 'hpp'.";
     };
 
     configFormat = mkOption {
@@ -179,7 +168,7 @@ in {
       description = "Use pugixml to parse XBPS package metadata. Required for package count functionality on Void Linux.";
     };
 
-    enableNowplaying = mkOption {
+    enableNowlaying = mkOption {
       type = types.bool;
       default = true;
       description = "Enable nowplaying functionality.";
@@ -216,7 +205,7 @@ in {
     };
 
     packageManagers = mkOption {
-      type = types.listOf (types.enum ["apt" "pacman" "dnf" "xbps" "portage" "brew" "nix"]);
+      type = types.listOf (types.enum ["apt" "pacman" "cargo" "dnf" "xbps" "portage" "brew" "nix"]);
       default = [];
       description = "List of package managers to check for package counts.";
     };
@@ -245,10 +234,6 @@ in {
       {
         assertion = !(cfg.weatherApiKey != "" && cfg.weatherProvider != "OpenWeatherMap");
         message = "An API key should not be provided when using the OpenMeteo or MetNo providers.";
-      }
-      {
-        assertion = !(cfg.configFormat == "hpp" && cfg.sourcePath == null);
-        message = "A sourcePath must be provided when using the hpp config format.";
       }
       {
         assertion = !(cfg.usePugixml && !cfg.enablePackagecount);
