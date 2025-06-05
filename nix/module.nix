@@ -224,11 +224,12 @@ in {
     home.packages = [draconisPkg];
 
     xdg.configFile."draconis++/config.toml" = mkIf (cfg.configFormat == "toml") {
-      text = pkgs.formats.toml.generate "config.toml" {
+      text = builtins.toTOML {
         location =
-          if lib.isAttrs cfg.location
-          then {inherit (cfg.location) lat lon;}
-          else {name = cfg.location;};
+          if lib.isAttrs cfg.location then
+            { inherit (cfg.location) lat lon; }
+          else
+            { name = cfg.location; };
         weather = {
           inherit (cfg) weatherProvider weatherApiKey;
         };
