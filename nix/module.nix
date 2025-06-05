@@ -58,7 +58,7 @@ with lib; let
 
   configHppDir = pkgs.runCommand "draconis-precompiled-config" {} ''
     mkdir -p $out/include
-    cp ${configHppContents} $out/include/config.hpp
+    cp ${configHpp} $out/include/config.hpp
   '';
 
   draconisWithOverrides = cfg.package.overrideAttrs (oldAttrs: {
