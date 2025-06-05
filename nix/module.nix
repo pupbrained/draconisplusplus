@@ -56,30 +56,17 @@ with lib; let
       #endif
     '';
 
-  buildMesonFlags = {
-    precompiled_config = true;
-    precompiled_config_path = configHpp;
-    use_pugixml = cfg.usePugixml;
-    enable_nowplaying = cfg.enableNowPlaying;
-    enable_weather = cfg.enableWeather;
-    enable_packagecount = cfg.enablePackagecount;
-  };
-
-  mesonFlagsList =
-    lib.mapAttrsToList (
-      name: value:
-        if lib.isBool value
-        then "-D${name}=${
-          if value
-          then "true"
-          else "false"
-        }"
-        else "-D${name}=${toString value}"
-    )
-    buildMesonFlags;
-
   draconisWithOverrides = cfg.package.overrideAttrs (oldAttrs: {
-    mesonFlags = (oldAttrs.mesonFlags or []) ++ mesonFlagsList;
+    mesonFlags =
+      (oldAttrs.mesonFlags or [])
+      ++ [
+        (lib.optionalString (cfg.configFormat == "hpp") "-Dprecompiled_config")
+        (lib.optionalString (cfg.configFormat == "hpp") "-Dprecompiled_config_path=${configHpp}")
+        (lib.optionalString (cfg.usePugixml) "-Duse_pugixml")
+        (lib.optionalString (cfg.enableNowPlaying) "-Denable_nowplaying")
+        (lib.optionalString (cfg.enableWeather) "-Denable_weather")
+        (lib.optionalString (cfg.enablePackageCount) "-Denable_packagecount")
+      ];
   });
 
   draconisPkg = draconisWithOverrides;
@@ -164,7 +151,7 @@ in {
       description = "Enable fetching weather data.";
     };
 
-    enablePackagecount = mkOption {
+    enablePackageCount = mkOption {
       type = types.bool;
       default = true;
       description = "Enable getting package count.";
@@ -220,8 +207,8 @@ in {
         message = "An API key should not be provided when using the OpenMeteo or MetNo providers.";
       }
       {
-        assertion = !(cfg.usePugixml && !cfg.enablePackagecount);
-        message = "usePugixml should only be enabled when enablePackagecount is also enabled.";
+        assertion = !(cfg.usePugixml && !cfg.enablePackageCount);
+        message = "usePugixml should only be enabled when enablePackageCount is also enabled.";
       }
       {
         assertion = !(cfg.weatherApiKey != "" && !cfg.enableWeather);
