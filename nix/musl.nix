@@ -1,12 +1,8 @@
-# nix/musl.nix
 {
   pkgs,
   nixpkgs,
   self,
-}:
-# system is x86_64-linux-musl
-let
-  # Import nixpkgs for x86_64-linux-musl
+}: let
   muslPkgs = import nixpkgs {
     system = "x86_64-linux-musl";
     overlays = [
@@ -26,7 +22,6 @@ let
 
   llvmPackages = muslPkgs.llvmPackages_20;
 
-  # This stdenv is for the main draconisplusplus package
   stdenv =
     muslPkgs.stdenvAdapters.useMoldLinker
     llvmPackages.libcxxStdenv;
@@ -44,7 +39,6 @@ let
     enableAvx2 = stdenv.hostPlatform.isx86;
   });
 
-  # Helper to override packages to use the musl stdenv and build static libs
   mkOverridden = buildSystem: pkg: ((pkg.override {inherit stdenv;}).overrideAttrs (oldAttrs: {
     "${buildSystem}Flags" =
       (oldAttrs."${buildSystem}Flags" or [])
@@ -61,7 +55,6 @@ let
       );
   }));
 
-  # Dependencies for Musl builds
   deps = with pkgs.pkgsStatic; [
     curlMinimal
     dbus
@@ -81,7 +74,6 @@ let
     (mkOverridden "meson" tomlplusplus)
   ];
 
-  # Common derivation function for Musl-based draconisplusplus
   mkDraconisPackage = {native}:
     stdenv.mkDerivation {
       name =
@@ -92,7 +84,7 @@ let
           else "-generic"
         );
       version = "0.1.0";
-      src = self; # This `self` is the flake's source
+      src = self;
 
       nativeBuildInputs = with muslPkgs; [
         cmake
