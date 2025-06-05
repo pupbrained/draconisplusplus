@@ -1,6 +1,4 @@
-{ draconisPkgs }:
-
-{
+{self}: {
   config,
   lib,
   pkgs,
@@ -9,7 +7,7 @@
 with lib; let
   cfg = config.programs.draconis;
 
-  defaultPackage = draconisPkgs."glibc-generic";
+  defaultPackage = self.packages.${pkgs.system}.default;
 
   apiKey =
     if cfg.weatherApiKey == null || cfg.weatherApiKey == ""
@@ -67,17 +65,30 @@ with lib; let
     enable_packagecount = cfg.enablePackagecount;
   };
 
-  mesonFlagsList = lib.mapAttrsToList (name: value:
-    if lib.isBool value then "-D${name}=${if value then "true" else "false"}"
-    else "-D${name}=${toString value}"
-  ) buildMesonFlags;
+  mesonFlagsList =
+    lib.mapAttrsToList (
+      name: value:
+        if lib.isBool value
+        then "-D${name}=${
+          if value
+          then "true"
+          else "false"
+        }"
+        else "-D${name}=${toString value}"
+    )
+    buildMesonFlags;
 
   draconisWithOverrides = cfg.package.overrideAttrs (oldAttrs: {
-    src = if cfg.configFormat == "hpp" then cfg.sourcePath else oldAttrs.src;
+    src =
+      if cfg.configFormat == "hpp"
+      then cfg.sourcePath
+      else oldAttrs.src;
 
-    configurePhase = (lib.strings.trim oldAttrs.configurePhase) + ''
-      ${lib.concatStringsSep " \\\n      " mesonFlagsList}
-    '';
+    configurePhase =
+      (lib.strings.trim oldAttrs.configurePhase)
+      + ''
+        ${lib.concatStringsSep " \\\n      " mesonFlagsList}
+      '';
   });
 
   draconisPkg =
@@ -245,7 +256,6 @@ in {
         assertion = !(cfg.weatherApiKey != "" && !cfg.enableWeather);
         message = "weatherApiKey should only be provided when enableWeather is enabled.";
       }
-
     ];
   };
 }

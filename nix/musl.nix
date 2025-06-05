@@ -2,7 +2,7 @@
 {
   pkgs,
   nixpkgs,
-  self
+  self,
 }:
 # system is x86_64-linux-musl
 let

@@ -1,7 +1,7 @@
-#include "gtest/gtest.h"
-
 #include "Util/Definitions.hpp"
 #include "Util/Types.hpp"
+
+#include "gtest/gtest.h"
 
 using util::types::i32;
 

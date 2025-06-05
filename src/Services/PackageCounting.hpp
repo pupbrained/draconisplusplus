@@ -51,7 +51,8 @@ namespace package {
     i64 timestampEpochSeconds {};
 
     PkgCountCacheData() = default;
-    PkgCountCacheData(u64 count, i64 timestampEpochSeconds) : count(count), timestampEpochSeconds(timestampEpochSeconds) {}
+    PkgCountCacheData(u64 count, i64 timestampEpochSeconds)
+      : count(count), timestampEpochSeconds(timestampEpochSeconds) {}
 
     // NOLINTBEGIN(readability-identifier-naming)
     struct [[maybe_unused]] glaze {

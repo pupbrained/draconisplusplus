@@ -14,7 +14,8 @@
     utils,
     ...
   }:
-    utils.lib.eachDefaultSystem (
+    {homeModules.default = import ./nix/module.nix {inherit self;};}
+    // utils.lib.eachDefaultSystem (
       system: let
         pkgs = import nixpkgs {inherit system;};
 
@@ -62,7 +63,6 @@
       in {
         packages = draconisPkgs;
         checks = draconisPkgs;
-        homeModules.default = import ./nix/module.nix { draconisPkgs = draconisPkgs; };
 
         devShells.default = pkgs.mkShell.override {inherit stdenv;} {
           packages =

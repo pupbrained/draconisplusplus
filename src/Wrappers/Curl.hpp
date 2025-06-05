@@ -39,7 +39,8 @@ namespace Curl {
     /**
      * @brief Default constructor. Initializes a CURL easy handle.
      */
-    Easy() : m_curl(curl_easy_init()) {
+    Easy()
+      : m_curl(curl_easy_init()) {
       if (!m_curl)
         m_initError = DracError(DracErrorCode::ApiUnavailable, "curl_easy_init() failed");
     }
@@ -48,7 +49,8 @@ namespace Curl {
      * @brief Constructor with options. Initializes a CURL easy handle and sets options.
      * @param options The options to configure the CURL handle.
      */
-    explicit Easy(const EasyOptions& options) : m_curl(curl_easy_init()) {
+    explicit Easy(const EasyOptions& options)
+      : m_curl(curl_easy_init()) {
       if (!m_curl) {
         m_initError = DracError(DracErrorCode::ApiUnavailable, "curl_easy_init() failed");
         return;
@@ -290,7 +292,8 @@ namespace Curl {
     /**
      * @brief Constructor. Initializes a CURL multi handle.
      */
-    Multi() : m_multi(curl_multi_init()) {
+    Multi()
+      : m_multi(curl_multi_init()) {
       if (!m_multi)
         m_initError = DracError(DracErrorCode::ApiUnavailable, "curl_multi_init() failed");
     }
