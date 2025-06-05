@@ -167,7 +167,7 @@ in {
 
     username = mkOption {
       type = types.str;
-      default = "";
+      default = config.home.username // "User";
       description = "Username to display in the application.";
     };
 
