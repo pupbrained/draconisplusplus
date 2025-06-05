@@ -99,6 +99,10 @@
 
       buildInputs = deps;
 
+      configurePhase = ''
+        meson setup build --buildtype=release $mesonFlags
+      '';
+
       buildPhase = ''
         meson compile -C build
       '';
