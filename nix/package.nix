@@ -47,7 +47,7 @@
   mkDraconisPackage = {native}:
     stdenv.mkDerivation {
       name =
-        "draconis++-glibc"
+        "draconis++"
         + (
           if native
           then "-native"
@@ -90,6 +90,6 @@
         else 1;
     };
 in {
-  "glibc-generic" = mkDraconisPackage {native = false;};
-  "glibc-native" = mkDraconisPackage {native = true;};
+  "generic" = mkDraconisPackage {native = false;};
+  "native" = mkDraconisPackage {native = true;};
 }
