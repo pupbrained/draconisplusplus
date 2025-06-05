@@ -60,7 +60,6 @@ with lib; let
   buildMesonFlags = {
     precompiled_config = true;
     precompiled_config_path = configHpp;
-    build_for_musl = cfg.buildForMusl;
     use_pugixml = cfg.usePugixml;
     enable_nowplaying = cfg.enableNowPlaying;
     enable_weather = cfg.enableWeather;
@@ -81,15 +80,11 @@ with lib; let
     buildMesonFlags;
 
   draconisWithOverrides = cfg.package.overrideAttrs (oldAttrs: {
-    configurePhase =
-      (lib.strings.trim oldAttrs.configurePhase)
-      + ''
-        ${lib.concatStringsSep " \\\n      " mesonFlagsList}
-      '';
+    mesonFlags = oldAttrs.mesonFlags or [] ++ mesonFlagsList;
   });
 
   draconisPkg =
-    if cfg.configFormat == "hpp" || cfg.buildForMusl || cfg.usePugixml || !cfg.enableNowPlaying || !cfg.enableWeather || !cfg.enablePackagecount
+    if cfg.configFormat == "hpp" || cfg.usePugixml || !cfg.enableNowPlaying || !cfg.enableWeather || !cfg.enablePackagecount
     then draconisWithOverrides
     else cfg.package;
 in {
@@ -153,13 +148,6 @@ in {
       type = types.str;
       default = "";
       description = "API key for your chosen weather service.";
-    };
-
-    # Meson build options
-    buildForMusl = mkOption {
-      type = types.bool;
-      default = false;
-      description = "Build with musl libc to create fully static executables.";
     };
 
     usePugixml = mkOption {
