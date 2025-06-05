@@ -62,7 +62,7 @@ with lib; let
     precompiled_config_path = configHpp;
     build_for_musl = cfg.buildForMusl;
     use_pugixml = cfg.usePugixml;
-    enable_nowplaying = cfg.enableNowplaying;
+    enable_nowplaying = cfg.enableNowPlaying;
     enable_weather = cfg.enableWeather;
     enable_packagecount = cfg.enablePackagecount;
   };
@@ -89,7 +89,7 @@ with lib; let
   });
 
   draconisPkg =
-    if cfg.configFormat == "hpp" || cfg.buildForMusl || cfg.usePugixml || !cfg.enableNowplaying || !cfg.enableWeather || !cfg.enablePackagecount
+    if cfg.configFormat == "hpp" || cfg.buildForMusl || cfg.usePugixml || !cfg.enableNowPlaying || !cfg.enableWeather || !cfg.enablePackagecount
     then draconisWithOverrides
     else cfg.package;
 in {
@@ -168,7 +168,7 @@ in {
       description = "Use pugixml to parse XBPS package metadata. Required for package count functionality on Void Linux.";
     };
 
-    enableNowlaying = mkOption {
+    enableNowPlaying = mkOption {
       type = types.bool;
       default = true;
       description = "Enable nowplaying functionality.";
