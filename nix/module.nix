@@ -7,6 +7,8 @@
 with lib; let
   cfg = config.programs.draconisplusplus;
 
+  tomlFormat = pkgs.formats.toml {};
+
   defaultPackage = self.packages.${pkgs.system}.default;
 
   apiKey =
@@ -224,12 +226,11 @@ in {
     home.packages = [draconisPkg];
 
     xdg.configFile."draconis++/config.toml" = mkIf (cfg.configFormat == "toml") {
-      text = builtins.toTOML {
+      source = tomlFormat.generate "config.toml" {
         location =
-          if lib.isAttrs cfg.location then
-            { inherit (cfg.location) lat lon; }
-          else
-            { name = cfg.location; };
+          if lib.isAttrs cfg.location
+          then {inherit (cfg.location) lat lon;}
+          else {name = cfg.location;};
         weather = {
           inherit (cfg) weatherProvider weatherApiKey;
         };
