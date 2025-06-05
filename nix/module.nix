@@ -56,7 +56,6 @@ with lib; let
       #endif
     '';
 
-  # Helper function to build Meson feature flags
   buildMesonFlags = {
     precompiled_config = true;
     precompiled_config_path = configHpp;
@@ -80,7 +79,7 @@ with lib; let
     buildMesonFlags;
 
   draconisWithOverrides = cfg.package.overrideAttrs (oldAttrs: {
-    mesonFlags = oldAttrs.mesonFlags or [] ++ mesonFlagsList;
+    mesonFlags = (oldAttrs.mesonFlags or []) ++ mesonFlagsList;
   });
 
   draconisPkg =
