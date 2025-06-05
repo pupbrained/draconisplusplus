@@ -37,9 +37,9 @@ with lib; let
       #endif
 
       #if DRAC_ENABLE_WEATHER
-        #include "Weather/MetNoService.hpp"
-        #include "Weather/OpenMeteoService.hpp"
-        #include "Weather/OpenWeatherMapService.hpp"
+        #include "Services/Weather/MetNoService.hpp"
+        #include "Services/Weather/OpenMeteoService.hpp"
+        #include "Services/Weather/OpenWeatherMapService.hpp"
       #endif
 
       namespace config {
