@@ -62,7 +62,7 @@
       in {
         packages = draconisPkgs;
         checks = draconisPkgs;
-        homeModules.default = import ./nix/module.nix {inherit nixpkgs self;};
+        homeModules.default = import ./nix/module.nix { draconisPkgs = draconisPkgs; };
 
         devShells.default = pkgs.mkShell.override {inherit stdenv;} {
           packages =

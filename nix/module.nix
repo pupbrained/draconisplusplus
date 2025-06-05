@@ -1,15 +1,15 @@
+{ draconisPkgs }:
+
 {
   config,
   lib,
-  self,
   pkgs,
   ...
 }:
 with lib; let
   cfg = config.programs.draconis;
 
-  glibcPackages = import ./glibc.nix { inherit pkgs self; };
-  defaultPackage = glibcPackages."glibc-generic";
+  defaultPackage = draconisPkgs."glibc-generic";
 
   apiKey =
     if cfg.weatherApiKey == null || cfg.weatherApiKey == ""
