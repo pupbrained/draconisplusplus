@@ -29,27 +29,31 @@ with lib; let
     ''
       #pragma once
 
-      ${lib.optionalString (cfg.enableWeather || cfg.enablePackageCount) ''
+      #ifdef PRECOMPILED_CONFIG
+
+      #if DRAC_ENABLE_WEATHER || DRAC_ENABLE_PACKAGECOUNT
         #include "Config/Config.hpp"
         #include "Services/Weather.hpp"
         #include "Util/ConfigData.hpp"
-      ''}
+      #endif
 
       namespace config {
         constexpr const char* DRAC_USERNAME = "${cfg.username}";
 
-      ${lib.optionalString (cfg.enableWeather) ''
+        #if DRAC_ENABLE_WEATHER
         constexpr WeatherProvider DRAC_WEATHER_PROVIDER = WeatherProvider::${lib.toUpper cfg.weatherProvider};
         constexpr WeatherUnit DRAC_WEATHER_UNIT = WeatherUnit::${lib.toUpper cfg.weatherUnit};
         constexpr bool DRAC_SHOW_TOWN_NAME = ${toString cfg.showTownName};
         constexpr const char* DRAC_API_KEY = ${apiKey};
         constexpr Location DRAC_LOCATION = ${location};
-      ''}
+        #endif
 
-      ${lib.optionalString (cfg.enablePackageCount) ''
+        #if DRAC_ENABLE_PACKAGECOUNT
         constexpr PackageManager DRAC_ENABLED_PACKAGE_MANAGERS = ${builtins.concatStringsSep " | " (map (pkg: "PackageManager::" + lib.toUpper pkg) cfg.packageManagers)};
-      ''}
+        #endif
       }
+
+      #endif
     '';
 
   configHppDir = pkgs.runCommand "draconis-precompiled-config" {} ''
@@ -179,8 +183,8 @@ in {
     };
 
     weatherUnit = mkOption {
-      type = types.enum ["celsius" "fahrenheit"];
-      default = "celsius";
+      type = types.enum ["metric" "imperial"];
+      default = "metric";
       description = "Unit for temperature display.";
     };
 
