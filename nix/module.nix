@@ -5,7 +5,7 @@
   ...
 }:
 with lib; let
-  cfg = config.programs.draconis;
+  cfg = config.programs.draconisplusplus;
 
   defaultPackage = self.packages.${pkgs.system}.default;
 
