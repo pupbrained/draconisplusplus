@@ -60,12 +60,12 @@ with lib; let
     mesonFlags =
       (oldAttrs.mesonFlags or [])
       ++ [
-        (lib.optionalString (cfg.configFormat == "hpp") "-Dprecompiled_config")
+        (lib.optionalString (cfg.configFormat == "hpp") "-Dprecompiled_config=true")
         (lib.optionalString (cfg.configFormat == "hpp") "-Dprecompiled_config_path=${configHpp}")
-        (lib.optionalString (cfg.usePugixml) "-Duse_pugixml")
-        (lib.optionalString (cfg.enableNowPlaying) "-Denable_nowplaying")
-        (lib.optionalString (cfg.enableWeather) "-Denable_weather")
-        (lib.optionalString (cfg.enablePackageCount) "-Denable_packagecount")
+        (lib.optionalString (cfg.usePugixml) "-Duse_pugixml=true")
+        (lib.optionalString (cfg.enableNowPlaying) "-Denable_nowplaying=true")
+        (lib.optionalString (cfg.enableWeather) "-Denable_weather=true")
+        (lib.optionalString (cfg.enablePackageCount) "-Denable_packagecount=true")
       ];
   });
 
