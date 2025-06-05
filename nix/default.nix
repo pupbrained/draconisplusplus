@@ -1,4 +1,3 @@
-# nix/default.nix
 {
   nixpkgs, # The top-level nixpkgs input from the flake
   self, # The flake itself
