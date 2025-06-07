@@ -2,6 +2,10 @@
 
 #include <format> // std::{format, format_error}
 
+#include "Services/Weather/MetNoService.hpp"
+#include "Services/Weather/OpenMeteoService.hpp"
+#include "Services/Weather/OpenWeatherMapService.hpp"
+
 #include "Util/Definitions.hpp"
 #include "Util/Logging.hpp"
 
@@ -168,35 +172,37 @@ Config::Config(const toml::table& tbl) {
 
 fn Config::getInstance() -> Config {
 #ifdef PRECOMPILED_CONFIG
-  using util::types::Option, util::types::None;
+  using namespace config;
 
-  Config cfg; // Default construct. Members are default-initialized.
-
-  cfg.general.name = config::DRAC_USERNAME;
+  Config cfg;
+  cfg.general.name = DRAC_USERNAME;
 
   #if DRAC_ENABLE_WEATHER
+  using namespace weather;
+  using enum config::WeatherProvider;
+
   cfg.weather.enabled      = true;
-  cfg.weather.apiKey       = config::DRAC_API_KEY == nullptr ? None : Option(config::DRAC_API_KEY);
-  cfg.weather.showTownName = config::DRAC_SHOW_TOWN_NAME;
+  cfg.weather.apiKey       = DRAC_API_KEY;
+  cfg.weather.showTownName = DRAC_SHOW_TOWN_NAME;
+  cfg.weather.units        = DRAC_WEATHER_UNIT;
+  cfg.weather.location     = DRAC_LOCATION;
 
-  if constexpr (config::DRAC_WEATHER_UNIT == config::WeatherUnit::IMPERIAL) {
-    cfg.weather.units = config::WeatherUnit::IMPERIAL;
-  } else {
-    cfg.weather.units = config::WeatherUnit::METRIC;
-  }
+  if constexpr (DRAC_WEATHER_PROVIDER == OPENWEATHERMAP) {
+    if (!cfg.weather.apiKey) {
+      error_log("OpenWeatherMap requires an API key.");
+      cfg.weather.enabled = false;
+    }
 
-  cfg.weather.location = config::DRAC_LOCATION;
-
-  if constexpr (config::DRAC_WEATHER_PROVIDER == config::WeatherProvider::OPENWEATHERMAP) {
-    cfg.weather.service = std::make_unique<weather::OpenWeatherMapService>(
+    cfg.weather.service = std::make_unique<OpenWeatherMapService>(
       config::DRAC_LOCATION,
-      config::DRAC_API_KEY,
+      *cfg.weather.apiKey,
       cfg.weather.units
     );
-  } else if constexpr (config::DRAC_WEATHER_PROVIDER == config::WeatherProvider::OPENMETEO) {
-    if (std::holds_alternative<weather::Coords>(config::DRAC_LOCATION)) {
-      const auto& coords  = std::get<weather::Coords>(config::DRAC_LOCATION);
-      cfg.weather.service = std::make_unique<weather::OpenMeteoService>(
+  } else if constexpr (DRAC_WEATHER_PROVIDER == OPENMETEO) {
+    if (std::holds_alternative<Coords>(DRAC_LOCATION)) {
+      const auto& coords = std::get<Coords>(DRAC_LOCATION);
+
+      cfg.weather.service = std::make_unique<OpenMeteoService>(
         coords.lat,
         coords.lon,
         cfg.weather.units
@@ -205,10 +211,11 @@ fn Config::getInstance() -> Config {
       error_log("Precompiled OpenMeteo requires coordinates, but DRAC_LOCATION is not Coords.");
       cfg.weather.enabled = false;
     }
-  } else if constexpr (config::DRAC_WEATHER_PROVIDER == config::WeatherProvider::METNO) {
-    if (std::holds_alternative<weather::Coords>(config::DRAC_LOCATION)) {
-      const auto& coords  = std::get<weather::Coords>(config::DRAC_LOCATION);
-      cfg.weather.service = std::make_unique<weather::MetNoService>(
+  } else if constexpr (DRAC_WEATHER_PROVIDER == METNO) {
+    if (std::holds_alternative<Coords>(DRAC_LOCATION)) {
+      const auto& coords = std::get<Coords>(DRAC_LOCATION);
+
+      cfg.weather.service = std::make_unique<MetNoService>(
         coords.lat,
         coords.lon,
         cfg.weather.units
@@ -226,17 +233,15 @@ fn Config::getInstance() -> Config {
     error_log("Failed to initialize precompiled weather service for the configured provider.");
     cfg.weather.enabled = false;
   }
-  #endif // DRAC_ENABLE_WEATHER (outer)
+  #endif // DRAC_ENABLE_WEATHER
 
-  // NowPlaying section
   #if DRAC_ENABLE_NOWPLAYING
   cfg.nowPlaying.enabled = true;
-  debug_log("Precompiled: NowPlaying is ENABLED via DRAC_ENABLE_NOWPLAYING.");
-  #endif // DRAC_ENABLE_NOWPLAYING (outer)
+  #endif
 
   debug_log("Using precompiled configuration.");
   return cfg;
-#else  // PRECOMPILED_CONFIG is not defined
+#else
   try {
     const fs::path configPath = GetConfigPath();
 

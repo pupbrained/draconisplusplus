@@ -1,7 +1,6 @@
 #ifdef _WIN32
 
 // clang-format off
-#define WIN32_LEAN_AND_MEAN
 #include <dwmapi.h>
 #include <ranges>
 #include <tlhelp32.h>
@@ -150,8 +149,8 @@ namespace {
   fn GetBuildNumber() -> Result<u64> {
     try {
       using namespace winrt::Windows::System::Profile;
-      const auto           versionInfo   = AnalyticsInfo::VersionInfo();
-      const winrt::hstring familyVersion = versionInfo.DeviceFamilyVersion();
+      const AnalyticsVersionInfo versionInfo   = AnalyticsInfo::VersionInfo();
+      const winrt::hstring       familyVersion = versionInfo.DeviceFamilyVersion();
 
       if (!familyVersion.empty()) {
         const u64 versionUl = std::stoull(winrt::to_string(familyVersion));

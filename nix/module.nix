@@ -49,7 +49,7 @@ with lib; let
         constexpr WeatherProvider DRAC_WEATHER_PROVIDER = WeatherProvider::${lib.toUpper cfg.weatherProvider};
         constexpr WeatherUnit DRAC_WEATHER_UNIT = WeatherUnit::${lib.toUpper cfg.weatherUnit};
         constexpr bool DRAC_SHOW_TOWN_NAME = ${toString cfg.showTownName};
-        constexpr const char* DRAC_API_KEY = ${apiKey};
+        constexpr std::optional<std::string> DRAC_API_KEY = ${if apiKey == null then "std::nullopt" else apiKey};
         constexpr Location DRAC_LOCATION = ${location};
         #endif
 
@@ -103,6 +103,7 @@ in {
               type = types.float;
               description = "Latitude";
             };
+
             lon = mkOption {
               type = types.float;
               description = "Longitude";
@@ -136,9 +137,9 @@ in {
     };
 
     weatherApiKey = mkOption {
-      type = types.str;
-      default = "";
-      description = "API key for your chosen weather service.";
+      type = types.nullOr types.str;
+      default = null;
+      description = "API key, only required for OpenWeatherMap.";
     };
 
     usePugixml = mkOption {

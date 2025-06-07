@@ -136,10 +136,7 @@ lib_all_sources = lib_base_sources + lib_platform_sources
 # --------------------- #
 #  Dependencies Config  #
 # --------------------- #
-common_deps = [
-  dependency('libcurl', include_type: 'system', static: true),
-  dependency('openssl', include_type: 'system', static: true, required: false),
-]
+common_deps = []
 
 fs = import('fs')
 
@@ -162,6 +159,7 @@ if get_option('enable_nowplaying') == true
 endif
 
 if get_option('enable_weather') == true
+  common_deps += dependency('libcurl', include_type: 'system', static: true)
   add_project_arguments('-DDRAC_ENABLE_WEATHER', language: ['cpp', 'objcpp'])
 endif
 
@@ -193,27 +191,44 @@ elif host_system != 'serenity' and host_system != 'haiku'
   xau_dep = dependency('xau', required: false)
   xdmcp_dep = dependency('xdmcp', required: false)
   wayland_dep = dependency('wayland-client', required: false)
+  pugixml_dep = dependency('pugixml', required: false)
 
   platform_deps += dependency('SQLiteCpp')
 
-  if host_system == 'linux' and get_option('use_pugixml') == true
-    platform_deps += dependency('pugixml')
+  if host_system == 'linux' and get_option('use_pugixml') == true and pugixml_dep.found()
+    platform_deps += pugixml_dep
     add_project_arguments('-DHAVE_PUGIXML', language: 'cpp')
+  elif not pugixml_dep.found()
+    error('Option "use_pugixml" is enabled, but pugixml was not found.')
   endif
 
-  if dbus_dep.found()
+  if get_option('enable_nowplaying') == true and dbus_dep.found()
     platform_deps += dbus_dep
     add_project_arguments('-DHAVE_DBUS', language: 'cpp')
+  elif not dbus_dep.found()
+    error(
+      'Option "enable_nowplaying" is enabled, but dbus (dbus-1/libdbus) was not found.',
+    )
   endif
 
-  if xcb_dep.found() and xau_dep.found() and xdmcp_dep.found()
+  if get_option('use_xcb') == true and xcb_dep.found() and xau_dep.found() and xdmcp_dep.found()
     platform_deps += [xcb_dep, xau_dep, xdmcp_dep]
     add_project_arguments('-DHAVE_XCB', language: 'cpp')
+  elif not xcb_dep.found()
+    error('Option "use_xcb" is enabled, but xcb was not found.')
+  elif not xau_dep.found()
+    error('Option "use_xcb" is enabled, but xau was not found (required by xcb).')
+  elif not xdmcp_dep.found()
+    error(
+      'Option "use_xcb" is enabled, but xdmcp was not found (required by xcb).',
+    )
   endif
 
-  if wayland_dep.found()
+  if get_option('use_wayland') == true and wayland_dep.found()
     platform_deps += wayland_dep
     add_project_arguments('-DHAVE_WAYLAND', language: 'cpp')
+  elif not wayland_dep.found()
+    error('Option "use_wayland" is enabled, but wayland-client was not found.')
   endif
 endif
 
@@ -256,6 +271,8 @@ if host_system == 'darwin'
   objc_args += ['-fobjc-arc']
 elif host_system == 'windows'
   add_project_arguments('-DNOMINMAX', language: ['cpp', 'objcpp'])
+  add_project_arguments('-DWIN32_LEAN_AND_MEAN', language: ['cpp', 'objcpp'])
+  add_project_arguments('-DWINRT_LEAN_AND_MEAN', language: ['cpp', 'objcpp'])
 elif host_system == 'linux'
   if get_option('build_for_musl') == true
     link_args += ['-static']

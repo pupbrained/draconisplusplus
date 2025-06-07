@@ -74,12 +74,12 @@ namespace config {
    *
    * @details
    * - This key is **only** required if `DRAC_WEATHER_PROVIDER` is set to `WeatherProvider::OPENWEATHERMAP`.
-   * - Met.no and OpenMeteo providers do not require an API key; for these, this value can be `nullptr`.
+   * - Met.no and OpenMeteo providers do not require an API key; for these, this value can be `std::nullopt`.
    * - Obtain an API key from [OpenWeatherMap](https://openweathermap.org/api).
    *
    * @see DRAC_WEATHER_PROVIDER
    */
-  constexpr const char* DRAC_API_KEY = nullptr;
+  constexpr std::optional<std::string> DRAC_API_KEY = std::nullopt;
 
   /**
    * @brief Specifies the location for weather forecasts.

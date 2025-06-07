@@ -11,17 +11,29 @@
 option('build_for_musl', type: 'boolean', value: false)
 
 # Option: use_pugixml
-# Description: Use pugixml to parse XBPS package metadata.
+# Description: Use pugixml to parse XBPS package metadata on Void Linux.
 # Note: This is required for package count functionality on Void Linux.
 option('use_pugixml', type: 'boolean', value: false)
 
+# Option: use_xcb
+# Description: Use libxcb to get the X11 window manager.
+# Note: This is required for getting the X11 window manager on Linux and BSD systems.
+option('use_xcb', type: 'boolean', value: true)
+
+# Option: use_wayland
+# Description: Use libwayland to get the Wayland compositor.
+# Note: This is required for getting the Wayland compositor on Linux and BSD systems.
+option('use_wayland', type: 'boolean', value: true)
+
 # Option: precompiled_config
-# Description: Use a C header file for precompiled application configuration.
+# Description: Use a C++ header file for precompiled application configuration.
 # Note: Enabling this disables runtime TOML parsing and configuration overriding.
 option('precompiled_config', type: 'boolean', value: false)
 
-# All of the below options take precedence over config.toml.
-# They control whether certain features are compiled into the binary.
+# --------------------------------------------------------------------- #
+#      All of the below options take precedence over `config.toml`      #
+#  They control whether certain features are compiled into the binary.  #
+# --------------------------------------------------------------------- #
 
 # Option: enable_nowplaying
 # Description: Enable nowplaying functionality.

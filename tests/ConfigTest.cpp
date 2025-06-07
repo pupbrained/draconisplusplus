@@ -16,7 +16,7 @@ TEST_F(ConfigTest, PrecompiledConfigTypes) {
   EXPECT_TRUE((std::is_same_v<decltype(config::DRAC_WEATHER_PROVIDER), const config::WeatherProvider>));
   EXPECT_TRUE((std::is_same_v<decltype(config::DRAC_WEATHER_UNIT), const config::WeatherUnit>));
   EXPECT_TRUE((std::is_same_v<decltype(config::DRAC_SHOW_TOWN_NAME), const bool>));
-  EXPECT_TRUE((std::is_same_v<decltype(config::DRAC_API_KEY), const char* const>));
+  EXPECT_TRUE((std::is_same_v<decltype(config::DRAC_API_KEY), const std::optional<std::string>>));
   EXPECT_TRUE((std::is_same_v<decltype(config::DRAC_LOCATION), const Location>));
   #endif // DRAC_ENABLE_WEATHER
 
