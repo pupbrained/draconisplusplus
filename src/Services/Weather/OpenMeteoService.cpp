@@ -3,7 +3,6 @@
 // clang-format off
 #include "OpenMeteoService.hpp"
 
-#include <chrono> // std::chrono::{system_clock, minutes, seconds}
 #include <format> // std::format
 
 #include "Services/Weather.hpp"
@@ -25,23 +24,14 @@ OpenMeteoService::OpenMeteoService(const f64 lat, const f64 lon, config::Weather
 
 fn OpenMeteoService::getWeatherInfo() const -> Result<WeatherReport> {
   using glz::error_ctx, glz::read, glz::error_code;
-  using util::cache::ReadCache, util::cache::WriteCache;
+  using util::cache::GetValidCache, util::cache::WriteCache;
   using util::error::DracError, util::error::DracErrorCode;
   using util::types::Array, util::types::None, util::types::StringView, util::types::Err, util::types::Result;
 
-  if (Result<WeatherReport> data = ReadCache<WeatherReport>("weather")) {
-    using std::chrono::system_clock, std::chrono::minutes, std::chrono::seconds, std::chrono::duration;
-
-    const WeatherReport& dataVal = *data;
-
-    if (const duration<double> cacheAge = system_clock::now() - system_clock::time_point(seconds(dataVal.timestamp)); cacheAge < minutes(60))
-      return dataVal;
-  } else {
-    if (const DracError& err = data.error(); err.code == DracErrorCode::NotFound)
-      debug_at(err);
-    else
-      error_at(err);
-  }
+  if (Result<WeatherReport> cachedDataResult = GetValidCache<WeatherReport>("weather"))
+    return *cachedDataResult;
+  else
+    debug_at(cachedDataResult.error());
 
   String url = std::format(
     "https://api.open-meteo.com/v1/forecast?latitude={:.4f}&longitude={:.4f}&current_weather=true&temperature_unit={}",
@@ -85,7 +75,6 @@ fn OpenMeteoService::getWeatherInfo() const -> Result<WeatherReport> {
     .temperature = apiResp.currentWeather.temperature,
     .name        = None,
     .description = String(weather::utils::GetOpenmeteoWeatherDescription(apiResp.currentWeather.weathercode)),
-    .timestamp   = *timestamp,
   };
 
   if (Result writeResult = WriteCache("weather", out); !writeResult)

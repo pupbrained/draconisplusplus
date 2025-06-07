@@ -19,6 +19,8 @@ namespace util::cache {
   using error::DracError, error::DracErrorCode;
   using types::Err, types::Exception, types::Result, types::String, types::isize;
 
+  constexpr std::chrono::hours CACHE_EXPIRY_DURATION = std::chrono::hours(1);
+
   /**
    * @brief Gets the full path for a cache file based on a unique key.
    * @param cache_key A unique identifier for the cache (e.g., "weather", "pkg_count_pacman").
@@ -226,5 +228,42 @@ namespace util::cache {
       fs::remove(tempPath, removeEc);
       return Err(DracError(DracErrorCode::Other, "Unknown error writing cache file: " + tempPath.string()));
     }
+  }
+
+  /**
+   * @brief Checks if a cache file is valid and within the expiry duration, and if so, reads and returns its content.
+   * @tparam T The type of the object to deserialize from the cache. Must be Glaze-compatible.
+   * @param cache_key The unique identifier for the cache.
+   * @return Result containing the deserialized object of type T on success, or a DracError on failure (e.g., not found, expired, parse error).
+   */
+  template <typename T>
+  fn GetValidCache(const String& cache_key) -> Result<T> {
+    using std::chrono::system_clock;
+
+    Result<fs::path> cachePathResult = GetCachePath(cache_key);
+
+    if (!cachePathResult)
+      return Err(cachePathResult.error());
+
+    const fs::path& cachePath = *cachePathResult;
+
+    std::error_code errc;
+
+    if (!fs::exists(cachePath, errc) || errc) {
+      if (errc)
+        debug_log("Error checking existence of cache file '{}': {}", cachePath.string(), errc.message());
+
+      return Err(DracError(DracErrorCode::NotFound, "Cache file not found: " + cachePath.string()));
+    }
+
+    fs::file_time_type lastWriteTime = fs::last_write_time(cachePath, errc);
+
+    if (errc)
+      return Err(DracError(DracErrorCode::IoError, std::format("Failed to get last write time for cache file '{}': {}", cachePath.string(), errc.message())));
+
+    if ((system_clock::now() - std::chrono::clock_cast<system_clock>(lastWriteTime)) > CACHE_EXPIRY_DURATION)
+      return Err(DracError(DracErrorCode::NotFound, "Cache expired: " + cache_key));
+
+    return ReadCache<T>(cache_key);
   }
 } // namespace util::cache

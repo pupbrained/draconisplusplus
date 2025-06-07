@@ -3,7 +3,6 @@
 // clang-format off
 #include "MetNoService.hpp"
 
-#include <chrono> // std::chrono::{system_clock, minutes, seconds}
 #include <format> // std::format
 
 #include "Services/Weather/DataTransferObjects.hpp"
@@ -24,23 +23,14 @@ MetNoService::MetNoService(const f64 lat, const f64 lon, config::WeatherUnit uni
 
 fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
   using glz::error_ctx, glz::read, glz::error_code;
-  using util::cache::ReadCache, util::cache::WriteCache;
+  using util::cache::GetValidCache, util::cache::WriteCache;
   using util::error::DracError, util::error::DracErrorCode;
   using util::types::None, util::types::Err, util::types::StringView;
 
-  if (Result<WeatherReport> data = ReadCache<WeatherReport>("weather")) {
-    using std::chrono::system_clock, std::chrono::minutes, std::chrono::seconds, std::chrono::duration;
-
-    const WeatherReport& dataVal = *data;
-
-    if (const duration<double> cacheAge = system_clock::now() - system_clock::time_point(seconds(dataVal.timestamp)); cacheAge < minutes(60))
-      return dataVal;
-  } else {
-    if (const DracError& err = data.error(); err.code == DracErrorCode::NotFound)
-      debug_at(err);
-    else
-      error_at(err);
-  }
+  if (Result<WeatherReport> cachedDataResult = GetValidCache<WeatherReport>("weather"))
+    return *cachedDataResult;
+  else
+    debug_at(cachedDataResult.error());
 
   String responseBuffer;
 
@@ -96,7 +86,6 @@ fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
     .temperature = temp,
     .name        = None,
     .description = std::move(symbolCode),
-    .timestamp   = *timestamp,
   };
 
   if (Result writeResult = WriteCache("weather", out); !writeResult)

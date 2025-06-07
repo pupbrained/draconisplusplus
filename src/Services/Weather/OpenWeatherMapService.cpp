@@ -3,7 +3,6 @@
 // clang-format off
 #include "OpenWeatherMapService.hpp"
 
-#include <chrono>
 #include <format>
 #include <utility>
 #include <variant>
@@ -79,7 +78,6 @@ namespace {
       .temperature = owmResponse.main.temp,
       .name        = owmResponse.name.empty() ? None : Option<String>(owmResponse.name),
       .description = !owmResponse.weather.empty() ? owmResponse.weather[0].description : "",
-      .timestamp   = static_cast<usize>(owmResponse.dt),
     };
 
     return report;
@@ -90,21 +88,12 @@ OpenWeatherMapService::OpenWeatherMapService(std::variant<String, Coords> locati
   : m_location(std::move(location)), m_apiKey(std::move(apiKey)), m_units(units) {}
 
 fn OpenWeatherMapService::getWeatherInfo() const -> Result<WeatherReport> {
-  using util::cache::ReadCache, util::cache::WriteCache;
+  using util::cache::GetValidCache, util::cache::WriteCache;
 
-  if (Result<WeatherReport> data = ReadCache<WeatherReport>("weather")) {
-    using std::chrono::system_clock, std::chrono::seconds, std::chrono::minutes, std::chrono::duration;
-
-    const WeatherReport& dataVal = *data;
-
-    if (const duration<double> cacheAge = system_clock::now() - system_clock::time_point(seconds(dataVal.timestamp)); cacheAge < minutes(60))
-      return dataVal;
-  } else {
-    if (const DracError& err = data.error(); err.code == DracErrorCode::NotFound)
-      debug_at(err);
-    else
-      error_at(err);
-  }
+  if (Result<WeatherReport> cachedDataResult = GetValidCache<WeatherReport>("weather"))
+    return *cachedDataResult;
+  else
+    debug_at(cachedDataResult.error());
 
   fn handleApiResult = [](const Result<WeatherReport>& result) -> Result<WeatherReport> {
     if (!result)

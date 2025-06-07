@@ -17,7 +17,6 @@
   #include <pugixml.hpp> // pugi::{xml_document, xml_node, xml_parse_result}
 #endif
 
-#include <chrono>       // std::chrono
 #include <filesystem>   // std::filesystem
 #include <format>       // std::format
 #include <future>       // std::{async, future, launch}
@@ -33,11 +32,9 @@
 
 namespace {
   namespace fs = std::filesystem;
-  using std::chrono::system_clock, std::chrono::seconds, std::chrono::hours, std::chrono::duration_cast;
-  using util::cache::ReadCache, util::cache::WriteCache;
+  using util::cache::GetValidCache, util::cache::WriteCache;
   using util::error::DracError, util::error::DracErrorCode;
 
-  constexpr auto CACHE_EXPIRY_DURATION = std::chrono::hours(24);
   using util::types::Err, util::types::Exception, util::types::Result, util::types::String, util::types::u64, util::types::i64, util::types::Option;
 
   fn GetCountFromDirectoryImpl(
@@ -46,27 +43,14 @@ namespace {
     const Option<String>& fileExtensionFilter,
     const bool            subtractOne
   ) -> Result<u64> {
-    using package::PkgCountCacheData;
-
     std::error_code fsErrCode;
 
     const String cacheKey = std::format("pkg_count_{}", pmId);
 
-    if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(cacheKey)) {
-      const auto& [cachedCount, timestamp] = *cachedDataResult;
-      const auto cacheTimePoint            = system_clock::time_point(seconds(timestamp));
-
-      if ((system_clock::now() - cacheTimePoint) < CACHE_EXPIRY_DURATION) {
-        return cachedCount; // Cache is valid and not expired
-      }
-      // Cache expired, fall through to recalculate
-    } else { // ReadCache failed
-      if (cachedDataResult.error().code != DracErrorCode::NotFound) {
-        // Log error if ReadCache failed for a reason other than NotFound
-        debug_at(cachedDataResult.error());
-      }
-      // Fall through to recalculate for NotFound or after logging other errors
-    }
+    if (Result<u64> cachedDataResult = GetValidCache<u64>(cacheKey))
+      return *cachedDataResult;
+    else
+      debug_at(cachedDataResult.error());
 
     fsErrCode.clear();
 
@@ -134,11 +118,7 @@ namespace {
     if (count == 0)
       return Err(DracError(DracErrorCode::NotFound, std::format("No packages found in {} directory", pmId)));
 
-    const i64 timestampEpochSeconds = duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
-
-    const PkgCountCacheData dataToCache(count, timestampEpochSeconds);
-
-    if (Result writeResult = WriteCache(cacheKey, dataToCache); !writeResult)
+    if (Result writeResult = WriteCache(cacheKey, count); !writeResult)
       debug_at(writeResult.error());
 
     return count;
@@ -173,27 +153,16 @@ namespace package {
 
   #if !defined(__serenity__) && !defined(_WIN32)
   fn GetCountFromDb(const String& pmId, const fs::path& dbPath, const String& countQuery) -> Result<u64> {
-    using util::cache::ReadCache, util::cache::WriteCache;
+    using util::cache::GetValidCache, util::cache::WriteCache;
     using util::error::DracError, util::error::DracErrorCode;
     using util::types::Exception, util::types::i64;
 
     const String cacheKey = std::format("pkg_count_{}", pmId);
 
-    if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(cacheKey)) {
-      const auto& [cachedDbCount, timestamp] = *cachedDataResult;
-      const auto cacheTimePoint              = system_clock::time_point(seconds(timestamp));
-
-      if ((system_clock::now() - cacheTimePoint) < CACHE_EXPIRY_DURATION) {
-        return cachedDbCount; // Cache is valid and not expired
-      }
-      // Cache expired, fall through to recalculate
-    } else { // ReadCache failed
-      if (cachedDataResult.error().code != DracErrorCode::NotFound) {
-        // Log error if ReadCache failed for a reason other than NotFound
-        debug_at(cachedDataResult.error());
-      }
-      // Fall through to recalculate for NotFound or after logging other errors
-    }
+    if (Result<u64> cachedDataResult = GetValidCache<u64>(cacheKey))
+      return *cachedDataResult;
+    else
+      debug_at(cachedDataResult.error());
 
     u64 count = 0;
 
@@ -227,11 +196,7 @@ namespace package {
       return Err(DracError(DracErrorCode::Other, std::format("Unknown error occurred accessing {} DB", pmId)));
     }
 
-    const i64 timestampEpochSeconds = duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
-
-    const PkgCountCacheData dataToCache(count, timestampEpochSeconds);
-
-    if (Result writeResult = WriteCache(cacheKey, dataToCache); !writeResult)
+    if (Result writeResult = WriteCache(cacheKey, count); !writeResult)
       debug_at(writeResult.error());
 
     return count;
@@ -241,27 +206,16 @@ namespace package {
   #if defined(__linux__) && defined(HAVE_PUGIXML)
   fn GetCountFromPlist(const String& pmId, const fs::path& plistPath) -> Result<u64> {
     using pugi::xml_document, pugi::xml_node, pugi::xml_parse_result;
-    using util::cache::ReadCache, util::cache::WriteCache;
+    using util::cache::GetValidCache, util::cache::WriteCache;
     using util::error::DracError, util::error::DracErrorCode;
     using util::types::i64, util::types::StringView;
 
     const String cacheKey = "pkg_count_" + pmId;
 
-    if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(cacheKey)) {
-      const auto& [cachedPlistCount, timestamp] = *cachedDataResult;
-      const auto cacheTimePoint                 = system_clock::time_point(seconds(timestamp));
-
-      if ((system_clock::now() - cacheTimePoint) < CACHE_EXPIRY_DURATION) {
-        return cachedPlistCount; // Cache is valid and not expired
-      }
-      // Cache expired, fall through to recalculate
-    } else { // ReadCache failed
-      if (cachedDataResult.error().code != DracErrorCode::NotFound) {
-        // Log error if ReadCache failed for a reason other than NotFound
-        debug_at(cachedDataResult.error());
-      }
-      // Fall through to recalculate for NotFound or after logging other errors
-    }
+    if (Result<u64> cachedDataResult = GetValidCache<u64>(cacheKey))
+      return *cachedDataResult;
+    else
+      debug_at(cachedDataResult.error());
 
     xml_document doc;
 
@@ -303,10 +257,7 @@ namespace package {
     if (count == 0)
       return Err(DracError(DracErrorCode::NotFound, std::format("No installed packages found in plist file '{}'.", plistPath.string())));
 
-    const i64               timestampEpochSeconds = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-    const PkgCountCacheData dataToCache(count, timestampEpochSeconds);
-
-    if (Result writeResult = WriteCache(cacheKey, dataToCache); !writeResult)
+    if (Result writeResult = WriteCache(cacheKey, count); !writeResult)
       debug_at(writeResult.error());
 
     return count;

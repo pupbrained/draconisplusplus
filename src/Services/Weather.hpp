@@ -23,7 +23,6 @@ namespace weather {
     f64            temperature; ///< Degrees (C/F)
     Option<String> name;        ///< Optional town/city name (may be missing for some providers)
     String         description; ///< Weather description (e.g., "clear sky", "rain")
-    usize          timestamp;   ///< Seconds since epoch
   };
 
   struct WeatherReportGlaze {
@@ -33,8 +32,7 @@ namespace weather {
     static constexpr Object value = object(
       "temperature", &T::temperature,
       "name",        &T::name,
-      "description", &T::description,
-      "timestamp",   &T::timestamp
+      "description", &T::description
     );
     // clang-format on
   };

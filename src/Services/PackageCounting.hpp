@@ -32,32 +32,6 @@ namespace package {
   }
 
   /**
-   * @struct PkgCountCacheData
-   * @brief Structure for caching package count results along with a timestamp.
-   */
-  struct PkgCountCacheData {
-    u64 count {};
-    i64 timestampEpochSeconds {};
-
-    PkgCountCacheData() = default;
-    PkgCountCacheData(u64 count, i64 timestampEpochSeconds)
-      : count(count), timestampEpochSeconds(timestampEpochSeconds) {}
-
-    // NOLINTBEGIN(readability-identifier-naming)
-    struct [[maybe_unused]] glaze {
-      using T = PkgCountCacheData;
-
-      // clang-format off
-      static constexpr glz::detail::Object value = glz::object(
-        "count",     &T::count,
-        "timestamp", &T::timestampEpochSeconds
-      );
-      // clang-format on
-    };
-    // NOLINTEND(readability-identifier-naming)
-  };
-
-  /**
    * @struct PackageManagerInfo
    * @brief Holds information needed to query a database-backed package manager.
    */
