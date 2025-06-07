@@ -185,7 +185,11 @@ in {
     };
 
     packageManagers = mkOption {
-      type = types.listOf (types.enum ["apt" "pacman" "cargo" "dnf" "xbps" "portage" "brew" "nix"]);
+      type = types.listOf (types.enum (
+        ["cargo" "nix"]
+        ++ lib.optionals pkgs.stdenv.isLinux ["apk" "dpkg" "moss" "pacman" "rpm" "xbps"]
+        ++ lib.optionals pkgs.stdenv.isDarwin ["homebrew" "macports"]
+      ));
       default = [];
       description = "List of package managers to check for package counts.";
     };
