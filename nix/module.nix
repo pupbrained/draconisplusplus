@@ -12,8 +12,8 @@ with lib; let
   defaultPackage = self.packages.${pkgs.system}.default;
 
   apiKey =
-    if cfg.weatherApiKey == null || cfg.weatherApiKey == ""
-    then "nullptr"
+    if cfg.weatherApiKey == null
+    then "std::nullopt"
     else cfg.weatherApiKey;
 
   location =
@@ -49,11 +49,7 @@ with lib; let
         constexpr WeatherProvider DRAC_WEATHER_PROVIDER = WeatherProvider::${lib.toUpper cfg.weatherProvider};
         constexpr WeatherUnit DRAC_WEATHER_UNIT = WeatherUnit::${lib.toUpper cfg.weatherUnit};
         constexpr bool DRAC_SHOW_TOWN_NAME = ${toString cfg.showTownName};
-        constexpr std::optional<std::string> DRAC_API_KEY = ${
-        if apiKey == null
-        then "std::nullopt"
-        else apiKey
-      };
+        constexpr std::optional<std::string> DRAC_API_KEY = ${apiKey};
         constexpr Location DRAC_LOCATION = ${location};
         #endif
 
