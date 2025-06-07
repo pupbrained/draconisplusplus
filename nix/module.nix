@@ -49,7 +49,11 @@ with lib; let
         constexpr WeatherProvider DRAC_WEATHER_PROVIDER = WeatherProvider::${lib.toUpper cfg.weatherProvider};
         constexpr WeatherUnit DRAC_WEATHER_UNIT = WeatherUnit::${lib.toUpper cfg.weatherUnit};
         constexpr bool DRAC_SHOW_TOWN_NAME = ${toString cfg.showTownName};
-        constexpr std::optional<std::string> DRAC_API_KEY = ${if apiKey == null then "std::nullopt" else apiKey};
+        constexpr std::optional<std::string> DRAC_API_KEY = ${
+        if apiKey == null
+        then "std::nullopt"
+        else apiKey
+      };
         constexpr Location DRAC_LOCATION = ${location};
         #endif
 
@@ -212,16 +216,12 @@ in {
         message = "A town/city name for the location can only be used with the OpenWeatherMap provider.";
       }
       {
-        assertion = !(cfg.weatherApiKey != "" && cfg.weatherProvider != "OpenWeatherMap");
+        assertion = !(cfg.weatherApiKey != null && cfg.weatherProvider != "OpenWeatherMap");
         message = "An API key should not be provided when using the OpenMeteo or MetNo providers.";
       }
       {
         assertion = !(cfg.usePugixml && !cfg.enablePackageCount);
         message = "usePugixml should only be enabled when enablePackageCount is also enabled.";
-      }
-      {
-        assertion = !(cfg.weatherApiKey != "" && !cfg.enableWeather);
-        message = "weatherApiKey should only be provided when enableWeather is enabled.";
       }
     ];
   };
