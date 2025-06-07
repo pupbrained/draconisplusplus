@@ -78,17 +78,15 @@ namespace {
 #endif
 
 #ifdef __cpp_lib_print
-    std::println("We've collected a total of {} readouts including {} failed read(s) and 0 read(s) resulting in a warning.\n", totalPossibleReadouts, failures.size());
+    std::println("We've collected a total of {} readouts including {} failed read{}.\n", totalPossibleReadouts, failures.size(), failures.size() == 1 ? "" : "s");
 
     for (const auto& [readout, err] : failures)
-      std::println("Readout \"{}\" failed with message: {} (code: {})", readout, err.message, err.code);
+      std::println("Readout \"{}\" failed: {} (code: {})", readout, err.message, err.code);
 #else
-    std::cout << "We've collected a total of " << totalPossibleReadouts
-              << " readouts including " << failures.size()
-              << " failed read(s) and 0 read(s) resulting in a warning.\n\n";
+    std::cout << std::format("We've collected a total of {} readouts including {} failed read{}.\n\n", totalPossibleReadouts, failures.size(), failures.size() == 1 ? "" : "s");
 
     for (const auto& fail : failures)
-      std::cout << "Readout \"" << fail.first << "\" failed with message: " << fail.second.message << "\n";
+      std::cout << std::format("Readout \"{}\" failed: {} (code: {})\n", fail.first, fail.second.message, fail.second.code);
 
     std::cout << std::flush;
 #endif
