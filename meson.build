@@ -90,7 +90,7 @@ add_project_arguments(common_cpp_args, language: 'cpp')
 # --------------------- #
 #  Include Directories  #
 # --------------------- #
-project_internal_includes = include_directories('src')
+project_internal_includes = include_directories('src/lib')
 project_public_includes = include_directories('include', is_system: true)
 
 # ------- #
@@ -98,36 +98,36 @@ project_public_includes = include_directories('include', is_system: true)
 # ------- #
 lib_base_sources = [
   files(
-    'src/Config/Config.cpp',
-    'src/Core/SystemData.cpp',
-    'src/UI/UI.cpp',
+    'src/lib/Config/Config.cpp',
+    'src/lib/Core/SystemData.cpp',
+    'src/lib/UI/UI.cpp',
   ),
 ]
 
 if get_option('enable_packagecount') == true
-  lib_base_sources += files('src/Services/PackageCounting.cpp')
+  lib_base_sources += files('src/lib/Services/PackageCounting.cpp')
 endif
 
 if get_option('enable_weather') == true
   lib_base_sources += files(
-    'src/Services/Weather/MetNoService.cpp',
-    'src/Services/Weather/OpenMeteoService.cpp',
-    'src/Services/Weather/OpenWeatherMapService.cpp',
-    'src/Services/Weather/WeatherUtils.cpp',
+    'src/lib/Services/Weather/MetNoService.cpp',
+    'src/lib/Services/Weather/OpenMeteoService.cpp',
+    'src/lib/Services/Weather/OpenWeatherMapService.cpp',
+    'src/lib/Services/Weather/WeatherUtils.cpp',
   )
 endif
 
 main_app_sources = files('src/main.cpp')
 
 platform_sources = {
-  'darwin': ['src/OS/macOS.cpp', 'src/OS/macOS/bridge.mm'],
-  'dragonfly': ['src/OS/BSD.cpp'],
-  'freebsd': ['src/OS/BSD.cpp'],
-  'haiku': ['src/OS/Haiku.cpp'],
-  'linux': ['src/OS/Linux.cpp'],
-  'netbsd': ['src/OS/BSD.cpp'],
-  'serenity': ['src/OS/Serenity.cpp'],
-  'windows': ['src/OS/Windows.cpp'],
+  'darwin': ['src/lib/OS/macOS.cpp', 'src/lib/OS/macOS/bridge.mm'],
+  'dragonfly': ['src/lib/OS/BSD.cpp'],
+  'freebsd': ['src/lib/OS/BSD.cpp'],
+  'haiku': ['src/lib/OS/Haiku.cpp'],
+  'linux': ['src/lib/OS/Linux.cpp'],
+  'netbsd': ['src/lib/OS/BSD.cpp'],
+  'serenity': ['src/lib/OS/Serenity.cpp'],
+  'windows': ['src/lib/OS/Windows.cpp'],
 }
 
 lib_platform_sources = files(platform_sources.get(host_system, []))
@@ -270,9 +270,12 @@ objc_args = []
 if host_system == 'darwin'
   objc_args += ['-fobjc-arc']
 elif host_system == 'windows'
-  add_project_arguments('-DNOMINMAX', language: ['cpp', 'objcpp'])
-  add_project_arguments('-DWIN32_LEAN_AND_MEAN', language: ['cpp', 'objcpp'])
-  add_project_arguments('-DWINRT_LEAN_AND_MEAN', language: ['cpp', 'objcpp'])
+  add_project_arguments(
+    '-DNOMINMAX',
+    '-DWIN32_LEAN_AND_MEAN',
+    '-DWINRT_LEAN_AND_MEAN',
+    language: ['cpp', 'objcpp'],
+  )
 elif host_system == 'linux'
   if get_option('build_for_musl') == true
     link_args += ['-static']

@@ -262,7 +262,12 @@ namespace util::cache {
     if (errc)
       return Err(DracError(DracErrorCode::IoError, std::format("Failed to get last write time for cache file '{}': {}", cachePath.string(), errc.message())));
 
+// for some reason clock_cast is not available on macOS? not sure why
+#ifdef __APPLE__
     if ((system_clock::now() - system_clock::from_time_t(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::file_clock::to_sys(lastWriteTime).time_since_epoch()).count())) > CACHE_EXPIRY_DURATION)
+#else
+    if ((system_clock::now() - std::chrono::clock_cast<system_clock>(lastWriteTime)) > CACHE_EXPIRY_DURATION)
+#endif
       return Err(DracError(DracErrorCode::NotFound, "Cache expired: " + cache_key));
 
     return ReadCache<T>(cache_key);

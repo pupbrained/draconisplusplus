@@ -85,7 +85,7 @@ in {
     package = mkOption {
       type = types.package;
       default = defaultPackage;
-      description = "The base draconis++ package. Used directly if 'configFormat' is 'toml', or as a base for overriding if 'configFormat' is 'hpp'.";
+      description = "The base draconis++ package.";
     };
 
     configFormat = mkOption {
