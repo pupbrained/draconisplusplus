@@ -519,11 +519,6 @@ namespace os {
 
   #if DRAC_ENABLE_PACKAGECOUNT
 namespace package {
-  using namespace std::string_literals;
-  using std::chrono::system_clock, std::chrono::seconds, std::chrono::hours, std::chrono::duration_cast;
-
-  constexpr auto CACHE_EXPIRY_DURATION_APK = std::chrono::hours(24);
-
   fn CountApk() -> Result<u64> {
     using namespace util::cache;
 
@@ -531,21 +526,10 @@ namespace package {
     const fs::path apkDbPath = "/lib/apk/db/installed";
     const String   cacheKey  = "pkg_count_" + pmId;
 
-    if (Result<PkgCountCacheData> cachedDataResult = ReadCache<PkgCountCacheData>(cacheKey)) {
-      const auto& [cachedCount, timestamp] = *cachedDataResult;
-      const auto cacheTimePoint            = system_clock::time_point(seconds(timestamp));
-
-      if ((system_clock::now() - cacheTimePoint) < CACHE_EXPIRY_DURATION_APK) {
-        return cachedCount; // Cache is valid and not expired
-      }
-      // Cache expired, fall through to recalculate
-    } else { // ReadCache failed
-      if (cachedDataResult.error().code != DracErrorCode::NotFound) {
-        // Log error if ReadCache failed for a reason other than NotFound
-        debug_at(cachedDataResult.error());
-      }
-      // Fall through to recalculate for NotFound or after logging other errors
-    }
+    if (Result<u64> cachedCountResult = GetValidCache<u64>(cacheKey))
+      return *cachedCountResult;
+    else
+      debug_at(cachedCountResult.error());
 
     if (std::error_code fsErrCode; !fs::exists(apkDbPath, fsErrCode)) {
       if (fsErrCode) {
@@ -577,22 +561,14 @@ namespace package {
     if (file.bad())
       return Err(DracError(DracErrorCode::IoError, std::format("IO error while reading Apk database file '{}'", apkDbPath.string())));
 
-    {
-      using std::chrono::duration_cast, std::chrono::system_clock, std::chrono::seconds;
-
-      const i64 timestampEpochSeconds = duration_cast<seconds>(system_clock::now().time_since_epoch()).count();
-
-      const PkgCountCacheData dataToCache(count, timestampEpochSeconds);
-
-      if (Result writeResult = WriteCache(cacheKey, dataToCache); !writeResult)
-        debug_at(writeResult.error());
-    }
+    if (Result writeResult = WriteCache(cacheKey, count); !writeResult)
+      debug_at(writeResult.error());
 
     return count;
   }
 
   fn CountDpkg() -> Result<u64> {
-    return GetCountFromDirectory("dpkg", fs::current_path().root_path() / "var" / "lib" / "dpkg" / "info", ".list"s);
+    return GetCountFromDirectory("dpkg", fs::current_path().root_path() / "var" / "lib" / "dpkg" / "info", String(".list"));
   }
 
   fn CountMoss() -> Result<u64> {
