@@ -4,7 +4,6 @@
 #include <ftxui/dom/node.hpp>      // ftxui::{Render}
 #include <ftxui/screen/screen.hpp> // ftxui::{Screen, Dimension::Full}
 #include <matchit.hpp>
-#include <winrt/base.h>
 
 #ifdef __cpp_lib_print
   #include <print> // std::print

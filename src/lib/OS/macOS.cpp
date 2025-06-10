@@ -43,7 +43,7 @@ namespace {
 } // namespace
 
 namespace os {
-  fn System::GetMemInfo() -> Result<ResourceUsage> {
+  fn System::getMemInfo() -> Result<ResourceUsage> {
     u64   totalMem = 0;
     usize size     = sizeof(totalMem);
 
@@ -71,19 +71,19 @@ namespace os {
     };
   }
 
-  fn System::GetNowPlaying() -> Result<MediaInfo> {
+  fn System::getNowPlaying() -> Result<MediaInfo> {
     return GetCurrentPlayingInfo();
   }
 
-  fn System::GetOSVersion() -> Result<String> {
+  fn System::getOSVersion() -> Result<String> {
     return GetMacOSVersion();
   }
 
-  fn System::GetDesktopEnvironment() -> Result<String> {
+  fn System::getDesktopEnvironment() -> Result<String> {
     return "Aqua";
   }
 
-  fn System::GetWindowManager() -> Result<String> {
+  fn System::getWindowManager() -> Result<String> {
     constexpr Array<StringView, 6> knownWms = {
       "yabai",
       "kwm",
@@ -135,7 +135,7 @@ namespace os {
     return "Quartz";
   }
 
-  fn System::GetKernelVersion() -> Result<String> {
+  fn System::getKernelVersion() -> Result<String> {
     Array<char, 256> kernelVersion {};
     usize            kernelVersionLen = sizeof(kernelVersion);
 
@@ -145,7 +145,7 @@ namespace os {
     return kernelVersion.data();
   }
 
-  fn System::GetHost() -> Result<String> {
+  fn System::getHost() -> Result<String> {
     Array<char, 256> hwModel {};
     usize            hwModelLen = sizeof(hwModel);
 
@@ -310,7 +310,7 @@ namespace os {
     return String(iter->second);
   }
 
-  fn System::GetDiskUsage() -> Result<ResourceUsage> {
+  fn System::getDiskUsage() -> Result<ResourceUsage> {
     struct statvfs vfs;
 
     if (statvfs("/", &vfs) != 0)
@@ -322,23 +322,26 @@ namespace os {
     };
   }
 
-  fn System::GetShell() -> Result<String> {
+  fn System::getShell() -> Result<String> {
     if (const Result<String> shellPath = GetEnv("SHELL")) {
       // clang-format off
-      constexpr Array<Pair<StringView, StringView>, 5> shellMap {{
-        { "/bin/bash", "Bash"  },
-        { "/bin/zsh",  "Zsh"   },
-        { "/bin/ksh",  "Ksh"   },
-        { "/bin/fish", "Fish"  },
-        { "/bin/csh",  "C Shell" },
+      constexpr Array<Pair<StringView, StringView>, 8> shellMap {{
+        { "bash", "Bash"        },
+        { "zsh",  "Zsh"         },
+        { "ksh",  "KornShell"   },
+        { "fish", "Fish"        },
+        { "tcsh", "TCsh"        },
+        { "csh",  "Csh"         },
+        { "sh",   "Sh"          },
+        { "nu",   "NuShell"     },
       }};
       // clang-format on
 
       for (const auto& [exe, name] : shellMap)
-        if (shellPath->contains(exe))
+        if (shellPath->ends_with(exe))
           return String(name);
 
-      return *shellPath; // fallback to the raw shell path
+      return *shellPath;
     }
 
     return Err(DracError(DracErrorCode::NotFound, "Could not find SHELL environment variable"));

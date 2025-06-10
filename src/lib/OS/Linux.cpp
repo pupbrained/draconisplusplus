@@ -480,7 +480,7 @@ namespace os {
   }
 } // namespace os
 
-  #ifdef __linux__
+  #ifdef DRAC_ENABLE_PACKAGECOUNT
 namespace package {
   fn CountApk() -> Result<u64> {
     using namespace util::cache;
@@ -577,3 +577,5 @@ namespace package {
     #endif
 } // namespace package
   #endif
+
+#endif
