@@ -1,14 +1,12 @@
 #ifdef __APPLE__
 
 // clang-format off
-#include <flat_map>      // std::flat_map
-#include <sys/statvfs.h> // statvfs
-#include <sys/sysctl.h>  // {CTL_KERN, KERN_PROC, KERN_PROC_ALL, kinfo_proc, sysctl, sysctlbyname}
-#include <mach/mach.h>
-#include <mach/vm_statistics.h>
-#include <mach/mach_types.h>
-#include <mach/mach_init.h>
-#include <mach/mach_host.h>
+#include <flat_map>             // std::flat_map
+#include <sys/statvfs.h>        // statvfs
+#include <sys/sysctl.h>         // {CTL_KERN, KERN_PROC, KERN_PROC_ALL, kinfo_proc, sysctl, sysctlbyname}
+#include <mach/vm_statistics.h> // vm_statistics64_data_t
+#include <mach/mach_init.h>     // host_page_size, mach_host_self
+#include <mach/mach_host.h>     // host_statistics64
 
 #include "Core/System.hpp"
 #include "Services/PackageCounting.hpp"
@@ -44,26 +42,28 @@ namespace {
 
 namespace os {
   fn System::getMemInfo() -> Result<ResourceUsage> {
+    static mach_port_t HostPort = mach_host_self();
+    static vm_size_t   PageSize = 0;
+
+    if (PageSize == 0) {
+      if (host_page_size(HostPort, &PageSize) != KERN_SUCCESS)
+        return Err(DracError("Failed to get page size"));
+    }
+
     u64   totalMem = 0;
     usize size     = sizeof(totalMem);
 
     if (sysctlbyname("hw.memsize", &totalMem, &size, nullptr, 0) == -1)
       return Err(DracError("Failed to get total memory info"));
 
-    vm_size_t pageSize = 0;
-    host_page_size(mach_host_self(), &pageSize);
-
     vm_statistics64_data_t vmStats;
     mach_msg_type_number_t infoCount = sizeof(vmStats) / sizeof(natural_t);
-    mach_port_t            hostPort  = mach_host_self();
 
-    if (host_statistics64(hostPort, HOST_VM_INFO64,
-                          // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-                          reinterpret_cast<host_info64_t>(&vmStats),
-                          &infoCount) != KERN_SUCCESS)
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    if (host_statistics64(HostPort, HOST_VM_INFO64, reinterpret_cast<host_info64_t>(&vmStats), &infoCount) != KERN_SUCCESS)
       return Err(DracError("Failed to get memory statistics"));
 
-    u64 usedMem = (vmStats.active_count + vmStats.wire_count) * pageSize;
+    u64 usedMem = (vmStats.active_count + vmStats.wire_count) * PageSize;
 
     return ResourceUsage {
       .usedBytes  = usedMem,
@@ -116,9 +116,8 @@ namespace os {
 
     usize count = len / sizeof(kinfo_proc);
 
-    std::span<const kinfo_proc> processes = std::span(
-      reinterpret_cast<const kinfo_proc*>(buf.data()), count // NOLINT(cppcoreguidelines-pro-type-reinterpret-cast)
-    );
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    std::span<const kinfo_proc> processes = std::span(reinterpret_cast<const kinfo_proc*>(buf.data()), count);
 
     for (const kinfo_proc& procInfo : processes) {
       StringView comm(procInfo.kp_proc.p_comm);
@@ -136,16 +135,34 @@ namespace os {
   }
 
   fn System::getKernelVersion() -> Result<String> {
+    using util::cache::GetValidCache, util::cache::WriteCache;
+
+    const String cacheKey = "macos_kernel";
+
+    if (Result<String> cachedKernel = GetValidCache<String>(cacheKey))
+      return *cachedKernel;
+
     Array<char, 256> kernelVersion {};
     usize            kernelVersionLen = sizeof(kernelVersion);
 
     if (sysctlbyname("kern.osrelease", kernelVersion.data(), &kernelVersionLen, nullptr, 0) == -1)
       return Err(DracError("Failed to get kernel version"));
 
-    return kernelVersion.data();
+    String version(kernelVersion.data());
+    if (Result writeResult = WriteCache(cacheKey, version); !writeResult)
+      debug_at(writeResult.error());
+
+    return version;
   }
 
   fn System::getHost() -> Result<String> {
+    using util::cache::GetValidCache, util::cache::WriteCache;
+
+    const String cacheKey = "macos_host";
+
+    if (Result<String> cachedHost = GetValidCache<String>(cacheKey))
+      return *cachedHost;
+
     Array<char, 256> hwModel {};
     usize            hwModelLen = sizeof(hwModel);
 
@@ -307,7 +324,25 @@ namespace os {
     if (iter == modelNameByHwModel.end())
       return Err(DracError("Failed to get host info"));
 
-    return String(iter->second);
+    String host(iter->second);
+    if (Result writeResult = WriteCache(cacheKey, host); !writeResult)
+      debug_at(writeResult.error());
+
+    return host;
+  }
+
+  fn System::getCPUModel() -> Result<String> {
+    Array<char, 256> cpuModel {};
+    usize            cpuModelLen = sizeof(cpuModel);
+
+    if (sysctlbyname("machdep.cpu.brand_string", cpuModel.data(), &cpuModelLen, nullptr, 0) == -1)
+      return Err(DracError("Failed to get CPU model"));
+
+    return String(cpuModel.data());
+  }
+
+  fn System::getGPUModel() -> Result<String> {
+    return GetGPUModel();
   }
 
   fn System::getDiskUsage() -> Result<ResourceUsage> {

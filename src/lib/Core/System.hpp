@@ -68,6 +68,37 @@ struct std::formatter<BytesToGiB> : std::formatter<double> {
 
 namespace os {
   /**
+   * @struct SystemInfo
+   * @brief Groups related system information that is often fetched together
+   */
+  struct SystemInfo {
+    String osVersion;     ///< OS pretty name
+    String kernelVersion; ///< OS kernel version
+    String host;          ///< Host/product family
+    String cpuModel;      ///< CPU model
+    String gpuModel;      ///< GPU model
+  };
+
+  /**
+   * @struct EnvironmentInfo
+   * @brief Groups desktop environment related information
+   */
+  struct EnvironmentInfo {
+    String desktopEnv; ///< Desktop environment
+    String windowMgr;  ///< Window manager
+    String shell;      ///< Current user shell
+  };
+
+  /**
+   * @struct ResourceInfo
+   * @brief Groups system resource usage information
+   */
+  struct ResourceInfo {
+    ResourceUsage memInfo;   ///< Memory usage information
+    ResourceUsage diskUsage; ///< Disk usage information
+  };
+
+  /**
    * @class System
    * @brief Holds various pieces of system information collected from the OS,
    *        and provides methods to fetch this information.
@@ -148,6 +179,18 @@ namespace os {
     static fn getHost() -> Result<String>;
 
     /**
+     * @brief Fetches the CPU model.
+     * @return Result containing the CPU model.
+     */
+    static fn getCPUModel() -> Result<String>;
+
+    /**
+     * @brief Fetches the GPU model.
+     * @return Result containing the GPU model.
+     */
+    static fn getGPUModel() -> Result<String>;
+
+    /**
      * @brief Fetches the kernel version.
      * @return Result containing the kernel version.
      */
@@ -158,6 +201,24 @@ namespace os {
      * @return Result containing the disk usage.
      */
     static fn getDiskUsage() -> Result<ResourceUsage>;
+
+    /**
+     * @brief Fetches system information in a single batch operation
+     * @return Result containing OS version, kernel version, and host information
+     */
+    static fn getSystemInfo() -> Result<SystemInfo>;
+
+    /**
+     * @brief Fetches environment information in a single batch operation
+     * @return Result containing desktop environment, window manager, and shell information
+     */
+    static fn getEnvironmentInfo() -> Result<EnvironmentInfo>;
+
+    /**
+     * @brief Fetches resource usage information in a single batch operation
+     * @return Result containing memory and disk usage information
+     */
+    static fn getResourceInfo() -> Result<ResourceInfo>;
 
    private:
     /**

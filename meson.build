@@ -175,7 +175,7 @@ if host_system == 'darwin'
     dependency('SQLiteCpp'),
     dependency(
       'appleframeworks',
-      modules: ['foundation', 'mediaplayer', 'systemconfiguration'],
+      modules: ['foundation', 'iokit', 'mediaplayer', 'systemconfiguration'],
       static: true,
     ),
     dependency('iconv'),

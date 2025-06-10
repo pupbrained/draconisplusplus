@@ -22,6 +22,7 @@ using util::types::MediaInfo, util::types::String, util::types::Result;
 extern "C++" {
   fn GetCurrentPlayingInfo() -> Result<MediaInfo>;
   fn GetMacOSVersion() -> Result<String>;
+  fn GetGPUModel() -> Result<String>;
 }
   #endif
 
