@@ -99,7 +99,7 @@ project_public_includes = include_directories('include', is_system: true)
 lib_base_sources = [
   files(
     'src/lib/Config/Config.cpp',
-    'src/lib/Core/SystemData.cpp',
+    'src/lib/Core/System.cpp',
     'src/lib/UI/UI.cpp',
   ),
 ]

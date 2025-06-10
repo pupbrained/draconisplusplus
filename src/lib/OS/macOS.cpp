@@ -10,7 +10,7 @@
 #include <mach/mach_init.h>
 #include <mach/mach_host.h>
 
-#include "OperatingSystem.hpp"
+#include "Core/System.hpp"
 #include "Services/PackageCounting.hpp"
 #include "Util/Caching.hpp"
 #include "Util/Definitions.hpp"
@@ -43,7 +43,7 @@ namespace {
 } // namespace
 
 namespace os {
-  fn GetMemInfo() -> Result<ResourceUsage> {
+  fn System::GetMemInfo() -> Result<ResourceUsage> {
     u64   totalMem = 0;
     usize size     = sizeof(totalMem);
 
@@ -71,19 +71,19 @@ namespace os {
     };
   }
 
-  fn GetNowPlaying() -> Result<MediaInfo> {
+  fn System::GetNowPlaying() -> Result<MediaInfo> {
     return GetCurrentPlayingInfo();
   }
 
-  fn GetOSVersion() -> Result<String> {
+  fn System::GetOSVersion() -> Result<String> {
     return GetMacOSVersion();
   }
 
-  fn GetDesktopEnvironment() -> Result<String> {
+  fn System::GetDesktopEnvironment() -> Result<String> {
     return "Aqua";
   }
 
-  fn GetWindowManager() -> Result<String> {
+  fn System::GetWindowManager() -> Result<String> {
     constexpr Array<StringView, 6> knownWms = {
       "yabai",
       "kwm",
@@ -135,7 +135,7 @@ namespace os {
     return "Quartz";
   }
 
-  fn GetKernelVersion() -> Result<String> {
+  fn System::GetKernelVersion() -> Result<String> {
     Array<char, 256> kernelVersion {};
     usize            kernelVersionLen = sizeof(kernelVersion);
 
@@ -145,7 +145,7 @@ namespace os {
     return kernelVersion.data();
   }
 
-  fn GetHost() -> Result<String> {
+  fn System::GetHost() -> Result<String> {
     Array<char, 256> hwModel {};
     usize            hwModelLen = sizeof(hwModel);
 
@@ -310,7 +310,7 @@ namespace os {
     return String(iter->second);
   }
 
-  fn GetDiskUsage() -> Result<ResourceUsage> {
+  fn System::GetDiskUsage() -> Result<ResourceUsage> {
     struct statvfs vfs;
 
     if (statvfs("/", &vfs) != 0)
@@ -322,15 +322,15 @@ namespace os {
     };
   }
 
-  fn GetShell() -> Result<String> {
+  fn System::GetShell() -> Result<String> {
     if (const Result<String> shellPath = GetEnv("SHELL")) {
       // clang-format off
       constexpr Array<Pair<StringView, StringView>, 5> shellMap {{
-        { "bash",    "Bash" },
-        {  "zsh",     "Zsh" },
-        { "fish",    "Fish" },
-        {   "nu", "Nushell" },
-        {   "sh",      "SH" }, // sh last because other shells contain "sh"
+        { "/bin/bash", "Bash"  },
+        { "/bin/zsh",  "Zsh"   },
+        { "/bin/ksh",  "Ksh"   },
+        { "/bin/fish", "Fish"  },
+        { "/bin/csh",  "C Shell" },
       }};
       // clang-format on
 
@@ -343,7 +343,7 @@ namespace os {
 
     return Err(DracError(DracErrorCode::NotFound, "Could not find SHELL environment variable"));
   }
-}; // namespace os
+} // namespace os
 
 namespace package {
   fn GetHomebrewCount() -> Result<u64> {

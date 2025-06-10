@@ -1,8 +1,9 @@
-#include "SystemData.hpp"
+#include "System.hpp"
 
 #include <chrono>      // std::chrono::system_clock
 #include <ctime>       // localtime_r/s, strftime, time_t, tm
 #include <format>      // std::format
+#include <functional>  // std::cref
 #include <future>      // std::{async, launch}
 #include <matchit.hpp> // matchit::{match, is, in, _}
 
@@ -11,6 +12,7 @@
 #if DRAC_ENABLE_PACKAGECOUNT
   #include "Services/PackageCounting.hpp"
 #endif
+
 #if DRAC_ENABLE_WEATHER
   #include "Services/Weather.hpp"
 #endif
@@ -19,13 +21,10 @@
 #include "Util/Error.hpp"
 #include "Util/Types.hpp"
 
-#include "OS/OperatingSystem.hpp"
-
-using util::error::DracError, util::error::DracErrorCode;
+using util::error::DracErrorCode;
+using util::types::Err, util::types::i32, util::types::CStr, util::types::usize;
 
 namespace {
-  using util::types::i32, util::types::CStr;
-
   fn getOrdinalSuffix(const i32 day) -> CStr {
     using matchit::match, matchit::is, matchit::_, matchit::in;
 
@@ -37,10 +36,11 @@ namespace {
       is | _             = "th"
     );
   }
+} // namespace
 
-  fn getDate() -> Result<String> {
+namespace os {
+  fn System::getDate() -> Result<String> {
     using std::chrono::system_clock;
-    using util::types::String, util::types::usize, util::types::Err;
 
     const system_clock::time_point nowTp = system_clock::now();
     const std::time_t              nowTt = system_clock::to_time_t(nowTp);
@@ -71,48 +71,41 @@ namespace {
 
     return Err(DracError(DracErrorCode::ParseError, "Failed to get local time"));
   }
-} // namespace
 
-namespace os {
-  SystemData::SystemData([[maybe_unused]] const Config& config) {
-#if DRAC_ENABLE_PACKAGECOUNT
-    using package::GetTotalCount;
-#endif // DRAC_ENABLE_PACKAGECOUNT
 #if DRAC_ENABLE_WEATHER
-    using weather::WeatherReport;
-#endif // DRAC_ENABLE_WEATHER
-    using util::types::Future, util::types::Err;
+  fn System::getWeatherInfo(const Config& config) -> Result<weather::WeatherReport> {
+    if (config.weather.enabled && config.weather.service)
+      return config.weather.service->getWeatherInfo();
+
+    return Err(DracError(DracErrorCode::ApiUnavailable, "Weather API disabled or service not configured"));
+  }
+#endif
+
+  System::System(const Config& config) {
+    using util::types::Future;
     using enum std::launch;
     using enum util::error::DracErrorCode;
 
-    Future<Result<String>>        hostFut   = std::async(async, GetHost);
-    Future<Result<String>>        kernelFut = std::async(async, GetKernelVersion);
-    Future<Result<String>>        osFut     = std::async(async, GetOSVersion);
-    Future<Result<ResourceUsage>> memFut    = std::async(async, GetMemInfo);
-    Future<Result<String>>        deFut     = std::async(async, GetDesktopEnvironment);
-    Future<Result<String>>        wmFut     = std::async(async, GetWindowManager);
-    Future<Result<ResourceUsage>> diskFut   = std::async(async, GetDiskUsage);
-    Future<Result<String>>        shellFut  = std::async(async, GetShell);
-#if DRAC_ENABLE_PACKAGECOUNT
-    Future<Result<u64>> pkgFut;
+    Future<Result<String>>        hostFut   = std::async(async, &System::getHost);
+    Future<Result<String>>        kernelFut = std::async(async, &System::getKernelVersion);
+    Future<Result<String>>        osFut     = std::async(async, &System::getOSVersion);
+    Future<Result<ResourceUsage>> memFut    = std::async(async, &System::getMemInfo);
+    Future<Result<String>>        deFut     = std::async(async, &System::getDesktopEnvironment);
+    Future<Result<String>>        wmFut     = std::async(async, &System::getWindowManager);
+    Future<Result<ResourceUsage>> diskFut   = std::async(async, &System::getDiskUsage);
+    Future<Result<String>>        shellFut  = std::async(async, &System::getShell);
 
-  #ifdef PRECOMPILED_CONFIG
-    pkgFut = std::async(async, GetTotalCount);
-  #else
-    pkgFut = std::async(async, GetTotalCount);
-  #endif
-#endif // DRAC_ENABLE_PACKAGECOUNT
+#if DRAC_ENABLE_PACKAGECOUNT
+    Future<Result<u64>> pkgFut = std::async(async, package::GetTotalCount);
+#endif
 
 #if DRAC_ENABLE_NOWPLAYING
-    Future<Result<MediaInfo>> npFut = std::async(config.nowPlaying.enabled ? async : deferred, GetNowPlaying);
-#endif // DRAC_ENABLE_NOWPLAYING
+    Future<Result<MediaInfo>> npFut = std::async(config.nowPlaying.enabled ? async : deferred, &System::getNowPlaying);
+#endif
+
 #if DRAC_ENABLE_WEATHER
-    Future<Result<WeatherReport>> wthrFut = std::async(config.weather.enabled ? async : deferred, [&config]() -> Result<WeatherReport> {
-      return config.weather.enabled && config.weather.service
-        ? config.weather.service->getWeatherInfo()
-        : Err(DracError(ApiUnavailable, "Weather API disabled"));
-    });
-#endif // DRAC_ENABLE_WEATHER
+    Future<Result<weather::WeatherReport>> wthrFut = std::async(config.weather.enabled ? async : deferred, &System::getWeatherInfo, std::cref(config));
+#endif
 
     this->date          = getDate();
     this->host          = hostFut.get();
@@ -125,12 +118,14 @@ namespace os {
     this->shell         = shellFut.get();
 #if DRAC_ENABLE_PACKAGECOUNT
     this->packageCount = pkgFut.get();
-#endif // DRAC_ENABLE_PACKAGECOUNT
+#endif
+
 #if DRAC_ENABLE_WEATHER
     this->weather = config.weather.enabled ? wthrFut.get() : Err(DracError(ApiUnavailable, "Weather API disabled"));
-#endif // DRAC_ENABLE_WEATHER
+#endif
+
 #if DRAC_ENABLE_NOWPLAYING
     this->nowPlaying = config.nowPlaying.enabled ? npFut.get() : Err(DracError(ApiUnavailable, "Now Playing API disabled"));
-#endif // DRAC_ENABLE_NOWPLAYING
+#endif
   }
 } // namespace os

@@ -3,6 +3,8 @@
 #include <ftxui/dom/elements.hpp>  // ftxui::{Element, hbox, vbox, text, separator, filler, etc.}
 #include <ftxui/dom/node.hpp>      // ftxui::{Render}
 #include <ftxui/screen/screen.hpp> // ftxui::{Screen, Dimension::Full}
+#include <matchit.hpp>
+#include <winrt/base.h>
 
 #ifdef __cpp_lib_print
   #include <print> // std::print
@@ -12,7 +14,7 @@
 
 #include "Config/Config.hpp"
 
-#include "Core/SystemData.hpp"
+#include "Core/System.hpp"
 
 #include "UI/UI.hpp"
 
@@ -23,7 +25,7 @@
 using util::types::i32, util::types::Exception;
 
 namespace {
-  fn PrintDoctorReport(const os::SystemData& data) -> void {
+  fn PrintDoctorReport(const os::System& data) -> void {
     using util::types::u8, util::types::Vec, util::types::Pair;
 
     Vec<Pair<String, DracError>> failures;
@@ -149,18 +151,20 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
   }
 
   {
-    const Config&        config = Config::getInstance();
-    const os::SystemData data   = os::SystemData(config);
+    using ftxui::Element, ftxui::Screen, ftxui::Render;
+    using ftxui::Dimension::Full, ftxui::Dimension::Fit;
+    using os::System;
+    using ui::CreateUI;
+
+    const Config& config = Config::getInstance();
+    const System  data   = System(config);
 
     if (doctorMode) {
       PrintDoctorReport(data);
       return EXIT_SUCCESS;
     }
 
-    using ftxui::Element, ftxui::Screen, ftxui::Render;
-    using ftxui::Dimension::Full, ftxui::Dimension::Fit;
-
-    Element document = ui::CreateUI(config, data);
+    Element document = CreateUI(config, data);
 
     Screen screen = Screen::Create(Full(), Fit(document));
     Render(screen, document);

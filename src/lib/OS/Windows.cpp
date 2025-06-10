@@ -21,7 +21,7 @@
 #include "Util/Logging.hpp"
 #include "Util/Types.hpp"
 
-#include "OperatingSystem.hpp"
+#include "Core/System.hpp"
 // clang-format on
 
 using RtlGetVersionPtr = NTSTATUS(WINAPI*)(PRTL_OSVERSIONINFOW);
@@ -165,7 +165,7 @@ namespace {
 } // namespace
 
 namespace os {
-  fn GetMemInfo() -> Result<ResourceUsage> {
+  fn System::getMemInfo() -> Result<ResourceUsage> {
     MEMORYSTATUSEX memInfo;
     memInfo.dwLength = sizeof(MEMORYSTATUSEX);
 
@@ -176,7 +176,7 @@ namespace os {
   }
 
   #if DRAC_ENABLE_NOWPLAYING
-  fn GetNowPlaying() -> Result<MediaInfo> {
+  fn System::getNowPlaying() -> Result<MediaInfo> {
     using namespace winrt::Windows::Media::Control;
     using namespace winrt::Windows::Foundation;
 
@@ -199,7 +199,7 @@ namespace os {
   }
   #endif // DRAC_ENABLE_NOWPLAYING
 
-  fn GetOSVersion() -> Result<String> {
+  fn System::getOSVersion() -> Result<String> {
     try {
       const String regSubKey = R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)";
 
@@ -228,11 +228,11 @@ namespace os {
     } catch (const std::exception& e) { return Err(DracError(e)); }
   }
 
-  fn GetHost() -> Result<String> {
+  fn System::getHost() -> Result<String> {
     return GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SYSTEM\HardwareConfig\Current)", "SystemFamily");
   }
 
-  fn GetKernelVersion() -> Result<String> {
+  fn System::getKernelVersion() -> Result<String> {
     if (const HMODULE ntdllHandle = GetModuleHandleW(L"ntdll.dll")) {
       // NOLINTNEXTLINE(*-pro-type-reinterpret-cast) - required here
       if (const auto rtlGetVersion = reinterpret_cast<RtlGetVersionPtr>(GetProcAddress(ntdllHandle, "RtlGetVersion"))) {
@@ -247,7 +247,7 @@ namespace os {
     return Err(DracError(DracErrorCode::NotFound, "Could not determine kernel version using RtlGetVersion"));
   }
 
-  fn GetWindowManager() -> Result<String> {
+  fn System::getWindowManager() -> Result<String> {
     BOOL compositionEnabled = FALSE;
 
     if (SUCCEEDED(DwmIsCompositionEnabled(&compositionEnabled)))
@@ -256,7 +256,7 @@ namespace os {
     return Err(DracError(DracErrorCode::NotFound, "Failed to get window manager (DwmIsCompositionEnabled failed"));
   }
 
-  fn GetDesktopEnvironment() -> Result<String> {
+  fn System::getDesktopEnvironment() -> Result<String> {
     const String buildStr =
       GetRegistryValue(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", "CurrentBuildNumber");
 
@@ -298,7 +298,7 @@ namespace os {
     } catch (...) { return Err(DracError(DracErrorCode::ParseError, "Failed to parse CurrentBuildNumber")); }
   }
 
-  fn GetShell() -> Result<String> {
+  fn System::getShell() -> Result<String> {
     using util::helpers::GetEnv;
 
     if (const Result<String> msystemResult = GetEnv("MSYSTEM"); msystemResult && !msystemResult->empty()) {
@@ -340,7 +340,7 @@ namespace os {
     return Err(DracError(DracErrorCode::NotFound, "Shell not found"));
   }
 
-  fn GetDiskUsage() -> Result<ResourceUsage> {
+  fn System::getDiskUsage() -> Result<ResourceUsage> {
     ULARGE_INTEGER freeBytes, totalBytes;
 
     if (GetDiskFreeSpaceExW(L"C:\\\\", nullptr, &totalBytes, &freeBytes))

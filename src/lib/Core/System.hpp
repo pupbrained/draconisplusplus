@@ -29,8 +29,7 @@ struct BytesToGiB {
    * @brief Constructor for BytesToGiB.
    * @param value The byte value to be converted.
    */
-  explicit constexpr BytesToGiB(const u64 value)
-    : value(value) {}
+  explicit constexpr BytesToGiB(const u64 value) : value(value) {}
 };
 
 /// @brief Conversion factor from bytes to GiB
@@ -46,9 +45,9 @@ constexpr u64 GIB = 1'073'741'824;
  * #include <format>
  * #include "system_data.h"
  *
- * i32 main() {
+ * int main() {
  *   BytesToGiB data_size{2'147'483'648}; // 2 GiB
- *   String formatted = std::format("Size: {}", data_size);
+ *   std::string formatted = std::format("Size: {}", data_size);
  *   std::println("{}", formatted); // formatted will be "Size: 2.00GiB"
  *   return 0;
  * }
@@ -69,13 +68,16 @@ struct std::formatter<BytesToGiB> : std::formatter<double> {
 
 namespace os {
   /**
-   * @struct SystemData
-   * @brief Holds various pieces of system information collected from the OS.
+   * @class System
+   * @brief Holds various pieces of system information collected from the OS,
+   *        and provides methods to fetch this information.
    *
-   * This structure aggregates information about the system,
+   * This class aggregates information about the system,
    * in order to display it at all at once during runtime.
+   * The actual implementation for each fetch function is platform-specific.
    */
-  struct SystemData {
+  class System {
+   public:
     Result<String>        date;          ///< Current date (e.g., "April 26th").
     Result<String>        host;          ///< Host/product family (e.g., "MacBook Air").
     Result<String>        kernelVersion; ///< OS kernel version (e.g., "6.14.4").
@@ -96,9 +98,81 @@ namespace os {
 #endif
 
     /**
-     * @brief Constructs a SystemData object and initializes its members.
+     * @brief Constructs a System object and initializes its members by fetching data.
      * @param config The configuration object containing settings for the system data.
      */
-    explicit SystemData(const Config& config);
+    explicit System(const Config& config);
+
+    /**
+     * @brief Fetches memory information.
+     * @return Result containing memory usage information.
+     */
+    static fn getMemInfo() -> Result<ResourceUsage>;
+
+#if DRAC_ENABLE_NOWPLAYING
+    /**
+     * @brief Fetches now playing media information.
+     * @return Result containing the now playing media information.
+     */
+    static fn getNowPlaying() -> Result<MediaInfo>;
+#endif
+
+    /**
+     * @brief Fetches the OS version.
+     * @return Result containing the OS version.
+     */
+    static fn getOSVersion() -> Result<String>;
+
+    /**
+     * @brief Fetches the desktop environment.
+     * @return Result containing the desktop environment.
+     */
+    static fn getDesktopEnvironment() -> Result<String>;
+
+    /**
+     * @brief Fetches the window manager.
+     * @return Result containing the window manager.
+     */
+    static fn getWindowManager() -> Result<String>;
+
+    /**
+     * @brief Fetches the shell.
+     * @return Result containing the shell.
+     */
+    static fn getShell() -> Result<String>;
+
+    /**
+     * @brief Fetches the host.
+     * @return Result containing the host.
+     */
+    static fn getHost() -> Result<String>;
+
+    /**
+     * @brief Fetches the kernel version.
+     * @return Result containing the kernel version.
+     */
+    static fn getKernelVersion() -> Result<String>;
+
+    /**
+     * @brief Fetches the disk usage.
+     * @return Result containing the disk usage.
+     */
+    static fn getDiskUsage() -> Result<ResourceUsage>;
+
+   private:
+    /**
+     * @brief Fetches the date.
+     * @return Result containing the date.
+     */
+    static fn getDate() -> Result<String>;
+
+#if DRAC_ENABLE_WEATHER
+    /**
+     * @brief Fetches the weather information.
+     * @param config The configuration object containing settings for the weather.
+     * @return Result containing the weather information.
+     */
+    static fn getWeatherInfo(const Config& config) -> Result<weather::WeatherReport>;
+#endif
   };
 } // namespace os

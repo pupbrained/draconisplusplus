@@ -33,7 +33,7 @@
 #include "Wrappers/Wayland.hpp"
 #include "Wrappers/XCB.hpp"
 
-#include "OperatingSystem.hpp"
+#include "Core/System.hpp"
 // clang-format on
 
 using util::error::DracError, util::error::DracErrorCode;
@@ -215,7 +215,7 @@ namespace os {
   using util::helpers::GetEnv;
   using util::types::ResourceUsage;
 
-  fn GetOSVersion() -> Result<String> {
+  fn System::GetOSVersion() -> Result<String> {
     using util::types::StringView;
 
     std::ifstream file("/etc/os-release");
@@ -244,17 +244,14 @@ namespace os {
     return Err(DracError(DracErrorCode::NotFound, "PRETTY_NAME line not found in /etc/os-release"));
   }
 
-  fn GetMemInfo() -> Result<ResourceUsage> {
+  fn System::GetMemInfo() -> Result<ResourceUsage> {
     struct sysinfo info;
 
     if (sysinfo(&info) != 0)
       return Err(DracError("sysinfo call failed"));
 
     if (info.mem_unit == 0)
-      return Err(DracError(DracErrorCode::InternalError, "sysinfo returned mem_unit of zero"));
-
-    if (info.totalram > (std::numeric_limits<u64>::max() / info.mem_unit))
-      return Err(DracError(DracErrorCode::InternalError, "Potential overflow calculating total RAM"));
+      return Err(DracError(DracErrorCode::InternalError, "sysinfo.mem_unit is 0, cannot calculate memory"));
 
     return ResourceUsage {
       .usedBytes  = (info.totalram - info.freeram) * info.mem_unit,
@@ -262,192 +259,158 @@ namespace os {
     };
   }
 
-  fn GetNowPlaying() -> Result<MediaInfo> {
+  fn System::GetNowPlaying() -> Result<MediaInfo> {
   #ifdef HAVE_DBUS
     using namespace DBus;
 
-    Result<Connection> connectionResult = Connection::busGet(DBUS_BUS_SESSION);
-    if (!connectionResult)
-      return Err(connectionResult.error());
+    ConnectionGuard conn;
 
-    const Connection& connection = *connectionResult;
+    if (!conn)
+      return Err(DracError(DracErrorCode::ApiUnavailable, "Failed to connect to DBus session"));
 
-    Option<String> activePlayer = None;
+    const MethodCall getOwnerCall("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "ListNames");
+    const ReplyGuard reply(conn.sendWithReplyAndBlock(getOwnerCall, 2500));
 
-    {
-      Result<Message> listNamesResult = Message::newMethodCall("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "ListNames");
+    if (!reply)
+      return Err(DracError(DracErrorCode::NotFound, "Failed to list DBus names"));
 
-      if (!listNamesResult)
-        return Err(listNamesResult.error());
+    MessageIter iter;
+    reply.iterInit(iter);
 
-      Result<Message> listNamesReplyResult = connection.sendWithReplyAndBlock(*listNamesResult, 100);
+    if (iter.getType() != DBUS_TYPE_ARRAY || iter.getElementType() != DBUS_TYPE_STRING)
+      return Err(DracError(DracErrorCode::ParseError, "Invalid DBus reply format"));
 
-      if (!listNamesReplyResult)
-        return Err(listNamesReplyResult.error());
+    MessageIter subIter;
+    iter.recurse(subIter);
 
-      MessageIter iter = listNamesReplyResult->iterInit();
+    while (subIter.getType() == DBUS_TYPE_STRING) {
+      CStr name = nullptr;
+      subIter.getBasic(name);
 
-      if (!iter.isValid() || iter.getArgType() != DBUS_TYPE_ARRAY)
-        return Err(DracError(DracErrorCode::ParseError, "Invalid DBus ListNames reply format: Expected array"));
+      if (StringView(name).starts_with("org.mpris.MediaPlayer2.")) {
+        const MethodCall getPlayerCall(
+          name, "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "Get"
+        );
+        MessageAppendIter appendIter;
+        Message           mesg;
+        getPlayerCall.iterInit(mesg, appendIter);
 
-      MessageIter subIter = iter.recurse();
+        CStr iface = "org.mpris.MediaPlayer2.Player";
+        CStr prop  = "Metadata";
 
-      if (!subIter.isValid())
-        return Err(DracError(DracErrorCode::ParseError, "Invalid DBus ListNames reply format: Could not recurse into array"));
+        appendIter.appendBasic(iface);
+        appendIter.appendBasic(prop);
 
-      while (subIter.getArgType() != DBUS_TYPE_INVALID) {
-        if (Option<String> name = subIter.getString())
-          if (name->starts_with("org.mpris.MediaPlayer2.")) {
-            activePlayer = std::move(*name);
-            break;
+        const ReplyGuard playerReply(conn.sendWithReplyAndBlock(mesg, 2500));
+
+        if (playerReply) {
+          MessageIter playerIter;
+          playerReply.iterInit(playerIter);
+
+          if (playerIter.getType() == DBUS_TYPE_VARIANT) {
+            MessageIter variantIter;
+            playerIter.recurse(variantIter);
+
+            if (variantIter.getType() == DBUS_TYPE_ARRAY && variantIter.getElementType() == DBUS_TYPE_DICT_ENTRY) {
+              MessageIter dictIter;
+              variantIter.recurse(dictIter);
+
+              String artist, title;
+
+              while (dictIter.getType() == DBUS_TYPE_DICT_ENTRY) {
+                MessageIter entryIter;
+                dictIter.recurse(entryIter);
+
+                if (entryIter.getType() == DBUS_TYPE_STRING) {
+                  CStr key = nullptr;
+                  entryIter.getBasic(key);
+
+                  entryIter.next();
+
+                  MessageIter valueIter;
+                  entryIter.recurse(valueIter);
+
+                  if (StringView(key) == "xesam:artist" && valueIter.getType() == DBUS_TYPE_ARRAY &&
+                      valueIter.getElementType() == DBUS_TYPE_STRING) {
+                    MessageIter artistIter;
+                    valueIter.recurse(artistIter);
+                    if (artistIter.getType() == DBUS_TYPE_STRING) {
+                      CStr val = nullptr;
+                      artistIter.getBasic(val);
+                      artist = val;
+                    }
+                  } else if (StringView(key) == "xesam:title" && valueIter.getType() == DBUS_TYPE_STRING) {
+                    CStr val = nullptr;
+                    valueIter.getBasic(val);
+                    title = val;
+                  }
+                }
+                dictIter.next();
+              }
+              if (!title.empty())
+                return MediaInfo { std::move(title), std::move(artist) };
+            }
           }
-        if (!subIter.next())
-          break;
-      }
-    }
-
-    if (!activePlayer)
-      return Err(DracError(DracErrorCode::NotFound, "No active MPRIS players found"));
-
-    Result<Message> msgResult = Message::newMethodCall(activePlayer->c_str(), "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "Get");
-
-    if (!msgResult)
-      return Err(msgResult.error());
-
-    Message& msg = *msgResult;
-
-    if (!msg.appendArgs("org.mpris.MediaPlayer2.Player", "Metadata"))
-      return Err(DracError(DracErrorCode::InternalError, "Failed to append arguments to Properties.Get message"));
-
-    Result<Message> replyResult = connection.sendWithReplyAndBlock(msg, 100);
-
-    if (!replyResult)
-      return Err(replyResult.error());
-
-    Option<String> title  = None;
-    Option<String> artist = None;
-
-    MessageIter propIter = replyResult->iterInit();
-
-    if (!propIter.isValid())
-      return Err(DracError(DracErrorCode::ParseError, "Properties.Get reply has no arguments or invalid iterator"));
-
-    if (propIter.getArgType() != DBUS_TYPE_VARIANT)
-      return Err(DracError(DracErrorCode::ParseError, "Properties.Get reply argument is not a variant"));
-
-    MessageIter variantIter = propIter.recurse();
-
-    if (!variantIter.isValid())
-      return Err(DracError(DracErrorCode::ParseError, "Could not recurse into variant"));
-
-    if (variantIter.getArgType() != DBUS_TYPE_ARRAY || variantIter.getElementType() != DBUS_TYPE_DICT_ENTRY)
-      return Err(DracError(DracErrorCode::ParseError, "Metadata variant content is not a dictionary array (a{sv})"));
-
-    MessageIter dictIter = variantIter.recurse();
-
-    if (!dictIter.isValid())
-      return Err(DracError(DracErrorCode::ParseError, "Could not recurse into metadata dictionary array"));
-
-    while (dictIter.getArgType() == DBUS_TYPE_DICT_ENTRY) {
-      MessageIter entryIter = dictIter.recurse();
-
-      if (!entryIter.isValid()) {
-        if (!dictIter.next())
-          break;
-        continue;
-      }
-
-      Option<String> key = entryIter.getString();
-
-      if (!key) {
-        if (!dictIter.next())
-          break;
-        continue;
-      }
-
-      if (!entryIter.next() || entryIter.getArgType() != DBUS_TYPE_VARIANT) {
-        if (!dictIter.next())
-          break;
-        continue;
-      }
-
-      MessageIter valueVariantIter = entryIter.recurse();
-
-      if (!valueVariantIter.isValid()) {
-        if (!dictIter.next())
-          break;
-        continue;
-      }
-
-      if (*key == "xesam:title") {
-        title = valueVariantIter.getString();
-      } else if (*key == "xesam:artist") {
-        if (valueVariantIter.getArgType() == DBUS_TYPE_ARRAY && valueVariantIter.getElementType() == DBUS_TYPE_STRING) {
-          if (MessageIter artistArrayIter = valueVariantIter.recurse(); artistArrayIter.isValid())
-            artist = artistArrayIter.getString();
         }
       }
-
-      if (!dictIter.next())
-        break;
+      subIter.next();
     }
-
-    return MediaInfo(std::move(title), std::move(artist));
   #else
     return Err(DracError(DracErrorCode::NotSupported, "DBus support not available"));
   #endif
+
+    return Err(DracError(DracErrorCode::NotFound, "No media player found or an unknown error occurred"));
   }
 
-  fn GetWindowManager() -> Result<String> {
+  fn System::GetWindowManager() -> Result<String> {
   #if !defined(HAVE_WAYLAND) && !defined(HAVE_XCB)
     return Err(DracError(DracErrorCode::NotSupported, "Wayland or XCB support not available"));
-  #else
-    if (Result<String> waylandResult = GetWaylandCompositor())
-      return *waylandResult;
-
-    if (Result<String> x11Result = GetX11WindowManager())
-      return *x11Result;
-
-    return Err(DracError(DracErrorCode::NotFound, "Could not detect window manager (Wayland/X11) or both failed"));
   #endif
+
+    if (GetEnv("WAYLAND_DISPLAY"))
+      return GetWaylandCompositor();
+
+    if (GetEnv("DISPLAY"))
+      return GetX11WindowManager();
+
+    return Err(DracError(DracErrorCode::NotFound, "No display server detected"));
   }
 
-  fn GetDesktopEnvironment() -> Result<String> {
+  fn System::GetDesktopEnvironment() -> Result<String> {
     return GetEnv("XDG_CURRENT_DESKTOP")
       .transform([](String xdgDesktop) -> String {
-        if (const usize colon = xdgDesktop.find(':'); colon != String::npos)
-          xdgDesktop.resize(colon);
-
+        if (const usize colonPos = xdgDesktop.find(':'); colonPos != String::npos)
+          xdgDesktop.resize(colonPos);
         return xdgDesktop;
       })
-      .or_else([](const DracError&) -> Result<String> { return GetEnv("DESKTOP_SESSION"); });
+      .or_else([](DracError) { return GetEnv("DESKTOP_SESSION"); });
   }
 
-  fn GetShell() -> Result<String> {
+  fn System::GetShell() -> Result<String> {
     using util::types::Pair, util::types::Array, util::types::StringView;
 
-    if (const Result<String> shellPath = GetEnv("SHELL")) {
-      // clang-format off
-      constexpr Array<Pair<StringView, StringView>, 5> shellMap {{
-        { "bash",    "Bash" },
-        {  "zsh",     "Zsh" },
-        { "fish",    "Fish" },
-        {   "nu", "Nushell" },
-        {   "sh",      "SH" }, // sh last because other shells contain "sh"
-      }};
-      // clang-format on
+    return GetEnv("SHELL").transform([](String shellPath) -> String {
+      constexpr Array<Pair<StringView, StringView>, 5> shellMap {
+        {
+         { "/usr/bin/bash", "Bash" },
+         { "/usr/bin/zsh", "Zsh" },
+         { "/usr/bin/fish", "Fish" },
+         { "/usr/bin/nu", "Nushell" },
+         { "/usr/bin/sh", "SH" },
+         }
+      };
 
       for (const auto& [exe, name] : shellMap)
-        if (shellPath->contains(exe))
+        if (shellPath == exe)
           return String(name);
 
-      return *shellPath; // fallback to the raw shell path
-    }
-
-    return Err(DracError(DracErrorCode::NotFound, "Could not find SHELL environment variable"));
+      if (const usize lastSlash = shellPath.find_last_of('/'); lastSlash != String::npos)
+        return shellPath.substr(lastSlash + 1);
+      return shellPath;
+    });
   }
 
-  fn GetHost() -> Result<String> {
+  fn System::GetHost() -> Result<String> {
     using util::types::CStr;
 
     constexpr CStr primaryPath  = "/sys/class/dmi/id/product_family";
@@ -492,7 +455,7 @@ namespace os {
     ));
   }
 
-  fn GetKernelVersion() -> Result<String> {
+  fn System::GetKernelVersion() -> Result<String> {
     utsname uts;
 
     if (uname(&uts) == -1)
@@ -504,7 +467,7 @@ namespace os {
     return uts.release;
   }
 
-  fn GetDiskUsage() -> Result<ResourceUsage> {
+  fn System::GetDiskUsage() -> Result<ResourceUsage> {
     struct statvfs stat;
 
     if (statvfs("/", &stat) == -1)
@@ -517,7 +480,7 @@ namespace os {
   }
 } // namespace os
 
-  #if DRAC_ENABLE_PACKAGECOUNT
+  #ifdef __linux__
 namespace package {
   fn CountApk() -> Result<u64> {
     using namespace util::cache;
@@ -614,5 +577,3 @@ namespace package {
     #endif
 } // namespace package
   #endif
-
-#endif // __linux__

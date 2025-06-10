@@ -5,7 +5,7 @@
 
 #include "Config/Config.hpp"
 
-#include "Core/SystemData.hpp"
+#include "Core/System.hpp"
 
 #include "Util/Types.hpp"
 
@@ -52,5 +52,5 @@ namespace ui {
    * @param config The application configuration.
    * @param data The collected system data. @return The root ftxui::Element for rendering.
    */
-  fn CreateUI(const Config& config, const os::SystemData& data) -> ftxui::Element;
+  fn CreateUI(const Config& config, const os::System& data) -> ftxui::Element;
 } // namespace ui
