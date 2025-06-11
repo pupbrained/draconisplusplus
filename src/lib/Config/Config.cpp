@@ -2,14 +2,10 @@
 
 #include <format> // std::{format, format_error}
 
-#include "Services/Weather/MetNoService.hpp"
-#include "Services/Weather/OpenMeteoService.hpp"
-#include "Services/Weather/OpenWeatherMapService.hpp"
-
 #include "Util/Definitions.hpp"
 #include "Util/Logging.hpp"
 
-#ifndef PRECOMPILED_CONFIG
+#if !DRAC_PRECOMPILED_CONFIG
   #include <filesystem>                // std::filesystem::{path, operator/, exists, create_directories}
   #include <fstream>                   // std::{ifstream, ofstream, operator<<}
   #include <system_error>              // std::error_code
@@ -22,10 +18,14 @@
 
 namespace fs = std::filesystem;
 #else
+  #include "Services/Weather/MetNoService.hpp"
+  #include "Services/Weather/OpenMeteoService.hpp"
+  #include "Services/Weather/OpenWeatherMapService.hpp"
+
   #include "../config.hpp" // user-defined config
 #endif
 
-#ifndef PRECOMPILED_CONFIG
+#if !DRAC_PRECOMPILED_CONFIG
 namespace {
   using util::types::Vec, util::types::CStr, util::types::Exception;
 
@@ -153,7 +153,7 @@ location = "London"    # Your city name
 } // namespace
 #endif
 
-#ifndef PRECOMPILED_CONFIG
+#if !DRAC_PRECOMPILED_CONFIG
 Config::Config(const toml::table& tbl) {
   const toml::node_view genTbl = tbl["general"];
   this->general                = genTbl.is_table() ? General::fromToml(*genTbl.as_table()) : General {};
@@ -168,10 +168,10 @@ Config::Config(const toml::table& tbl) {
   this->weather                = wthTbl.is_table() ? Weather::fromToml(*wthTbl.as_table()) : Weather {};
   #endif // DRAC_ENABLE_WEATHER
 }
-#endif // PRECOMPILED_CONFIG
+#endif // DRAC_PRECOMPILED_CONFIG
 
 fn Config::getInstance() -> Config {
-#ifdef PRECOMPILED_CONFIG
+#if DRAC_PRECOMPILED_CONFIG
   using namespace config;
 
   Config cfg;
@@ -269,5 +269,5 @@ fn Config::getInstance() -> Config {
     error_log("An unexpected error occurred during config loading. Using in-memory defaults.");
     return {};
   }
-#endif // PRECOMPILED_CONFIG
+#endif // DRAC_PRECOMPILED_CONFIG
 }

@@ -7,6 +7,9 @@
 #include <mach/vm_statistics.h> // vm_statistics64_data_t
 #include <mach/mach_init.h>     // host_page_size, mach_host_self
 #include <mach/mach_host.h>     // host_statistics64
+#include <CoreFoundation/CoreFoundation.h> // CoreFoundation types and functions
+#include <IOKit/IOKitLib.h>     // IOKit types and functions
+#include <IOKit/graphics/IOGraphicsLib.h> // IOKit graphics types and functions
 
 #include "Core/System.hpp"
 #include "Services/PackageCounting.hpp"
@@ -76,7 +79,104 @@ namespace os {
   }
 
   fn System::getOSVersion() -> Result<String> {
-    return GetMacOSVersion();
+    // clang-format off
+    static constexpr Array<Pair<u8, StringView>, 6> VERSION_NAMES = {{
+      { 11, "Big Sur"  },
+      { 12, "Monterey" },
+      { 13, "Ventura"  },
+      { 14, "Sonoma"   },
+      { 15, "Sequoia"  },
+      { 26, "Tahoe"    },
+    }};
+    // clang-format on
+
+    CFURLRef url = CFURLCreateWithFileSystemPath(
+      kCFAllocatorDefault,
+      CFSTR("/System/Library/CoreServices/SystemVersion.plist"),
+      kCFURLPOSIXPathStyle,
+      false
+    );
+
+    if (!url)
+      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to create CFURL for SystemVersion.plist"));
+
+    CFReadStreamRef stream = CFReadStreamCreateWithFile(kCFAllocatorDefault, url);
+    CFRelease(url);
+
+    if (!stream)
+      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to create read stream for SystemVersion.plist"));
+
+    if (!CFReadStreamOpen(stream)) {
+      CFRelease(stream);
+      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to open SystemVersion.plist"));
+    }
+
+    static constexpr usize    BUFFER_SIZE = 4096;
+    Array<UInt8, BUFFER_SIZE> buffer;
+    CFMutableDataRef          data      = CFDataCreateMutable(kCFAllocatorDefault, 0);
+    CFIndex                   bytesRead = 0;
+
+    while ((bytesRead = CFReadStreamRead(stream, buffer.data(), buffer.size())) > 0)
+      CFDataAppendBytes(data, buffer.data(), bytesRead);
+
+    CFReadStreamClose(stream);
+    CFRelease(stream);
+
+    if (CFDataGetLength(data) == 0) {
+      CFRelease(data);
+      return Err(DracError(DracErrorCode::PlatformSpecific, "SystemVersion.plist is empty"));
+    }
+
+    CFPropertyListRef plist = CFPropertyListCreateWithData(
+      kCFAllocatorDefault, data, kCFPropertyListImmutable, nullptr, nullptr
+    );
+
+    CFRelease(data);
+
+    if (!plist || CFGetTypeID(plist) != CFDictionaryGetTypeID()) {
+      if (plist)
+        CFRelease(plist);
+
+      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to parse SystemVersion.plist"));
+    }
+
+    const auto* dict          = static_cast<CFDictionaryRef>(plist);
+    const auto* versionString = static_cast<CFStringRef>(CFDictionaryGetValue(dict, CFSTR("iOSSupportVersion")));
+
+    if (!versionString || CFGetTypeID(versionString) != CFStringGetTypeID()) {
+      CFRelease(plist);
+      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to get version string from SystemVersion.plist"));
+    }
+
+    static constexpr usize VERSION_BUFFER_SIZE = 256;
+
+    Array<char, VERSION_BUFFER_SIZE> versionBuffer;
+
+    if (!CFStringGetCString(versionString, versionBuffer.data(), versionBuffer.size(), kCFStringEncodingUTF8)) {
+      CFRelease(plist);
+      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to convert version string to C string"));
+    }
+
+    String versionNumber(versionBuffer.data());
+    CFRelease(plist);
+
+    if (versionNumber.empty())
+      return Err(DracError(DracErrorCode::PlatformSpecific, "Version string is empty"));
+
+    const usize dotPos = versionNumber.find('.');
+    if (dotPos == String::npos)
+      return Err(DracError(DracErrorCode::PlatformSpecific, "Invalid version number format"));
+
+    const u8   majorVersion = static_cast<u8>(std::stoi(versionNumber.substr(0, dotPos)));
+    StringView versionName  = "Unknown";
+
+    for (const auto& [version, name] : VERSION_NAMES)
+      if (version == majorVersion) {
+        versionName = name;
+        break;
+      }
+
+    return std::format("macOS {} {}", versionNumber, versionName);
   }
 
   fn System::getDesktopEnvironment() -> Result<String> {
@@ -342,7 +442,61 @@ namespace os {
   }
 
   fn System::getGPUModel() -> Result<String> {
-    return GetGPUModel();
+    io_iterator_t          iterator = 0;
+    CFMutableDictionaryRef matches  = IOServiceMatching(kIOAcceleratorClassName);
+    CFDictionaryAddValue(matches, CFSTR("IOMatchCategory"), CFSTR(kIOAcceleratorClassName));
+
+    if (IOServiceGetMatchingServices(MACH_PORT_NULL, matches, &iterator) != kIOReturnSuccess)
+      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to get GPU services"));
+
+    String              gpuModel;
+    io_registry_entry_t device = 0;
+
+    while ((device = IOIteratorNext(iterator)) != 0) {
+      CFMutableDictionaryRef properties = nullptr;
+      if (IORegistryEntryCreateCFProperties(device, &properties, kCFAllocatorDefault, 0) == kIOReturnSuccess) {
+        const auto* modelRef = static_cast<CFStringRef>(CFDictionaryGetValue(properties, CFSTR("model")));
+
+        if (modelRef) {
+          static constexpr usize         MODEL_BUFFER_SIZE = 256;
+          Array<char, MODEL_BUFFER_SIZE> modelBuffer;
+
+          if (CFStringGetCString(modelRef, modelBuffer.data(), modelBuffer.size(), kCFStringEncodingUTF8)) {
+            gpuModel = String(modelBuffer.data());
+            CFRelease(properties);
+            IOObjectRelease(device);
+            break;
+          }
+        }
+
+        io_registry_entry_t parentEntry = 0;
+        if (IORegistryEntryGetParentEntry(device, kIOServicePlane, &parentEntry) == kIOReturnSuccess) {
+          CFMutableDictionaryRef parentProperties = nullptr;
+          if (IORegistryEntryCreateCFProperties(parentEntry, &parentProperties, kCFAllocatorDefault, 0) == kIOReturnSuccess) {
+            const auto* parentModelRef = static_cast<CFStringRef>(CFDictionaryGetValue(parentProperties, CFSTR("model")));
+            if (parentModelRef) {
+              static constexpr usize         MODEL_BUFFER_SIZE = 256;
+              Array<char, MODEL_BUFFER_SIZE> modelBuffer;
+
+              if (CFStringGetCString(parentModelRef, modelBuffer.data(), modelBuffer.size(), kCFStringEncodingUTF8))
+                gpuModel = String(modelBuffer.data());
+            }
+            CFRelease(parentProperties);
+          }
+          IOObjectRelease(parentEntry);
+        }
+
+        CFRelease(properties);
+      }
+      IOObjectRelease(device);
+    }
+
+    IOObjectRelease(iterator);
+
+    if (gpuModel.empty())
+      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to get GPU model"));
+
+    return gpuModel;
   }
 
   fn System::getDiskUsage() -> Result<ResourceUsage> {
@@ -361,14 +515,14 @@ namespace os {
     if (const Result<String> shellPath = GetEnv("SHELL")) {
       // clang-format off
       constexpr Array<Pair<StringView, StringView>, 8> shellMap {{
-        { "bash", "Bash"        },
-        { "zsh",  "Zsh"         },
-        { "ksh",  "KornShell"   },
-        { "fish", "Fish"        },
-        { "tcsh", "TCsh"        },
-        { "csh",  "Csh"         },
-        { "sh",   "Sh"          },
-        { "nu",   "NuShell"     },
+        { "bash", "Bash"      },
+        { "zsh",  "Zsh"       },
+        { "ksh",  "KornShell" },
+        { "fish", "Fish"      },
+        { "tcsh", "TCsh"      },
+        { "csh",  "Csh"       },
+        { "sh",   "Sh"        },
+        { "nu",   "NuShell"   },
       }};
       // clang-format on
 
@@ -383,6 +537,7 @@ namespace os {
   }
 } // namespace os
 
+  #if DRAC_ENABLE_PACKAGECOUNT
 namespace package {
   fn GetHomebrewCount() -> Result<u64> {
     using util::cache::GetValidCache, util::cache::WriteCache;
@@ -435,5 +590,6 @@ namespace package {
     return GetCountFromDb("macports", "/opt/local/var/macports/registry/registry.db", "SELECT COUNT(*) FROM ports WHERE state='installed';");
   }
 } // namespace package
+  #endif
 
 #endif

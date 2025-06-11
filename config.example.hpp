@@ -6,12 +6,12 @@
  * Users should copy this file to `config.hpp` and customize the
  * settings according to their preferences.
  *
- * To enable these precompiled settings, `PRECOMPILED_CONFIG` must be defined
+ * To enable these precompiled settings, `DRAC_PRECOMPILED_CONFIG` must be defined
  * in your build system or `meson.options`.
  */
 #pragma once
 
-#ifdef PRECOMPILED_CONFIG
+#if DRAC_PRECOMPILED_CONFIG
 
   #if DRAC_ENABLE_WEATHER || DRAC_ENABLE_PACKAGECOUNT
     #include "Config/Config.hpp" // Location
@@ -132,4 +132,4 @@ namespace config {
   #endif
 } // namespace config
 
-#endif // PRECOMPILED_CONFIG
+#endif // DRAC_PRECOMPILED_CONFIG

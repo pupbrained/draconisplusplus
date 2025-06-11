@@ -32,6 +32,7 @@ common_warning_flags = [
   '-Wno-c++98-compat',
   '-Wno-c++98-compat-pedantic',
   '-Wno-disabled-macro-expansion',
+  '-Wno-gnu-conditional-omitted-operand',
   '-Wno-missing-prototypes',
   '-Wno-padded',
   '-Wno-pre-c++20-compat-pedantic',
@@ -141,7 +142,7 @@ common_deps = []
 fs = import('fs')
 
 if get_option('precompiled_config') == true
-  add_project_arguments('-DPRECOMPILED_CONFIG', language: ['cpp', 'objcpp'])
+  add_project_arguments('-DDRAC_PRECOMPILED_CONFIG', language: ['cpp'])
 
   config_hpp_path = meson.project_source_root() / 'config.hpp'
 
@@ -155,16 +156,20 @@ else
 endif
 
 if get_option('enable_nowplaying') == true
-  add_project_arguments('-DDRAC_ENABLE_NOWPLAYING', language: ['cpp', 'objcpp'])
+  add_project_arguments('-DDRAC_ENABLE_NOWPLAYING', language: ['cpp'])
 endif
 
 if get_option('enable_weather') == true
   common_deps += dependency('libcurl', include_type: 'system', static: true)
-  add_project_arguments('-DDRAC_ENABLE_WEATHER', language: ['cpp', 'objcpp'])
+  add_project_arguments('-DDRAC_ENABLE_WEATHER', language: ['cpp'])
 endif
 
 if get_option('enable_packagecount') == true
-  add_project_arguments('-DDRAC_ENABLE_PACKAGECOUNT', language: ['cpp', 'objcpp'])
+  if host_system == 'darwin' or host_system == 'linux'
+    common_deps += dependency('SQLiteCpp')
+  endif
+
+  add_project_arguments('-DDRAC_ENABLE_PACKAGECOUNT', language: ['cpp'])
 endif
 
 # Platform-specific dependencies
@@ -172,7 +177,6 @@ platform_deps = []
 
 if host_system == 'darwin'
   platform_deps += [
-    dependency('SQLiteCpp'),
     dependency(
       'appleframeworks',
       modules: ['foundation', 'iokit', 'mediaplayer', 'systemconfiguration'],
@@ -193,8 +197,6 @@ elif host_system != 'serenity' and host_system != 'haiku'
   xdmcp_dep = dependency('xdmcp', required: false)
   wayland_dep = dependency('wayland-client', required: false)
   pugixml_dep = dependency('pugixml', required: false)
-
-  platform_deps += dependency('SQLiteCpp')
 
   if host_system == 'linux' and get_option('use_pugixml') == true and pugixml_dep.found()
     platform_deps += pugixml_dep

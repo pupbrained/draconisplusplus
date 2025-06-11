@@ -29,6 +29,8 @@ namespace ui {
     StringView host;
     StringView kernel;
     StringView memory;
+    StringView cpu;
+    StringView gpu;
 #if DRAC_ENABLE_NOWPLAYING
     StringView music;
 #endif

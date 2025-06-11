@@ -25,6 +25,8 @@ namespace ui {
     .host               = "",
     .kernel             = "",
     .memory             = "",
+    .cpu                = "",
+    .gpu                = "",
 #if DRAC_ENABLE_NOWPLAYING
     .music = "",
 #endif
@@ -48,6 +50,12 @@ namespace ui {
     .host               = " 󰌢  ",
     .kernel             = "   ",
     .memory             = "   ",
+#ifdef DRAC_ARCH_64BIT
+    .cpu = " 󰻠  ", // 64-bit CPU
+#else
+    .cpu = " 󰻟  ", // 32-bit CPU
+#endif
+    .gpu = "   ",
 #if DRAC_ENABLE_NOWPLAYING
     .music = "   ",
 #endif
@@ -81,6 +89,8 @@ namespace ui {
     .host               = " 💻 ",
     .kernel             = " 🫀 ",
     .memory             = " 🧠 ",
+    .cpu                = " 💻 ",
+    .gpu                = " 🎨 ",
 #if DRAC_ENABLE_NOWPLAYING
     .music = " 🎵 ",
 #endif
@@ -165,32 +175,36 @@ namespace ui {
     const String& name = config.general.name;
 
     // clang-format off
-      const auto& [
-        calendarIcon,
-        deIcon,
-        diskIcon,
-        hostIcon,
-        kernelIcon,
-        memoryIcon,
-#if DRAC_ENABLE_NOWPLAYING
-        musicIcon,
-#endif
-        osIcon,
-#if DRAC_ENABLE_PACKAGECOUNT
-        packageIcon,
-#endif
-        paletteIcon,
-        shellIcon,
-        userIcon,
-#if DRAC_ENABLE_WEATHER
-        weatherIcon,
-#endif
-        wmIcon
-      ] = ui::ICON_TYPE;
+    const auto& [
+      calendarIcon,
+      deIcon,
+      diskIcon,
+      hostIcon,
+      kernelIcon,
+      memoryIcon,
+      cpuIcon,
+      gpuIcon,
+    #if DRAC_ENABLE_NOWPLAYING
+      musicIcon,
+    #endif
+      osIcon,
+    #if DRAC_ENABLE_PACKAGECOUNT
+      packageIcon,
+    #endif
+      paletteIcon,
+      shellIcon,
+      userIcon,
+    #if DRAC_ENABLE_WEATHER
+      weatherIcon,
+    #endif
+      wmIcon
+    ] = ui::ICON_TYPE;
     // clang-format on
 
     std::vector<RowInfo> initialRows;    // Date, Weather
-    std::vector<RowInfo> systemInfoRows; // Host, Kernel, OS, RAM, Disk, Shell, Packages
+    std::vector<RowInfo> systemInfoRows; // Host, OS, Kernel
+    std::vector<RowInfo> hardwareRows;   // RAM, Disk, CPU, GPU
+    std::vector<RowInfo> softwareRows;   // Shell, Packages
     std::vector<RowInfo> envInfoRows;    // DE, WM
 
     if (data.date)
@@ -228,12 +242,12 @@ namespace ui {
       systemInfoRows.push_back({ .icon = kernelIcon, .label = "Kernel", .value = *data.kernelVersion });
 
     if (data.memInfo)
-      systemInfoRows.push_back({ .icon = memoryIcon, .label = "RAM", .value = std::format("{}/{}", BytesToGiB(data.memInfo->usedBytes), BytesToGiB(data.memInfo->totalBytes)) });
+      hardwareRows.push_back({ .icon = memoryIcon, .label = "RAM", .value = std::format("{}/{}", BytesToGiB(data.memInfo->usedBytes), BytesToGiB(data.memInfo->totalBytes)) });
     else if (!data.memInfo.has_value())
       debug_at(data.memInfo.error());
 
     if (data.diskUsage)
-      systemInfoRows.push_back(
+      hardwareRows.push_back(
         {
           .icon  = diskIcon,
           .label = "Disk",
@@ -241,13 +255,19 @@ namespace ui {
         }
       );
 
+    if (data.cpuModel)
+      hardwareRows.push_back({ .icon = cpuIcon, .label = "CPU", .value = *data.cpuModel });
+
+    if (data.gpuModel)
+      hardwareRows.push_back({ .icon = gpuIcon, .label = "GPU", .value = *data.gpuModel });
+
     if (data.shell)
-      systemInfoRows.push_back({ .icon = shellIcon, .label = "Shell", .value = *data.shell });
+      softwareRows.push_back({ .icon = shellIcon, .label = "Shell", .value = *data.shell });
 
 #if DRAC_ENABLE_PACKAGECOUNT
     if (data.packageCount) {
       if (*data.packageCount > 0)
-        systemInfoRows.push_back({ .icon = packageIcon, .label = "Packages", .value = std::format("{}", *data.packageCount) });
+        softwareRows.push_back({ .icon = packageIcon, .label = "Packages", .value = std::format("{}", *data.packageCount) });
     }
 #endif
 
@@ -284,13 +304,17 @@ namespace ui {
 
     const usize iconActualWidth = get_visual_width_sv(userIcon);
 
-    const usize maxLabelWidthInitial = find_max_label_len(initialRows);
-    const usize maxLabelWidthSystem  = find_max_label_len(systemInfoRows);
-    const usize maxLabelWidthEnv     = find_max_label_len(envInfoRows);
+    const usize maxLabelWidthInitial  = find_max_label_len(initialRows);
+    const usize maxLabelWidthSystem   = find_max_label_len(systemInfoRows);
+    const usize maxLabelWidthHardware = find_max_label_len(hardwareRows);
+    const usize maxLabelWidthSoftware = find_max_label_len(softwareRows);
+    const usize maxLabelWidthEnv      = find_max_label_len(envInfoRows);
 
-    const usize requiredWidthInitialW = iconActualWidth + maxLabelWidthInitial;
-    const usize requiredWidthSystemW  = iconActualWidth + maxLabelWidthSystem;
-    const usize requiredWidthEnvW     = iconActualWidth + maxLabelWidthEnv;
+    const usize requiredWidthInitialW  = iconActualWidth + maxLabelWidthInitial;
+    const usize requiredWidthSystemW   = iconActualWidth + maxLabelWidthSystem;
+    const usize requiredWidthHardwareW = iconActualWidth + maxLabelWidthHardware;
+    const usize requiredWidthSoftwareW = iconActualWidth + maxLabelWidthSoftware;
+    const usize requiredWidthEnvW      = iconActualWidth + maxLabelWidthEnv;
 
     fn calculateRowVisualWidth = [&](const RowInfo& row, const usize requiredLabelVisualWidth) -> usize {
       return requiredLabelVisualWidth + get_visual_width(row.value) + get_visual_width_sv(" ");
@@ -301,6 +325,12 @@ namespace ui {
 
     for (const RowInfo& row : systemInfoRows)
       maxContentWidth = std::max(maxContentWidth, calculateRowVisualWidth(row, requiredWidthSystemW));
+
+    for (const RowInfo& row : hardwareRows)
+      maxContentWidth = std::max(maxContentWidth, calculateRowVisualWidth(row, requiredWidthHardwareW));
+
+    for (const RowInfo& row : softwareRows)
+      maxContentWidth = std::max(maxContentWidth, calculateRowVisualWidth(row, requiredWidthSoftwareW));
 
     for (const RowInfo& row : envInfoRows)
       maxContentWidth = std::max(maxContentWidth, calculateRowVisualWidth(row, requiredWidthEnvW));
@@ -349,25 +379,37 @@ namespace ui {
 
     const bool section1Present = !initialRows.empty();
     const bool section2Present = !systemInfoRows.empty();
-    const bool section3Present = !envInfoRows.empty();
+    const bool section3Present = !hardwareRows.empty();
+    const bool section4Present = !softwareRows.empty();
+    const bool section5Present = !envInfoRows.empty();
 
     if (section1Present)
       content.push_back(separator() | color(ui::DEFAULT_THEME.border));
 
     for (const RowInfo& row : initialRows) content.push_back(createStandardRow(row, requiredWidthInitialW));
 
-    if ((section1Present && (section2Present || section3Present)) || (!section1Present && section2Present))
+    if ((section1Present && (section2Present || section3Present || section4Present || section5Present)) || (!section1Present && section2Present))
       content.push_back(separator() | color(ui::DEFAULT_THEME.border));
 
     for (const RowInfo& row : systemInfoRows) content.push_back(createStandardRow(row, requiredWidthSystemW));
 
-    if (section2Present && section3Present)
+    if (section2Present && (section3Present || section4Present || section5Present))
+      content.push_back(separator() | color(ui::DEFAULT_THEME.border));
+
+    for (const RowInfo& row : hardwareRows) content.push_back(createStandardRow(row, requiredWidthHardwareW));
+
+    if (section3Present && (section4Present || section5Present))
+      content.push_back(separator() | color(ui::DEFAULT_THEME.border));
+
+    for (const RowInfo& row : softwareRows) content.push_back(createStandardRow(row, requiredWidthSoftwareW));
+
+    if (section4Present && section5Present)
       content.push_back(separator() | color(ui::DEFAULT_THEME.border));
 
     for (const RowInfo& row : envInfoRows) content.push_back(createStandardRow(row, requiredWidthEnvW));
 
 #if DRAC_ENABLE_NOWPLAYING
-    if ((section1Present || section2Present || section3Present) && nowPlayingActive)
+    if ((section1Present || section2Present || section3Present || section4Present || section5Present) && nowPlayingActive)
       content.push_back(separator() | color(ui::DEFAULT_THEME.border));
 
     if (nowPlayingActive) {

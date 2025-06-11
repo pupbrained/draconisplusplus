@@ -29,7 +29,7 @@ with lib; let
     ''
       #pragma once
 
-      #ifdef PRECOMPILED_CONFIG
+      #if DRAC_PRECOMPILED_CONFIG
 
       #if DRAC_ENABLE_WEATHER || DRAC_ENABLE_PACKAGECOUNT
         #include "Config/Config.hpp"

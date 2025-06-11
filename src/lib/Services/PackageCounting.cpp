@@ -3,7 +3,7 @@
 // clang-format off
 #include "PackageCounting.hpp"
 
-#ifdef PRECOMPILED_CONFIG
+#if DRAC_PRECOMPILED_CONFIG
   #include "config.hpp"
 #endif
 
@@ -291,7 +291,7 @@ namespace package {
     using util::error::DracError;
     using util::types::Exception, util::types::Future;
 
-  #ifdef PRECOMPILED_CONFIG
+  #if DRAC_PRECOMPILED_CONFIG
     #if DRAC_ENABLE_PACKAGECOUNT
     using util::types::Vec;
     Vec<Future<Result<u64>>> futures;
@@ -418,7 +418,7 @@ namespace package {
          std::async(std::launch::async, CountCargo),
          }
     };
-  #endif // PRECOMPILED_CONFIG
+  #endif // DRAC_PRECOMPILED_CONFIG
     u64  totalCount   = 0;
     bool oneSucceeded = false;
 

@@ -16,13 +16,10 @@ using util::types::MediaInfo, util::types::String, util::types::Result;
 
 @interface Bridge : NSObject
 + (void)fetchCurrentPlayingMetadata:(void (^_Nonnull)(NSDictionary* __nullable, NSError* __nullable))completion;
-+ (NSString* __nullable)macOSVersion;
 @end
   #else
 extern "C++" {
   fn GetCurrentPlayingInfo() -> Result<MediaInfo>;
-  fn GetMacOSVersion() -> Result<String>;
-  fn GetGPUModel() -> Result<String>;
 }
   #endif
 

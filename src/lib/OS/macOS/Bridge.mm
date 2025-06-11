@@ -8,6 +8,7 @@
 #import <IOKit/IOKitLib.h>
 #import <IOKit/graphics/IOGraphicsLib.h>
 #import <CoreFoundation/CoreFoundation.h>
+#import <sys/sysctl.h>
 
 #include <expected>
 #include <functional>
@@ -16,10 +17,11 @@
 #include <utility>
 
 #include "Util/Error.hpp"
+#include "Util/Logging.hpp"
 // clang-format on
 
 using util::error::DracError, util::error::DracErrorCode;
-using util::types::Err, util::types::Option, util::types::None, util::types::Result;
+using util::types::Array, util::types::Err, util::types::Option, util::types::None, util::types::Result, util::types::usize;
 
 using MRMediaRemoteGetNowPlayingInfoFunction =
   void (*)(dispatch_queue_t queue, void (^handler)(NSDictionary* information));
@@ -98,98 +100,6 @@ using MRMediaRemoteGetNowPlayingInfoFunction =
     }
   );
 }
-
-+ (NSString*)macOSVersion {
-  NSProcessInfo* processInfo = [NSProcessInfo processInfo];
-  if (!processInfo)
-    return nil;
-
-  NSOperatingSystemVersion osVersion = [processInfo operatingSystemVersion];
-  if (osVersion.majorVersion == 0)
-    return nil;
-
-  if (osVersion.majorVersion >= 16)
-    osVersion.majorVersion += 10;
-
-  NSString* versionNumber = nil;
-  if (osVersion.patchVersion == 0)
-    versionNumber = [NSString stringWithFormat:@"%ld.%ld",
-                                               osVersion.majorVersion,
-                                               osVersion.minorVersion];
-  else
-    versionNumber = [NSString stringWithFormat:@"%ld.%ld.%ld",
-                                               osVersion.majorVersion,
-                                               osVersion.minorVersion,
-                                               osVersion.patchVersion];
-
-  if (!versionNumber)
-    return nil;
-
-  NSDictionary* versionNames =
-    @{
-      @11 : @"Big Sur",
-      @12 : @"Monterey",
-      @13 : @"Ventura",
-      @14 : @"Sonoma",
-      @15 : @"Sequoia",
-      @26 : @"Tahoe",
-    };
-
-  NSNumber* majorVersion = @(osVersion.majorVersion);
-  NSString* versionName  = versionNames[majorVersion] ? versionNames[majorVersion] : @"Unknown";
-
-  NSString* fullVersion = [NSString stringWithFormat:@"macOS %@ %@", versionNumber, versionName];
-
-  return fullVersion ? fullVersion : nil;
-}
-
-+ (NSString*)gpuModel {
-  io_iterator_t          iterator = 0;
-  CFMutableDictionaryRef matches  = IOServiceMatching(kIOAcceleratorClassName);
-  CFDictionaryAddValue(matches, CFSTR("IOMatchCategory"), CFSTR(kIOAcceleratorClassName));
-
-  if (IOServiceGetMatchingServices(MACH_PORT_NULL, matches, &iterator) != kIOReturnSuccess)
-    return nil;
-
-  NSString*           gpuModel = nil;
-  io_registry_entry_t device   = 0;
-
-  while ((device = IOIteratorNext(iterator)) != 0) {
-    CFMutableDictionaryRef properties = nullptr;
-    if (IORegistryEntryCreateCFProperties(device, &properties, kCFAllocatorDefault, 0) == kIOReturnSuccess) {
-      const auto* modelRef = static_cast<CFStringRef>(IORegistryEntryCreateCFProperty(device, CFSTR("model"), kCFAllocatorDefault, 0));
-
-      if (modelRef) {
-        gpuModel = static_cast<NSString*>(modelRef);
-        CFRelease(modelRef);
-        CFRelease(properties);
-        IOObjectRelease(device);
-        break;
-      }
-
-      io_registry_entry_t parentEntry = 0;
-      if (IORegistryEntryGetParentEntry(device, kIOServicePlane, &parentEntry) == kIOReturnSuccess) {
-        CFMutableDictionaryRef parentProperties = nullptr;
-        if (IORegistryEntryCreateCFProperties(parentEntry, &parentProperties, kCFAllocatorDefault, 0) == kIOReturnSuccess) {
-          const auto* parentModelRef = static_cast<CFStringRef>(IORegistryEntryCreateCFProperty(parentEntry, CFSTR("model"), kCFAllocatorDefault, 0));
-          if (parentModelRef) {
-            gpuModel = static_cast<NSString*>(parentModelRef);
-            CFRelease(parentModelRef);
-          }
-          CFRelease(parentProperties);
-        }
-        IOObjectRelease(parentEntry);
-      }
-
-      CFRelease(properties);
-    }
-    IOObjectRelease(device);
-  }
-
-  IOObjectRelease(iterator);
-
-  return gpuModel;
-}
 @end
 
 extern "C++" {
@@ -244,22 +154,6 @@ extern "C++" {
 
     dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
     return result;
-  }
-
-  fn GetMacOSVersion() -> Result<String> {
-    NSString* version = [Bridge macOSVersion];
-
-    return version
-      ? Result<String>(String([version UTF8String]))
-      : Err(DracError(DracErrorCode::PlatformSpecific, "Failed to get macOS version"));
-  }
-
-  fn GetGPUModel() -> Result<String> {
-    NSString* model = [Bridge gpuModel];
-
-    return model
-      ? Result<String>(String([model UTF8String]))
-      : Err(DracError(DracErrorCode::PlatformSpecific, "Failed to get GPU model"));
   }
   // NOLINTEND(misc-use-internal-linkage)
 }

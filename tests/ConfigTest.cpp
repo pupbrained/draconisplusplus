@@ -2,7 +2,7 @@
 
 class ConfigTest : public testing::Test {};
 
-#ifdef PRECOMPILED_CONFIG
+#if DRAC_PRECOMPILED_CONFIG
   #include <type_traits> // For std::is_same_v
 
   #include "config.hpp" // Include the precompiled configuration header
@@ -290,7 +290,7 @@ TEST_F(ConfigTest, MainConfigConstructor_EmptySections) {
   #endif
 }
 
-#endif // PRECOMPILED_CONFIG
+#endif // DRAC_PRECOMPILED_CONFIG
 
 fn main(int argc, char** argv) -> int {
   testing::InitGoogleTest(&argc, argv);
