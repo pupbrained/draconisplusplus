@@ -87,10 +87,17 @@ namespace os {
     using enum util::error::DracErrorCode;
 
     // Use batch operations for related information
-    Future<Result<SystemInfo>>      sysFut  = std::async(async, &System::getSystemInfo);
-    Future<Result<EnvironmentInfo>> envFut  = std::async(async, &System::getEnvironmentInfo);
-    Future<Result<ResourceInfo>>    resFut  = std::async(async, &System::getResourceInfo);
-    Future<Result<String>>          dateFut = std::async(async, &System::getDate);
+    Future<Result<String>>        osFut     = std::async(async, &System::getOSVersion);
+    Future<Result<String>>        kernelFut = std::async(async, &System::getKernelVersion);
+    Future<Result<String>>        hostFut   = std::async(async, &System::getHost);
+    Future<Result<String>>        cpuFut    = std::async(async, &System::getCPUModel);
+    Future<Result<String>>        gpuFut    = std::async(async, &System::getGPUModel);
+    Future<Result<String>>        deFut     = std::async(async, &System::getDesktopEnvironment);
+    Future<Result<String>>        wmFut     = std::async(async, &System::getWindowManager);
+    Future<Result<String>>        shellFut  = std::async(async, &System::getShell);
+    Future<Result<ResourceUsage>> memFut    = std::async(async, &System::getMemInfo);
+    Future<Result<ResourceUsage>> diskFut   = std::async(async, &System::getDiskUsage);
+    Future<Result<String>>        dateFut   = std::async(async, &System::getDate);
 
 #if DRAC_ENABLE_PACKAGECOUNT
     Future<Result<u64>> pkgFut = std::async(async, package::GetTotalCount);
@@ -104,42 +111,17 @@ namespace os {
     Future<Result<weather::WeatherReport>> wthrFut = std::async(config.weather.enabled ? async : deferred, &System::getWeatherInfo, std::cref(config));
 #endif
 
-    // Get results from batch operations
-    auto sysResult  = sysFut.get();
-    auto envResult  = envFut.get();
-    auto resResult  = resFut.get();
-    auto dateResult = dateFut.get();
-
-    // Assign results to member variables
-    if (sysResult) {
-      this->osVersion     = std::move(sysResult->osVersion);
-      this->kernelVersion = std::move(sysResult->kernelVersion);
-      this->host          = std::move(sysResult->host);
-    } else {
-      this->osVersion     = Err(DracError(PlatformSpecific, "Failed to fetch system information"));
-      this->kernelVersion = Err(DracError(PlatformSpecific, "Failed to fetch system information"));
-      this->host          = Err(DracError(PlatformSpecific, "Failed to fetch system information"));
-    }
-
-    if (envResult) {
-      this->desktopEnv = std::move(envResult->desktopEnv);
-      this->windowMgr  = std::move(envResult->windowMgr);
-      this->shell      = std::move(envResult->shell);
-    } else {
-      this->desktopEnv = Err(DracError(PlatformSpecific, "Failed to fetch environment information"));
-      this->windowMgr  = Err(DracError(PlatformSpecific, "Failed to fetch environment information"));
-      this->shell      = Err(DracError(PlatformSpecific, "Failed to fetch environment information"));
-    }
-
-    if (resResult) {
-      this->memInfo   = resResult->memInfo;
-      this->diskUsage = resResult->diskUsage;
-    } else {
-      this->memInfo   = Err(DracError(PlatformSpecific, "Failed to fetch resource information"));
-      this->diskUsage = Err(DracError(PlatformSpecific, "Failed to fetch resource information"));
-    }
-
-    this->date = dateResult;
+    this->osVersion     = osFut.get();
+    this->kernelVersion = kernelFut.get();
+    this->host          = hostFut.get();
+    this->cpuModel      = cpuFut.get();
+    this->gpuModel      = gpuFut.get();
+    this->desktopEnv    = deFut.get();
+    this->windowMgr     = wmFut.get();
+    this->shell         = shellFut.get();
+    this->memInfo       = memFut.get();
+    this->diskUsage     = diskFut.get();
+    this->date          = dateFut.get();
 
 #if DRAC_ENABLE_PACKAGECOUNT
     this->packageCount = pkgFut.get();

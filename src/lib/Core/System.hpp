@@ -118,6 +118,8 @@ namespace os {
     Result<String>        windowMgr;     ///< Window manager (e.g., "KWin").
     Result<ResourceUsage> diskUsage;     ///< Used/Total disk space for root filesystem.
     Result<String>        shell;         ///< Name of the current user shell (e.g., "zsh").
+    Result<String>        cpuModel;      ///< CPU model name.
+    Result<String>        gpuModel;      ///< GPU model name.
 #if DRAC_ENABLE_PACKAGECOUNT
     Result<u64> packageCount; ///< Total number of packages installed.
 #endif

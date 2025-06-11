@@ -46,3 +46,7 @@ option('enable_weather', type: 'boolean', value: true)
 # Option: enable_packagecount
 # Description: Enable getting package count.
 option('enable_packagecount', type: 'boolean', value: true)
+
+# Option: build_examples
+# Description: Build example programs.
+option('build_examples', type: 'boolean', value: true)

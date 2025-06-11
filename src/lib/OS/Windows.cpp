@@ -6,6 +6,8 @@
 #include <tlhelp32.h>
 #include <wincrypt.h>
 #include <windows.h>
+#include <setupapi.h>
+#include <devguid.h>
 
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.Management.Deployment.h>
@@ -347,6 +349,91 @@ namespace os {
       return ResourceUsage { .usedBytes = totalBytes.QuadPart - freeBytes.QuadPart, .totalBytes = totalBytes.QuadPart };
 
     return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to get disk usage"));
+  }
+
+  fn System::getCPUModel() -> Result<String> {
+    HKEY hKey = nullptr;
+    if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", 0, KEY_READ, &hKey) != ERROR_SUCCESS)
+      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to open registry key for CPU information"));
+
+    DWORD dataSize = 0;
+    DWORD type     = 0;
+
+    if (RegQueryValueExW(hKey, L"ProcessorNameString", nullptr, &type, nullptr, &dataSize) != ERROR_SUCCESS) {
+      RegCloseKey(hKey);
+      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to read CPU model size from registry"));
+    }
+
+    std::wstring processorName(dataSize / sizeof(wchar_t), '\0');
+
+    // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+    if (RegQueryValueExW(hKey, L"ProcessorNameString", nullptr, nullptr, reinterpret_cast<LPBYTE>(processorName.data()), &dataSize) != ERROR_SUCCESS) {
+      RegCloseKey(hKey);
+      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to read CPU model from registry"));
+    }
+
+    RegCloseKey(hKey);
+
+    String utf8Name;
+    utf8Name.reserve(processorName.length());
+    for (wchar_t wchar : processorName) {
+      if (wchar == 0)
+        break;
+      if (wchar < 0x80) {
+        utf8Name.push_back(static_cast<char>(wchar));
+      } else if (wchar < 0x800) {
+        utf8Name.push_back(static_cast<char>(0xC0 | (wchar >> 6)));
+        utf8Name.push_back(static_cast<char>(0x80 | (wchar & 0x3F)));
+      } else {
+        utf8Name.push_back(static_cast<char>(0xE0 | (wchar >> 12)));
+        utf8Name.push_back(static_cast<char>(0x80 | ((wchar >> 6) & 0x3F)));
+        utf8Name.push_back(static_cast<char>(0x80 | (wchar & 0x3F)));
+      }
+    }
+
+    return utf8Name;
+  }
+
+  fn System::getGPUModel() -> Result<String> {
+    HDEVINFO hdev = SetupDiGetClassDevsW(&GUID_DEVCLASS_DISPLAY, nullptr, nullptr, DIGCF_PRESENT);
+    if (hdev == INVALID_HANDLE_VALUE)
+      return Err(DracError(DracErrorCode::PlatformSpecific, "SetupDiGetClassDevsW failed"));
+
+    SP_DEVINFO_DATA did;
+    did.cbSize = sizeof(did);
+
+    String gpuName;
+
+    if (SetupDiEnumDeviceInfo(hdev, 0, &did)) {
+      Array<wchar_t, 256> buffer;
+      DWORD               bufferLen = buffer.size();
+
+      // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+      if (SetupDiGetDeviceRegistryPropertyW(hdev, &did, SPDRP_DEVICEDESC, nullptr, reinterpret_cast<PBYTE>(buffer.data()), buffer.size(), &bufferLen)) {
+        gpuName.reserve(bufferLen / sizeof(wchar_t));
+        for (wchar_t wchar : std::wstring_view(buffer.data(), bufferLen / sizeof(wchar_t))) {
+          if (wchar == 0)
+            break;
+          if (wchar < 0x80) {
+            gpuName.push_back(static_cast<char>(wchar));
+          } else if (wchar < 0x800) {
+            gpuName.push_back(static_cast<char>(0xC0 | (wchar >> 6)));
+            gpuName.push_back(static_cast<char>(0x80 | (wchar & 0x3F)));
+          } else {
+            gpuName.push_back(static_cast<char>(0xE0 | (wchar >> 12)));
+            gpuName.push_back(static_cast<char>(0x80 | ((wchar >> 6) & 0x3F)));
+            gpuName.push_back(static_cast<char>(0x80 | (wchar & 0x3F)));
+          }
+        }
+      }
+    }
+
+    SetupDiDestroyDeviceInfoList(hdev);
+
+    if (gpuName.empty())
+      return Err(DracError(DracErrorCode::NotFound, "No GPU found"));
+
+    return gpuName;
   }
 } // namespace os
 

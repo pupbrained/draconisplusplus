@@ -23,6 +23,7 @@ config.toml
 draconis++
 Makefile
 result
+imgui.ini
 subprojects/*
 !subprojects/*.wrap
 subprojects/sqlite3.wrap

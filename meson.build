@@ -184,6 +184,7 @@ elif host_system == 'windows'
   platform_deps += [
     cpp.find_library('dwmapi'),
     cpp.find_library('windowsapp'),
+    cpp.find_library('setupapi'),
   ]
 elif host_system != 'serenity' and host_system != 'haiku'
   dbus_dep = dependency('dbus-1', required: false)
@@ -311,6 +312,13 @@ executable(
   objc_args: objc_args,
   install: true,
 )
+
+# -------------------- #
+#  Example Executable  #
+# -------------------- #
+if get_option('build_examples')
+  subdir('examples')
+endif
 
 # ----------------- #
 #  Testing Support  #
