@@ -34,11 +34,8 @@
 #include "Util/Error.hpp"
 #include "Util/Types.hpp"
 
-using util::error::DracError;
-using util::types::CStr, util::types::String, util::types::StringView, util::types::Array, util::types::Option, util::types::Result;
-
 #if DRAC_ENABLE_WEATHER
-using Location = std::variant<String, weather::Coords>;
+using Location = std::variant<util::types::String, weather::Coords>;
 #endif // DRAC_ENABLE_WEATHER
 
 /**
@@ -46,7 +43,7 @@ using Location = std::variant<String, weather::Coords>;
  * @brief Holds general configuration settings.
  */
 struct General {
-  String name = getDefaultName(); ///< Default display name, retrieved from the system.
+  util::types::String name = getDefaultName(); ///< Default display name, retrieved from the system.
 
   /**
    * @brief Retrieves the default name for the user.
@@ -57,8 +54,10 @@ struct General {
    * On POSIX systems, it first tries to get the username using getpwuid,
    * then checks the USER and LOGNAME environment variables.
    */
-  static fn getDefaultName() -> String {
+  static fn getDefaultName() -> util::types::String {
 #ifdef _WIN32
+    using util::types::Array;
+
     Array<char, 256> username;
 
     DWORD size = username.size();
@@ -66,6 +65,7 @@ struct General {
     return GetUserNameA(username.data(), &size) ? username.data() : "User";
 #else
     using util::helpers::GetEnv;
+    using util::types::CStr, util::types::String, util::types::Result;
 
     const passwd*        pwd        = getpwuid(getuid());
     CStr                 pwdName    = pwd ? pwd->pw_name : nullptr;
@@ -86,6 +86,8 @@ struct General {
    * @return A General instance with the parsed values, or defaults otherwise.
    */
   static fn fromToml(const toml::table& tbl) -> General {
+    using util::types::String;
+
     General gen;
 
     if (const toml::node_view<const toml::node> nameNode = tbl["name"])
@@ -124,9 +126,9 @@ struct NowPlaying {
  * @brief Holds configuration settings for the Weather feature.
  */
 struct Weather {
-  Location            location; ///< Location for weather data, can be a city name or coordinates.
-  Option<String>      apiKey;   ///< API key for the weather service.
-  config::WeatherUnit units;    ///< Units for temperature, either "metric" or "imperial".
+  Location                                 location; ///< Location for weather data, can be a city name or coordinates.
+  util::types::Option<util::types::String> apiKey;   ///< API key for the weather service.
+  config::WeatherUnit                      units;    ///< Units for temperature, either "metric" or "imperial".
 
   bool                                      enabled      = false;   ///< Flag to enable or disable the Weather feature.
   bool                                      showTownName = false;   ///< Flag to show the town name in the output.
@@ -139,6 +141,8 @@ struct Weather {
    * @return A Weather instance with the parsed values, or defaults otherwise.
    */
   static fn fromToml(const toml::table& tbl) -> Weather {
+    using util::types::String;
+
     using matchit::match, matchit::is, matchit::_;
 
     #define SET_ERROR(...)       \

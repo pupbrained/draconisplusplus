@@ -17,33 +17,30 @@
 #include "Wrappers/Curl.hpp"
 // clang-format on
 
+using namespace util::types;
+using util::error::DracError;
+using enum util::error::DracErrorCode;
 using weather::OpenWeatherMapService;
 using weather::WeatherReport;
-// DTOs and their Glaze meta definitions are now in Services/Weather/DataTransferObjects.hpp
 
 namespace {
-  using util::error::DracError, util::error::DracErrorCode;
-  using util::types::usize, util::types::Err, util::types::Result, util::types::String, util::types::StringView;
-
   fn MakeApiRequest(const String& url) -> Result<WeatherReport> {
     using glz::error_ctx, glz::read, glz::error_code;
     using util::types::None, util::types::Option;
 
     String responseBuffer;
 
-    // clang-format off
     Curl::Easy curl({
-      .url = url,
-      .writeBuffer = &responseBuffer,
-      .timeoutSecs = 10L,
-      .connectTimeoutSecs = 5L
+      .url                = url,
+      .writeBuffer        = &responseBuffer,
+      .timeoutSecs        = 10L,
+      .connectTimeoutSecs = 5L,
     });
-    // clang-format on
 
     if (!curl) {
       if (Option<DracError> initError = curl.getInitializationError())
         return Err(*initError);
-      return Err(DracError(DracErrorCode::ApiUnavailable, "Failed to initialize cURL (Easy handle is invalid after construction)"));
+      return Err(DracError(ApiUnavailable, "Failed to initialize cURL (Easy handle is invalid after construction)"));
     }
 
     if (Result res = curl.perform(); !res)
@@ -52,26 +49,18 @@ namespace {
     weather::dto::owm::OWMResponse owmResponse;
 
     if (const error_ctx errc = read<glz::opts { .error_on_unknown_keys = false }>(owmResponse, responseBuffer); errc.ec != error_code::none)
-      return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer))));
+      return Err(DracError(ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer))));
 
-    // Check for OpenWeatherMap API error codes
     if (owmResponse.cod && *owmResponse.cod != 200) {
-      String apiErrorMessage = "OpenWeatherMap API error";
-      if (owmResponse.message && !owmResponse.message->empty()) {
-        apiErrorMessage += std::format(" ({}): {}", *owmResponse.cod, *owmResponse.message);
-      } else {
-        apiErrorMessage += std::format(" (Code: {})", *owmResponse.cod);
-      }
-      // Map to specific DracErrorCodes if desired
-      DracErrorCode dErrorCode = DracErrorCode::ApiUnavailable; // General API issue
-      if (*owmResponse.cod == 401)
-        dErrorCode = DracErrorCode::PermissionDenied; // Authentication error
-      else if (*owmResponse.cod == 404)
-        dErrorCode = DracErrorCode::NotFound; // Location not found
-      else if (*owmResponse.cod == 429)
-        dErrorCode = DracErrorCode::ApiUnavailable; // Rate limited, treat as temporarily unavailable
+      using matchit::match, matchit::is, matchit::or_, matchit::_;
 
-      return Err(DracError(dErrorCode, apiErrorMessage));
+      String apiErrorMessage = "OpenWeatherMap API error";
+      if (owmResponse.message && !owmResponse.message->empty())
+        apiErrorMessage += std::format(" ({}): {}", *owmResponse.cod, *owmResponse.message);
+      else
+        apiErrorMessage += std::format(" (Code: {})", *owmResponse.cod);
+
+      return Err(DracError(match(*owmResponse.cod)(is | 401 = PermissionDenied, is | 404 = NotFound, is | or_(429, _) = ApiUnavailable), apiErrorMessage));
     }
 
     WeatherReport report = {
@@ -106,8 +95,6 @@ fn OpenWeatherMapService::getWeatherInfo() const -> Result<WeatherReport> {
   };
 
   if (std::holds_alternative<String>(m_location)) {
-    using util::types::i32;
-
     const auto& city = std::get<String>(m_location);
 
     Result<String> escapedUrl = Curl::Easy::escape(city);
@@ -127,7 +114,7 @@ fn OpenWeatherMapService::getWeatherInfo() const -> Result<WeatherReport> {
     return handleApiResult(MakeApiRequest(apiUrl));
   }
 
-  return Err(DracError(DracErrorCode::ParseError, "Invalid location type in configuration."));
+  return Err(DracError(ParseError, "Invalid location type in configuration."));
 }
 
 #endif // DRAC_ENABLE_WEATHER

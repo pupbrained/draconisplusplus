@@ -15,6 +15,9 @@
 #include "Wrappers/Curl.hpp"
 // clang-format on
 
+using namespace util::types;
+using util::error::DracError;
+using enum util::error::DracErrorCode;
 using weather::MetNoService;
 using weather::WeatherReport;
 
@@ -24,8 +27,6 @@ MetNoService::MetNoService(const f64 lat, const f64 lon, config::WeatherUnit uni
 fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
   using glz::error_ctx, glz::read, glz::error_code;
   using util::cache::GetValidCache, util::cache::WriteCache;
-  using util::error::DracError, util::error::DracErrorCode;
-  using util::types::None, util::types::Err, util::types::StringView;
 
   if (Result<WeatherReport> cachedDataResult = GetValidCache<WeatherReport>("weather"))
     return *cachedDataResult;
@@ -48,7 +49,7 @@ fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
     if (Option<DracError> initError = curl.getInitializationError())
       return Err(*initError);
 
-    return Err(DracError(DracErrorCode::ApiUnavailable, "Failed to initialize cURL (Easy handle is invalid after construction)"));
+    return Err(DracError(ApiUnavailable, "Failed to initialize cURL (Easy handle is invalid after construction)"));
   }
 
   if (Result res = curl.perform(); !res)
@@ -57,10 +58,10 @@ fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
   weather::dto::metno::Response apiResp {};
 
   if (error_ctx errc = read<glz::opts { .error_on_unknown_keys = false }>(apiResp, responseBuffer); errc.ec != error_code::none)
-    return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer))));
+    return Err(DracError(ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer))));
 
   if (apiResp.properties.timeseries.empty())
-    return Err(DracError(DracErrorCode::ParseError, "No timeseries data in met.no response"));
+    return Err(DracError(ParseError, "No timeseries data in met.no response"));
 
   const auto& [time, data] = apiResp.properties.timeseries.front();
 

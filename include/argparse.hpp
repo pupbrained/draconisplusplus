@@ -92,18 +92,15 @@
 // ReSharper disable CppTemplateParameterNeverUsed, CppDFATimeOver
 // NOLINTBEGIN(readability-identifier-naming, readability-identifier-length, modernize-use-nullptr)
 namespace argparse {
-  using namespace util::types;
-  using util::error::DracError, util::error::DracErrorCode;
-
   using ArgValue = std::variant<
     bool,
     int,
     double,
-    String,
+    util::types::String,
     std::filesystem::path,
-    Vec<String>,
-    Vec<int>,
-    std::set<String>,
+    util::types::Vec<util::types::String>,
+    util::types::Vec<int>,
+    std::set<util::types::String>,
     std::set<int>>;
 
   namespace details {
@@ -119,13 +116,13 @@ namespace argparse {
      * @brief Specialization for std::string - not considered a container
      */
     template <>
-    struct HasContainerTraits<String> : std::false_type {};
+    struct HasContainerTraits<util::types::String> : std::false_type {};
 
     /**
      * @brief Specialization for std::string_view - not considered a container
      */
     template <>
-    struct HasContainerTraits<StringView> : std::false_type {};
+    struct HasContainerTraits<util::types::StringView> : std::false_type {};
 
     /**
      * @brief Specialization for types that have container-like properties
@@ -166,7 +163,7 @@ namespace argparse {
     /**
      * @brief Maximum number of elements to show when representing a container
      */
-    constexpr usize repr_max_container_size = 5;
+    constexpr util::types::usize repr_max_container_size = 5;
 
     /**
      * @brief Concept to check if a type can be formatted using std::format
@@ -185,7 +182,9 @@ namespace argparse {
      * @return String representation of the value
      */
     template <typename T>
-    static fn repr(const T& val) -> String {
+    static fn repr(const T& val) -> util::types::String {
+      using util::types::String, util::types::StringView, util::types::usize;
+
       if constexpr (std::is_same_v<T, bool>)
         return val ? "true" : "false";
       else if constexpr (std::is_convertible_v<T, StringView>)
@@ -238,10 +237,10 @@ namespace argparse {
     /**
      * @brief Radix constants for number parsing
      */
-    constexpr i32 radix_2  = 2;
-    constexpr i32 radix_8  = 8;
-    constexpr i32 radix_10 = 10;
-    constexpr i32 radix_16 = 16;
+    constexpr util::types::u32 radix_2  = 2;
+    constexpr util::types::u32 radix_8  = 8;
+    constexpr util::types::u32 radix_10 = 10;
+    constexpr util::types::u32 radix_16 = 16;
 
     /**
      * @brief Helper function to apply a function with an additional argument
@@ -254,7 +253,7 @@ namespace argparse {
      * @param x Additional argument
      * @return Result of applying the function
      */
-    template <class F, class Tuple, class Extra, usize... I>
+    template <class F, class Tuple, class Extra, util::types::usize... I>
     constexpr fn apply_plus_one_impl(F&& f, Tuple&& t, Extra&& x, std::index_sequence<I...> /*unused*/) -> decltype(auto) {
       return std::invoke(std::forward<F>(f), std::get<I>(std::forward<Tuple>(t))..., std::forward<Extra>(x));
     }
@@ -281,7 +280,7 @@ namespace argparse {
      * @param s The string view to get pointers for
      * @return Tuple of (start pointer, end pointer)
      */
-    constexpr fn pointer_range(const StringView s) noexcept -> std::tuple<const char*, const char*> {
+    constexpr fn pointer_range(const util::types::StringView s) noexcept -> std::tuple<const char*, const char*> {
       return { s.data(), s.data() + s.size() };
     }
 
@@ -301,7 +300,7 @@ namespace argparse {
     /**
      * @brief Format flags for number parsing
      */
-    enum class chars_format : u8 {
+    enum class chars_format : util::types::u8 {
       scientific = 0xf1,              ///< Scientific notation (e.g., 1.23e4)
       fixed      = 0xf2,              ///< Fixed point notation (e.g., 123.45)
       hex        = 0xf4,              ///< Hexadecimal notation (e.g., 0x1a)
@@ -313,8 +312,8 @@ namespace argparse {
      * @brief Result of checking for binary prefix
      */
     struct ConsumeBinaryPrefixResult {
-      bool       is_binary; ///< Whether the string had a binary prefix
-      StringView rest;      ///< The string after removing the prefix
+      bool                    is_binary; ///< Whether the string had a binary prefix
+      util::types::StringView rest;      ///< The string after removing the prefix
     };
 
     /**
@@ -322,9 +321,9 @@ namespace argparse {
      * @param s The string to check
      * @return Result containing whether a binary prefix was found and the remaining string
      */
-    constexpr fn consume_binary_prefix(StringView s) -> ConsumeBinaryPrefixResult {
-      if (starts_with(StringView { "0b" }, s) ||
-          starts_with(StringView { "0B" }, s)) {
+    constexpr fn consume_binary_prefix(util::types::StringView s) -> ConsumeBinaryPrefixResult {
+      if (starts_with(util::types::StringView { "0b" }, s) ||
+          starts_with(util::types::StringView { "0B" }, s)) {
         s.remove_prefix(2);
         return { .is_binary = true, .rest = s };
       }
@@ -336,18 +335,18 @@ namespace argparse {
      * @brief Result of checking for hexadecimal prefix
      */
     struct ConsumeHexPrefixResult {
-      bool       is_hexadecimal; ///< Whether the string had a hex prefix
-      StringView rest;           ///< The string after removing the prefix
+      bool                    is_hexadecimal; ///< Whether the string had a hex prefix
+      util::types::StringView rest;           ///< The string after removing the prefix
     };
-
-    using namespace std::literals;
 
     /**
      * @brief Check if a string starts with a hexadecimal prefix and remove it
      * @param s The string to check
      * @return Result containing whether a hex prefix was found and the remaining string
      */
-    constexpr fn consume_hex_prefix(StringView s) -> ConsumeHexPrefixResult {
+    constexpr fn consume_hex_prefix(util::types::StringView s) -> ConsumeHexPrefixResult {
+      using namespace std::literals;
+
       if (starts_with("0x"sv, s) || starts_with("0X"sv, s)) {
         s.remove_prefix(2);
         return { .is_hexadecimal = true, .rest = s };
@@ -364,7 +363,10 @@ namespace argparse {
      * @return Result containing the parsed number or an error
      */
     template <class T, auto Param>
-    fn do_from_chars(const StringView s) -> Result<T> {
+    fn do_from_chars(const util::types::StringView s) -> util::types::Result<T> {
+      using util::error::DracError, util::error::DracErrorCode;
+      using util::types::Err;
+
       T x { 0 };
       auto [first, last] = pointer_range(s);
       auto [ptr, ec]     = std::from_chars(first, last, x, Param);
@@ -373,16 +375,16 @@ namespace argparse {
         if (ptr == last)
           return x;
 
-        return Err(DracError(DracErrorCode::ParseError, std::format("pattern '{}' does not match to the end", String(s))));
+        return Err(util::error::DracError(util::error::DracErrorCode::ParseError, std::format("pattern '{}' does not match to the end", util::types::String(s))));
       }
 
       if (ec == std::errc::invalid_argument)
-        return Err(DracError(DracErrorCode::InvalidArgument, std::format("pattern '{}' not found", String(s))));
+        return Err(util::error::DracError(util::error::DracErrorCode::InvalidArgument, std::format("pattern '{}' not found", util::types::String(s))));
 
       if (ec == std::errc::result_out_of_range)
-        return Err(DracError(DracErrorCode::ParseError, std::format("'{}' not representable", String(s))));
+        return Err(util::error::DracError(util::error::DracErrorCode::ParseError, std::format("'{}' not representable", util::types::String(s))));
 
-      return Err(DracError(DracErrorCode::InternalError, std::format("Unknown parsing error for '{}'", String(s))));
+      return Err(DracError(DracErrorCode::InternalError, std::format("Unknown parsing error for '{}'", util::types::String(s))));
     }
 
     /**
@@ -397,7 +399,7 @@ namespace argparse {
        * @param s The string to parse
        * @return Result containing the parsed number or an error
        */
-      static fn operator()(const StringView s)->Result<T> {
+      static fn operator()(const util::types::StringView s)->util::types::Result<T> {
         return do_from_chars<T, Param>(s);
       }
     };
@@ -413,7 +415,10 @@ namespace argparse {
        * @param s The string to parse (must start with 0b or 0B)
        * @return Result containing the parsed number or an error
        */
-      static fn operator()(const StringView s)->Result<T> {
+      static fn operator()(const util::types::StringView s)->util::types::Result<T> {
+        using util::error::DracError, util::error::DracErrorCode;
+        using util::types::Err;
+
         if (auto [ok, rest] = consume_binary_prefix(s); ok)
           return do_from_chars<T, radix_2>(rest);
 
@@ -432,19 +437,23 @@ namespace argparse {
        * @param s The string to parse (may start with 0x or 0X)
        * @return Result containing the parsed number or an error
        */
-      static fn operator()(const StringView s)->Result<T> {
+      static fn operator()(const util::types::StringView s)->util::types::Result<T> {
+        using util::error::DracError, util::error::DracErrorCode;
+        using util::types::Err, util::types::Result;
+        using namespace std::literals;
+
         Result<T> result;
 
         if (starts_with("0x"sv, s) || starts_with("0X"sv, s)) {
           if (auto [ok, rest] = consume_hex_prefix(s); ok)
             result = do_from_chars<T, radix_16>(rest);
           else
-            return Err(DracError(DracErrorCode::InternalError, std::format("Inconsistent hex prefix detection for '{}'", String(s))));
+            return Err(DracError(DracErrorCode::InternalError, std::format("Inconsistent hex prefix detection for '{}'", util::types::String(s))));
         } else
           result = do_from_chars<T, radix_16>(s);
 
         if (!result)
-          return Err(DracError(result.error().code, std::format("Failed to parse '{}' as hexadecimal: {}", String(s), result.error().message)));
+          return Err(DracError(result.error().code, std::format("Failed to parse '{}' as hexadecimal: {}", util::types::String(s), result.error().message)));
 
         return result;
       }
@@ -467,12 +476,16 @@ namespace argparse {
        * - Octal (0 prefix)
        * - Decimal (no prefix)
        */
-      static fn operator()(const StringView s)->Result<T> {
+      static fn operator()(const util::types::StringView s)->util::types::Result<T> {
+        using util::error::DracError, util::error::DracErrorCode;
+        using util::types::Err, util::types::Result;
+        using namespace std::literals;
+
         if (auto [ok, rest] = consume_hex_prefix(s); ok) {
           Result<T> result = do_from_chars<T, radix_16>(rest);
 
           if (!result)
-            return Err(DracError(result.error().code, std::format("Failed to parse '{}' as hexadecimal: {}", String(s), result.error().message)));
+            return Err(DracError(result.error().code, std::format("Failed to parse '{}' as hexadecimal: {}", util::types::String(s), result.error().message)));
 
           return result;
         }
@@ -481,7 +494,7 @@ namespace argparse {
           Result<T> result = do_from_chars<T, radix_2>(rest_binary);
 
           if (!result)
-            return Err(DracError(result.error().code, std::format("Failed to parse '{}' as binary: {}", String(s), result.error().message)));
+            return Err(DracError(result.error().code, std::format("Failed to parse '{}' as binary: {}", util::types::String(s), result.error().message)));
 
           return result;
         }
@@ -490,7 +503,7 @@ namespace argparse {
           Result<T> result = do_from_chars<T, radix_8>(s);
 
           if (!result)
-            return Err(DracError(result.error().code, std::format("Failed to parse '{}' as octal: {}", String(s), result.error().message)));
+            return Err(DracError(result.error().code, std::format("Failed to parse '{}' as octal: {}", util::types::String(s), result.error().message)));
 
           return result;
         }
@@ -498,7 +511,7 @@ namespace argparse {
         Result<T> result = do_from_chars<T, radix_10>(s);
 
         if (!result)
-          return Err(DracError(result.error().code, std::format("Failed to parse '{}' as decimal integer: {}", String(s), result.error().message)));
+          return Err(DracError(result.error().code, std::format("Failed to parse '{}' as decimal integer: {}", util::types::String(s), result.error().message)));
 
         return result;
       }
@@ -524,7 +537,10 @@ namespace argparse {
      * @return Result containing the parsed number or an error
      */
     template <class T>
-    fn do_strtod(const String& s) -> Result<T> {
+    fn do_strtod(const util::types::String& s) -> util::types::Result<T> {
+      using util::error::DracError, util::error::DracErrorCode;
+      using util::types::Err, util::types::Result;
+
       if (isspace(static_cast<unsigned char>(s[0])) || s[0] == '+')
         return Err(DracError(DracErrorCode::InvalidArgument, std::format("pattern '{}' not found", s)));
 
@@ -560,7 +576,10 @@ namespace argparse {
        * @param s The string to parse
        * @return Result containing the parsed number or an error
        */
-      fn operator()(const String& s)->Result<T> {
+      fn operator()(const util::types::String& s)->util::types::Result<T> {
+        using util::error::DracError, util::error::DracErrorCode;
+        using util::types::Err, util::types::Result;
+
         if (auto [is_hex, rest] = consume_hex_prefix(s); is_hex)
           return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::general does not parse hexfloat"));
 
@@ -568,8 +587,10 @@ namespace argparse {
           return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::general does not parse binfloat"));
 
         Result<T> result = do_strtod<T>(s);
+
         if (!result)
           return Err(DracError(result.error().code, std::format("Failed to parse '{}' as number: {}", s, result.error().message)));
+
         return result;
       }
     };
@@ -585,7 +606,10 @@ namespace argparse {
        * @param s The string to parse (must start with 0x or 0X)
        * @return Result containing the parsed number or an error
        */
-      fn operator()(const String& s)->Result<T> {
+      fn operator()(const util::types::String& s)->util::types::Result<T> {
+        using util::error::DracError, util::error::DracErrorCode;
+        using util::types::Err, util::types::Result;
+
         if (auto [is_hex, rest] = consume_hex_prefix(s); !is_hex)
           return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::hex requires hexfloat format (e.g., 0x1.2p3)"));
 
@@ -610,7 +634,10 @@ namespace argparse {
        * @param s The string to parse (must start with 0b or 0B)
        * @return Result containing the parsed number or an error
        */
-      fn operator()(const String& s)->Result<T> {
+      fn operator()(const util::types::String& s)->util::types::Result<T> {
+        using util::error::DracError, util::error::DracErrorCode;
+        using util::types::Err, util::types::Result;
+
         if (auto [is_hex, rest] = consume_hex_prefix(s); is_hex)
           return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::binary does not parse hexfloat"));
 
@@ -618,8 +645,10 @@ namespace argparse {
           return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::binary requires binfloat format (e.g., 0b1.01p2)"));
 
         Result<T> result = do_strtod<T>(s);
+
         if (!result)
           return Err(DracError(result.error().code, std::format("Failed to parse '{}' as binary float: {}", s, result.error().message)));
+
         return result;
       }
     };
@@ -635,14 +664,17 @@ namespace argparse {
        * @param s The string to parse (must contain e or E)
        * @return Result containing the parsed number or an error
        */
-      fn operator()(const String& s)->Result<T> {
+      fn operator()(const util::types::String& s)->util::types::Result<T> {
+        using util::error::DracError, util::error::DracErrorCode;
+        using util::types::Err, util::types::Result;
+
         if (auto [is_hex, rest] = consume_hex_prefix(s); is_hex)
           return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::scientific does not parse hexfloat"));
 
         if (auto [is_bin, rest] = consume_binary_prefix(s); is_bin)
           return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::scientific does not parse binfloat"));
 
-        if (s.find_first_of("eE") == String::npos)
+        if (s.find_first_of("eE") == util::types::String::npos)
           return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::scientific requires exponent part"));
 
         Result<T> result = do_strtod<T>(s);
@@ -665,14 +697,17 @@ namespace argparse {
        * @param s The string to parse (must not contain e or E)
        * @return Result containing the parsed number or an error
        */
-      fn operator()(const String& s)->Result<T> {
+      fn operator()(const util::types::String& s)->util::types::Result<T> {
+        using util::error::DracError, util::error::DracErrorCode;
+        using util::types::Err, util::types::Result;
+
         if (auto [is_hex, rest] = consume_hex_prefix(s); is_hex)
           return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::fixed does not parse hexfloat"));
 
         if (auto [is_bin, rest] = consume_binary_prefix(s); is_bin)
           return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::fixed does not parse binfloat"));
 
-        if (s.find_first_of("eE") != String::npos)
+        if (s.find_first_of("eE") != util::types::String::npos)
           return Err(DracError(DracErrorCode::InvalidArgument, "chars_format::fixed does not parse exponent part"));
 
         Result<T> result = do_strtod<T>(s);
@@ -702,11 +737,11 @@ namespace argparse {
      * @return The joined string
      */
     template <typename StrIt>
-    fn join(StrIt first, StrIt last, const String& separator) -> String {
+    fn join(StrIt first, StrIt last, const util::types::String& separator) -> util::types::String {
       if (first == last)
         return "";
 
-      std::stringstream value;
+      std::stringstream value {};
       value << *first;
       ++first;
 
@@ -751,8 +786,8 @@ namespace argparse {
     struct IsChoiceTypeSupported {
       using CleanType         = std::decay_t<T>;
       static const bool value = std::is_integral_v<CleanType> ||
-        std::is_same_v<CleanType, String> ||
-        std::is_same_v<CleanType, StringView> ||
+        std::is_same_v<CleanType, util::types::String> ||
+        std::is_same_v<CleanType, util::types::StringView> ||
         std::is_same_v<CleanType, const char*>;
     };
 
@@ -764,26 +799,39 @@ namespace argparse {
      * @return The Levenshtein distance between s1 and s2
      */
     template <typename StringType>
-    fn get_levenshtein_distance(const StringType& s1, const StringType& s2) -> usize {
-      Vec<Vec<usize>> dp(
-        s1.size() + 1, Vec<usize>(s2.size() + 1, 0)
-      );
+    fn get_levenshtein_distance(const StringType& s1, const StringType& s2) -> util::types::usize {
+      using util::types::usize, util::types::Vec;
 
-      for (usize i = 0; i <= s1.size(); ++i) {
-        for (usize j = 0; j <= s2.size(); ++j) {
-          if (i == 0) {
-            dp[i][j] = j;
-          } else if (j == 0) {
-            dp[i][j] = i;
-          } else if (s1[i - 1] == s2[j - 1]) {
-            dp[i][j] = dp[i - 1][j - 1];
-          } else {
-            dp[i][j] = 1 + std::min<usize>({ dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1] });
-          }
-        }
+      if (s1.empty())
+        return s2.size();
+      if (s2.empty())
+        return s1.size();
+
+      if (s1 == s2)
+        return 0;
+
+      const StringType& shorter = s1.size() <= s2.size() ? s1 : s2;
+      const StringType& longer  = s1.size() <= s2.size() ? s2 : s1;
+
+      Vec<usize> prev_row(shorter.size() + 1);
+      Vec<usize> curr_row(shorter.size() + 1);
+
+      for (usize i = 0; i <= shorter.size(); ++i)
+        prev_row[i] = i;
+
+      for (usize i = 1; i <= longer.size(); ++i) {
+        curr_row[0] = i;
+
+        for (usize j = 1; j <= shorter.size(); ++j)
+          if (longer[i - 1] == shorter[j - 1])
+            curr_row[j] = prev_row[j - 1];
+          else
+            curr_row[j] = 1 + std::min<usize>({ prev_row[j], curr_row[j - 1], prev_row[j - 1] });
+
+        std::swap(prev_row, curr_row);
       }
 
-      return dp[s1.size()][s2.size()];
+      return prev_row[shorter.size()];
     }
 
     /**
@@ -795,7 +843,9 @@ namespace argparse {
      * @return The most similar string from the map
      */
     template <typename MapType>
-    fn get_most_similar_string(const MapType& map, const String& input) -> String {
+    fn get_most_similar_string(const MapType& map, const util::types::String& input) -> util::types::String {
+      using util::types::usize, util::types::String;
+
       String most_similar {};
       usize  min_distance = (std::numeric_limits<usize>::max)();
 
@@ -837,7 +887,7 @@ namespace argparse {
    * @brief Enumeration for specifying the number of arguments pattern
    * @details Defines different patterns for how many arguments an option can accept
    */
-  enum class nargs_pattern : u8 {
+  enum class nargs_pattern : util::types::u8 {
     optional,    ///< Argument is optional (0 or 1 arguments)
     any,         ///< Argument can accept any number of arguments (0 or more)
     at_least_one ///< Argument requires at least one argument (1 or more)
@@ -847,7 +897,7 @@ namespace argparse {
    * @brief Enumeration for specifying which default arguments to add
    * @details Controls which standard arguments (help, version) are automatically added
    */
-  enum class default_arguments : u8 {
+  enum class default_arguments : util::types::u8 {
     none    = 0,             ///< No default arguments
     help    = 1,             ///< Add help argument (-h/--help)
     version = 2,             ///< Add version argument (-v/--version)
@@ -885,8 +935,8 @@ namespace argparse {
      * @param a Array of argument names
      * @param unused Index sequence for parameter pack expansion
      */
-    template <usize N, usize... I>
-    explicit Argument(const StringView prefix_chars, std::array<StringView, N>&& a, std::index_sequence<I...> /*unused*/) // NOLINT(cppcoreguidelines-rvalue-reference-param-not-moved)
+    template <util::types::usize N, util::types::usize... I>
+    explicit Argument(const util::types::StringView prefix_chars, std::array<util::types::StringView, N>&& a, std::index_sequence<I...> /*unused*/) // NOLINT(cppcoreguidelines-rvalue-reference-param-not-moved)
       : m_accepts_optional_like_value(false),
         m_is_optional((is_optional(a[I], prefix_chars) || ...)),
         m_is_required(false),
@@ -909,8 +959,8 @@ namespace argparse {
      * @param prefix_chars Characters that can be used as argument prefixes
      * @param a Array of argument names
      */
-    template <usize N>
-    explicit Argument(StringView prefix_chars, std::array<StringView, N>&& a)
+    template <util::types::usize N>
+    explicit Argument(util::types::StringView prefix_chars, std::array<util::types::StringView, N>&& a)
       : Argument(prefix_chars, std::move(a), std::make_index_sequence<N> {}) {}
 
     /**
@@ -918,7 +968,7 @@ namespace argparse {
      * @param help_text The help text to display
      * @return Reference to this argument for method chaining
      */
-    fn help(String help_text) -> Argument& {
+    fn help(util::types::String help_text) -> Argument& {
       m_help = std::move(help_text);
       return *this;
     }
@@ -928,7 +978,7 @@ namespace argparse {
      * @param metavar The metavar to display in help text
      * @return Reference to this argument for method chaining
      */
-    fn metavar(String metavar) -> Argument& {
+    fn metavar(util::types::String metavar) -> Argument& {
       m_metavar = std::move(metavar);
       return *this;
     }
@@ -941,6 +991,8 @@ namespace argparse {
      */
     template <typename T>
     fn default_value(T&& value) -> Argument& {
+      using util::types::String, util::types::StringView;
+
       m_num_args_range     = NArgsRange { 0, m_num_args_range.get_max() };
       m_default_value_repr = details::repr(value);
 
@@ -959,6 +1011,8 @@ namespace argparse {
      * @return Reference to this argument for method chaining
      */
     fn default_value(const char* value) -> Argument& {
+      using util::types::String;
+
       return default_value(String(value));
     }
 
@@ -1006,9 +1060,11 @@ namespace argparse {
     template <class F, class... Args>
     fn action(F&& callable, Args&&... bound_args)
       -> Argument&
-      requires(std::is_invocable_v<F, Args..., const String>)
+      requires(std::is_invocable_v<F, Args..., const util::types::String>)
     {
-      using RawReturnType = std::invoke_result_t<F, Args..., const String>;
+      using util::types::String, util::types::Result;
+
+      using RawReturnType = std::invoke_result_t<F, Args..., const util::types::String>;
 
       if constexpr (std::is_void_v<RawReturnType>) {
         m_actions.emplace_back<void_action>(
@@ -1056,6 +1112,8 @@ namespace argparse {
      */
     fn store_into(bool& variable)
       -> Argument& {
+      using util::types::String, util::types::Result;
+
       if ((!m_default_value.has_value()) && (!m_implicit_value.has_value()))
         flag();
 
@@ -1080,6 +1138,9 @@ namespace argparse {
     fn store_into(T& variable) -> Argument&
       requires(std::is_integral_v<T>)
     {
+      using util::error::DracError, util::error::DracErrorCode;
+      using util::types::Err, util::types::Result;
+
       if (m_default_value.has_value())
         variable = std::get<T>(m_default_value.value());
 
@@ -1106,6 +1167,9 @@ namespace argparse {
     fn store_into(T& variable) -> Argument&
       requires(std::is_floating_point_v<T>)
     {
+      using util::error::DracError, util::error::DracErrorCode;
+      using util::types::Err, util::types::Result;
+
       if (m_default_value.has_value())
         variable = std::get<T>(m_default_value.value());
 
@@ -1127,8 +1191,9 @@ namespace argparse {
      * @param variable Reference to the string variable to store the value in
      * @return Reference to this argument for method chaining
      */
-    fn store_into(String& variable)
-      -> Argument& {
+    fn store_into(util::types::String& variable) -> Argument& {
+      using util::types::String, util::types::Result;
+
       if (m_default_value.has_value())
         variable = std::get<String>(m_default_value.value());
 
@@ -1146,6 +1211,8 @@ namespace argparse {
      * @return Reference to this argument for method chaining
      */
     fn store_into(std::filesystem::path& variable) -> Argument& {
+      using util::types::String, util::types::Result;
+
       if (m_default_value.has_value())
         variable = std::get<std::filesystem::path>(m_default_value.value());
 
@@ -1162,7 +1229,9 @@ namespace argparse {
      * @param variable Reference to the vector to store the values in
      * @return Reference to this argument for method chaining
      */
-    fn store_into(Vec<String>& variable) -> Argument& {
+    fn store_into(util::types::Vec<util::types::String>& variable) -> Argument& {
+      using util::types::String, util::types::Vec, util::types::Result;
+
       if (m_default_value.has_value())
         variable = std::get<Vec<String>>(m_default_value.value());
 
@@ -1183,7 +1252,10 @@ namespace argparse {
      * @param variable Reference to the vector to store the values in
      * @return Reference to this argument for method chaining
      */
-    fn store_into(Vec<int>& variable) -> Argument& {
+    fn store_into(util::types::Vec<util::types::i32>& variable) -> Argument& {
+      using util::error::DracError;
+      using util::types::Err, util::types::i32, util::types::Vec, util::types::Result, util::types::String;
+
       if (m_default_value.has_value())
         variable = std::get<Vec<int>>(m_default_value.value());
 
@@ -1210,7 +1282,9 @@ namespace argparse {
      * @param variable Reference to the set to store the values in
      * @return Reference to this argument for method chaining
      */
-    fn store_into(std::set<String>& variable) -> Argument& {
+    fn store_into(std::set<util::types::String>& variable) -> Argument& {
+      using util::types::String, util::types::Result;
+
       if (m_default_value.has_value())
         variable = std::get<std::set<String>>(m_default_value.value());
 
@@ -1231,17 +1305,20 @@ namespace argparse {
      * @param variable Reference to the set to store the values in
      * @return Reference to this argument for method chaining
      */
-    fn store_into(std::set<int>& variable) -> Argument& {
+    fn store_into(std::set<util::types::i32>& variable) -> Argument& {
+      using util::error::DracError;
+      using util::types::Err, util::types::i32, util::types::Result, util::types::String;
+
       if (m_default_value.has_value())
         variable = std::get<std::set<int>>(m_default_value.value());
 
-      action([this, &variable](const String& s) -> Result<std::set<int>> {
+      action([this, &variable](const String& s) -> Result<std::set<i32>> {
         if (!m_is_used)
           variable.clear();
 
         m_is_used = true;
 
-        Result<int> result = details::parse_number<int, details::radix_10>()(s);
+        Result<i32> result = details::parse_number<i32, details::radix_10>()(s);
 
         if (!result)
           return Err(DracError(result.error().code, std::format("Failed to parse '{}' as decimal integer for set: {}", s, result.error().message)));
@@ -1294,6 +1371,9 @@ namespace argparse {
     fn scan() -> Argument&
       requires(std::is_arithmetic_v<T>)
     {
+      using util::error::DracError, util::error::DracErrorCode;
+      using util::types::Err, util::types::Result, util::types::String;
+
       static_assert(!(std::is_const_v<T> || std::is_volatile_v<T>), "T should not be cv-qualified");
 
       fn is_one_of = [](char c, auto... x) constexpr {
@@ -1381,7 +1461,7 @@ namespace argparse {
      * @param num_args The exact number of arguments required
      * @return Reference to this argument for method chaining
      */
-    fn nargs(const usize num_args)
+    fn nargs(const util::types::usize num_args)
       -> Argument& {
       m_num_args_range = NArgsRange { num_args, num_args };
       return *this;
@@ -1393,7 +1473,7 @@ namespace argparse {
      * @param num_args_max Maximum number of arguments allowed
      * @return Reference to this argument for method chaining
      */
-    fn nargs(const usize num_args_min, const usize num_args_max) -> Argument& {
+    fn nargs(const util::types::usize num_args_min, const util::types::usize num_args_max) -> Argument& {
       m_num_args_range = NArgsRange { num_args_min, num_args_max };
       return *this;
     }
@@ -1441,6 +1521,8 @@ namespace argparse {
      */
     template <typename T>
     fn add_choice(T&& choice) -> void {
+      using util::types::String, util::types::StringView;
+
       static_assert(details::IsChoiceTypeSupported<T>::value, "Only string or integer type supported for choice");
       static_assert(std::is_convertible_v<T, StringView> || details::can_invoke_to_string<T>::value, "Choice is not convertible to string_type");
       if (!m_choices.has_value())
@@ -1486,7 +1568,10 @@ namespace argparse {
      * @return Result indicating success or failure
      * @details Returns an error if the default value is not in the choices list
      */
-    [[nodiscard]] fn find_default_value_in_choices() const -> Result<> {
+    [[nodiscard]] fn find_default_value_in_choices() const -> util::types::Result<> {
+      using util::error::DracError, util::error::DracErrorCode;
+      using util::types::Err, util::types::Result, util::types::String;
+
       assert(m_choices.has_value());
       const auto& choices = m_choices.value();
 
@@ -1534,7 +1619,10 @@ namespace argparse {
      *          - Manages repeatable arguments
      */
     template <typename Iterator>
-    fn consume(Iterator start, Iterator end, const StringView used_name = {}, const bool dry_run = false) -> Result<Iterator> {
+    fn consume(Iterator start, Iterator end, const util::types::StringView used_name = {}, const bool dry_run = false) -> util::types::Result<Iterator> {
+      using util::error::DracError, util::error::DracErrorCode;
+      using util::types::Err, util::types::Result, util::types::String, util::types::usize;
+
       if (!m_is_repeatable && m_is_used)
         return Err(DracError(DracErrorCode::InvalidArgument, String("Duplicate argument ").append(used_name)));
 
@@ -1692,7 +1780,10 @@ namespace argparse {
      *          - Verifies values are in choices list if specified
      *          - Validates default values against choices
      */
-    [[nodiscard]] fn validate() const -> Result<> {
+    [[nodiscard]] fn validate() const -> util::types::Result<> {
+      using util::error::DracError, util::error::DracErrorCode;
+      using util::types::Err, util::types::Result, util::types::String;
+
       if (m_num_args_range.get_min() > m_num_args_range.get_max())
         return Err(DracError(DracErrorCode::InvalidArgument, std::format("Invalid nargs range for argument '{}': min ({}) > max ({}). This indicates a configuration error when defining the argument.", m_names.empty() ? "UnnamedArgument" : m_names[0], m_num_args_range.get_min(), m_num_args_range.get_max())));
 
@@ -1738,7 +1829,9 @@ namespace argparse {
      * @param separator The separator to use between names
      * @return String containing the names separated by the specified character
      */
-    [[nodiscard]] fn get_names_csv(const char separator = ',') const -> String {
+    [[nodiscard]] fn get_names_csv(const char separator = ',') const -> util::types::String {
+      using util::types::String;
+
       return std::accumulate(
         m_names.begin(), m_names.end(), String { "" }, [&](const String& result, const String& name) {
           return result.empty() ? name : result + separator + name;
@@ -1751,7 +1844,9 @@ namespace argparse {
      * @return String containing the full usage format
      * @details Includes argument names, metavar, and nargs information
      */
-    [[nodiscard]] fn get_usage_full() const -> String {
+    [[nodiscard]] fn get_usage_full() const -> util::types::String {
+      using util::types::String;
+
       std::stringstream usage;
 
       usage << get_names_csv('/');
@@ -1772,7 +1867,9 @@ namespace argparse {
      * @details Includes argument names, metavar, and nargs information in a format
      *          suitable for inline display in help messages
      */
-    [[nodiscard]] fn get_inline_usage() const -> String {
+    [[nodiscard]] fn get_inline_usage() const -> util::types::String {
+      using util::types::String;
+
       std::stringstream usage;
 
       String longest_name = m_names.front();
@@ -1806,9 +1903,11 @@ namespace argparse {
      * @return Length of the argument's display string
      * @details Calculates the length needed to display the argument in help messages
      */
-    [[nodiscard]] fn get_arguments_length() const -> usize {
+    [[nodiscard]] fn get_arguments_length() const -> util::types::usize {
+      using util::types::usize;
+
       const usize names_size = std::accumulate(
-        std::begin(m_names), std::end(m_names), static_cast<usize>(0), [](const u32& sum, const String& s) { return sum + s.size(); }
+        std::begin(m_names), std::end(m_names), static_cast<usize>(0), [](const util::types::u32& sum, const util::types::String& s) { return sum + s.size(); }
       );
 
       if (is_positional(m_names.front(), m_prefix_chars)) {
@@ -1838,6 +1937,8 @@ namespace argparse {
      *          - Repeatable status
      */
     friend fn operator<<(std::ostream& stream, const Argument& argument)->std::ostream& {
+      using util::types::String, util::types::StringView;
+
       String name_str = "  ";
 
       if (argparse::Argument::is_positional(argument.m_names.front(), argument.m_prefix_chars)) {
@@ -1935,21 +2036,21 @@ namespace argparse {
      */
     template <typename T>
     fn operator==(const T& rhs) const->bool {
+      using util::types::Result;
+
       Result<T> lhs_res = get<T>();
-      if (!lhs_res) {
+
+      if (!lhs_res)
         return false;
-      }
 
       const T& lhs_val = lhs_res.value();
 
-      if constexpr (!details::IsContainer<T>) {
+      if constexpr (!details::IsContainer<T>)
         return lhs_val == rhs;
-      } else {
-        if (lhs_val.size() != rhs.size()) {
-          return false;
-        }
-        return std::equal(std::begin(lhs_val), std::end(lhs_val), std::begin(rhs));
-      }
+      else if (lhs_val.size() != rhs.size())
+        return false;
+
+      return std::equal(std::begin(lhs_val), std::end(lhs_val), std::begin(rhs));
     }
 
     /**
@@ -1963,7 +2064,7 @@ namespace argparse {
      *          - Starts with '-' followed by a decimal literal
      *          - Does not start with a prefix character
      */
-    static fn is_positional(StringView name, const StringView prefix_chars) -> bool {
+    static fn is_positional(util::types::StringView name, const util::types::StringView prefix_chars) -> bool {
       const int first = lookahead(name);
 
       if (first == eof)
@@ -1987,8 +2088,8 @@ namespace argparse {
      * @details Manages the minimum and maximum number of arguments that can be provided
      */
     class NArgsRange {
-      usize m_min;
-      usize m_max;
+      util::types::usize m_min;
+      util::types::usize m_max;
 
      public:
       /**
@@ -1996,7 +2097,7 @@ namespace argparse {
        * @param minimum Minimum number of arguments allowed
        * @param maximum Maximum number of arguments allowed
        */
-      NArgsRange(const usize minimum, const usize maximum)
+      NArgsRange(const util::types::usize minimum, const util::types::usize maximum)
         : m_min(minimum), m_max(maximum) {}
 
       /**
@@ -2004,7 +2105,7 @@ namespace argparse {
        * @param value The value to check
        * @return true if value is between min and max (inclusive)
        */
-      [[nodiscard]] fn contains(const usize value) const -> bool {
+      [[nodiscard]] fn contains(const util::types::usize value) const -> bool {
         return value >= m_min && value <= m_max;
       }
 
@@ -2021,14 +2122,14 @@ namespace argparse {
        * @return true if max is less than the maximum possible value
        */
       [[nodiscard]] fn is_right_bounded() const -> bool {
-        return m_max < (std::numeric_limits<usize>::max)();
+        return m_max < (std::numeric_limits<util::types::usize>::max)();
       }
 
       /**
        * @brief Get the minimum number of arguments
        * @return The minimum number of arguments required
        */
-      [[nodiscard]] fn get_min() const -> usize {
+      [[nodiscard]] fn get_min() const -> util::types::usize {
         return m_min;
       }
 
@@ -2036,7 +2137,7 @@ namespace argparse {
        * @brief Get the maximum number of arguments
        * @return The maximum number of arguments allowed
        */
-      [[nodiscard]] fn get_max() const -> usize {
+      [[nodiscard]] fn get_max() const -> util::types::usize {
         return m_max;
       }
 
@@ -2050,12 +2151,11 @@ namespace argparse {
        *          - [nargs: N or more] for unbounded ranges
        *          - [nargs=N..M] for bounded ranges
        */
-      friend fn operator<<(std::ostream& stream, const NArgsRange& range)
-        ->std::ostream& {
+      friend fn operator<<(std::ostream& stream, const NArgsRange& range)->std::ostream& {
         if (range.m_min == range.m_max) {
           if (range.m_min != 0 && range.m_min != 1)
             stream << std::format("[nargs: {}] ", range.m_min);
-        } else if (range.m_max == (std::numeric_limits<usize>::max)())
+        } else if (range.m_max == (std::numeric_limits<util::types::usize>::max)())
           stream << std::format("[nargs: {} or more] ", range.m_min);
         else
           stream << std::format("[nargs={}..{}] ", range.m_min, range.m_max);
@@ -2089,7 +2189,7 @@ namespace argparse {
      * @param sview The string view to examine
      * @return The first character or EOF if the string is empty
      */
-    static fn lookahead(const StringView sview) -> int {
+    static fn lookahead(const util::types::StringView sview) -> int {
       if (sview.empty())
         return eof;
 
@@ -2109,13 +2209,15 @@ namespace argparse {
      *          - An integer part followed by an exponent
      */
     // NOLINTBEGIN(cppcoreguidelines-avoid-goto)
-    static fn is_decimal_literal(StringView s) -> bool {
+    static fn is_decimal_literal(util::types::StringView s) -> bool {
       fn is_digit = [](auto c) constexpr -> bool {
         return c >= '0' && c <= '9';
       };
 
-      fn consume_digits = [=](StringView sd) -> StringView {
-        // dont change this, it breaks on windows
+      fn consume_digits = [=](util::types::StringView sd) -> util::types::StringView {
+        using util::types::usize;
+
+        // NOLINTNEXTLINE(*-qualified-auto) - dont change this, it breaks on windows
         const auto it = std::ranges::find_if_not(sd, is_digit);
 
         return sd.substr(static_cast<usize>(it - std::begin(sd)));
@@ -2219,7 +2321,7 @@ namespace argparse {
      * @param prefix_chars Characters that can be used as argument prefixes
      * @return true if the argument is optional, false otherwise
      */
-    static fn is_optional(const StringView name, const StringView prefix_chars) -> bool {
+    static fn is_optional(const util::types::StringView name, const util::types::StringView prefix_chars) -> bool {
       return !is_positional(name, prefix_chars);
     }
 
@@ -2229,7 +2331,10 @@ namespace argparse {
      * @return Result containing the value if found, or an error if the type is incompatible
      */
     template <typename T>
-    fn get() const -> Result<T> {
+    fn get() const -> util::types::Result<T> {
+      using util::error::DracError, util::error::DracErrorCode;
+      using util::types::Err, util::types::Result, util::types::String;
+
       if (!m_values.empty()) {
         try {
           if constexpr (details::IsContainer<T>)
@@ -2262,7 +2367,10 @@ namespace argparse {
      * @return Result containing the value if found, or an error if the type is incompatible
      */
     template <typename T>
-    fn present() const -> Result<Option<T>> {
+    fn present() const -> util::types::Result<util::types::Option<T>> {
+      using util::error::DracError, util::error::DracErrorCode;
+      using util::types::Err, util::types::Result, util::types::Option;
+
       if (m_default_value.has_value())
         return Err(DracError(DracErrorCode::InvalidArgument, std::format("present() called on argument '{}' which has a default value.", m_names.back())));
 
@@ -2286,7 +2394,9 @@ namespace argparse {
      * @return Container of the specified type
      */
     template <typename T>
-    static fn argvalue_cast_container(const Vec<ArgValue>& operand) -> T {
+    static fn argvalue_cast_container(const util::types::Vec<ArgValue>& operand) -> T {
+      using util::types::Vec;
+
       using ValueType = typename T::value_type;
 
       T result;
@@ -2310,29 +2420,29 @@ namespace argparse {
      * @brief Set the group index
      * @param i New index value
      */
-    fn set_group_idx(const usize i) -> void {
+    fn set_group_idx(const util::types::usize i) -> void {
       m_group_idx = i;
     }
 
     /**
      * @brief List of names for this argument (e.g., ["-f", "--file"])
      */
-    Vec<String> m_names;
+    util::types::Vec<util::types::String> m_names;
 
     /**
      * @brief The name that was actually used when parsing this argument
      */
-    StringView m_used_name;
+    util::types::StringView m_used_name;
 
     /**
      * @brief Help text describing the purpose and usage of this argument
      */
-    String m_help;
+    util::types::String m_help;
 
     /**
      * @brief Name of the variable to display in help messages (e.g., "FILE" for --file FILE)
      */
-    String m_metavar;
+    util::types::String m_metavar;
 
     /**
      * @brief Default value for this argument if none is provided
@@ -2342,12 +2452,12 @@ namespace argparse {
     /**
      * @brief String representation of the default value for display in help messages
      */
-    String m_default_value_repr;
+    util::types::String m_default_value_repr;
 
     /**
      * @brief Optional string representation of the default value for validation
      */
-    Option<String> m_default_value_str;
+    util::types::Option<util::types::String> m_default_value_str;
 
     /**
      * @brief Value to use when the argument is present but no value is provided
@@ -2357,35 +2467,35 @@ namespace argparse {
     /**
      * @brief Optional list of allowed values for this argument
      */
-    Option<std::unordered_set<String>> m_choices { std::nullopt };
+    util::types::Option<std::unordered_set<util::types::String>> m_choices { std::nullopt };
 
     /**
      * @brief Type alias for action that returns a value
      */
-    using valued_action = std::function<Result<ArgValue>(const String&)>;
+    using valued_action = std::function<util::types::Result<ArgValue>(const util::types::String&)>;
 
     /**
      * @brief Type alias for action that returns void
      */
-    using void_action = std::function<Result<>(const String&)>;
+    using void_action = std::function<util::types::Result<>(const util::types::String&)>;
 
     /**
      * @brief List of actions to perform when this argument is parsed
      */
-    Vec<std::variant<valued_action, void_action>> m_actions;
+    util::types::Vec<std::variant<valued_action, void_action>> m_actions;
 
     /**
      * @brief Default action to perform if no custom actions are specified
      */
     std::variant<valued_action, void_action> m_default_action {
       std::in_place_type<valued_action>,
-      [](const String& value) -> Result<ArgValue> { return value; }
+      [](const util::types::String& value) -> util::types::Result<ArgValue> { return value; }
     };
 
     /**
      * @brief List of values provided for this argument
      */
-    Vec<ArgValue> m_values;
+    util::types::Vec<ArgValue> m_values;
 
     /**
      * @brief Range specifying the allowed number of arguments
@@ -2425,7 +2535,7 @@ namespace argparse {
     /**
      * @brief Characters that can be used as argument prefixes (e.g., "-")
      */
-    StringView m_prefix_chars;
+    util::types::StringView m_prefix_chars;
 
     /**
      * @brief Counter for tracking newlines in usage messages
@@ -2435,7 +2545,7 @@ namespace argparse {
     /**
      * @brief Index of the group this argument belongs to in help messages
      */
-    usize m_group_idx = 0;
+    util::types::usize m_group_idx = 0;
   };
 
   /**
@@ -2454,8 +2564,10 @@ namespace argparse {
      * @param exit_on_default_arguments Whether to exit when default arguments are used
      * @param os Output stream for help and version messages
      */
-    explicit ArgumentParser(String program_name = {}, String version = "1.0", const default_arguments add_args = default_arguments::all, const bool exit_on_default_arguments = true, std::ostream& os = std::cout)
+    explicit ArgumentParser(util::types::String program_name = {}, util::types::String version = "1.0", const default_arguments add_args = default_arguments::all, const bool exit_on_default_arguments = true, std::ostream& os = std::cout)
       : m_program_name(std::move(program_name)), m_version(std::move(version)), m_exit_on_default_arguments(exit_on_default_arguments), m_parser_path(m_program_name) {
+      using util::types::String;
+
       if ((add_args & default_arguments::help) == default_arguments::help)
         add_argument("-h", "--help")
           .action([&](const String& /*unused*/) {
@@ -2511,7 +2623,7 @@ namespace argparse {
      */
     template <typename... Targs>
     fn add_argument(Targs... f_args) -> Argument& {
-      using array_of_sv = std::array<StringView, sizeof...(Targs)>;
+      using array_of_sv = std::array<util::types::StringView, sizeof...(Targs)>;
 
       auto argument = m_optional_arguments.emplace(std::cend(m_optional_arguments), m_prefix_chars, array_of_sv { f_args... });
 
@@ -2588,7 +2700,7 @@ namespace argparse {
       /**
        * @brief Vector of pointers to the arguments in the group
        */
-      Vec<Argument*> m_elements;
+      util::types::Vec<Argument*> m_elements;
     };
 
     /**
@@ -2644,7 +2756,7 @@ namespace argparse {
      * For usage(), this is only effective if set_usage_max_line_width() is
      * also used.
      */
-    fn add_group(String group_name) -> ArgumentParser& {
+    fn add_group(util::types::String group_name) -> ArgumentParser& {
       m_group_names.emplace_back(std::move(group_name));
       return *this;
     }
@@ -2654,7 +2766,7 @@ namespace argparse {
      * @param description Description to add
      * @return Reference to the current parser
      */
-    fn add_description(String description) -> ArgumentParser& {
+    fn add_description(util::types::String description) -> ArgumentParser& {
       m_description = std::move(description);
       return *this;
     }
@@ -2664,7 +2776,7 @@ namespace argparse {
      * @param epilog Epilog to add
      * @return Reference to the current parser
      */
-    fn add_epilog(String epilog) -> ArgumentParser& {
+    fn add_epilog(util::types::String epilog) -> ArgumentParser& {
       m_epilog = std::move(epilog);
       return *this;
     }
@@ -2675,7 +2787,10 @@ namespace argparse {
      * @param alias Alias to add
      * @return Reference to the current parser, or an error if the argument is not an optional argument of this parser
      */
-    fn add_hidden_alias_for(const Argument& arg, const StringView alias) -> Result<ArgumentParser*> {
+    fn add_hidden_alias_for(const Argument& arg, const util::types::StringView alias) -> util::types::Result<ArgumentParser*> {
+      using util::error::DracError, util::error::DracErrorCode;
+      using util::types::Err, util::types::String;
+
       for (auto it = m_optional_arguments.begin(); it != m_optional_arguments.end(); ++it)
         if (&(*it) == &arg) {
           m_argument_map.insert_or_assign(String(alias), it);
@@ -2692,7 +2807,10 @@ namespace argparse {
      * @return Reference to the argument or subparser, or an error if the name is invalid
      */
     template <typename T = Argument>
-    fn at(const StringView name) -> Result<T*> {
+    fn at(const util::types::StringView name) -> util::types::Result<T*> {
+      using util::error::DracError, util::error::DracErrorCode;
+      using util::types::Err, util::types::Result, util::types::String;
+
       if constexpr (std::is_same_v<T, Argument>) {
         Result<Argument*> arg_result = (*this)[name];
         if (!arg_result) {
@@ -2714,7 +2832,7 @@ namespace argparse {
      * @param prefix_chars Prefix characters to set
      * @return Reference to the current parser
      */
-    fn set_prefix_chars(String prefix_chars) -> ArgumentParser& {
+    fn set_prefix_chars(util::types::String prefix_chars) -> ArgumentParser& {
       m_prefix_chars = std::move(prefix_chars);
       return *this;
     }
@@ -2724,7 +2842,7 @@ namespace argparse {
      * @param assign_chars Assign characters to set
      * @return Reference to the current parser
      */
-    fn set_assign_chars(String assign_chars) -> ArgumentParser& {
+    fn set_assign_chars(util::types::String assign_chars) -> ArgumentParser& {
       m_assign_chars = std::move(assign_chars);
       return *this;
     }
@@ -2736,7 +2854,10 @@ namespace argparse {
      * @return void, or an error if the arguments are invalid
      */
     // NOLINTNEXTLINE(misc-no-recursion)
-    fn parse_args(const Vec<String>& arguments) -> Result<> {
+    fn parse_args(const util::types::Vec<util::types::String>& arguments) -> util::types::Result<> {
+      using util::error::DracError, util::error::DracErrorCode;
+      using util::types::Err, util::types::Result, util::types::String, util::types::usize;
+
       Result<> pres = parse_args_internal(arguments);
       if (!pres)
         return pres;
@@ -2788,7 +2909,10 @@ namespace argparse {
      * @return void, or an error if the arguments are invalid
      */
     // NOLINTNEXTLINE(misc-no-recursion)
-    fn parse_known_args_internal(const Vec<String>& raw_arguments) -> Result<Vec<String>> {
+    fn parse_known_args_internal(const util::types::Vec<util::types::String>& raw_arguments) -> util::types::Result<util::types::Vec<util::types::String>> {
+      using util::error::DracError, util::error::DracErrorCode;
+      using util::types::Err, util::types::Result, util::types::String, util::types::Vec, util::types::usize;
+
       Vec<String> arguments = preprocess_arguments(raw_arguments);
       Vec<String> unknown_arguments {};
 
@@ -2861,7 +2985,7 @@ namespace argparse {
      * @return void, or an error if the arguments are invalid
      */
     // NOLINTNEXTLINE(*-avoid-c-arrays)
-    fn parse_args(const int argc, const char* const argv[]) -> Result<> {
+    fn parse_args(const int argc, const char* const argv[]) -> util::types::Result<> {
       return parse_args({ argv, argv + argc });
     }
 
@@ -2871,7 +2995,7 @@ namespace argparse {
      * @return a vector of unknown arguments, or an error if the arguments are invalid
      */
     // NOLINTNEXTLINE(*-avoid-c-arrays)
-    fn parse_known_args(const int argc, const char* const argv[]) -> Result<Vec<String>> {
+    fn parse_known_args(const int argc, const char* const argv[]) -> util::types::Result<util::types::Vec<util::types::String>> {
       return parse_known_args_internal({ argv, argv + argc });
     }
 
@@ -2879,12 +3003,16 @@ namespace argparse {
      * @brief Getter for options with default values
      * @return the option value, or an error if the option is not found or has no value
      */
-    template <typename T = String>
-    fn get(const StringView arg_name) const -> Result<T> {
+    template <typename T = util::types::String>
+    fn get(const util::types::StringView arg_name) const -> util::types::Result<T> {
+      using util::error::DracError, util::error::DracErrorCode;
+      using util::types::Err, util::types::Result;
+
       if (!m_is_parsed)
         return Err(DracError(DracErrorCode::InternalError, "Nothing parsed, no arguments are available."));
 
       Result<Argument*> arg_ref_result = (*this)[arg_name];
+
       if (!arg_ref_result)
         return Err(arg_ref_result.error());
 
@@ -2896,12 +3024,16 @@ namespace argparse {
      * @pre The option has no default value
      * @return the option value, or an error if the option is not found or has no value
      */
-    template <typename T = String>
-    fn present(const StringView arg_name) const -> Result<Option<T>> {
+    template <typename T = util::types::String>
+    fn present(const util::types::StringView arg_name) const -> util::types::Result<util::types::Option<T>> {
+      using util::error::DracError, util::error::DracErrorCode;
+      using util::types::Err, util::types::Result;
+
       if (!m_is_parsed)
         return Err(DracError(DracErrorCode::InternalError, "Nothing parsed, no arguments are available for present()."));
 
       Result<Argument*> arg_ref_result = (*this)[arg_name];
+
       if (!arg_ref_result)
         return Err(arg_ref_result.error());
 
@@ -2912,13 +3044,18 @@ namespace argparse {
      * @brief Getter that returns true for user-supplied options
      * @return true if the option is user-supplied, false otherwise
      */
-    [[nodiscard]] fn is_used(const StringView arg_name) const -> Result<bool> {
+    [[nodiscard]] fn is_used(const util::types::StringView arg_name) const -> util::types::Result<bool> {
+      using util::error::DracError, util::error::DracErrorCode;
+      using util::types::Err, util::types::Result;
+
       if (!m_is_parsed)
         return Err(DracError(DracErrorCode::InternalError, "Nothing parsed, cannot check if argument is used."));
 
       Result<Argument*> arg_ref_result = (*this)[arg_name];
+
       if (!arg_ref_result)
         return Err(arg_ref_result.error());
+
       return bool { arg_ref_result.value()->m_is_used };
     }
 
@@ -2927,9 +3064,13 @@ namespace argparse {
      * @param subcommand_name Subcommand name to check
      * @return true if subcommand is used, false otherwise, or an error if the subcommand is not found
      */
-    [[nodiscard]] fn is_subcommand_used(const StringView subcommand_name) const -> Result<bool> {
+    [[nodiscard]] fn is_subcommand_used(const util::types::StringView subcommand_name) const -> util::types::Result<bool> {
+      using util::error::DracError, util::error::DracErrorCode;
+      using util::types::Err, util::types::String;
+
       if (!m_is_parsed)
         return Err(DracError(DracErrorCode::InternalError, "Nothing parsed, cannot check if subcommand is used."));
+
       try {
         return m_subparser_used.at(String(subcommand_name));
       } catch (const std::out_of_range& oor) {
@@ -2942,7 +3083,7 @@ namespace argparse {
      * @param subparser Subparser to check
      * @return true if subcommand is used, false otherwise, or an error if the subcommand is not found
      */
-    [[nodiscard]] fn is_subcommand_used(const ArgumentParser& subparser) const -> Result<bool> {
+    [[nodiscard]] fn is_subcommand_used(const ArgumentParser& subparser) const -> util::types::Result<bool> {
       return is_subcommand_used(subparser.m_program_name);
     }
 
@@ -2951,7 +3092,10 @@ namespace argparse {
      * @param arg_name Argument name to check
      * @return a reference to the argument, or an error if the argument is not found
      */
-    fn operator[](const StringView arg_name) const->Result<Argument*> {
+    fn operator[](const util::types::StringView arg_name) const->util::types::Result<Argument*> {
+      using util::error::DracError, util::error::DracErrorCode;
+      using util::types::Err, util::types::Result, util::types::String;
+
       String name(arg_name);
 
       auto it = m_argument_map.find(name);
@@ -2986,6 +3130,8 @@ namespace argparse {
      * @return Output stream
      */
     friend fn operator<<(std::ostream& stream, const ArgumentParser& parser)->std::ostream& {
+      using util::types::usize;
+
       stream.setf(std::ios_base::left);
 
       const usize longest_arg_length = parser.get_length_of_longest_argument();
@@ -3060,7 +3206,7 @@ namespace argparse {
      * @param w Maximum width
      * @return Reference to the current parser
      */
-    fn set_usage_max_line_width(const usize w) -> ArgumentParser& {
+    fn set_usage_max_line_width(const util::types::usize w) -> ArgumentParser& {
       this->m_usage_max_line_width = w;
       return *this;
     }
@@ -3079,7 +3225,9 @@ namespace argparse {
      * @brief Format usage part of help only
      * @return Usage message
      */
-    [[nodiscard]] fn usage() const -> String {
+    [[nodiscard]] fn usage() const -> util::types::String {
+      using util::types::String, util::types::usize;
+
       String     curline = std::format("Usage: {}", this->m_parser_path);
       const bool multiline_usage =
         this->m_usage_max_line_width < (std::numeric_limits<usize>::max)();
@@ -3281,11 +3429,13 @@ namespace argparse {
      * @param raw_arguments Raw arguments
      * @return Pre-processed arguments
      */
-    [[nodiscard]] fn preprocess_arguments(const Vec<String>& raw_arguments) const -> Vec<String> {
+    [[nodiscard]] fn preprocess_arguments(const util::types::Vec<util::types::String>& raw_arguments) const -> util::types::Vec<util::types::String> {
+      using util::types::String, util::types::Vec, util::types::usize;
+
       Vec<String> arguments {};
       for (const String& arg : raw_arguments) {
         const auto argument_starts_with_prefix_chars =
-          [this](const String& a) -> bool {
+          [this](const String& a) -> bool { // NOLINT(readability-suspicious-call-argument)
           if (!a.empty()) {
             // Windows-style
             // if '/' is a legal prefix char
@@ -3335,7 +3485,10 @@ namespace argparse {
      * @return void, or an error if the arguments are invalid
      */
     // NOLINTNEXTLINE(misc-no-recursion)
-    fn parse_args_internal(const Vec<String>& raw_arguments) -> Result<> {
+    fn parse_args_internal(const util::types::Vec<util::types::String>& raw_arguments) -> util::types::Result<> {
+      using util::error::DracError, util::error::DracErrorCode;
+      using util::types::Err, util::types::Result, util::types::String, util::types::Vec, util::types::usize;
+
       Vec<String> arguments = preprocess_arguments(raw_arguments);
 
       if (m_program_name.empty() && !arguments.empty())
@@ -3443,7 +3596,9 @@ namespace argparse {
      * @brief Get the length of the longest argument
      * @return Length of the longest argument
      */
-    [[nodiscard]] fn get_length_of_longest_argument() const -> usize {
+    [[nodiscard]] fn get_length_of_longest_argument() const -> util::types::usize {
+      using util::types::usize, util::types::String;
+
       if (m_argument_map.empty())
         return 0;
 
@@ -3460,7 +3615,7 @@ namespace argparse {
     }
 
     using argument_it    = std::list<Argument>::iterator;
-    using mutex_group_it = Vec<MutuallyExclusiveGroup>::iterator;
+    using mutex_group_it = util::types::Vec<MutuallyExclusiveGroup>::iterator;
     using argument_parser_it =
       std::list<std::reference_wrapper<ArgumentParser>>::iterator;
 
@@ -3469,32 +3624,32 @@ namespace argparse {
      * @param it Argument iterator
      */
     fn index_argument(argument_it it) -> void {
-      for (const String& name : std::as_const(it->m_names))
+      for (const util::types::String& name : std::as_const(it->m_names))
         m_argument_map.insert_or_assign(name, it);
     }
 
    private:
-    String                                            m_program_name;                                                ///< Program name
-    String                                            m_version;                                                     ///< Version
-    String                                            m_description;                                                 ///< Description
-    String                                            m_epilog;                                                      ///< Epilog
-    bool                                              m_exit_on_default_arguments = true;                            ///< Exit on default arguments
-    String                                            m_prefix_chars { "-" };                                        ///< Prefix characters
-    String                                            m_assign_chars { "=" };                                        ///< Assign characters
-    bool                                              m_is_parsed = false;                                           ///< Whether the arguments have been parsed
-    std::list<Argument>                               m_positional_arguments;                                        ///< Positional arguments
-    std::list<Argument>                               m_optional_arguments;                                          ///< Optional arguments
-    std::unordered_map<String, argument_it>           m_argument_map;                                                ///< Argument map
-    String                                            m_parser_path;                                                 ///< Parser path
-    std::list<std::reference_wrapper<ArgumentParser>> m_subparsers;                                                  ///< Subparsers
-    std::unordered_map<String, argument_parser_it>    m_subparser_map;                                               ///< Subparser map
-    Map<String, bool>                                 m_subparser_used;                                              ///< Subparser used
-    Vec<MutuallyExclusiveGroup>                       m_mutually_exclusive_groups;                                   ///< Mutually exclusive groups
-    bool                                              m_suppress              = false;                               ///< Whether to suppress
-    usize                                             m_usage_max_line_width  = (std::numeric_limits<usize>::max)(); ///< Maximum line width
-    bool                                              m_usage_break_on_mutex  = false;                               ///< Whether to break on mutex
-    int                                               m_usage_newline_counter = 0;                                   ///< Usage newline counter
-    Vec<String>                                       m_group_names;                                                 ///< Group names
+    util::types::String                                         m_program_name;                                                             ///< Program name
+    util::types::String                                         m_version;                                                                  ///< Version
+    util::types::String                                         m_description;                                                              ///< Description
+    util::types::String                                         m_epilog;                                                                   ///< Epilog
+    bool                                                        m_exit_on_default_arguments = true;                                         ///< Exit on default arguments
+    util::types::String                                         m_prefix_chars { "-" };                                                     ///< Prefix characters
+    util::types::String                                         m_assign_chars { "=" };                                                     ///< Assign characters
+    bool                                                        m_is_parsed = false;                                                        ///< Whether the arguments have been parsed
+    std::list<Argument>                                         m_positional_arguments;                                                     ///< Positional arguments
+    std::list<Argument>                                         m_optional_arguments;                                                       ///< Optional arguments
+    std::unordered_map<util::types::String, argument_it>        m_argument_map;                                                             ///< Argument map
+    util::types::String                                         m_parser_path;                                                              ///< Parser path
+    std::list<std::reference_wrapper<ArgumentParser>>           m_subparsers;                                                               ///< Subparsers
+    std::unordered_map<util::types::String, argument_parser_it> m_subparser_map;                                                            ///< Subparser map
+    util::types::Map<util::types::String, bool>                 m_subparser_used;                                                           ///< Subparser used
+    util::types::Vec<MutuallyExclusiveGroup>                    m_mutually_exclusive_groups;                                                ///< Mutually exclusive groups
+    bool                                                        m_suppress              = false;                                            ///< Whether to suppress
+    util::types::usize                                          m_usage_max_line_width  = (std::numeric_limits<util::types::usize>::max)(); ///< Maximum line width
+    bool                                                        m_usage_break_on_mutex  = false;                                            ///< Whether to break on mutex
+    int                                                         m_usage_newline_counter = 0;                                                ///< Usage newline counter
+    util::types::Vec<util::types::String>                       m_group_names;                                                              ///< Group names
   };
 } // namespace argparse
 

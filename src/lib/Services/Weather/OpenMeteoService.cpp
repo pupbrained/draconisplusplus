@@ -16,6 +16,9 @@
 #include "Wrappers/Curl.hpp"
 // clang-format on
 
+using namespace util::types;
+using util::error::DracError;
+using enum util::error::DracErrorCode;
 using weather::OpenMeteoService;
 using weather::WeatherReport;
 
@@ -25,8 +28,6 @@ OpenMeteoService::OpenMeteoService(const f64 lat, const f64 lon, config::Weather
 fn OpenMeteoService::getWeatherInfo() const -> Result<WeatherReport> {
   using glz::error_ctx, glz::read, glz::error_code;
   using util::cache::GetValidCache, util::cache::WriteCache;
-  using util::error::DracError, util::error::DracErrorCode;
-  using util::types::Array, util::types::None, util::types::StringView, util::types::Err, util::types::Result;
 
   if (Result<WeatherReport> cachedDataResult = GetValidCache<WeatherReport>("weather"))
     return *cachedDataResult;
@@ -42,20 +43,18 @@ fn OpenMeteoService::getWeatherInfo() const -> Result<WeatherReport> {
 
   String responseBuffer;
 
-  // clang-format off
   Curl::Easy curl({
-    .url             = url,
-    .writeBuffer     = &responseBuffer,
+    .url                = url,
+    .writeBuffer        = &responseBuffer,
     .timeoutSecs        = 10L,
-    .connectTimeoutSecs = 5L
+    .connectTimeoutSecs = 5L,
   });
-  // clang-format on
 
   if (!curl) {
     if (Option<DracError> initError = curl.getInitializationError())
       return Err(*initError);
 
-    return Err(DracError(DracErrorCode::ApiUnavailable, "Failed to initialize cURL (Easy handle is invalid after construction)"));
+    return Err(DracError(ApiUnavailable, "Failed to initialize cURL (Easy handle is invalid after construction)"));
   }
 
   if (Result res = curl.perform(); !res)
@@ -64,7 +63,7 @@ fn OpenMeteoService::getWeatherInfo() const -> Result<WeatherReport> {
   weather::dto::openmeteo::Response apiResp {};
 
   if (error_ctx errc = read<glz::opts { .error_on_unknown_keys = false }>(apiResp, responseBuffer); errc.ec != error_code::none)
-    return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer))));
+    return Err(DracError(ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer))));
 
   Result<usize> timestamp = weather::utils::ParseIso8601ToEpoch(apiResp.currentWeather.time);
 

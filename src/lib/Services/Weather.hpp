@@ -10,9 +10,6 @@
 // clang-format on
 
 namespace weather {
-  using glz::detail::Object, glz::object;
-  using util::types::String, util::types::Vec, util::types::f64, util::types::usize, util::types::Option;
-
   /**
    * @struct WeatherReport
    * @brief Represents a weather report.
@@ -20,34 +17,28 @@ namespace weather {
    * Contains temperature, conditions, and timestamp.
    */
   struct WeatherReport {
-    f64            temperature; ///< Degrees (C/F)
-    Option<String> name;        ///< Optional town/city name (may be missing for some providers)
-    String         description; ///< Weather description (e.g., "clear sky", "rain")
-  };
-
-  struct WeatherReportGlaze {
-    using T = WeatherReport;
-
-    // clang-format off
-    static constexpr Object value = object(
-      "temperature", &T::temperature,
-      "name",        &T::name,
-      "description", &T::description
-    );
-    // clang-format on
+    util::types::f64                         temperature; ///< Degrees (C/F)
+    util::types::Option<util::types::String> name;        ///< Optional town/city name (may be missing for some providers)
+    util::types::String                      description; ///< Weather description (e.g., "clear sky", "rain")
   };
 
   struct Coords {
-    f64 lat;
-    f64 lon;
+    util::types::f64 lat;
+    util::types::f64 lon;
   };
 } // namespace weather
 
 namespace glz {
-  using weather::WeatherReport, weather::WeatherReportGlaze;
-
   template <>
-  struct meta<WeatherReport> : WeatherReportGlaze {};
+  struct meta<weather::WeatherReport> {
+    // clang-format off
+    static constexpr detail::Object value = object(
+      "temperature", &weather::WeatherReport::temperature,
+      "name",        &weather::WeatherReport::name,
+      "description", &weather::WeatherReport::description
+    );
+    // clang-format on
+  };
 } // namespace glz
 
 #endif // DRAC_ENABLE_WEATHER

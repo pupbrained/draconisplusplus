@@ -12,9 +12,6 @@
 
 struct Config;
 
-using util::types::u64, util::types::f64, util::types::String, util::types::Option, util::types::Result,
-  util::types::MediaInfo, util::types::ResourceUsage;
-
 /**
  * @struct BytesToGiB
  * @brief Helper struct to format a byte value to GiB (Gibibytes).
@@ -23,17 +20,17 @@ using util::types::u64, util::types::f64, util::types::String, util::types::Opti
  * to convert it to GiB for display purposes.
  */
 struct BytesToGiB {
-  u64 value; ///< The byte value to be converted.
+  util::types::u64 value; ///< The byte value to be converted.
 
   /**
    * @brief Constructor for BytesToGiB.
    * @param value The byte value to be converted.
    */
-  explicit constexpr BytesToGiB(const u64 value) : value(value) {}
+  explicit constexpr BytesToGiB(const util::types::u64 value) : value(value) {}
 };
 
 /// @brief Conversion factor from bytes to GiB
-constexpr u64 GIB = 1'073'741'824;
+constexpr util::types::u64 GIB = 1'073'741'824;
 
 /**
  * @brief Custom formatter for BytesToGiB.
@@ -62,7 +59,7 @@ struct std::formatter<BytesToGiB> : std::formatter<double> {
    * @return An iterator to the end of the formatted output.
    */
   fn format(const BytesToGiB& BTG, auto& ctx) const {
-    return std::format_to(ctx.out(), "{:.2f}GiB", static_cast<f64>(BTG.value) / GIB);
+    return std::format_to(ctx.out(), "{:.2f}GiB", static_cast<util::types::f64>(BTG.value) / GIB);
   }
 };
 
@@ -72,11 +69,11 @@ namespace os {
    * @brief Groups related system information that is often fetched together
    */
   struct SystemInfo {
-    String osVersion;     ///< OS pretty name
-    String kernelVersion; ///< OS kernel version
-    String host;          ///< Host/product family
-    String cpuModel;      ///< CPU model
-    String gpuModel;      ///< GPU model
+    util::types::String osVersion;     ///< OS pretty name
+    util::types::String kernelVersion; ///< OS kernel version
+    util::types::String host;          ///< Host/product family
+    util::types::String cpuModel;      ///< CPU model
+    util::types::String gpuModel;      ///< GPU model
   };
 
   /**
@@ -84,9 +81,9 @@ namespace os {
    * @brief Groups desktop environment related information
    */
   struct EnvironmentInfo {
-    String desktopEnv; ///< Desktop environment
-    String windowMgr;  ///< Window manager
-    String shell;      ///< Current user shell
+    util::types::String desktopEnv; ///< Desktop environment
+    util::types::String windowMgr;  ///< Window manager
+    util::types::String shell;      ///< Current user shell
   };
 
   /**
@@ -94,8 +91,8 @@ namespace os {
    * @brief Groups system resource usage information
    */
   struct ResourceInfo {
-    ResourceUsage memInfo;   ///< Memory usage information
-    ResourceUsage diskUsage; ///< Disk usage information
+    util::types::ResourceUsage memInfo;   ///< Memory usage information
+    util::types::ResourceUsage diskUsage; ///< Disk usage information
   };
 
   /**
@@ -109,25 +106,25 @@ namespace os {
    */
   class System {
    public:
-    Result<String>        date;          ///< Current date (e.g., "April 26th").
-    Result<String>        host;          ///< Host/product family (e.g., "MacBook Air").
-    Result<String>        kernelVersion; ///< OS kernel version (e.g., "6.14.4").
-    Result<String>        osVersion;     ///< OS pretty name (e.g., "Ubuntu 24.04.2 LTS").
-    Result<ResourceUsage> memInfo;       ///< Total physical RAM in bytes.
-    Result<String>        desktopEnv;    ///< Desktop environment (e.g., "KDE").
-    Result<String>        windowMgr;     ///< Window manager (e.g., "KWin").
-    Result<ResourceUsage> diskUsage;     ///< Used/Total disk space for root filesystem.
-    Result<String>        shell;         ///< Name of the current user shell (e.g., "zsh").
-    Result<String>        cpuModel;      ///< CPU model name.
-    Result<String>        gpuModel;      ///< GPU model name.
+    util::types::Result<util::types::String>        date;          ///< Current date (e.g., "April 26th").
+    util::types::Result<util::types::String>        host;          ///< Host/product family (e.g., "MacBook Air").
+    util::types::Result<util::types::String>        kernelVersion; ///< OS kernel version (e.g., "6.14.4").
+    util::types::Result<util::types::String>        osVersion;     ///< OS pretty name (e.g., "Ubuntu 24.04.2 LTS").
+    util::types::Result<util::types::ResourceUsage> memInfo;       ///< Total physical RAM in bytes.
+    util::types::Result<util::types::String>        desktopEnv;    ///< Desktop environment (e.g., "KDE").
+    util::types::Result<util::types::String>        windowMgr;     ///< Window manager (e.g., "KWin").
+    util::types::Result<util::types::ResourceUsage> diskUsage;     ///< Used/Total disk space for root filesystem.
+    util::types::Result<util::types::String>        shell;         ///< Name of the current user shell (e.g., "zsh").
+    util::types::Result<util::types::String>        cpuModel;      ///< CPU model name.
+    util::types::Result<util::types::String>        gpuModel;      ///< GPU model name.
 #if DRAC_ENABLE_PACKAGECOUNT
-    Result<u64> packageCount; ///< Total number of packages installed.
+    util::types::Result<util::types::u64> packageCount; ///< Total number of packages installed.
 #endif
 #if DRAC_ENABLE_NOWPLAYING
-    Result<MediaInfo> nowPlaying; ///< Result of fetching media info.
+    util::types::Result<util::types::MediaInfo> nowPlaying; ///< Result of fetching media info.
 #endif
 #if DRAC_ENABLE_WEATHER
-    Result<weather::WeatherReport> weather; ///< Result of fetching weather info.
+    util::types::Result<weather::WeatherReport> weather; ///< Result of fetching weather info.
 #endif
 
     /**
@@ -140,94 +137,76 @@ namespace os {
      * @brief Fetches memory information.
      * @return Result containing memory usage information.
      */
-    static fn getMemInfo() -> Result<ResourceUsage>;
+    static fn getMemInfo() -> util::types::Result<util::types::ResourceUsage>;
 
 #if DRAC_ENABLE_NOWPLAYING
     /**
      * @brief Fetches now playing media information.
      * @return Result containing the now playing media information.
      */
-    static fn getNowPlaying() -> Result<MediaInfo>;
+    static fn getNowPlaying() -> util::types::Result<util::types::MediaInfo>;
 #endif
 
     /**
      * @brief Fetches the OS version.
      * @return Result containing the OS version.
      */
-    static fn getOSVersion() -> Result<String>;
+    static fn getOSVersion() -> util::types::Result<util::types::String>;
 
     /**
      * @brief Fetches the desktop environment.
      * @return Result containing the desktop environment.
      */
-    static fn getDesktopEnvironment() -> Result<String>;
+    static fn getDesktopEnvironment() -> util::types::Result<util::types::String>;
 
     /**
      * @brief Fetches the window manager.
      * @return Result containing the window manager.
      */
-    static fn getWindowManager() -> Result<String>;
+    static fn getWindowManager() -> util::types::Result<util::types::String>;
 
     /**
      * @brief Fetches the shell.
      * @return Result containing the shell.
      */
-    static fn getShell() -> Result<String>;
+    static fn getShell() -> util::types::Result<util::types::String>;
 
     /**
      * @brief Fetches the host.
      * @return Result containing the host.
      */
-    static fn getHost() -> Result<String>;
+    static fn getHost() -> util::types::Result<util::types::String>;
 
     /**
      * @brief Fetches the CPU model.
      * @return Result containing the CPU model.
      */
-    static fn getCPUModel() -> Result<String>;
+    static fn getCPUModel() -> util::types::Result<util::types::String>;
 
     /**
      * @brief Fetches the GPU model.
      * @return Result containing the GPU model.
      */
-    static fn getGPUModel() -> Result<String>;
+    static fn getGPUModel() -> util::types::Result<util::types::String>;
 
     /**
      * @brief Fetches the kernel version.
      * @return Result containing the kernel version.
      */
-    static fn getKernelVersion() -> Result<String>;
+    static fn getKernelVersion() -> util::types::Result<util::types::String>;
 
     /**
      * @brief Fetches the disk usage.
      * @return Result containing the disk usage.
      */
-    static fn getDiskUsage() -> Result<ResourceUsage>;
-
-    /**
-     * @brief Fetches system information in a single batch operation
-     * @return Result containing OS version, kernel version, and host information
-     */
-    static fn getSystemInfo() -> Result<SystemInfo>;
-
-    /**
-     * @brief Fetches environment information in a single batch operation
-     * @return Result containing desktop environment, window manager, and shell information
-     */
-    static fn getEnvironmentInfo() -> Result<EnvironmentInfo>;
-
-    /**
-     * @brief Fetches resource usage information in a single batch operation
-     * @return Result containing memory and disk usage information
-     */
-    static fn getResourceInfo() -> Result<ResourceInfo>;
+    static fn getDiskUsage() -> util::types::Result<util::types::ResourceUsage>;
 
    private:
     /**
      * @brief Fetches the date.
      * @return Result containing the date.
      */
-    static fn getDate() -> Result<String>;
+    static fn getDate() -> util::types::Result<util::types::String>;
 
 #if DRAC_ENABLE_WEATHER
     /**
@@ -235,7 +214,7 @@ namespace os {
      * @param config The configuration object containing settings for the weather.
      * @return Result containing the weather information.
      */
-    static fn getWeatherInfo(const Config& config) -> Result<weather::WeatherReport>;
+    static fn getWeatherInfo(const Config& config) -> util::types::Result<weather::WeatherReport>;
 #endif
   };
 } // namespace os

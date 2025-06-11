@@ -1,3 +1,13 @@
+/**
+ * @file matchit.hpp
+ * @brief Matchit library for pattern matching in C++
+ * @author Bowen Fu
+ * @copyright Copyright (c) 2021-2022 Bowen Fu
+ * @license Apache-2.0 License
+ * @version 1.0.0
+ * @date 2022-01-01
+ */
+
 /*
  *  Copyright (c) 2021-2022 Bowen Fu
  *  Distributed Under The Apache-2.0 License

@@ -1,27 +1,31 @@
 #ifdef __APPLE__
 
 // clang-format off
-#include <flat_map>             // std::flat_map
-#include <sys/statvfs.h>        // statvfs
-#include <sys/sysctl.h>         // {CTL_KERN, KERN_PROC, KERN_PROC_ALL, kinfo_proc, sysctl, sysctlbyname}
-#include <mach/vm_statistics.h> // vm_statistics64_data_t
-#include <mach/mach_init.h>     // host_page_size, mach_host_self
-#include <mach/mach_host.h>     // host_statistics64
-#include <CoreFoundation/CoreFoundation.h> // CoreFoundation types and functions
-#include <IOKit/IOKitLib.h>     // IOKit types and functions
-#include <IOKit/graphics/IOGraphicsLib.h> // IOKit graphics types and functions
+#include <CoreFoundation/CFPropertyList.h> // CFPropertyListCreateWithData, kCFPropertyListImmutable
+#include <CoreFoundation/CFStream.h>       // CFReadStreamClose, CFReadStreamCreateWithFile, CFReadStreamOpen, CFReadStreamRead, CFReadStreamRef
+#include <IOKit/IOKitLib.h>                // IOKit types and functions
+#include <flat_map>                        // std::flat_map
+#include <mach/mach_host.h>                // host_statistics64
+#include <mach/mach_init.h>                // host_page_size, mach_host_self
+#include <mach/vm_statistics.h>            // vm_statistics64_data_t
+#include <sys/statvfs.h>                   // statvfs
+#include <sys/sysctl.h>                    // {CTL_KERN, KERN_PROC, KERN_PROC_ALL, kinfo_proc, sysctl, sysctlbyname}
 
 #include "Core/System.hpp"
+
 #include "Services/PackageCounting.hpp"
+
 #include "Util/Caching.hpp"
 #include "Util/Definitions.hpp"
 #include "Util/Env.hpp"
 #include "Util/Error.hpp"
 #include "Util/Types.hpp"
+
 #include "macOS/Bridge.hpp"
 // clang-format on
 
 using namespace util::types;
+using util::cache::GetValidCache, util::cache::WriteCache;
 using util::error::DracError, util::error::DracErrorCode;
 using util::helpers::GetEnv;
 
@@ -235,8 +239,6 @@ namespace os {
   }
 
   fn System::getKernelVersion() -> Result<String> {
-    using util::cache::GetValidCache, util::cache::WriteCache;
-
     const String cacheKey = "macos_kernel";
 
     if (Result<String> cachedKernel = GetValidCache<String>(cacheKey))
@@ -256,8 +258,6 @@ namespace os {
   }
 
   fn System::getHost() -> Result<String> {
-    using util::cache::GetValidCache, util::cache::WriteCache;
-
     const String cacheKey = "macos_host";
 
     if (Result<String> cachedHost = GetValidCache<String>(cacheKey))
@@ -443,8 +443,8 @@ namespace os {
 
   fn System::getGPUModel() -> Result<String> {
     io_iterator_t          iterator = 0;
-    CFMutableDictionaryRef matches  = IOServiceMatching(kIOAcceleratorClassName);
-    CFDictionaryAddValue(matches, CFSTR("IOMatchCategory"), CFSTR(kIOAcceleratorClassName));
+    CFMutableDictionaryRef matches  = IOServiceMatching("IOAccelerator");
+    CFDictionaryAddValue(matches, CFSTR("IOMatchCategory"), CFSTR("IOAccelerator"));
 
     if (IOServiceGetMatchingServices(MACH_PORT_NULL, matches, &iterator) != kIOReturnSuccess)
       return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to get GPU services"));
@@ -539,9 +539,9 @@ namespace os {
 
   #if DRAC_ENABLE_PACKAGECOUNT
 namespace package {
-  fn GetHomebrewCount() -> Result<u64> {
-    using util::cache::GetValidCache, util::cache::WriteCache;
+  namespace fs = std::filesystem;
 
+  fn GetHomebrewCount() -> Result<u64> {
     const String cacheKey = "homebrew_total";
 
     if (Result<u64> cachedCountResult = GetValidCache<u64>(cacheKey))

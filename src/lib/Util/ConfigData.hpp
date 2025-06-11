@@ -20,14 +20,12 @@
 #include "Util/Types.hpp"
 
 namespace config {
-  using util::types::String, util::types::u8;
-
 #if DRAC_ENABLE_WEATHER
   /**
    * @brief Specifies the weather service provider.
    * @see config::DRAC_WEATHER_PROVIDER in `config.example.hpp` or `config.hpp`.
    */
-  enum class WeatherProvider : u8 {
+  enum class WeatherProvider : util::types::u8 {
     OPENWEATHERMAP, ///< OpenWeatherMap API. Requires an API key. @see config::DRAC_API_KEY
     OPENMETEO,      ///< OpenMeteo API. Does not require an API key.
     METNO,          ///< Met.no API. Does not require an API key.
@@ -37,7 +35,7 @@ namespace config {
    * @brief Specifies the unit system for weather information.
    * @see config::DRAC_WEATHER_UNIT in `config.example.hpp` or `config.hpp`.
    */
-  enum class WeatherUnit : u8 {
+  enum class WeatherUnit : util::types::u8 {
     METRIC,   ///< Metric units (Celsius, kph, etc.).
     IMPERIAL, ///< Imperial units (Fahrenheit, mph, etc.).
   };
@@ -55,7 +53,7 @@ namespace config {
    * @see config::operator|
    * @see config::HasPackageManager
    */
-  enum class PackageManager : u8 {
+  enum class PackageManager : util::types::u8 {
     NONE  = 0,      ///< No package manager.
     CARGO = 1 << 0, ///< Cargo, the Rust package manager.
 

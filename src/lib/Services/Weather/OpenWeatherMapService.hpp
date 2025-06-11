@@ -11,17 +11,15 @@
 // clang-format on
 
 namespace weather {
-  using util::types::StringView;
-
   class OpenWeatherMapService final : public IWeatherService {
    public:
-    OpenWeatherMapService(std::variant<String, Coords> location, String apiKey, config::WeatherUnit units);
-    fn getWeatherInfo() const -> Result<WeatherReport> override;
+    OpenWeatherMapService(std::variant<util::types::String, Coords> location, util::types::String apiKey, config::WeatherUnit units);
+    fn getWeatherInfo() const -> util::types::Result<WeatherReport> override;
 
    private:
-    std::variant<String, Coords> m_location;
-    String                       m_apiKey;
-    config::WeatherUnit          m_units;
+    std::variant<util::types::String, Coords> m_location;
+    util::types::String                       m_apiKey;
+    config::WeatherUnit                       m_units;
   };
 } // namespace weather
 

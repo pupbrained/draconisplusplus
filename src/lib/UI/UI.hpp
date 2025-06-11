@@ -10,41 +10,38 @@
 #include "Util/Types.hpp"
 
 namespace ui {
-  using ftxui::Color;
-  using util::types::StringView;
-
   struct Theme {
-    Color::Palette16 icon;
-    Color::Palette16 label;
-    Color::Palette16 value;
-    Color::Palette16 border;
+    ftxui::Color::Palette16 icon;
+    ftxui::Color::Palette16 label;
+    ftxui::Color::Palette16 value;
+    ftxui::Color::Palette16 border;
   };
 
   extern const Theme DEFAULT_THEME;
 
   struct Icons {
-    StringView calendar;
-    StringView desktopEnvironment;
-    StringView disk;
-    StringView host;
-    StringView kernel;
-    StringView memory;
-    StringView cpu;
-    StringView gpu;
+    util::types::StringView calendar;
+    util::types::StringView desktopEnvironment;
+    util::types::StringView disk;
+    util::types::StringView host;
+    util::types::StringView kernel;
+    util::types::StringView memory;
+    util::types::StringView cpu;
+    util::types::StringView gpu;
 #if DRAC_ENABLE_NOWPLAYING
-    StringView music;
+    util::types::StringView music;
 #endif
-    StringView os;
+    util::types::StringView os;
 #if DRAC_ENABLE_PACKAGECOUNT
-    StringView package;
+    util::types::StringView package;
 #endif
-    StringView palette;
-    StringView shell;
-    StringView user;
+    util::types::StringView palette;
+    util::types::StringView shell;
+    util::types::StringView user;
 #if DRAC_ENABLE_WEATHER
-    StringView weather;
+    util::types::StringView weather;
 #endif
-    StringView windowManager;
+    util::types::StringView windowManager;
   };
 
   extern const Icons ICON_TYPE;

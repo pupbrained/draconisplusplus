@@ -3,7 +3,7 @@
 #include <ftxui/dom/elements.hpp>  // ftxui::{Element, hbox, vbox, text, separator, filler, etc.}
 #include <ftxui/dom/node.hpp>      // ftxui::{Render}
 #include <ftxui/screen/screen.hpp> // ftxui::{Screen, Dimension::Full}
-#include <matchit.hpp>
+#include <matchit.hpp>             // matchit::{match, is, _}
 
 #ifdef __cpp_lib_print
   #include <print> // std::print
@@ -21,12 +21,11 @@
 #include "Util/Logging.hpp"
 #include "Util/Types.hpp"
 
-using util::types::i32, util::types::Exception;
+using namespace util::types;
+using util::error::DracError;
 
 namespace {
   fn PrintDoctorReport(const os::System& data) -> void {
-    using util::types::u8, util::types::Vec, util::types::Pair;
-
     Vec<Pair<String, DracError>> failures;
 
     constexpr u8 totalPossibleReadouts = 9
@@ -150,8 +149,8 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
   }
 
   {
-    using ftxui::Element, ftxui::Screen, ftxui::Render;
-    using ftxui::Dimension::Full, ftxui::Dimension::Fit;
+    using namespace ftxui;
+    using namespace ftxui::Dimension;
     using os::System;
     using ui::CreateUI;
 

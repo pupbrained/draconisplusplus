@@ -3,8 +3,8 @@
 
 #include "gtest/gtest.h"
 
-using util::logging::LogLevelConst, util::logging::Bold, util::logging::Colorize, util::logging::Italic;
-using util::types::String, util::types::StringView;
+using namespace util::logging;
+using namespace util::types;
 
 class LoggingUtilsTest : public testing::Test {};
 

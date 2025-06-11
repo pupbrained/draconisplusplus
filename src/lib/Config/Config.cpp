@@ -26,12 +26,11 @@ namespace fs = std::filesystem;
 #endif
 
 #if !DRAC_PRECOMPILED_CONFIG
+using namespace util::types;
+using util::helpers::GetEnv;
+
 namespace {
-  using util::types::Vec, util::types::CStr, util::types::Exception;
-
   fn GetConfigPath() -> fs::path {
-    using util::helpers::GetEnv;
-
     Vec<fs::path> possiblePaths;
 
   #ifdef _WIN32

@@ -1,16 +1,16 @@
 #include "UI.hpp"
 
-#include <ranges>
+#include <ranges> // std::ranges::{begin, end, iota, transform}
 
 #include "Util/Logging.hpp"
 #include "Util/Types.hpp"
 
 #include "ftxui/dom/elements.hpp"
 
-namespace ui {
-  using namespace ftxui;
-  using namespace util::types;
+using namespace ftxui;
+using namespace util::types;
 
+namespace ui {
   constexpr Theme DEFAULT_THEME = {
     .icon   = Color::Cyan,
     .label  = Color::Yellow,
@@ -144,23 +144,26 @@ namespace ui {
 #endif
 
     fn CreateColorCircles() -> Element {
+      using std::ranges::begin, std::ranges::end;
+      using std::views::iota, std::views::transform;
+
       auto colorView =
-        std::views::iota(0, 16) | std::views::transform([](i32 colorIndex) {
-          return ftxui::hbox({
-            ftxui::text("◯") | ftxui::bold | ftxui::color(static_cast<ftxui::Color::Palette256>(colorIndex)),
-            ftxui::text(" "),
+        iota(0, 16) | transform([](i32 colorIndex) {
+          return hbox({
+            text("◯") | bold | color(static_cast<Color::Palette256>(colorIndex)),
+            text(" "),
           });
         });
 
-      return hbox(Elements(std::ranges::begin(colorView), std::ranges::end(colorView)));
+      return hbox(Elements(begin(colorView), end(colorView)));
     }
 
     fn get_visual_width(const String& str) -> usize {
-      return ftxui::string_width(str);
+      return string_width(str);
     }
 
     fn get_visual_width_sv(const StringView& sview) -> usize {
-      return ftxui::string_width(String(sview));
+      return string_width(String(sview));
     }
 
     fn find_max_label_len(const std::vector<RowInfo>& rows) -> usize {
@@ -214,9 +217,11 @@ namespace ui {
     if (config.weather.enabled && data.weather) {
       const weather::WeatherReport& weatherInfo = *data.weather;
 
+      CStr tempUnit = config.weather.units == config::WeatherUnit::METRIC ? "C" : "F";
+
       String weatherValue = config.weather.showTownName && weatherInfo.name
-        ? std::format("{}°{} in {}", std::lround(weatherInfo.temperature), config.weather.units == config::WeatherUnit::METRIC ? "C" : "F", *weatherInfo.name)
-        : std::format("{}°{}, {}", std::lround(weatherInfo.temperature), config.weather.units == config::WeatherUnit::METRIC ? "C" : "F", weatherInfo.description);
+        ? std::format("{}°{} in {}", std::lround(weatherInfo.temperature), tempUnit, *weatherInfo.name)
+        : std::format("{}°{}, {}", std::lround(weatherInfo.temperature), tempUnit, weatherInfo.description);
 
       initialRows.push_back({ .icon = weatherIcon, .label = "Weather", .value = std::move(weatherValue) });
     } else if (config.weather.enabled && !data.weather.has_value())
@@ -226,7 +231,7 @@ namespace ui {
     if (data.host && !data.host->empty())
       systemInfoRows.push_back({ .icon = hostIcon, .label = "Host", .value = *data.host });
 
-    if (data.osVersion) {
+    if (data.osVersion)
       systemInfoRows.push_back({
 #ifdef __linux__
         .icon = GetDistroIcon(*data.osVersion).value_or(osIcon),
@@ -236,7 +241,6 @@ namespace ui {
         .label = "OS",
         .value = *data.osVersion,
       });
-    }
 
     if (data.kernelVersion)
       systemInfoRows.push_back({ .icon = kernelIcon, .label = "Kernel", .value = *data.kernelVersion });
@@ -265,10 +269,9 @@ namespace ui {
       softwareRows.push_back({ .icon = shellIcon, .label = "Shell", .value = *data.shell });
 
 #if DRAC_ENABLE_PACKAGECOUNT
-    if (data.packageCount) {
+    if (data.packageCount)
       if (*data.packageCount > 0)
         softwareRows.push_back({ .icon = packageIcon, .label = "Packages", .value = std::format("{}", *data.packageCount) });
-    }
 #endif
 
     bool addedDe = false;

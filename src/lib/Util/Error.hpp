@@ -15,13 +15,11 @@
 #include "Util/Types.hpp"
 
 namespace util::error {
-  using types::u8;
-
   /**
    * @enum DracErrorCode
    * @brief Error codes for general OS-level operations.
    */
-  enum class DracErrorCode : u8 {
+  enum class DracErrorCode : types::u8 {
     ApiUnavailable,   ///< A required OS service/API is unavailable or failed unexpectedly at runtime.
     InternalError,    ///< An error occurred within the application's OS abstraction code logic.
     InvalidArgument,  ///< An invalid argument was passed to a function or method.
@@ -68,8 +66,6 @@ struct std::formatter<::util::error::DracErrorCode> : std::formatter<::util::typ
 
 namespace util {
   namespace error {
-    using types::String, types::Exception;
-
     /**
      * @struct DracError
      * @brief Holds structured information about an OS-level error.
@@ -78,20 +74,20 @@ namespace util {
      */
     struct DracError {
       // ReSharper disable CppDFANotInitializedField
-      String               message;  ///< A descriptive error message, potentially including platform details.
+      types::String        message;  ///< A descriptive error message, potentially including platform details.
       std::source_location location; ///< The source location where the error occurred (file, line, function).
       DracErrorCode        code;     ///< The general category of the error.
       // ReSharper restore CppDFANotInitializedField
 
-      DracError(const DracErrorCode errc, String msg, const std::source_location& loc = std::source_location::current())
+      DracError(const DracErrorCode errc, types::String msg, const std::source_location& loc = std::source_location::current())
         : message(std::move(msg)), location(loc), code(errc) {}
 
-      explicit DracError(const Exception& exc, const std::source_location& loc = std::source_location::current())
+      explicit DracError(const types::Exception& exc, const std::source_location& loc = std::source_location::current())
         : message(exc.what()), location(loc), code(DracErrorCode::InternalError) {}
 
       explicit DracError(const std::error_code& errc, const std::source_location& loc = std::source_location::current())
         : message(errc.message()), location(loc) {
-        using namespace matchit;
+        using matchit::match, matchit::is, matchit::or_, matchit::_;
         using enum DracErrorCode;
         using enum std::errc;
 
@@ -111,7 +107,7 @@ namespace util {
 #ifdef _WIN32
       explicit DracError(const winrt::hresult_error& err)
         : message(winrt::to_string(err.message())) {
-        using namespace matchit;
+        using matchit::match, matchit::is, matchit::or_, matchit::_;
         using enum DracErrorCode;
 
         fn fromWin32 = [](const types::u32 win32) -> HRESULT { return HRESULT_FROM_WIN32(win32); };
@@ -128,9 +124,9 @@ namespace util {
         );
       }
 #else
-      DracError(const String& context, const std::source_location& loc = std::source_location::current())
+      DracError(const types::String& context, const std::source_location& loc = std::source_location::current())
         : message(std::format("{}: {}", context, std::system_category().message(errno))), location(loc) {
-        using namespace matchit;
+        using matchit::match, matchit::is, matchit::or_, matchit::_;
         using enum DracErrorCode;
 
         code = match(errno)(

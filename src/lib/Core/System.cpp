@@ -21,8 +21,9 @@
 #include "Util/Error.hpp"
 #include "Util/Types.hpp"
 
-using util::error::DracErrorCode;
-using util::types::Err, util::types::i32, util::types::CStr, util::types::usize;
+using namespace util::types;
+using util::error::DracError;
+using enum util::error::DracErrorCode;
 
 namespace {
   fn getOrdinalSuffix(const i32 day) -> CStr {
@@ -63,13 +64,13 @@ namespace os {
 
         try {
           return std::format("{} {}{}", monthBuffer, day, suffix);
-        } catch (const std::format_error& e) { return Err(DracError(DracErrorCode::ParseError, e.what())); }
+        } catch (const std::format_error& e) { return Err(DracError(ParseError, e.what())); }
       }
 
-      return Err(DracError(DracErrorCode::ParseError, "Failed to format date"));
+      return Err(DracError(ParseError, "Failed to format date"));
     }
 
-    return Err(DracError(DracErrorCode::ParseError, "Failed to get local time"));
+    return Err(DracError(ParseError, "Failed to get local time"));
   }
 
 #if DRAC_ENABLE_WEATHER
@@ -77,14 +78,12 @@ namespace os {
     if (config.weather.enabled && config.weather.service)
       return config.weather.service->getWeatherInfo();
 
-    return Err(DracError(DracErrorCode::ApiUnavailable, "Weather API disabled or service not configured"));
+    return Err(DracError(ApiUnavailable, "Weather API disabled or service not configured"));
   }
 #endif
 
   System::System(const Config& config) {
-    using util::types::Future;
     using enum std::launch;
-    using enum util::error::DracErrorCode;
 
     // Use batch operations for related information
     Future<Result<String>>        osFut     = std::async(async, &System::getOSVersion);
@@ -136,75 +135,4 @@ namespace os {
 #endif
   }
 
-  fn System::getSystemInfo() -> Result<SystemInfo> {
-    using util::types::Future;
-    using enum std::launch;
-
-    Future<Result<String>> osFut     = std::async(async, &System::getOSVersion);
-    Future<Result<String>> kernelFut = std::async(async, &System::getKernelVersion);
-    Future<Result<String>> hostFut   = std::async(async, &System::getHost);
-    Future<Result<String>> cpuFut    = std::async(async, &System::getCPUModel);
-    Future<Result<String>> gpuFut    = std::async(async, &System::getGPUModel);
-
-    auto osResult     = osFut.get();
-    auto kernelResult = kernelFut.get();
-    auto hostResult   = hostFut.get();
-    auto cpuResult    = cpuFut.get();
-    auto gpuResult    = gpuFut.get();
-
-    if (!osResult || !kernelResult || !hostResult || !cpuResult || !gpuResult) {
-      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to fetch system information"));
-    }
-
-    return SystemInfo {
-      .osVersion     = std::move(*osResult),
-      .kernelVersion = std::move(*kernelResult),
-      .host          = std::move(*hostResult),
-      .cpuModel      = std::move(*cpuResult),
-      .gpuModel      = std::move(*gpuResult)
-    };
-  }
-
-  fn System::getEnvironmentInfo() -> Result<EnvironmentInfo> {
-    using util::types::Future;
-    using enum std::launch;
-
-    Future<Result<String>> deFut    = std::async(async, &System::getDesktopEnvironment);
-    Future<Result<String>> wmFut    = std::async(async, &System::getWindowManager);
-    Future<Result<String>> shellFut = std::async(async, &System::getShell);
-
-    auto deResult    = deFut.get();
-    auto wmResult    = wmFut.get();
-    auto shellResult = shellFut.get();
-
-    if (!deResult || !wmResult || !shellResult) {
-      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to fetch environment information"));
-    }
-
-    return EnvironmentInfo {
-      .desktopEnv = std::move(*deResult),
-      .windowMgr  = std::move(*wmResult),
-      .shell      = std::move(*shellResult)
-    };
-  }
-
-  fn System::getResourceInfo() -> Result<ResourceInfo> {
-    using util::types::Future;
-    using enum std::launch;
-
-    Future<Result<ResourceUsage>> memFut  = std::async(async, &System::getMemInfo);
-    Future<Result<ResourceUsage>> diskFut = std::async(async, &System::getDiskUsage);
-
-    auto memResult  = memFut.get();
-    auto diskResult = diskFut.get();
-
-    if (!memResult || !diskResult) {
-      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to fetch resource information"));
-    }
-
-    return ResourceInfo {
-      .memInfo   = *memResult,
-      .diskUsage = *diskResult
-    };
-  }
 } // namespace os

@@ -11,12 +11,12 @@
 namespace weather {
   class OpenMeteoService final : public IWeatherService {
    public:
-    OpenMeteoService(f64 lat, f64 lon, config::WeatherUnit units);
-    [[nodiscard]] fn getWeatherInfo() const -> Result<WeatherReport> override;
+    OpenMeteoService(util::types::f64 lat, util::types::f64 lon, config::WeatherUnit units);
+    [[nodiscard]] fn getWeatherInfo() const -> util::types::Result<WeatherReport> override;
 
    private:
-    f64                 m_lat;
-    f64                 m_lon;
+    util::types::f64                 m_lat;
+    util::types::f64                 m_lon;
     config::WeatherUnit m_units;
   };
 } // namespace weather

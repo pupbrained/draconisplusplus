@@ -9,8 +9,6 @@
 // clang-format on
 
 namespace weather {
-  using util::types::Result;
-
   class IWeatherService {
    public:
     IWeatherService(const IWeatherService&) = delete;
@@ -21,7 +19,7 @@ namespace weather {
 
     virtual ~IWeatherService() = default;
 
-    [[nodiscard]] virtual fn getWeatherInfo() const -> Result<WeatherReport> = 0;
+    [[nodiscard]] virtual fn getWeatherInfo() const -> util::types::Result<WeatherReport> = 0;
 
    protected:
     IWeatherService() = default;

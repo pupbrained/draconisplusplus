@@ -11,9 +11,10 @@
 #include "gtest/gtest.h"
 // clang-format on
 
-using util::error::DracErrorCode;
-using util::types::String, util::types::usize, util::types::Result;
-using weather::utils::StripTimeOfDayFromSymbol, weather::utils::ParseIso8601ToEpoch, weather::utils::GetMetnoSymbolDescriptions, weather::utils::GetOpenmeteoWeatherDescription;
+using namespace util::types;
+using namespace weather::utils;
+using glz::read, glz::error_code, glz::error_ctx;
+using enum util::error::DracErrorCode;
 
 class WeatherServiceTest : public ::testing::Test {};
 
@@ -70,19 +71,19 @@ TEST_F(WeatherServiceTest, ParseISO8601ToEpoch_Valid) {
 TEST_F(WeatherServiceTest, ParseISO8601ToEpoch_InvalidFormat_TooShort) {
   Result<time_t> result = ParseIso8601ToEpoch("2023-10-26T10:30:00");
   ASSERT_FALSE(result.has_value());
-  EXPECT_EQ(result.error().code, DracErrorCode::ParseError);
+  EXPECT_EQ(result.error().code, ParseError);
 }
 
 TEST_F(WeatherServiceTest, ParseISO8601ToEpoch_InvalidFormat_TooLong) {
   Result<time_t> result = ParseIso8601ToEpoch("2023-10-26T10:30:00ZEXTRA");
   ASSERT_FALSE(result.has_value());
-  EXPECT_EQ(result.error().code, DracErrorCode::ParseError);
+  EXPECT_EQ(result.error().code, ParseError);
 }
 
 TEST_F(WeatherServiceTest, ParseISO8601ToEpoch_InvalidFormat_WrongSeparator) {
   Result<time_t> result = ParseIso8601ToEpoch("2023-10-26X10:30:00Z");
   ASSERT_FALSE(result.has_value());
-  EXPECT_EQ(result.error().code, DracErrorCode::ParseError);
+  EXPECT_EQ(result.error().code, ParseError);
 }
 
 TEST_F(WeatherServiceTest, ParseISO8601ToEpoch_InvalidValues_BadMonth) {
@@ -91,24 +92,22 @@ TEST_F(WeatherServiceTest, ParseISO8601ToEpoch_InvalidValues_BadMonth) {
   // Let's test with a clearly invalid format instead
   Result<time_t> result = ParseIso8601ToEpoch("2023-AB-26T10:30:00Z"); // Non-numeric month
   ASSERT_FALSE(result.has_value());
-  EXPECT_EQ(result.error().code, DracErrorCode::ParseError);
+  EXPECT_EQ(result.error().code, ParseError);
 }
 
 TEST_F(WeatherServiceTest, ParseISO8601ToEpoch_InvalidValues_NonNumeric) {
   Result<time_t> result = ParseIso8601ToEpoch("2023-1A-26T10:30:00Z");
   ASSERT_FALSE(result.has_value());
-  EXPECT_EQ(result.error().code, DracErrorCode::ParseError);
+  EXPECT_EQ(result.error().code, ParseError);
 }
 
 TEST_F(WeatherServiceTest, ParseISO8601ToEpoch_EmptyString) {
   Result<time_t> result = ParseIso8601ToEpoch("");
   ASSERT_FALSE(result.has_value());
-  EXPECT_EQ(result.error().code, DracErrorCode::ParseError);
+  EXPECT_EQ(result.error().code, ParseError);
 }
 
 TEST_F(WeatherServiceTest, MetNoSymbolDescriptions_ClearWeather) {
-  using util::types::StringView;
-
   const std::unordered_map<StringView, StringView>& descriptions = GetMetnoSymbolDescriptions();
 
   EXPECT_EQ(descriptions.at("clearsky"), "clear sky");
@@ -119,8 +118,6 @@ TEST_F(WeatherServiceTest, MetNoSymbolDescriptions_ClearWeather) {
 }
 
 TEST_F(WeatherServiceTest, MetNoSymbolDescriptions_RainWeather) {
-  using util::types::StringView;
-
   const std::unordered_map<StringView, StringView>& descriptions = GetMetnoSymbolDescriptions();
 
   EXPECT_EQ(descriptions.at("lightrain"), "light rain");
@@ -130,8 +127,6 @@ TEST_F(WeatherServiceTest, MetNoSymbolDescriptions_RainWeather) {
 }
 
 TEST_F(WeatherServiceTest, MetNoSymbolDescriptions_SnowWeather) {
-  using util::types::StringView;
-
   const std::unordered_map<StringView, StringView>& descriptions = GetMetnoSymbolDescriptions();
 
   EXPECT_EQ(descriptions.at("lightsnow"), "light snow");
@@ -178,8 +173,6 @@ TEST_F(WeatherServiceTest, OpenMeteoWeatherDescription_UnknownCode) {
 }
 
 TEST_F(WeatherServiceTest, MetNoJsonParsing_ValidCompleteResponse) {
-  using glz::read, glz::error_code, glz::error_ctx;
-
   const String validJson = R"({
     "properties": {
       "timeseries": [
@@ -216,8 +209,6 @@ TEST_F(WeatherServiceTest, MetNoJsonParsing_ValidCompleteResponse) {
 }
 
 TEST_F(WeatherServiceTest, MetNoJsonParsing_ValidMinimalResponse) {
-  using glz::read, glz::error_code, glz::error_ctx;
-
   const String minimalJson = R"({
     "properties": {
       "timeseries": [
@@ -248,8 +239,6 @@ TEST_F(WeatherServiceTest, MetNoJsonParsing_ValidMinimalResponse) {
 }
 
 TEST_F(WeatherServiceTest, MetNoJsonParsing_InvalidJson) {
-  using glz::read, glz::error_code, glz::error_ctx;
-
   const String invalidJson = R"({
     "properties": {
       "timeseries": [
@@ -272,8 +261,6 @@ TEST_F(WeatherServiceTest, MetNoJsonParsing_InvalidJson) {
 }
 
 TEST_F(WeatherServiceTest, MetNoJsonParsing_EmptyTimeseries) {
-  using glz::read, glz::error_code, glz::error_ctx;
-
   const String emptyTimeseriesJson = R"({
     "properties": {
       "timeseries": []
@@ -288,8 +275,6 @@ TEST_F(WeatherServiceTest, MetNoJsonParsing_EmptyTimeseries) {
 }
 
 TEST_F(WeatherServiceTest, OpenMeteoJsonParsing_ValidResponse) {
-  using glz::read, glz::error_code, glz::error_ctx;
-
   const String validJson = R"({
     "current_weather": {
       "temperature": 22.5,
@@ -308,8 +293,6 @@ TEST_F(WeatherServiceTest, OpenMeteoJsonParsing_ValidResponse) {
 }
 
 TEST_F(WeatherServiceTest, OpenMeteoJsonParsing_NegativeTemperature) {
-  using glz::read, glz::error_code, glz::error_ctx;
-
   const String coldWeatherJson = R"({
     "current_weather": {
       "temperature": -15.8,
@@ -328,8 +311,6 @@ TEST_F(WeatherServiceTest, OpenMeteoJsonParsing_NegativeTemperature) {
 }
 
 TEST_F(WeatherServiceTest, OpenMeteoJsonParsing_InvalidJson) {
-  using glz::read, glz::error_code, glz::error_ctx;
-
   const String invalidJson = R"({
     "current_weather": {
       "temperature": "not_a_number",
@@ -345,8 +326,6 @@ TEST_F(WeatherServiceTest, OpenMeteoJsonParsing_InvalidJson) {
 }
 
 TEST_F(WeatherServiceTest, OpenMeteoJsonParsing_MissingFields) {
-  using glz::read, glz::error_code, glz::error_ctx;
-
   const String incompleteJson = R"({
     "current_weather": {
       "temperature": 20.0
@@ -366,8 +345,6 @@ TEST_F(WeatherServiceTest, OpenMeteoJsonParsing_MissingFields) {
 }
 
 TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_ValidResponse) {
-  using glz::read, glz::error_code, glz::error_ctx;
-
   const String validJson = R"({
     "main": {
       "temp": 18.7
@@ -393,8 +370,6 @@ TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_ValidResponse) {
 }
 
 TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_EmptyWeatherArray) {
-  using glz::read, glz::error_code, glz::error_ctx;
-
   const String emptyWeatherJson = R"({
     "main": {
       "temp": 25.0
@@ -415,8 +390,6 @@ TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_EmptyWeatherArray) {
 }
 
 TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_MultipleWeatherEntries) {
-  using glz::read, glz::error_code, glz::error_ctx;
-
   const String multiWeatherJson = R"({
     "main": {
       "temp": 12.3
@@ -445,8 +418,6 @@ TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_MultipleWeatherEntries) {
 }
 
 TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_InvalidJson) {
-  using glz::read, glz::error_code, glz::error_ctx;
-
   const String invalidJson = R"({
     "main": {
       "temp": null
@@ -467,8 +438,6 @@ TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_InvalidJson) {
 }
 
 TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_EmptyName) {
-  using glz::read, glz::error_code, glz::error_ctx;
-
   const String emptyNameJson = R"({
     "main": {
       "temp": 8.9

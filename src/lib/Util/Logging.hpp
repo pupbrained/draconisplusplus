@@ -22,17 +22,14 @@
 #include "Util/Types.hpp"
 
 namespace util::logging {
-  using types::usize, types::u8, types::i32, types::i64, types::CStr, types::String, types::StringView, types::Array,
-    types::Option, types::None, types::Mutex, types::LockGuard;
-
-  inline fn GetLogMutex() -> Mutex& {
-    static Mutex LogMutexInstance;
+  inline fn GetLogMutex() -> types::Mutex& {
+    static types::Mutex LogMutexInstance;
     return LogMutexInstance;
   }
 
   struct LogLevelConst {
     // clang-format off
-    static constexpr Array<StringView, 16> COLOR_CODE_LITERALS = {
+    static constexpr types::Array<types::StringView, 16> COLOR_CODE_LITERALS = {
       "\033[38;5;0m",  "\033[38;5;1m",  "\033[38;5;2m",  "\033[38;5;3m",
       "\033[38;5;4m",  "\033[38;5;5m",  "\033[38;5;6m",  "\033[38;5;7m",
       "\033[38;5;8m",  "\033[38;5;9m",  "\033[38;5;10m", "\033[38;5;11m",
@@ -46,10 +43,10 @@ namespace util::logging {
     static constexpr const char* ITALIC_START = "\033[3m";
     static constexpr const char* ITALIC_END   = "\033[23m";
 
-    static constexpr StringView DEBUG_STR = "DEBUG";
-    static constexpr StringView INFO_STR  = "INFO ";
-    static constexpr StringView WARN_STR  = "WARN ";
-    static constexpr StringView ERROR_STR = "ERROR";
+    static constexpr types::StringView DEBUG_STR = "DEBUG";
+    static constexpr types::StringView INFO_STR  = "INFO ";
+    static constexpr types::StringView WARN_STR  = "WARN ";
+    static constexpr types::StringView ERROR_STR = "ERROR";
 
     static constexpr ftxui::Color::Palette16 DEBUG_COLOR      = ftxui::Color::Palette16::Cyan;
     static constexpr ftxui::Color::Palette16 INFO_COLOR       = ftxui::Color::Palette16::Green;
@@ -57,13 +54,13 @@ namespace util::logging {
     static constexpr ftxui::Color::Palette16 ERROR_COLOR      = ftxui::Color::Palette16::Red;
     static constexpr ftxui::Color::Palette16 DEBUG_INFO_COLOR = ftxui::Color::Palette16::GrayLight;
 
-    static constexpr CStr TIMESTAMP_FORMAT = "%X";
-    static constexpr CStr LOG_FORMAT       = "{} {} {}";
+    static constexpr types::CStr TIMESTAMP_FORMAT = "%X";
+    static constexpr types::CStr LOG_FORMAT       = "{} {} {}";
 
 #ifndef NDEBUG
-    static constexpr CStr DEBUG_INFO_FORMAT = "{}{}{}\n";
-    static constexpr CStr FILE_LINE_FORMAT  = "{}:{}";
-    static constexpr CStr DEBUG_LINE_PREFIX = "           ╰── ";
+    static constexpr types::CStr DEBUG_INFO_FORMAT = "{}{}{}\n";
+    static constexpr types::CStr FILE_LINE_FORMAT  = "{}:{}";
+    static constexpr types::CStr DEBUG_LINE_PREFIX = "           ╰── ";
 #endif
   };
 
@@ -71,7 +68,7 @@ namespace util::logging {
    * @enum LogLevel
    * @brief Represents different log levels.
    */
-  enum class LogLevel : u8 {
+  enum class LogLevel : types::u8 {
     Debug,
     Info,
     Warn,
@@ -93,7 +90,7 @@ namespace util::logging {
    * @param color The FTXUI color
    * @return Styled string with ANSI codes
    */
-  inline fn Colorize(const StringView text, const ftxui::Color::Palette16& color) -> String {
+  inline fn Colorize(const types::StringView text, const ftxui::Color::Palette16& color) -> types::String {
     return std::format("{}{}{}", LogLevelConst::COLOR_CODE_LITERALS.at(color), text, LogLevelConst::RESET_CODE);
   }
 
@@ -102,7 +99,7 @@ namespace util::logging {
    * @param text The text to make bold
    * @return Bold text
    */
-  inline fn Bold(const StringView text) -> String {
+  inline fn Bold(const types::StringView text) -> types::String {
     return std::format("{}{}{}", LogLevelConst::BOLD_START, text, LogLevelConst::BOLD_END);
   }
 
@@ -111,7 +108,7 @@ namespace util::logging {
    * @param text The text to make italic
    * @return Italic text
    */
-  inline fn Italic(const StringView text) -> String {
+  inline fn Italic(const types::StringView text) -> types::String {
     return std::format("{}{}{}", LogLevelConst::ITALIC_START, text, LogLevelConst::ITALIC_END);
   }
 
@@ -120,8 +117,8 @@ namespace util::logging {
    * @note Uses function-local static for lazy initialization to avoid
    * static initialization order issues and CERT-ERR58-CPP warnings.
    */
-  inline fn GetLevelInfo() -> const Array<String, 4>& {
-    static const Array<String, 4> LEVEL_INFO_INSTANCE = {
+  inline fn GetLevelInfo() -> const types::Array<types::String, 4>& {
+    static const types::Array<types::String, 4> LEVEL_INFO_INSTANCE = {
       Bold(Colorize(LogLevelConst::DEBUG_STR, LogLevelConst::DEBUG_COLOR)),
       Bold(Colorize(LogLevelConst::INFO_STR, LogLevelConst::INFO_COLOR)),
       Bold(Colorize(LogLevelConst::WARN_STR, LogLevelConst::WARN_COLOR)),
@@ -152,7 +149,7 @@ namespace util::logging {
    * @param level The log level
    * @return String representation
    */
-  constexpr fn GetLevelString(const LogLevel level) -> StringView {
+  constexpr fn GetLevelString(const LogLevel level) -> types::StringView {
     using namespace matchit;
     using enum LogLevel;
 
@@ -191,22 +188,22 @@ namespace util::logging {
     if (level < GetRuntimeLogLevel())
       return;
 
-    const LockGuard lock(GetLogMutex());
+    const types::LockGuard lock(GetLogMutex());
 
     const auto        nowTp = system_clock::now();
     const std::time_t nowTt = system_clock::to_time_t(nowTp);
     std::tm           localTm {};
 
-    String timestamp;
+    types::String timestamp;
 
 #ifdef _WIN32
     if (localtime_s(&localTm, &nowTt) == 0) {
 #else
     if (localtime_r(&nowTt, &localTm) != nullptr) {
 #endif
-      Array<char, 64> timeBuffer {};
+      types::Array<char, 64> timeBuffer {};
 
-      const usize formattedTime =
+      const types::usize formattedTime =
         std::strftime(timeBuffer.data(), sizeof(timeBuffer), LogLevelConst::TIMESTAMP_FORMAT, &localTm);
 
       if (formattedTime > 0) {
@@ -219,12 +216,12 @@ namespace util::logging {
     } else
       timestamp = "??:??:??";
 
-    const String message = std::format(fmt, std::forward<Args>(args)...);
+    const types::String message = std::format(fmt, std::forward<Args>(args)...);
 
-    const String mainLogLine = std::format(
+    const types::String mainLogLine = std::format(
       LogLevelConst::LOG_FORMAT,
       Colorize("[" + timestamp + "]", LogLevelConst::DEBUG_INFO_COLOR),
-      GetLevelInfo().at(static_cast<usize>(level)),
+      GetLevelInfo().at(static_cast<types::usize>(level)),
       message
     );
 
@@ -235,9 +232,9 @@ namespace util::logging {
 #endif
 
 #ifndef NDEBUG
-    const String fileLine =
+    const types::String fileLine =
       std::format(LogLevelConst::FILE_LINE_FORMAT, path(loc.file_name()).lexically_normal().string(), loc.line());
-    const String fullDebugLine = std::format("{}{}", LogLevelConst::DEBUG_LINE_PREFIX, fileLine);
+    const types::String fullDebugLine = std::format("{}{}", LogLevelConst::DEBUG_LINE_PREFIX, fileLine);
   #ifdef __cpp_lib_print
     std::print("\n{}", Italic(Colorize(fullDebugLine, LogLevelConst::DEBUG_INFO_COLOR)));
   #else
@@ -261,7 +258,7 @@ namespace util::logging {
     std::source_location logLocation;
 #endif
 
-    String errorMessagePart;
+    types::String errorMessagePart;
 
     if constexpr (std::is_same_v<DecayedErrorType, error::DracError>) {
 #ifndef NDEBUG

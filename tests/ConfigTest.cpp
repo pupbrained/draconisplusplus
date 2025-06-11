@@ -33,6 +33,8 @@ TEST_F(ConfigTest, PrecompiledConfigTypes) {
 
   #include "Services/Weather.hpp" // For weather::Coords
 
+using namespace util::types;
+
 TEST_F(ConfigTest, GeneralFromToml_WithName) {
   toml::parse_result tbl = toml::parse(R"(
     name = "Test User"

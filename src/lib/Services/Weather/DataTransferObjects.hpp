@@ -12,160 +12,143 @@
 #include "Util/Types.hpp"
 // clang-format on
 
-namespace weather {
-  namespace dto {
-    using ::util::types::f64, ::util::types::String, ::util::types::Option, ::util::types::Vec, ::util::types::i32, ::util::types::i64;
+namespace weather::dto {
+  // MetNo Data Transfer Objects
+  namespace metno {
+    struct Details {
+      util::types::f64 airTemperature;
+    };
 
-    // MetNo Data Transfer Objects
-    namespace metno {
-      struct Details {
-        f64 airTemperature;
+    struct Next1hSummary {
+      util::types::String symbolCode;
+    };
+
+    struct Next1h {
+      Next1hSummary summary;
+    };
+
+    struct Instant {
+      Details details;
+    };
+
+    struct Data {
+      Instant                     instant;
+      util::types::Option<Next1h> next1Hours;
+    };
+
+    struct Timeseries {
+      util::types::String time;
+      Data                data;
+    };
+
+    struct Properties {
+      util::types::Vec<Timeseries> timeseries;
+    };
+
+    struct Response {
+      Properties properties;
+    };
+  } // namespace metno
+
+  // OpenMeteo Data Transfer Objects
+  namespace openmeteo {
+    struct Response {
+      struct Current {
+        util::types::f64    temperature;
+        util::types::i32    weathercode;
+        util::types::String time;
+      } currentWeather;
+    };
+  } // namespace openmeteo
+
+  // OpenWeatherMap Data Transfer Objects
+  namespace owm {
+    struct OWMResponse {
+      struct Main {
+        util::types::f64 temp;
       };
 
-      struct Next1hSummary {
-        String symbolCode;
+      struct Weather {
+        util::types::String description;
       };
 
-      struct Next1h {
-        Next1hSummary summary;
-      };
-
-      struct Instant {
-        Details details;
-      };
-
-      struct Data {
-        Instant        instant;
-        Option<Next1h> next1Hours;
-      };
-
-      struct Timeseries {
-        String time;
-        Data   data;
-      };
-
-      struct Properties {
-        Vec<Timeseries> timeseries;
-      };
-
-      struct Response {
-        Properties properties;
-      };
-    } // namespace metno
-
-    // OpenMeteo Data Transfer Objects
-    namespace openmeteo {
-      struct Response {
-        struct Current {
-          f64    temperature;
-          i32    weathercode;
-          String time;
-        } currentWeather;
-      };
-    } // namespace openmeteo
-
-    // OpenWeatherMap Data Transfer Objects
-    namespace owm {
-      struct OWMResponse {
-        struct Main {
-          f64 temp;
-        };
-
-        struct Weather {
-          String description;
-        };
-
-        Main           main;
-        Vec<Weather>   weather;
-        String         name;
-        i64            dt;
-        Option<i32>    cod;
-        Option<String> message;
-      };
-    } // namespace owm
-  } // namespace dto
-} // namespace weather
+      Main                                     main;
+      util::types::Vec<Weather>                weather;
+      util::types::String                      name;
+      util::types::i64                         dt;
+      util::types::Option<util::types::i32>    cod;
+      util::types::Option<util::types::String> message;
+    };
+  } // namespace owm
+} // namespace weather::dto
 
 namespace glz {
   // MetNo Glaze meta definitions
   template <>
   struct meta<weather::dto::metno::Details> {
-    using T                     = weather::dto::metno::Details;
-    static constexpr auto value = object("air_temperature", &T::airTemperature);
+    static constexpr detail::Object value = object("air_temperature", &weather::dto::metno::Details::airTemperature);
   };
 
   template <>
   struct meta<weather::dto::metno::Next1hSummary> {
-    using T                     = weather::dto::metno::Next1hSummary;
-    static constexpr auto value = object("symbol_code", &T::symbolCode);
+    static constexpr detail::Object value = object("symbol_code", &weather::dto::metno::Next1hSummary::symbolCode);
   };
 
   template <>
   struct meta<weather::dto::metno::Next1h> {
-    using T                     = weather::dto::metno::Next1h;
-    static constexpr auto value = object("summary", &T::summary);
+    static constexpr detail::Object value = object("summary", &weather::dto::metno::Next1h::summary);
   };
 
   template <>
   struct meta<weather::dto::metno::Instant> {
-    using T                     = weather::dto::metno::Instant;
-    static constexpr auto value = object("details", &T::details);
+    static constexpr detail::Object value = object("details", &weather::dto::metno::Instant::details);
   };
 
   template <>
   struct meta<weather::dto::metno::Data> {
-    using T                     = weather::dto::metno::Data;
-    static constexpr auto value = object("instant", &T::instant, "next_1_hours", &T::next1Hours);
+    static constexpr detail::Object value = object("instant", &weather::dto::metno::Data::instant, "next_1_hours", &weather::dto::metno::Data::next1Hours);
   };
 
   template <>
   struct meta<weather::dto::metno::Timeseries> {
-    using T                     = weather::dto::metno::Timeseries;
-    static constexpr auto value = object("time", &T::time, "data", &T::data);
+    static constexpr detail::Object value = object("time", &weather::dto::metno::Timeseries::time, "data", &weather::dto::metno::Timeseries::data);
   };
 
   template <>
   struct meta<weather::dto::metno::Properties> {
-    using T                     = weather::dto::metno::Properties;
-    static constexpr auto value = object("timeseries", &T::timeseries);
+    static constexpr detail::Object value = object("timeseries", &weather::dto::metno::Properties::timeseries);
   };
 
   template <>
   struct meta<weather::dto::metno::Response> {
-    using T                     = weather::dto::metno::Response;
-    static constexpr auto value = object("properties", &T::properties);
+    static constexpr detail::Object value = object("properties", &weather::dto::metno::Response::properties);
   };
 
   // OpenMeteo Glaze meta definitions
   template <>
   struct meta<weather::dto::openmeteo::Response::Current> {
-    using T                     = weather::dto::openmeteo::Response::Current;
-    static constexpr auto value = object("temperature", &T::temperature, "weathercode", &T::weathercode, "time", &T::time);
+    static constexpr detail::Object value = object("temperature", &weather::dto::openmeteo::Response::Current::temperature, "weathercode", &weather::dto::openmeteo::Response::Current::weathercode, "time", &weather::dto::openmeteo::Response::Current::time);
   };
 
   template <>
   struct meta<weather::dto::openmeteo::Response> {
-    using T                     = weather::dto::openmeteo::Response;
-    static constexpr auto value = object("current_weather", &T::currentWeather);
+    static constexpr detail::Object value = object("current_weather", &weather::dto::openmeteo::Response::currentWeather);
   };
 
   // OpenWeatherMap Glaze meta definitions
   template <>
   struct meta<weather::dto::owm::OWMResponse::Main> {
-    using T                     = weather::dto::owm::OWMResponse::Main;
-    static constexpr auto value = object("temp", &T::temp);
+    static constexpr detail::Object value = object("temp", &weather::dto::owm::OWMResponse::Main::temp);
   };
 
   template <>
   struct meta<weather::dto::owm::OWMResponse::Weather> {
-    using T                     = weather::dto::owm::OWMResponse::Weather;
-    static constexpr auto value = object("description", &T::description);
+    static constexpr detail::Object value = object("description", &weather::dto::owm::OWMResponse::Weather::description);
   };
 
   template <>
   struct meta<weather::dto::owm::OWMResponse> {
-    using T                     = weather::dto::owm::OWMResponse;
-    static constexpr auto value = object("main", &T::main, "weather", &T::weather, "name", &T::name, "dt", &T::dt, "cod", &T::cod, "message", &T::message);
+    static constexpr detail::Object value = object("main", &weather::dto::owm::OWMResponse::main, "weather", &weather::dto::owm::OWMResponse::weather, "name", &weather::dto::owm::OWMResponse::name, "dt", &weather::dto::owm::OWMResponse::dt, "cod", &weather::dto::owm::OWMResponse::cod, "message", &weather::dto::owm::OWMResponse::message);
   };
 } // namespace glz
 

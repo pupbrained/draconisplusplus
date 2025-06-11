@@ -30,12 +30,14 @@
 #include "Util/Types.hpp"
 // clang-format on
 
-namespace {
-  namespace fs = std::filesystem;
-  using util::cache::GetValidCache, util::cache::WriteCache;
-  using util::error::DracError, util::error::DracErrorCode;
+namespace fs = std::filesystem;
 
-  using util::types::Err, util::types::Exception, util::types::Result, util::types::String, util::types::u64, util::types::i64, util::types::Option;
+using namespace util::types;
+using util::error::DracError;
+using enum util::error::DracErrorCode;
+using util::cache::GetValidCache, util::cache::WriteCache;
+
+namespace {
 
   fn GetCountFromDirectoryImpl(
     const String&         pmId,
@@ -57,11 +59,11 @@ namespace {
     if (!fs::is_directory(dirPath, fsErrCode)) {
       if (fsErrCode && fsErrCode != std::errc::no_such_file_or_directory)
         return Err(DracError(
-          DracErrorCode::IoError,
+          IoError,
           std::format("Filesystem error checking if '{}' is a directory: {}", dirPath.string(), fsErrCode.message())
         ));
 
-      return Err(DracError(DracErrorCode::NotFound, std::format("{} path is not a directory: {}", pmId, dirPath.string())));
+      return Err(DracError(NotFound, std::format("{} path is not a directory: {}", pmId, dirPath.string())));
     }
 
     fsErrCode.clear();
@@ -73,7 +75,7 @@ namespace {
 
       if (fsErrCode)
         return Err(DracError(
-          DracErrorCode::IoError,
+          IoError,
           std::format(
             "Failed to create iterator for {} directory '{}': {}", pmId, dirPath.string(), fsErrCode.message()
           )
@@ -105,18 +107,18 @@ namespace {
       }
     } catch (const fs::filesystem_error& fsCatchErr) {
       return Err(DracError(
-        DracErrorCode::IoError,
+        IoError,
         std::format("Filesystem error during {} directory iteration: {}", pmId, fsCatchErr.what())
       ));
-    } catch (const Exception& exc) { return Err(DracError(DracErrorCode::InternalError, exc.what())); } catch (...) {
-      return Err(DracError(DracErrorCode::Other, std::format("Unknown error iterating {} directory", pmId)));
+    } catch (const Exception& exc) { return Err(DracError(InternalError, exc.what())); } catch (...) {
+      return Err(DracError(Other, std::format("Unknown error iterating {} directory", pmId)));
     }
 
     if (subtractOne && count > 0)
       count--;
 
     if (count == 0)
-      return Err(DracError(DracErrorCode::NotFound, std::format("No packages found in {} directory", pmId)));
+      return Err(DracError(NotFound, std::format("No packages found in {} directory", pmId)));
 
     if (Result writeResult = WriteCache(cacheKey, count); !writeResult)
       debug_at(writeResult.error());
@@ -126,9 +128,6 @@ namespace {
 } // namespace
 
 namespace package {
-  namespace fs = std::filesystem;
-  using util::types::Err, util::types::None, util::types::Option, util::types::Result, util::types::String, util::types::u64;
-
   fn GetCountFromDirectory(
     const String&   pmId,
     const fs::path& dirPath,
@@ -153,10 +152,6 @@ namespace package {
 
   #if !defined(__serenity__) && !defined(_WIN32)
   fn GetCountFromDb(const String& pmId, const fs::path& dbPath, const String& countQuery) -> Result<u64> {
-    using util::cache::GetValidCache, util::cache::WriteCache;
-    using util::error::DracError, util::error::DracErrorCode;
-    using util::types::Exception, util::types::i64;
-
     const String cacheKey = std::format("pkg_count_{}", pmId);
 
     if (Result<u64> cachedDataResult = GetValidCache<u64>(cacheKey))
@@ -168,32 +163,31 @@ namespace package {
 
     try {
       if (std::error_code existsErr; !fs::exists(dbPath, existsErr) || existsErr)
-        return Err(
-          DracError(DracErrorCode::NotFound, std::format("{} database not found at '{}'", pmId, dbPath.string()))
-        );
+        return Err(DracError(NotFound, std::format("{} database not found at '{}'", pmId, dbPath.string())));
 
       const SQLite::Database database(dbPath.string(), SQLite::OPEN_READONLY);
 
       if (SQLite::Statement queryStmt(database, countQuery); queryStmt.executeStep()) {
         const i64 countInt64 = queryStmt.getColumn(0).getInt64();
+
         if (countInt64 < 0)
-          return Err(
-            DracError(DracErrorCode::ParseError, std::format("Negative count returned by {} DB COUNT query.", pmId))
-          );
+          return Err(DracError(ParseError, std::format("Negative count returned by {} DB COUNT query.", pmId)));
+
         count = static_cast<u64>(countInt64);
       } else
-        return Err(DracError(DracErrorCode::ParseError, std::format("No rows returned by {} DB COUNT query.", pmId)));
+        return Err(DracError(ParseError, std::format("No rows returned by {} DB COUNT query.", pmId)));
     } catch (const SQLite::Exception& e) {
       error_log("SQLite error occurred accessing {} DB '{}': {}", pmId, dbPath.string(), e.what());
-      return Err(
-        DracError(DracErrorCode::ApiUnavailable, std::format("Failed to query {} database: {}", pmId, dbPath.string()))
-      );
+
+      return Err(DracError(ApiUnavailable, std::format("Failed to query {} database: {}", pmId, dbPath.string())));
     } catch (const Exception& e) {
       error_log("Standard exception accessing {} DB '{}': {}", pmId, dbPath.string(), e.what());
-      return Err(DracError(DracErrorCode::InternalError, e.what()));
+
+      return Err(DracError(InternalError, e.what()));
     } catch (...) {
       error_log("Unknown error occurred accessing {} DB '{}'", pmId, dbPath.string());
-      return Err(DracError(DracErrorCode::Other, std::format("Unknown error occurred accessing {} DB", pmId)));
+
+      return Err(DracError(Other, std::format("Unknown error occurred accessing {} DB", pmId)));
     }
 
     if (Result writeResult = WriteCache(cacheKey, count); !writeResult)
@@ -206,9 +200,6 @@ namespace package {
   #if defined(__linux__) && defined(HAVE_PUGIXML)
   fn GetCountFromPlist(const String& pmId, const fs::path& plistPath) -> Result<u64> {
     using pugi::xml_document, pugi::xml_node, pugi::xml_parse_result;
-    using util::cache::GetValidCache, util::cache::WriteCache;
-    using util::error::DracError, util::error::DracErrorCode;
-    using util::types::i64, util::types::StringView;
 
     const String cacheKey = "pkg_count_" + pmId;
 
@@ -271,7 +262,6 @@ namespace package {
   #endif // __linux__ || __APPLE__
 
   fn CountCargo() -> Result<u64> {
-    using util::error::DracError, util::error::DracErrorCode;
     using util::helpers::GetEnv;
 
     fs::path cargoPath {};
@@ -282,18 +272,14 @@ namespace package {
       cargoPath = fs::path(*homeDir) / ".cargo" / "bin";
 
     if (cargoPath.empty() || !fs::exists(cargoPath))
-      return Err(DracError(DracErrorCode::NotFound, "Could not find cargo directory"));
+      return Err(DracError(NotFound, "Could not find cargo directory"));
 
     return GetCountFromDirectory("cargo", cargoPath);
   }
 
   fn GetTotalCount() -> Result<u64> {
-    using util::error::DracError;
-    using util::types::Exception, util::types::Future;
-
   #if DRAC_PRECOMPILED_CONFIG
     #if DRAC_ENABLE_PACKAGECOUNT
-    using util::types::Vec;
     Vec<Future<Result<u64>>> futures;
     futures.reserve(8); // Reserve a reasonable amount of space
 
@@ -348,12 +334,11 @@ namespace package {
       futures.emplace_back(std::async(std::launch::async, CountCargo));
 
     if (futures.empty())
-      return Err(DracError(DracErrorCode::NotFound, "No enabled package managers for this platform in precompiled config."));
+      return Err(DracError(NotFound, "No enabled package managers for this platform in precompiled config."));
     #else // DRAC_ENABLE_PACKAGECOUNT is false
-    return Err(DracError(DracErrorCode::NotSupported, "Package counting disabled by precompiled configuration."));
+    return Err(DracError(NotSupported, "Package counting disabled by precompiled configuration."));
     #endif
   #else
-    using util::types::Array;
     #ifdef __linux__
       #ifdef HAVE_PUGIXML
     constexpr size_t platformSpecificCount = 6; // Apk, Dpkg, Moss, Pacman, Rpm, Xbps
@@ -425,7 +410,6 @@ namespace package {
     for (Future<Result<u64>>& fut : futures) {
       try {
         using matchit::match, matchit::is, matchit::or_, matchit::_;
-        using enum util::error::DracErrorCode;
 
         if (Result<u64> result = fut.get()) {
           totalCount += *result;
@@ -441,7 +425,7 @@ namespace package {
     }
 
     if (!oneSucceeded && totalCount == 0)
-      return Err(DracError(DracErrorCode::NotFound, "No package managers found or none reported counts."));
+      return Err(DracError(NotFound, "No package managers found or none reported counts."));
 
     return totalCount;
   }

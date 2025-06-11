@@ -184,7 +184,7 @@ namespace {
 using util::types::i32;
 
 fn main() -> i32 {
-  using util::types::Exception;
+  using util::types::Exception, util::types::Array, util::types::CStr;
 
   static vk::detail::DynamicLoader Loader;
 
@@ -365,19 +365,19 @@ fn main() -> i32 {
   initInfo.PipelineRenderingCreateInfo                           = pipelineRenderingCreateInfo;
 
   // clang-format off
-    Array<vk::DescriptorPoolSize, 11> poolSizes = {{
-      { vk::DescriptorType::eCombinedImageSampler, 1000 },
-      { vk::DescriptorType::eInputAttachment, 1000 },
-      { vk::DescriptorType::eSampledImage, 1000 },
-      { vk::DescriptorType::eSampler, 1000 },
-      { vk::DescriptorType::eStorageBuffer, 1000 },
-      { vk::DescriptorType::eStorageBufferDynamic, 1000 },
-      { vk::DescriptorType::eStorageImage, 1000 },
-      { vk::DescriptorType::eStorageTexelBuffer, 1000 },
-      { vk::DescriptorType::eUniformBuffer, 1000 },
-      { vk::DescriptorType::eUniformBufferDynamic, 1000 },
-      { vk::DescriptorType::eUniformTexelBuffer, 1000 },
-    }};
+  Array<vk::DescriptorPoolSize, 11> poolSizes = {{
+    { vk::DescriptorType::eCombinedImageSampler, 1000 },
+    { vk::DescriptorType::eInputAttachment, 1000 },
+    { vk::DescriptorType::eSampledImage, 1000 },
+    { vk::DescriptorType::eSampler, 1000 },
+    { vk::DescriptorType::eStorageBuffer, 1000 },
+    { vk::DescriptorType::eStorageBufferDynamic, 1000 },
+    { vk::DescriptorType::eStorageImage, 1000 },
+    { vk::DescriptorType::eStorageTexelBuffer, 1000 },
+    { vk::DescriptorType::eUniformBuffer, 1000 },
+    { vk::DescriptorType::eUniformBufferDynamic, 1000 },
+    { vk::DescriptorType::eUniformTexelBuffer, 1000 },
+  }};
   // clang-format on
 
   vk::DescriptorPoolCreateInfo poolInfo = {};
@@ -456,7 +456,7 @@ fn main() -> i32 {
 
 #if DRAC_ENABLE_NOWPLAYING
       if (config.nowPlaying.enabled && data.nowPlaying) {
-        const MediaInfo& nowPlaying = *data.nowPlaying;
+        const util::types::MediaInfo& nowPlaying = *data.nowPlaying;
         ImGui::TextUnformatted(std::format("Now Playing: {} - {}", nowPlaying.artist.value_or("N/A"), nowPlaying.title.value_or("N/A")).c_str());
       } else {
         ImGui::TextUnformatted("Now Playing: N/A");
@@ -501,7 +501,7 @@ fn main() -> i32 {
 
     ImGui::Render();
 
-    vk::ResultValue<u32> acquireResult = device.acquireNextImageKHR(swapChain, std::numeric_limits<u64>::max(), VK_NULL_HANDLE, VK_NULL_HANDLE);
+    vk::ResultValue<u32> acquireResult = device.acquireNextImageKHR(swapChain, std::numeric_limits<util::types::u64>::max(), VK_NULL_HANDLE, VK_NULL_HANDLE);
 
     if (acquireResult.result == vk::Result::eErrorOutOfDateKHR) {
       Result<> result = recreateSwapChain(window, device, physicalDevice, surface, swapChain, swapChainImages, surfaceFormat, swapChainExtent, swapChainImageViews, commandPool, commandBuffers, presentMode);
