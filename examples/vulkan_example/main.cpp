@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <span>
 #include <vector>
 
 #include "Config/Config.hpp"
@@ -216,9 +217,26 @@ fn main() -> i32 {
 
   vk::ApplicationInfo appInfo("Vulkan Example", 1, "Draconis++ Example", 1, VK_API_VERSION_1_3);
 
-  u32 glfwExtensionCount = 0;
+  u32          glfwExtensionCount = 0;
+  const char** glfwExtensions     = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-  vk::InstanceCreateInfo createInfo({}, &appInfo, 0, nullptr, glfwExtensionCount, glfwGetRequiredInstanceExtensions(&glfwExtensionCount));
+  std::vector<const char*> extensions;
+  extensions.reserve(glfwExtensionCount);
+  std::span<const char*> glfwExts(glfwExtensions, glfwExtensionCount);
+  for (const char* ext : glfwExts)
+    extensions.push_back(ext);
+
+#ifdef __APPLE__
+  extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+#endif
+
+  vk::InstanceCreateInfo createInfo;
+  createInfo.pApplicationInfo = &appInfo;
+#ifdef __APPLE__
+  createInfo.flags = vk::InstanceCreateFlagBits::eEnumeratePortabilityKHR;
+#endif
+  createInfo.enabledExtensionCount   = static_cast<uint32_t>(extensions.size());
+  createInfo.ppEnabledExtensionNames = extensions.data();
 
   vk::ResultValue<vk::Instance> instanceResult = vk::createInstance(createInfo);
 

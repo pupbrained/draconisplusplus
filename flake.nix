@@ -32,7 +32,16 @@
         devShellDeps = with pkgs;
           [
             (glaze.override {enableAvx2 = hostPlatform.isx86;})
+            (imgui.override {
+              IMGUI_BUILD_GLFW_BINDING = true;
+              IMGUI_BUILD_VULKAN_BINDING = true;
+            })
             gtest
+            vulkan-extension-layer
+            vulkan-memory-allocator
+            vulkan-utility-libraries
+            vulkan-loader
+            vulkan-tools
           ]
           ++ (with pkgsStatic; [
             curl
@@ -87,6 +96,20 @@
             ++ devShellDeps;
 
           NIX_ENFORCE_NO_NATIVE = 0;
+
+          VULKAN_SDK = "${pkgs.vulkan-headers}";
+          VK_LAYER_PATH = "${pkgs.vulkan-validation-layers}/share/vulkan/explicit_layer.d";
+          VK_ICD_FILENAMES =
+            if stdenv.isDarwin
+            then "${pkgs.darwin.moltenvk}/share/vulkan/icd.d/MoltenVK_icd.json"
+            else let
+              vulkanDir = "${pkgs.mesa.drivers}/share/vulkan/icd.d";
+              vulkanFiles = builtins.filter (file: builtins.match ".*\\.json$" file != null) (builtins.attrNames (builtins.readDir vulkanDir));
+              vulkanPaths = nixpkgs.lib.concatStringsSep ":" (map (file: "${vulkanDir}/${file}") vulkanFiles);
+            in
+              if stdenv.hostPlatform.isx86_64
+              then "${pkgs.linuxPackages_latest.nvidia_x11_beta}/share/vulkan/icd.d/nvidia_icd.x86_64.json:${vulkanPaths}"
+              else vulkanPaths;
 
           shellHook = pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
             export SDKROOT=${pkgs.pkgsStatic.apple-sdk_15}/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
