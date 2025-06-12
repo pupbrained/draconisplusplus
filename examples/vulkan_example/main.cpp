@@ -31,7 +31,6 @@ using util::error::DracError;
 using enum util::error::DracErrorCode;
 
 namespace {
-
   fn cleanupSwapChain(vk::Device device, std::vector<vk::ImageView>& swapChainImageViews, vk::CommandPool commandPool, std::vector<vk::CommandBuffer>& commandBuffers) -> void {
     if (!commandBuffers.empty()) {
       device.freeCommandBuffers(commandPool, commandBuffers);
