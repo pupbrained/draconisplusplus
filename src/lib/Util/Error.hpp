@@ -39,11 +39,11 @@ namespace util::error {
 template <>
 struct std::formatter<::util::error::DracErrorCode> : std::formatter<::util::types::StringView> {
   template <typename FormatContext>
-  fn format(::util::error::DracErrorCode code, FormatContext& ctx) const {
-    using enum ::util::error::DracErrorCode;
+  fn format(util::error::DracErrorCode code, FormatContext& ctx) const {
+    using enum util::error::DracErrorCode;
     using matchit::match, matchit::is, matchit::or_, matchit::_;
 
-    ::util::types::StringView name = match(code)(
+    util::types::StringView name = match(code)(
       is | ApiUnavailable   = "ApiUnavailable",
       is | InternalError    = "InternalError",
       is | InvalidArgument  = "InvalidArgument",
@@ -60,7 +60,7 @@ struct std::formatter<::util::error::DracErrorCode> : std::formatter<::util::typ
       is | _                = "Unknown"
     );
 
-    return formatter<::util::types::StringView>::format(name, ctx);
+    return formatter<util::types::StringView>::format(name, ctx);
   }
 };
 

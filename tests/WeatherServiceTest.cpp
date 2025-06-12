@@ -16,7 +16,7 @@ using namespace weather::utils;
 using glz::read, glz::error_code, glz::error_ctx;
 using enum util::error::DracErrorCode;
 
-class WeatherServiceTest : public ::testing::Test {};
+class WeatherServiceTest : public testing::Test {};
 
 // NOLINTBEGIN(modernize-use-trailing-return-type, cert-err58-cpp)
 TEST_F(WeatherServiceTest, StripTimeOfDay_DaySuffix) {

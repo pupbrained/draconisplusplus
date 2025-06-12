@@ -26,8 +26,11 @@
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
+using namespace util::types;
+using util::error::DracError;
+using enum util::error::DracErrorCode;
+
 namespace {
-  using util::types::Result, util::types::Err, util::error::DracError, util::error::DracErrorCode;
 
   fn cleanupSwapChain(vk::Device device, std::vector<vk::ImageView>& swapChainImageViews, vk::CommandPool commandPool, std::vector<vk::CommandBuffer>& commandBuffers) -> void {
     if (!commandBuffers.empty()) {
@@ -43,8 +46,6 @@ namespace {
   }
 
   fn recreateSwapChain(GLFWwindow* window, vk::Device device, vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface, vk::SwapchainKHR& swapChain, std::vector<vk::Image>& swapChainImages, vk::SurfaceFormatKHR& surfaceFormat, vk::Extent2D& swapChainExtent, std::vector<vk::ImageView>& swapChainImageViews, vk::CommandPool commandPool, std::vector<vk::CommandBuffer>& commandBuffers, vk::PresentModeKHR& presentMode) -> Result<> {
-    using util::types::i32, util::types::u32, util::types::Vec;
-
     i32 width = 0, height = 0;
     glfwGetFramebufferSize(window, &width, &height);
 
@@ -57,7 +58,7 @@ namespace {
 
     vk::Result waitResult = device.waitIdle();
     if (waitResult != vk::Result::eSuccess)
-      return Err(DracError(DracErrorCode::Other, "failed to wait for device idle before recreation!"));
+      return Err(DracError(Other, "failed to wait for device idle before recreation!"));
 
     vk::SwapchainKHR oldSwapChain = swapChain;
     swapChain                     = VK_NULL_HANDLE;
@@ -69,7 +70,7 @@ namespace {
 
     vk::ResultValue<vk::SurfaceCapabilitiesKHR> capabilitiesResult = physicalDevice.getSurfaceCapabilitiesKHR(surface);
     if (capabilitiesResult.result != vk::Result::eSuccess)
-      return Err(DracError(DracErrorCode::Other, "failed to get surface capabilities"));
+      return Err(DracError(Other, "failed to get surface capabilities"));
 
     vk::SurfaceCapabilitiesKHR capabilities = capabilitiesResult.value;
 
@@ -93,13 +94,13 @@ namespace {
 
     vk::ResultValue<Vec<vk::SurfaceFormatKHR>> formatsResult = physicalDevice.getSurfaceFormatsKHR(surface);
     if (formatsResult.result != vk::Result::eSuccess)
-      return Err(DracError(DracErrorCode::Other, "failed to get surface formats"));
+      return Err(DracError(Other, "failed to get surface formats"));
 
     surfaceFormat = formatsResult.value[0];
 
     vk::ResultValue<Vec<vk::PresentModeKHR>> presentModesResult = physicalDevice.getSurfacePresentModesKHR(surface);
     if (presentModesResult.result != vk::Result::eSuccess)
-      return Err(DracError(DracErrorCode::Other, "failed to get surface present modes"));
+      return Err(DracError(Other, "failed to get surface present modes"));
 
     presentMode = vk::PresentModeKHR::eFifo;
     for (const vk::PresentModeKHR& availablePresentMode : presentModesResult.value) {
@@ -133,13 +134,13 @@ namespace {
 
     vk::ResultValue<vk::SwapchainKHR> swapChainResult = device.createSwapchainKHR(createInfo);
     if (swapChainResult.result != vk::Result::eSuccess)
-      return Err(DracError(DracErrorCode::Other, "failed to create swapchain!"));
+      return Err(DracError(Other, "failed to create swapchain!"));
 
     swapChain = swapChainResult.value;
 
     vk::ResultValue<Vec<vk::Image>> imagesResult = device.getSwapchainImagesKHR(swapChain);
     if (imagesResult.result != vk::Result::eSuccess)
-      return Err(DracError(DracErrorCode::Other, "failed to get swapchain images!"));
+      return Err(DracError(Other, "failed to get swapchain images!"));
 
     swapChainImages = imagesResult.value;
 
@@ -164,14 +165,14 @@ namespace {
 
       vk::ResultValue<vk::ImageView> imageViewResult = device.createImageView(createInfo);
       if (imageViewResult.result != vk::Result::eSuccess)
-        return Err(DracError(DracErrorCode::Other, "failed to create image views!"));
+        return Err(DracError(Other, "failed to create image views!"));
 
       swapChainImageViews[i] = imageViewResult.value;
     }
 
     vk::ResultValue<Vec<vk::CommandBuffer>> buffersResult = device.allocateCommandBuffers({ commandPool, vk::CommandBufferLevel::ePrimary, static_cast<u32>(swapChainImageViews.size()) });
     if (buffersResult.result != vk::Result::eSuccess)
-      return Err(DracError(DracErrorCode::Other, "failed to allocate command buffers!"));
+      return Err(DracError(Other, "failed to allocate command buffers!"));
 
     commandBuffers = buffersResult.value;
 
@@ -181,11 +182,7 @@ namespace {
   }
 } // namespace
 
-using util::types::i32;
-
 fn main() -> i32 {
-  using util::types::Exception, util::types::Array, util::types::CStr;
-
   static vk::detail::DynamicLoader Loader;
 
   VULKAN_HPP_DEFAULT_DISPATCHER.init(Loader.getProcAddress<PFN_vkGetInstanceProcAddr>("vkGetInstanceProcAddr"));
@@ -212,8 +209,6 @@ fn main() -> i32 {
     bool* framebufferWasResized = static_cast<bool*>(glfwGetWindowUserPointer(window));
     *framebufferWasResized      = true;
   });
-
-  using util::types::Vec, util::types::u32, util::types::f32;
 
   vk::ApplicationInfo appInfo("Vulkan Example", 1, "Draconis++ Example", 1, VK_API_VERSION_1_3);
 
