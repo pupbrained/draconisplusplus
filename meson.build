@@ -59,7 +59,6 @@ common_cpp_flags = {
   'windows_extra': '-DCURL_STATICLIB',
 }
 
-# Configure Objective-C++ for macOS
 if host_system == 'darwin'
   add_languages('objcpp', native: false)
   objcpp = meson.get_compiler('objcpp')
@@ -71,7 +70,6 @@ if host_system == 'darwin'
   add_project_arguments(objcpp.get_supported_arguments(objcpp_flags), language: 'objcpp')
 endif
 
-# Apply C++ compiler arguments
 if cpp.get_id() in ['msvc', 'clang-cl']
   common_cpp_args = common_cpp_flags['msvc']
   if cpp.get_id() == 'clang-cl'
@@ -88,7 +86,6 @@ endif
 
 add_project_arguments(common_cpp_args, language: 'cpp')
 
-# Windows-specific defines for executables
 if host_system == 'windows'
   add_project_arguments(
     '-march=native',
@@ -102,27 +99,25 @@ endif
 # --------------------- #
 #  Include Directories  #
 # --------------------- #
-# Public headers for <Drac++/...> includes. 'is_system: true' allows angle brackets.
 project_public_includes = include_directories('include', is_system: true)
-# Third-party headers for <argparse.hpp>, etc.
 third_party_includes = include_directories('third_party', is_system: true)
 
-# THIS IS THE KEY FIX: Wrap the include directories into a dependency object.
 includes_dep = declare_dependency(include_directories: [project_public_includes, third_party_includes])
 
 # --------------------- #
 #  Dependencies Config  #
 # --------------------- #
-# This list will be shared with all subdirectories
 lib_deps = [includes_dep]
 fs = import('fs')
 
-# Add StringZilla as a CMake subproject
-cmake = import('cmake')
-stringzilla_opts = cmake.subproject_options()
-stringzilla_opts.add_cmake_defines({'STRINGZILLA_BUILD_SHARED': false})
-stringzilla_proj = cmake.subproject('stringzilla', options: stringzilla_opts)
-stringzilla_dep = stringzilla_proj.dependency('stringzilla', include_type: 'system')
+stringzilla_dep = dependency('stringzilla', required: false, static: true, include_type: 'system')
+if not stringzilla_dep.found()
+  cmake = import('cmake')
+  stringzilla_opts = cmake.subproject_options()
+  stringzilla_opts.add_cmake_defines({'STRINGZILLA_BUILD_SHARED': false})
+  stringzilla_proj = cmake.subproject('stringzilla', options: stringzilla_opts)
+  stringzilla_dep = stringzilla_proj.dependency('stringzilla', include_type: 'system')
+endif
 lib_deps += stringzilla_dep
 
 if get_option('precompiled_config') == true
@@ -158,7 +153,7 @@ if host_system == 'darwin'
   platform_deps += [
     dependency(
       'appleframeworks',
-      modules: ['foundation', 'iokit', 'mediaplayer', 'systemconfiguration'],
+      modules: ['foundation', 'iokit', 'mediaplayer', 'metal', 'systemconfiguration'],
       static: true,
     ),
     dependency('iconv'),

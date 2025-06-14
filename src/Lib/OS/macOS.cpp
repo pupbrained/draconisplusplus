@@ -1,6 +1,8 @@
 #ifdef __APPLE__
 
 // clang-format off
+#include "OS/macOS/Bridge.hpp"
+
 #include <CoreFoundation/CFPropertyList.h> // CFPropertyListCreateWithData, kCFPropertyListImmutable
 #include <CoreFoundation/CFStream.h>       // CFReadStreamClose, CFReadStreamCreateWithFile, CFReadStreamOpen, CFReadStreamRead, CFReadStreamRef
 #include <IOKit/IOKitLib.h>                // IOKit types and functions
@@ -15,13 +17,11 @@
 
 #include <Drac++/Services/PackageCounting.hpp>
 
-#include <DracUtils/Caching.hpp>
+#include "Utils/Caching.hpp"
 #include <DracUtils/Definitions.hpp>
 #include <DracUtils/Env.hpp>
 #include <DracUtils/Error.hpp>
 #include <DracUtils/Types.hpp>
-
-#include <Drac++/OS/macOS/Bridge.hpp>
 // clang-format on
 
 using namespace util::types;
@@ -79,7 +79,7 @@ namespace os {
   }
 
   fn System::getNowPlaying() -> Result<MediaInfo> {
-    return GetCurrentPlayingInfo();
+    return bridge::GetNowPlayingInfo();
   }
 
   fn System::getOSVersion() -> Result<SZString> {
@@ -271,7 +271,7 @@ namespace os {
 
     // taken from https://github.com/fastfetch-cli/fastfetch/blob/dev/src/detection/host/host_mac.c
     // shortened a lot of the entries to remove unnecessary info
-    std::flat_map<StringView, StringView> modelNameByHwModel = {
+    static const std::flat_map<StringView, StringView> MODEL_NAME_BY_HW_MODEL = {
       // MacBook Pro
       { "MacBookPro18,3",      "MacBook Pro (14-inch, 2021)" },
       { "MacBookPro18,4",      "MacBook Pro (14-inch, 2021)" },
@@ -420,8 +420,8 @@ namespace os {
       {        "iMac9,1",          "iMac (24/20-inch, 2009)" },
     };
 
-    const auto iter = modelNameByHwModel.find(hwModel.data());
-    if (iter == modelNameByHwModel.end())
+    const auto iter = MODEL_NAME_BY_HW_MODEL.find(hwModel.data());
+    if (iter == MODEL_NAME_BY_HW_MODEL.end())
       return Err(DracError("Failed to get host info"));
 
     String host(iter->second);
@@ -442,61 +442,7 @@ namespace os {
   }
 
   fn System::getGPUModel() -> Result<SZString> {
-    io_iterator_t          iterator = 0;
-    CFMutableDictionaryRef matches  = IOServiceMatching("IOAccelerator");
-    CFDictionaryAddValue(matches, CFSTR("IOMatchCategory"), CFSTR("IOAccelerator"));
-
-    if (IOServiceGetMatchingServices(MACH_PORT_NULL, matches, &iterator) != kIOReturnSuccess)
-      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to get GPU services"));
-
-    String              gpuModel;
-    io_registry_entry_t device = 0;
-
-    while ((device = IOIteratorNext(iterator)) != 0) {
-      CFMutableDictionaryRef properties = nullptr;
-      if (IORegistryEntryCreateCFProperties(device, &properties, kCFAllocatorDefault, 0) == kIOReturnSuccess) {
-        const auto* modelRef = static_cast<CFStringRef>(CFDictionaryGetValue(properties, CFSTR("model")));
-
-        if (modelRef) {
-          static constexpr usize         MODEL_BUFFER_SIZE = 256;
-          Array<char, MODEL_BUFFER_SIZE> modelBuffer;
-
-          if (CFStringGetCString(modelRef, modelBuffer.data(), modelBuffer.size(), kCFStringEncodingUTF8)) {
-            gpuModel = String(modelBuffer.data());
-            CFRelease(properties);
-            IOObjectRelease(device);
-            break;
-          }
-        }
-
-        io_registry_entry_t parentEntry = 0;
-        if (IORegistryEntryGetParentEntry(device, kIOServicePlane, &parentEntry) == kIOReturnSuccess) {
-          CFMutableDictionaryRef parentProperties = nullptr;
-          if (IORegistryEntryCreateCFProperties(parentEntry, &parentProperties, kCFAllocatorDefault, 0) == kIOReturnSuccess) {
-            const auto* parentModelRef = static_cast<CFStringRef>(CFDictionaryGetValue(parentProperties, CFSTR("model")));
-            if (parentModelRef) {
-              static constexpr usize         MODEL_BUFFER_SIZE = 256;
-              Array<char, MODEL_BUFFER_SIZE> modelBuffer;
-
-              if (CFStringGetCString(parentModelRef, modelBuffer.data(), modelBuffer.size(), kCFStringEncodingUTF8))
-                gpuModel = String(modelBuffer.data());
-            }
-            CFRelease(parentProperties);
-          }
-          IOObjectRelease(parentEntry);
-        }
-
-        CFRelease(properties);
-      }
-      IOObjectRelease(device);
-    }
-
-    IOObjectRelease(iterator);
-
-    if (gpuModel.empty())
-      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to get GPU model"));
-
-    return SZString(gpuModel);
+    return bridge::GetGPUModel();
   }
 
   fn System::getDiskUsage() -> Result<ResourceUsage> {

@@ -15,9 +15,6 @@
   #include <toml++/impl/node_view.hpp> // toml::node_view
   #include <toml++/impl/table.hpp>     // toml::table
 
-  #include "Drac++/Services/Weather/MetNoService.hpp"
-  #include "Drac++/Services/Weather/OpenMeteoService.hpp"
-  #include "Drac++/Services/Weather/OpenWeatherMapService.hpp"
   #include "DracUtils/Logging.hpp"
 #endif // DRAC_PRECOMPILED_CONFIG
 
@@ -187,21 +184,21 @@ struct Weather {
       match(provider)(
         is | "openmeteo" = [&]() {
           if (std::holds_alternative<weather::Coords>(weather.location)) {
-            const auto& [lat, lon] = std::get<weather::Coords>(weather.location);
-            weather.service = std::make_unique<weather::OpenMeteoService>(lat, lon, weather.units);
+            const auto& coords = std::get<weather::Coords>(weather.location);
+            weather.service = CreateWeatherService(weather::Provider::OPENMETEO, coords, weather.units);
           } else
             SET_ERROR("OpenMeteo requires coordinates (lat, lon) for location.");
         },
         is | "metno" = [&]() {
           if (std::holds_alternative<weather::Coords>(weather.location)) {
-            const auto& [lat, lon] = std::get<weather::Coords>(weather.location);
-            weather.service = std::make_unique<weather::MetNoService>(lat, lon, weather.units);
+            const auto& coords = std::get<weather::Coords>(weather.location);
+            weather.service = CreateWeatherService(weather::Provider::METNO, coords, weather.units);
           } else
             SET_ERROR("MetNo requires coordinates (lat, lon) for location.");
         },
         is | "openweathermap" = [&]() {
           if (weather.apiKey)
-            weather.service = std::make_unique<weather::OpenWeatherMapService>(weather.location, *weather.apiKey, weather.units);
+            weather.service = CreateWeatherService(weather::Provider::OPENWEATHERMAP, weather.location, *weather.apiKey, weather.units);
           else
             SET_ERROR("OpenWeatherMap requires an API key.");
         },

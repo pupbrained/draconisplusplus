@@ -2,11 +2,11 @@
   "nodes": {
     "nixpkgs": {
       "locked": {
-        "lastModified": 1748856973,
-        "narHash": "sha256-RlTsJUvvr8ErjPBsiwrGbbHYW8XbB/oek0Gi78XdWKg=",
+        "lastModified": 1749871736,
+        "narHash": "sha256-K9yBph93OLTNw02Q6e9CYFGrUhvEXnh45vrZqIRWfvQ=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "e4b09e47ace7d87de083786b404bf232eb6c89d8",
+        "rev": "6afe187897bef7933475e6af374c893f4c84a293",
         "type": "github"
       },
       "original": {
@@ -35,8 +35,25 @@
     "root": {
       "inputs": {
         "nixpkgs": "nixpkgs",
+        "stringzilla": "stringzilla",
         "treefmt-nix": "treefmt-nix",
         "utils": "utils"
+      }
+    },
+    "stringzilla": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1745009009,
+        "narHash": "sha256-Hp66R4+gic0WstRVnutMBx8g+DMzLEnxPzt3sgvWGG4=",
+        "owner": "ashvardanian",
+        "repo": "StringZilla",
+        "rev": "960967d78c7facf6de2de9d5eecc0ac7f5ce19b8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ashvardanian",
+        "repo": "StringZilla",
+        "type": "github"
       }
     },
     "systems": {
@@ -59,11 +76,11 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1748243702,
-        "narHash": "sha256-9YzfeN8CB6SzNPyPm2XjRRqSixDopTapaRsnTpXUEY8=",
+        "lastModified": 1749194973,
+        "narHash": "sha256-eEy8cuS0mZ2j/r/FE0/LYBSBcIs/MKOIVakwHVuqTfk=",
         "owner": "numtide",
         "repo": "treefmt-nix",
-        "rev": "1f3f7b784643d488ba4bf315638b2b0a4c5fb007",
+        "rev": "a05be418a1af1198ca0f63facb13c985db4cb3c5",
         "type": "github"
       },
       "original": {

@@ -25,20 +25,18 @@ IncludeBlocks: Regroup
 IncludeCategories:
   - Regex: '^<.*>$'
     Priority: 1
-  - Regex: '^"Config/.*"'
+  - Regex: '^"Drac\+\+/Core/.*"$'
     Priority: 2
-  - Regex: '^"Core/.*"'
+  - Regex: '^<Drac\+\+/Core/.*>$'
+    Priority: 2
+  - Regex: '^"Drac\+\+/Services/.*"$'
     Priority: 3
-  - Regex: '^"Services/.*"'
+  - Regex: '^<Drac\+\+/Services/.*>$'
+    Priority: 3
+  - Regex: '^"DracUtils/.*"$'
     Priority: 4
-  - Regex: '^"UI/.*"'
-    Priority: 5
-  - Regex: '^"Util/.*"'
-    Priority: 6
-  - Regex: '^"Wrappers/.*"'
-    Priority: 7
-  - Regex: '^".*"$'
-    Priority: 8
+  - Regex: '^<DracUtils/.*>$'
+    Priority: 4
 IndentExternBlock: Indent
 IndentPPDirectives: BeforeHash
 NamespaceIndentation: All

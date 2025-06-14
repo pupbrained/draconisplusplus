@@ -3,6 +3,8 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    stringzilla.url = "github:ashvardanian/StringZilla";
+    stringzilla.flake = false;
     treefmt-nix.url = "github:numtide/treefmt-nix";
     utils.url = "github:numtide/flake-utils";
   };
@@ -10,6 +12,7 @@
   outputs = {
     self,
     nixpkgs,
+    stringzilla,
     treefmt-nix,
     utils,
     ...
@@ -29,8 +32,49 @@
           )
           llvmPackages.stdenv;
 
+        stringzilla-pkg = stdenv.mkDerivation rec {
+          pname = "stringzilla";
+          version = "3.12.5";
+          src = stringzilla;
+
+          nativeBuildInputs = [
+            pkgs.cmake
+            pkgs.ninja
+            pkgs.pkg-config
+          ];
+
+          postPatch = ''
+            sed -i '1i#include <type_traits>' include/stringzilla/stringzilla.hpp
+
+            ${pkgs.lib.optionalString stdenv.isDarwin ''
+              substituteInPlace CMakeLists.txt \
+                --replace 'target_link_options(stringzillite PRIVATE "$<$<CXX_COMPILER_ID:GNU,Clang>:-nostdlib>")' "" \
+                --replace '";-nostdlib>"' '";>"'
+            ''}
+
+            sed -i '/install(DIRECTORY .\/c\/ DESTINATION \/usr\/src/d' CMakeLists.txt
+          '';
+
+          NIX_CFLAGS_COMPILE = pkgs.lib.optionalString stdenv.isAarch64 "-fno-stack-protector";
+
+          cmakeFlags = [
+            "-DSTRINGZILLA_INSTALL=ON"
+            "-DSTRINGZILLA_BUILD_TEST=OFF"
+            "-DSTRINGZILLA_BUILD_BENCHMARK=OFF"
+            "-DSTRINGZILLA_BUILD_SHARED=ON"
+            "-DCMAKE_INSTALL_INCLUDEDIR=include"
+            "-DCMAKE_INSTALL_LIBDIR=lib"
+          ];
+
+          postInstall = ''
+            mkdir -p $out/lib/pkgconfig
+            substituteAll ${./nix/stringzilla.pc.in} $out/lib/pkgconfig/stringzilla.pc
+          '';
+        };
+
         devShellDeps = with pkgs;
           [
+            stringzilla-pkg
             (glaze.override {enableAvx2 = hostPlatform.isx86;})
             (imgui.override {
               IMGUI_BUILD_GLFW_BINDING = true;

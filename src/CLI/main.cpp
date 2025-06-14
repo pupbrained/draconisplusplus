@@ -5,6 +5,8 @@
 #include <ftxui/dom/node.hpp>      // ftxui::{Render}
 #include <ftxui/screen/screen.hpp> // ftxui::{Screen, Dimension::Full}
 #include <matchit.hpp>             // matchit::{match, is, _}
+#include <sys/syscall.h>           // SYS_sysctl
+#include <sys/sysctl.h>            // sysctl(3)
 
 #ifdef __cpp_lib_print
   #include <print> // std::print
@@ -18,7 +20,6 @@
 #include <DracUtils/Types.hpp>
 
 #include "Config/Config.hpp"
-
 #include "UI/UI.hpp"
 
 using namespace util::types;
