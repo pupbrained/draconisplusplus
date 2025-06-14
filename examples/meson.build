@@ -1,5 +1,3 @@
-# examples/meson.build
-
 # Vulkan
 vulkan_dep = dependency('vulkan', required: true)
 
@@ -11,12 +9,27 @@ glfw_dep = dependency('glfw3', required: true, fallback: ['glfw', 'glfw_dep'])
 # If this fails, we will need to add it as a subproject.
 imgui_dep = dependency('imgui', fallback: ['imgui', 'imgui_dep'])
 
+# Linker/ObjC configuration for the example executable
+link_args = []
+objc_args = []
+
+if host_system == 'darwin'
+  objc_args += ['-fobjc-arc']
+elif host_system == 'linux'
+  if get_option('build_for_musl') == true
+    link_args += ['-static']
+  else
+    link_args += ['-static-libgcc', '-static-libstdc++']
+  endif
+elif host_system == 'haiku'
+  link_args += ['-lpackage', '-lbe']
+endif
+
 executable(
   'vulkan_example',
   'vulkan_example/main.cpp',
-  dependencies: [vulkan_dep, glfw_dep, imgui_dep] + lib_deps,
-  include_directories: [project_internal_includes, project_public_includes],
-  cpp_args: common_cpp_args,
-  link_with: [lib],
+  dependencies: [draconis_dep, vulkan_dep, glfw_dep, imgui_dep] + lib_deps,
+  link_args: link_args,
+  objc_args: objc_args,
   install: false,
 )

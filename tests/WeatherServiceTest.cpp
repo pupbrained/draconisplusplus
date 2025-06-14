@@ -2,11 +2,11 @@
 #if DRAC_ENABLE_WEATHER
 
 // clang-format off
-#include "Services/Weather/DataTransferObjects.hpp"
-#include "Services/Weather/WeatherUtils.hpp"
+#include <Drac++/Services/Weather/DataTransferObjects.hpp>
+#include <Drac++/Services/Weather/WeatherUtils.hpp>
 
-#include "Util/Error.hpp"
-#include "Util/Types.hpp"
+#include <DracUtils/Error.hpp>
+#include <DracUtils/Types.hpp>
 
 #include "gtest/gtest.h"
 // clang-format on

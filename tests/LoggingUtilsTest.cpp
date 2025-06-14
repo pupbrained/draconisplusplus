@@ -1,5 +1,5 @@
-#include "Util/Logging.hpp"
-#include "Util/Types.hpp"
+#include <DracUtils/Logging.hpp>
+#include <DracUtils/Types.hpp>
 
 #include "gtest/gtest.h"
 

@@ -1,8 +1,6 @@
+#include <Drac++/Core/System.hpp>
+#include <DracUtils/Types.hpp>
 #include <format> // std::format
-
-#include "Core/System.hpp"
-
-#include "Util/Types.hpp"
 
 #include "gtest/gtest.h"
 

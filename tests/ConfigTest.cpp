@@ -13,8 +13,8 @@ TEST_F(ConfigTest, PrecompiledConfigTypes) {
 
   #if DRAC_ENABLE_WEATHER
   // Weather
-  EXPECT_TRUE((std::is_same_v<decltype(config::DRAC_WEATHER_PROVIDER), const config::WeatherProvider>));
-  EXPECT_TRUE((std::is_same_v<decltype(config::DRAC_WEATHER_UNIT), const config::WeatherUnit>));
+  EXPECT_TRUE((std::is_same_v<decltype(config::DRAC_WEATHER_PROVIDER), const weather::Provider>));
+  EXPECT_TRUE((std::is_same_v<decltype(config::DRAC_WEATHER_UNIT), const weather::Unit>));
   EXPECT_TRUE((std::is_same_v<decltype(config::DRAC_SHOW_TOWN_NAME), const bool>));
   EXPECT_TRUE((std::is_same_v<decltype(config::DRAC_API_KEY), const std::optional<std::string>>));
   EXPECT_TRUE((std::is_same_v<decltype(config::DRAC_LOCATION), const Location>));
@@ -26,12 +26,10 @@ TEST_F(ConfigTest, PrecompiledConfigTypes) {
   #endif // DRAC_ENABLE_PACKAGECOUNT
 }
 #else
-  #include <toml++/toml.h> // toml::{parse_result, parse}
+  #include <Drac++/Config/Config.hpp>
+  #include <Drac++/Services/Weather.hpp> // For weather::Coords
+  #include <toml++/toml.h>               // toml::{parse_result, parse}
   #include <variant>
-
-  #include "Config/Config.hpp"
-
-  #include "Services/Weather.hpp" // For weather::Coords
 
 using namespace util::types;
 
@@ -104,7 +102,7 @@ TEST_F(ConfigTest, WeatherFromToml_BasicEnabled) {
   EXPECT_EQ(weatherConfig.apiKey, "test_key");
   ASSERT_TRUE(std::holds_alternative<String>(weatherConfig.location));
   EXPECT_EQ(std::get<String>(weatherConfig.location), "Test City");
-  EXPECT_EQ(weatherConfig.units, config::WeatherUnit::METRIC);
+  EXPECT_EQ(weatherConfig.units, weather::Unit::METRIC);
   EXPECT_TRUE(weatherConfig.showTownName);
   ASSERT_NE(weatherConfig.service, nullptr);
 }

@@ -1,5 +1,5 @@
-#include "Util/Definitions.hpp"
-#include "Util/Types.hpp"
+#include <DracUtils/Definitions.hpp>
+#include <DracUtils/Types.hpp>
 
 #include "gtest/gtest.h"
 

@@ -1,16 +1,13 @@
+#include <Drac++/Config/Config.hpp>
+#include <Drac++/Core/System.hpp>
+#include <DracUtils/Error.hpp>
+#include <DracUtils/Logging.hpp>
+#include <DracUtils/Types.hpp>
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <span>
 #include <vector>
-
-#include "Config/Config.hpp"
-
-#include "Core/System.hpp"
-
-#include "Util/Error.hpp"
-#include "Util/Logging.hpp"
-#include "Util/Types.hpp"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -463,8 +460,8 @@ fn main() -> i32 {
 
         const std::string weatherValue =
           config.weather.showTownName && weatherInfo.name
-          ? std::format("{}°{} in {}", std::lround(weatherInfo.temperature), config.weather.units == config::WeatherUnit::METRIC ? "C" : "F", *weatherInfo.name)
-          : std::format("{}°{}, {}", std::lround(weatherInfo.temperature), config.weather.units == config::WeatherUnit::METRIC ? "C" : "F", weatherInfo.description);
+          ? std::format("{}°{} in {}", std::lround(weatherInfo.temperature), config.weather.units == weather::Unit::METRIC ? "C" : "F", *weatherInfo.name)
+          : std::format("{}°{}, {}", std::lround(weatherInfo.temperature), config.weather.units == weather::Unit::METRIC ? "C" : "F", weatherInfo.description);
 
         ImGui::TextUnformatted(std::format("Weather: {}", weatherValue).c_str());
       } else {
