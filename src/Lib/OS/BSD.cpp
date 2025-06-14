@@ -205,7 +205,7 @@ namespace {
 namespace os {
   using util::helpers::GetEnv;
 
-  fn GetOSVersion() -> Result<String> {
+  fn GetOSVersion() -> Result<SZString> {
     constexpr CStr path = "/etc/os-release";
 
     std::ifstream file(path);
@@ -222,7 +222,7 @@ namespace os {
               (value.length() >= 2 && value.front() == '\'' && value.back() == '\''))
             value = value.substr(1, value.length() - 2);
 
-          return value;
+          return SZString(value);
         }
       }
     }
@@ -237,7 +237,7 @@ namespace os {
     if (osName.empty())
       return Err(DracError(DracErrorCode::ParseError, "uname() returned empty sysname or release"));
 
-    return osName;
+    return SZString(osName);
   }
 
   fn GetMemInfo() -> Result<u64> {
@@ -380,20 +380,20 @@ namespace os {
     return MediaInfo(std::move(title), std::move(artist));
   }
 
-  fn GetWindowManager() -> Result<String> {
+  fn GetWindowManager() -> Result<SZString> {
     if (!GetEnv("DISPLAY") && !GetEnv("WAYLAND_DISPLAY") && !GetEnv("XDG_SESSION_TYPE"))
       return Err(DracError(DracErrorCode::NotFound, "Could not find a graphical session"));
 
     if (Result<String> waylandResult = GetWaylandCompositor())
-      return *waylandResult;
+      return SZString(*waylandResult);
 
     if (Result<String> x11Result = GetX11WindowManager())
-      return *x11Result;
+      return SZString(*x11Result);
 
     return Err(DracError(DracErrorCode::NotFound, "Could not detect window manager (Wayland/X11) or both failed"));
   }
 
-  fn GetDesktopEnvironment() -> Result<String> {
+  fn GetDesktopEnvironment() -> Result<SZString> {
     if (!GetEnv("DISPLAY") && !GetEnv("WAYLAND_DISPLAY") && !GetEnv("XDG_SESSION_TYPE"))
       return Err(DracError(DracErrorCode::NotFound, "Could not find a graphical session"));
 
@@ -404,10 +404,17 @@ namespace os {
 
         return xdgDesktop;
       })
-      .or_else([](const DracError&) -> Result<String> { return GetEnv("DESKTOP_SESSION"); });
+      .or_else([](const DracError&) -> Result<String> { return GetEnv("DESKTOP_SESSION"); })
+      .transform([](String desktopSession) -> String {
+        if (const usize colon = desktopSession.find(':'); colon != String::npos)
+          desktopSession.resize(colon);
+
+        return desktopSession;
+      })
+      .transform([](String desktop) -> SZString { return SZString(desktop); });
   }
 
-  fn GetShell() -> Result<String> {
+  fn GetShell() -> Result<SZString> {
     if (const Result<String> shellPath = GetEnv("SHELL")) {
       // clang-format off
       constexpr Array<Pair<StringView, StringView>, 5> shellMap {{
@@ -421,15 +428,15 @@ namespace os {
 
       for (const auto& [exe, name] : shellMap)
         if (shellPath->contains(exe))
-          return String(name);
+          return SZString(name);
 
-      return *shellPath; // fallback to the raw shell path
+      return SZString(*shellPath); // fallback to the raw shell path
     }
 
     return Err(DracError(DracErrorCode::NotFound, "Could not find SHELL environment variable"));
   }
 
-  fn GetHost() -> Result<String> {
+  fn GetHost() -> Result<SZString> {
     Array<char, 256> buffer {};
     usize            size = buffer.size();
 
@@ -441,7 +448,7 @@ namespace os {
         return Err(DracError("kenv smbios.system.product failed and sysctl hw.model also failed"));
 
       buffer.at(std::min(size, buffer.size() - 1)) = '\0';
-      return String(buffer.data());
+      return SZString(buffer.data());
     }
 
     if (result > 0)
@@ -458,10 +465,10 @@ namespace os {
     if (buffer[0] == '\0')
       return Err(DracError(DracErrorCode::NotFound, "Failed to get host product information (empty result)"));
 
-    return String(buffer.data());
+    return SZString(buffer.data());
   }
 
-  fn GetKernelVersion() -> Result<String> {
+  fn GetKernelVersion() -> Result<SZString> {
     utsname uts;
 
     if (uname(&uts) == -1)
@@ -470,7 +477,7 @@ namespace os {
     if (std::strlen(uts.release) == 0)
       return Err(DracError(DracErrorCode::ParseError, "uname returned null kernel release"));
 
-    return uts.release;
+    return SZString(uts.release);
   }
 
   fn GetDiskUsage() -> Result<DiskSpace> {

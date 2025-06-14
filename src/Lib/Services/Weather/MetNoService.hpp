@@ -5,14 +5,12 @@
 // clang-format off
 #include "Drac++/Services/Weather.hpp"
 #include "DracUtils/Types.hpp"
-
-#include "Drac++/Services/Weather/IWeatherService.hpp"
 // clang-format on
 
 namespace weather {
-  class OpenMeteoService final : public IWeatherService {
+  class MetNoService final : public IWeatherService {
    public:
-    OpenMeteoService(util::types::f64 lat, util::types::f64 lon, Unit units);
+    MetNoService(util::types::f64 lat, util::types::f64 lon, Unit units);
     [[nodiscard]] fn getWeatherInfo() const -> util::types::Result<WeatherReport> override;
 
    private:

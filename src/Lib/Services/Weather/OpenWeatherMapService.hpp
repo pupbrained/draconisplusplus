@@ -7,8 +7,6 @@
 
 #include "Drac++/Services/Weather.hpp"
 #include "DracUtils/Types.hpp"
-
-#include "Drac++/Services/Weather/IWeatherService.hpp"
 // clang-format on
 
 namespace weather {

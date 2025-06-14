@@ -1,3 +1,4 @@
+#include <DracUtils/Error.hpp>
 #include <argparse.hpp>            // argparse::ArgumentParser
 #include <cstdlib>                 // EXIT_FAILURE, EXIT_SUCCESS
 #include <ftxui/dom/elements.hpp>  // ftxui::{Element, hbox, vbox, text, separator, filler, etc.}
@@ -11,11 +12,12 @@
   #include <iostream> // std::cout
 #endif
 
-#include <Drac++/Config/Config.hpp>
 #include <Drac++/Core/System.hpp>
 #include <DracUtils/Definitions.hpp>
 #include <DracUtils/Logging.hpp>
 #include <DracUtils/Types.hpp>
+
+#include "Config/Config.hpp"
 
 #include "UI/UI.hpp"
 
@@ -85,6 +87,67 @@ namespace {
     std::cout << std::flush;
 #endif
   }
+
+  fn InitializeSystem(const Config& config) -> os::System {
+    using enum std::launch;
+    using enum util::error::DracErrorCode;
+
+    os::System system;
+
+    // Use batch operations for related information
+    Future<Result<SZString>>      osFut     = std::async(async, &os::System::getOSVersion);
+    Future<Result<SZString>>      kernelFut = std::async(async, &os::System::getKernelVersion);
+    Future<Result<SZString>>      hostFut   = std::async(async, &os::System::getHost);
+    Future<Result<SZString>>      cpuFut    = std::async(async, &os::System::getCPUModel);
+    Future<Result<SZString>>      gpuFut    = std::async(async, &os::System::getGPUModel);
+    Future<Result<SZString>>      deFut     = std::async(async, &os::System::getDesktopEnvironment);
+    Future<Result<SZString>>      wmFut     = std::async(async, &os::System::getWindowManager);
+    Future<Result<SZString>>      shellFut  = std::async(async, &os::System::getShell);
+    Future<Result<ResourceUsage>> memFut    = std::async(async, &os::System::getMemInfo);
+    Future<Result<ResourceUsage>> diskFut   = std::async(async, &os::System::getDiskUsage);
+    Future<Result<SZString>>      dateFut   = std::async(async, &os::System::getDate);
+
+#if DRAC_ENABLE_PACKAGECOUNT
+    Future<Result<u64>> pkgFut = std::async(async, package::GetTotalCount, config.enabledPackageManagers);
+#endif
+
+#if DRAC_ENABLE_NOWPLAYING
+    Future<Result<MediaInfo>> npFut = std::async(config.nowPlaying.enabled ? async : deferred, &os::System::getNowPlaying);
+#endif
+
+#if DRAC_ENABLE_WEATHER
+    Future<Result<weather::WeatherReport>> wthrFut = std::async(
+      config.weather.enabled ? std::launch::async : std::launch::deferred,
+      [&service = config.weather.service]() { return service->getWeatherInfo(); }
+    );
+#endif
+
+    system.osVersion     = osFut.get();
+    system.kernelVersion = kernelFut.get();
+    system.host          = hostFut.get();
+    system.cpuModel      = cpuFut.get();
+    system.gpuModel      = gpuFut.get();
+    system.desktopEnv    = deFut.get();
+    system.windowMgr     = wmFut.get();
+    system.shell         = shellFut.get();
+    system.memInfo       = memFut.get();
+    system.diskUsage     = diskFut.get();
+    system.date          = dateFut.get();
+
+#if DRAC_ENABLE_PACKAGECOUNT
+    system.packageCount = pkgFut.get();
+#endif
+
+#if DRAC_ENABLE_WEATHER
+    system.weather = config.weather.enabled ? wthrFut.get() : Err(DracError(ApiUnavailable, "Weather API disabled"));
+#endif
+
+#if DRAC_ENABLE_NOWPLAYING
+    system.nowPlaying = config.nowPlaying.enabled ? npFut.get() : Err(DracError(ApiUnavailable, "Now Playing API disabled"));
+#endif
+
+    return system;
+  }
 } // namespace
 
 fn main(const i32 argc, char* argv[]) -> i32 try {
@@ -153,7 +216,7 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
     using ui::CreateUI;
 
     const Config& config = Config::getInstance();
-    const System  data   = System(config);
+    const System  data   = InitializeSystem(config);
 
     if (doctorMode) {
       PrintDoctorReport(data);

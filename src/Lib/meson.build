@@ -1,7 +1,7 @@
 # ------- #
 #  Files  #
 # ------- #
-lib_base_sources = [files('Config/Config.cpp', 'Core/System.cpp')]
+lib_base_sources = [files('Core/System.cpp')]
 
 if get_option('enable_packagecount') == true
   lib_base_sources += files('Services/PackageCounting.cpp')
@@ -12,7 +12,7 @@ if get_option('enable_weather') == true
     'Services/Weather/MetNoService.cpp',
     'Services/Weather/OpenMeteoService.cpp',
     'Services/Weather/OpenWeatherMapService.cpp',
-    'Services/Weather/Weather.cpp',
+    'Services/Weather/WeatherFactory.cpp',
     'Services/Weather/WeatherUtils.cpp',
   )
 endif

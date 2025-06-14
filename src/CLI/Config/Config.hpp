@@ -22,19 +22,15 @@
 #endif // DRAC_PRECOMPILED_CONFIG
 
 #if DRAC_ENABLE_WEATHER
-  #include <variant>
-
   #include "Drac++/Services/Weather.hpp"
-  #include "Drac++/Services/Weather/IWeatherService.hpp"
 #endif // DRAC_ENABLE_WEATHER
+
+#if DRAC_ENABLE_PACKAGECOUNT
+  #include "Drac++/Services/PackageCounting.hpp"
+#endif
 
 #include "DracUtils/Definitions.hpp"
-#include "DracUtils/Error.hpp"
 #include "DracUtils/Types.hpp"
-
-#if DRAC_ENABLE_WEATHER
-using Location = std::variant<util::types::String, weather::Coords>;
-#endif // DRAC_ENABLE_WEATHER
 
 /**
  * @struct General
@@ -124,7 +120,7 @@ struct NowPlaying {
  * @brief Holds configuration settings for the Weather feature.
  */
 struct Weather {
-  Location                                 location; ///< Location for weather data, can be a city name or coordinates.
+  weather::Location                        location; ///< Location for weather data, can be a city name or coordinates.
   util::types::Option<util::types::String> apiKey;   ///< API key for the weather service.
   weather::Unit                            units;    ///< Units for temperature, either "metric" or "imperial".
 
@@ -231,6 +227,9 @@ struct Config {
 #endif
 #if DRAC_ENABLE_NOWPLAYING
   NowPlaying nowPlaying; ///< Now Playing configuration settings.
+#endif
+#if DRAC_ENABLE_PACKAGECOUNT
+  package::Manager enabledPackageManagers; ///< Enabled package managers.
 #endif
 
   /**

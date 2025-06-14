@@ -1,7 +1,7 @@
 #ifdef __APPLE__
 
 // clang-format off
-#import <Drac++/OS/macOS/Bridge.hpp>
+#import "Bridge.hpp"
 
 #include <CoreFoundation/CFURL.h> // CFURLCreateWithFileSystemPath, CFURLRef, kCFURLPOSIXPathStyle
 #include <dispatch/dispatch.h>    // DISPATCH_QUEUE_PRIORITY_DEFAULT, DISPATCH_TIME_FOREVER, dispatch_get_global_queue, dispatch_queue_t, dispatch_semaphore_create, ...

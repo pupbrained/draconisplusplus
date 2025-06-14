@@ -3,7 +3,8 @@
 #include <ftxui/dom/elements.hpp> // ftxui::Element
 #include <ftxui/screen/color.hpp> // ftxui::Color
 
-#include "Drac++/Config/Config.hpp"
+#include "Config/Config.hpp"
+
 #include "Drac++/Core/System.hpp"
 #include "DracUtils/Types.hpp"
 

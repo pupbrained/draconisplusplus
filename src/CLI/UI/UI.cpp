@@ -49,7 +49,7 @@ namespace ui {
     .host               = " 󰌢  ",
     .kernel             = "   ",
     .memory             = "   ",
-#ifdef DRAC_ARCH_64BIT
+#if DRAC_ARCH_64BIT
     .cpu = " 󰻠  ", // 64-bit CPU
 #else
     .cpu = " 󰻟  ", // 32-bit CPU

@@ -1,20 +1,19 @@
 #if DRAC_ENABLE_WEATHER
 
 // clang-format off
-#include <Drac++/Services/Weather/OpenWeatherMapService.hpp>
+#include "OpenWeatherMapService.hpp"
 
+#include <DracUtils/Error.hpp>
+#include <DracUtils/Logging.hpp>
+#include <DracUtils/Types.hpp>
 #include <format>
 #include <utility>
 #include <variant>
 
-#include <Drac++/Services/Weather/DataTransferObjects.hpp>
+#include "Wrappers/Curl.hpp"
 
-#include <DracUtils/Caching.hpp>
-#include <DracUtils/Error.hpp>
-#include <DracUtils/Logging.hpp>
-#include <DracUtils/Types.hpp>
-
-#include <Drac++/Wrappers/Curl.hpp>
+#include "DataTransferObjects.hpp"
+#include "Utils/Caching.hpp"
 // clang-format on
 
 using namespace util::types;
@@ -50,7 +49,7 @@ namespace {
     weather::dto::owm::OWMResponse owmResponse;
 
     if (const error_ctx errc = read<glz::opts { .error_on_unknown_keys = false }>(owmResponse, responseBuffer); errc.ec != error_code::none)
-      return Err(DracError(ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer))));
+      return Err(DracError(ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer.data()))));
 
     if (owmResponse.cod && *owmResponse.cod != 200) {
       using matchit::match, matchit::is, matchit::or_, matchit::_;

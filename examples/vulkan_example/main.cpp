@@ -1,11 +1,10 @@
-#include <Drac++/Config/Config.hpp>
 #include <Drac++/Core/System.hpp>
+#include <Drac++/Services/PackageCounting.hpp>
 #include <DracUtils/Error.hpp>
 #include <DracUtils/Logging.hpp>
 #include <DracUtils/Types.hpp>
 #include <algorithm>
 #include <chrono>
-#include <cmath>
 #include <span>
 #include <vector>
 
@@ -387,19 +386,55 @@ fn main() -> i32 {
 
   initInfo.DescriptorPool = imguiPoolResult.value;
 
+  // Set up ImGui to use the same dynamic Vulkan function pointers
+  ImGui_ImplVulkan_LoadFunctions([](const char* function_name, void* vulkan_instance) {
+    return VULKAN_HPP_DEFAULT_DISPATCHER.vkGetInstanceProcAddr(static_cast<VkInstance>(vulkan_instance), function_name);
+  });
+
   ImGui_ImplVulkan_Init(&initInfo);
   ImGui_ImplVulkan_CreateFontsTexture();
 
-  const Config&           config = Config::getInstance();
-  os::System              data(config);
   std::chrono::time_point lastUpdateTime = std::chrono::steady_clock::now();
+  Result<String>          date;
+  Result<String>          host;
+  Result<String>          kernelVersion;
+  Result<String>          osVersion;
+  Result<String>          cpuModel;
+  Result<String>          gpuModel;
+  Result<ResourceUsage>   memInfo;
+  Result<String>          desktopEnv;
+  Result<String>          windowMgr;
+  Result<ResourceUsage>   diskUsage;
+  Result<String>          shell;
+#if DRAC_ENABLE_PACKAGECOUNT
+  Result<u64> packageCount;
+#endif
+#if DRAC_ENABLE_NOWPLAYING
+  Result<MediaInfo> nowPlaying;
+#endif
 
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
 
     const std::chrono::time_point now = std::chrono::steady_clock::now();
     if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdateTime).count() >= 1) {
-      data           = os::System(config);
+      date          = os::System::getDate();
+      host          = os::System::getHost();
+      kernelVersion = os::System::getKernelVersion();
+      osVersion     = os::System::getOSVersion();
+      cpuModel      = os::System::getCPUModel();
+      gpuModel      = os::System::getGPUModel();
+      memInfo       = os::System::getMemInfo();
+      desktopEnv    = os::System::getDesktopEnvironment();
+      windowMgr     = os::System::getWindowManager();
+      diskUsage     = os::System::getDiskUsage();
+      shell         = os::System::getShell();
+#if DRAC_ENABLE_PACKAGECOUNT
+      packageCount = package::GetTotalCount(package::Manager::CARGO);
+#endif
+#if DRAC_ENABLE_NOWPLAYING
+      nowPlaying = os::System::getNowPlaying();
+#endif
       lastUpdateTime = now;
     }
 
@@ -419,54 +454,38 @@ fn main() -> i32 {
     ImGui::NewFrame();
     ImGui::Begin("Draconis++");
     {
-      ImGui::TextUnformatted(std::format("Date: {}", data.date.value_or("N/A")).c_str());
-      ImGui::TextUnformatted(std::format("Host: {}", data.host.value_or("N/A")).c_str());
-      ImGui::TextUnformatted(std::format("Kernel: {}", data.kernelVersion.value_or("N/A")).c_str());
-      ImGui::TextUnformatted(std::format("OS: {}", data.osVersion.value_or("N/A")).c_str());
-      ImGui::TextUnformatted(std::format("CPU: {}", data.cpuModel.value_or("N/A")).c_str());
-      ImGui::TextUnformatted(std::format("GPU: {}", data.gpuModel.value_or("N/A")).c_str());
+      ImGui::TextUnformatted(std::format("Date: {}", date.value_or("N/A")).c_str());
+      ImGui::TextUnformatted(std::format("Host: {}", host.value_or("N/A")).c_str());
+      ImGui::TextUnformatted(std::format("Kernel: {}", kernelVersion.value_or("N/A")).c_str());
+      ImGui::TextUnformatted(std::format("OS: {}", osVersion.value_or("N/A")).c_str());
+      ImGui::TextUnformatted(std::format("CPU: {}", cpuModel.value_or("N/A")).c_str());
+      ImGui::TextUnformatted(std::format("GPU: {}", gpuModel.value_or("N/A")).c_str());
 
-      if (data.memInfo.has_value())
-        ImGui::TextUnformatted(std::format("Memory: {} / {}", BytesToGiB(data.memInfo->usedBytes), BytesToGiB(data.memInfo->totalBytes)).c_str());
+      if (memInfo.has_value())
+        ImGui::TextUnformatted(std::format("Memory: {} / {}", BytesToGiB(memInfo->usedBytes), BytesToGiB(memInfo->totalBytes)).c_str());
       else
         ImGui::TextUnformatted("Memory: N/A");
 
-      ImGui::TextUnformatted(std::format("DE: {}", data.desktopEnv.value_or("N/A")).c_str());
-      ImGui::TextUnformatted(std::format("WM: {}", data.windowMgr.value_or("N/A")).c_str());
+      ImGui::TextUnformatted(std::format("DE: {}", desktopEnv.value_or("N/A")).c_str());
+      ImGui::TextUnformatted(std::format("WM: {}", windowMgr.value_or("N/A")).c_str());
 
-      if (data.diskUsage.has_value())
-        ImGui::TextUnformatted(std::format("Disk: {} / {}", BytesToGiB(data.diskUsage->usedBytes), BytesToGiB(data.diskUsage->totalBytes)).c_str());
+      if (diskUsage.has_value())
+        ImGui::TextUnformatted(std::format("Disk: {} / {}", BytesToGiB(diskUsage->usedBytes), BytesToGiB(diskUsage->totalBytes)).c_str());
       else
         ImGui::TextUnformatted("Disk: N/A");
 
-      ImGui::TextUnformatted(std::format("Shell: {}", data.shell.value_or("N/A")).c_str());
+      ImGui::TextUnformatted(std::format("Shell: {}", shell.value_or("N/A")).c_str());
 
 #if DRAC_ENABLE_PACKAGECOUNT
-      ImGui::TextUnformatted(std::format("Packages: {}", data.packageCount.value_or(0)).c_str());
+      ImGui::TextUnformatted(std::format("Packages: {}", packageCount.value_or(0)).c_str());
 #endif
 
 #if DRAC_ENABLE_NOWPLAYING
-      if (config.nowPlaying.enabled && data.nowPlaying) {
-        const util::types::MediaInfo& nowPlaying = *data.nowPlaying;
-        ImGui::TextUnformatted(std::format("Now Playing: {} - {}", nowPlaying.artist.value_or("N/A"), nowPlaying.title.value_or("N/A")).c_str());
-      } else {
+      if (nowPlaying) {
+        const util::types::MediaInfo& nowPlayingInfo = *nowPlaying;
+        ImGui::TextUnformatted(std::format("Now Playing: {} - {}", nowPlayingInfo.artist.value_or("N/A"), nowPlayingInfo.title.value_or("N/A")).c_str());
+      } else
         ImGui::TextUnformatted("Now Playing: N/A");
-      }
-#endif
-
-#if DRAC_ENABLE_WEATHER
-      if (config.weather.enabled && data.weather) {
-        const weather::WeatherReport& weatherInfo = *data.weather;
-
-        const std::string weatherValue =
-          config.weather.showTownName && weatherInfo.name
-          ? std::format("{}°{} in {}", std::lround(weatherInfo.temperature), config.weather.units == weather::Unit::METRIC ? "C" : "F", *weatherInfo.name)
-          : std::format("{}°{}, {}", std::lround(weatherInfo.temperature), config.weather.units == weather::Unit::METRIC ? "C" : "F", weatherInfo.description);
-
-        ImGui::TextUnformatted(std::format("Weather: {}", weatherValue).c_str());
-      } else {
-        ImGui::TextUnformatted("Weather: N/A");
-      }
 #endif
     }
     ImGui::End();

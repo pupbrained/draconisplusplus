@@ -91,6 +91,7 @@ add_project_arguments(common_cpp_args, language: 'cpp')
 # Windows-specific defines for executables
 if host_system == 'windows'
   add_project_arguments(
+    '-march=native',
     '-DNOMINMAX',
     '-DWIN32_LEAN_AND_MEAN',
     '-DWINRT_LEAN_AND_MEAN',
@@ -104,7 +105,7 @@ endif
 # Public headers for <Drac++/...> includes. 'is_system: true' allows angle brackets.
 project_public_includes = include_directories('include', is_system: true)
 # Third-party headers for <argparse.hpp>, etc.
-third_party_includes = include_directories('third_party')
+third_party_includes = include_directories('third_party', is_system: true)
 
 # THIS IS THE KEY FIX: Wrap the include directories into a dependency object.
 includes_dep = declare_dependency(include_directories: [project_public_includes, third_party_includes])
@@ -115,6 +116,14 @@ includes_dep = declare_dependency(include_directories: [project_public_includes,
 # This list will be shared with all subdirectories
 lib_deps = [includes_dep]
 fs = import('fs')
+
+# Add StringZilla as a CMake subproject
+cmake = import('cmake')
+stringzilla_opts = cmake.subproject_options()
+stringzilla_opts.add_cmake_defines({'STRINGZILLA_BUILD_SHARED': false})
+stringzilla_proj = cmake.subproject('stringzilla', options: stringzilla_opts)
+stringzilla_dep = stringzilla_proj.dependency('stringzilla', include_type: 'system')
+lib_deps += stringzilla_dep
 
 if get_option('precompiled_config') == true
   add_project_arguments('-DDRAC_PRECOMPILED_CONFIG', language: ['cpp'])
@@ -159,6 +168,8 @@ elif host_system == 'windows'
     cpp.find_library('dwmapi'),
     cpp.find_library('windowsapp'),
     cpp.find_library('setupapi'),
+    cpp.find_library('dxgi'),
+    cpp.find_library('dxguid'),
   ]
 elif host_system != 'serenity' and host_system != 'haiku'
   dbus_dep = dependency('dbus-1', required: false)
@@ -237,6 +248,7 @@ lib_deps += glaze_dep
 #  Subdirectories       #
 # --------------------- #
 subdir('src/Lib')
+subdir('src/Lib/Tests')
 subdir('src/CLI')
 
 # -------------------- #

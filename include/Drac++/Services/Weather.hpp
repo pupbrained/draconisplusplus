@@ -7,17 +7,16 @@
 #include <glaze/core/common.hpp> // object
 #include <glaze/core/meta.hpp>   // Object
 #include <matchit.hpp>
+#include <variant>
 
 #include "DracUtils/Types.hpp"
 #include "DracUtils/Error.hpp"
 // clang-format on
 
-struct Config;
-
 namespace weather {
   /**
    * @brief Specifies the weather service provider.
-   * @see config::DRAC_WEATHER_PROVIDER in `config.example.hpp` or `config.hpp`.
+   * @see config::DRAC_WEATHER_PROVIDER in `config(.example).hpp`.
    */
   enum class Provider : util::types::u8 {
     OPENWEATHERMAP, ///< OpenWeatherMap API. Requires an API key. @see config::DRAC_API_KEY
@@ -27,7 +26,7 @@ namespace weather {
 
   /**
    * @brief Specifies the unit system for weather information.
-   * @see config::DRAC_WEATHER_UNIT in `config.example.hpp` or `config.hpp`.
+   * @see config::DRAC_WEATHER_UNIT in `config(.example).hpp`.
    */
   enum class Unit : util::types::u8 {
     METRIC,   ///< Metric units (Celsius, kph, etc.).
@@ -46,17 +45,31 @@ namespace weather {
     util::types::String                      description; ///< Weather description (e.g., "clear sky", "rain")
   };
 
-  /**
-   * @brief Fetches the weather information.
-   * @param config The configuration object containing settings for the weather.
-   * @return Result containing the weather information.
-   */
-  fn GetWeatherInfo(const Config& config) -> util::types::Result<WeatherReport>;
-
   struct Coords {
     util::types::f64 lat;
     util::types::f64 lon;
   };
+
+  using Location = std::variant<util::types::String, Coords>;
+
+  class IWeatherService {
+   public:
+    IWeatherService(const IWeatherService&) = delete;
+    IWeatherService(IWeatherService&&)      = delete;
+
+    fn operator=(const IWeatherService&)->IWeatherService& = delete;
+    fn operator=(IWeatherService&&)->IWeatherService&      = delete;
+
+    virtual ~IWeatherService() = default;
+
+    [[nodiscard]] virtual fn getWeatherInfo() const -> util::types::Result<WeatherReport> = 0;
+
+   protected:
+    IWeatherService() = default;
+  };
+
+  fn CreateWeatherService(Provider provider, const Location& location, const util::types::String& apiKey, Unit units) -> util::types::UniquePointer<IWeatherService>;
+  fn CreateWeatherService(Provider provider, const Coords& coords, Unit units) -> util::types::UniquePointer<IWeatherService>;
 } // namespace weather
 
 namespace glz {

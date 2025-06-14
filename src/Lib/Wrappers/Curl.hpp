@@ -1,11 +1,10 @@
 #pragma once
 
+#include <DracUtils/Definitions.hpp>
+#include <DracUtils/Error.hpp>
+#include <DracUtils/Types.hpp>
 #include <curl/curl.h>
 #include <utility> // std::{exchange, move}
-
-#include "DracUtils/Definitions.hpp"
-#include "DracUtils/Error.hpp"
-#include "DracUtils/Types.hpp"
 
 namespace Curl {
   /**
@@ -517,7 +516,7 @@ namespace Curl {
    * @param flags CURL global init flags.
    * @return A Result indicating success or failure.
    */
-  inline fn GlobalInit(util::types::i64 flags = CURL_GLOBAL_ALL) -> util::types::Result<> {
+  inline fn GlobalInit(util::types::i32 flags = CURL_GLOBAL_ALL) -> util::types::Result<> {
     using util::types::Err, util::error::DracError, util::error::DracErrorCode;
 
     const CURLcode res = curl_global_init(flags);

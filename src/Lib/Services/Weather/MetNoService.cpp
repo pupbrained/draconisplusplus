@@ -1,26 +1,25 @@
 #if DRAC_ENABLE_WEATHER
 
 // clang-format off
-#include <Drac++/Services/Weather/MetNoService.hpp>
+#include "MetNoService.hpp"
 
-#include <format> // std::format
-
-#include <Drac++/Services/Weather/DataTransferObjects.hpp>
-#include <Drac++/Services/Weather/WeatherUtils.hpp>
-
-#include <DracUtils/Caching.hpp>
 #include <DracUtils/Error.hpp>
 #include <DracUtils/Types.hpp>
+#include <format> // std::format
 
-#include <Drac++/Wrappers/Curl.hpp>
+#include "Wrappers/Curl.hpp"
+
+#include "DataTransferObjects.hpp"
+#include "Utils/Caching.hpp"
+#include "WeatherUtils.hpp"
 // clang-format on
 
 using namespace util::types;
 using util::error::DracError;
 using enum util::error::DracErrorCode;
 using weather::MetNoService;
-using weather::WeatherReport;
 using weather::Unit;
+using weather::WeatherReport;
 
 MetNoService::MetNoService(const f64 lat, const f64 lon, Unit units)
   : m_lat(lat), m_lon(lon), m_units(units) {}
@@ -59,7 +58,7 @@ fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
   weather::dto::metno::Response apiResp {};
 
   if (error_ctx errc = read<glz::opts { .error_on_unknown_keys = false }>(apiResp, responseBuffer); errc.ec != error_code::none)
-    return Err(DracError(ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer))));
+    return Err(DracError(ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer.data()))));
 
   if (apiResp.properties.timeseries.empty())
     return Err(DracError(ParseError, "No timeseries data in met.no response"));

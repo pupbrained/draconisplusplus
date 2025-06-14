@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>       // std::array (Array)
+#include <format>      // std::formatter
 #include <future>      // std::future (Future)
 #include <map>         // std::map (Map)
 #include <memory>      // std::shared_ptr and std::unique_ptr (SharedPointer, UniquePointer)
@@ -8,8 +9,9 @@
 #include <optional>    // std::optional (Option)
 #include <string>      // std::string (String, StringView)
 #include <string_view> // std::string_view (StringView)
-#include <utility>     // std::pair (Pair)
-#include <vector>      // std::vector (Vec)
+#include <stringzilla/stringzilla.hpp>
+#include <utility> // std::pair (Pair)
+#include <vector>  // std::vector (Vec)
 
 namespace util::types {
   using u8  = std::uint8_t;  ///< 8-bit unsigned integer.
@@ -30,7 +32,11 @@ namespace util::types {
 
   using String     = std::string;      ///< Owning, mutable string.
   using StringView = std::string_view; ///< Non-owning view of a string.
-  using CStr       = const char*;      ///< Pointer to a null-terminated C-style string.
+
+  using SZString     = ashvardanian::stringzilla::string;      ///< Owning, mutable string.
+  using SZStringView = ashvardanian::stringzilla::string_view; ///< Non-owning view of a string.
+
+  using CStr = const char*; ///< Pointer to a null-terminated C-style string.
 
   using AnyPtr = void*; ///< A type-erased pointer.
 
@@ -137,3 +143,30 @@ namespace util::types {
       : title(std::move(title)), artist(std::move(artist)) {}
   };
 } // namespace util::types
+
+// Custom formatters for SZString and SZStringView
+namespace std {
+  /**
+   * @brief Formatter specialization for SZString
+   * @tparam CharT Character type (char)
+   */
+  template <typename CharT>
+  struct formatter<util::types::SZString, CharT> : formatter<string_view, CharT> {
+    template <typename FormatContext>
+    auto format(const util::types::SZString& str, FormatContext& ctx) const {
+      return formatter<string_view, CharT>::format(string_view(str.data(), str.size()), ctx);
+    }
+  };
+
+  /**
+   * @brief Formatter specialization for SZStringView
+   * @tparam CharT Character type (char)
+   */
+  template <typename CharT>
+  struct formatter<util::types::SZStringView, CharT> : formatter<string_view, CharT> {
+    template <typename FormatContext>
+    auto format(const util::types::SZStringView& str, FormatContext& ctx) const {
+      return formatter<string_view, CharT>::format(string_view(str.data(), str.size()), ctx);
+    }
+  };
+} // namespace std

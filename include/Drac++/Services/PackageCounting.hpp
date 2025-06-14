@@ -18,7 +18,7 @@ namespace package {
    * using the bitwise OR operator (`|`). The availability of specific package managers
    * is conditional on the operating system detected at compile time.
    *
-   * @see config::DRAC_ENABLED_PACKAGE_MANAGERS in `config.example.hpp` or `config.hpp`.
+   * @see config::DRAC_ENABLED_PACKAGE_MANAGERS in `config(.example).hpp`.
    * @see package::operator|
    * @see package::HasPackageManager
    */
@@ -91,7 +91,7 @@ namespace package {
    * @return Result containing the total package count (u64) on success,
    * or a DracError if aggregation fails (individual errors logged).
    */
-  fn GetTotalCount() -> util::types::Result<util::types::u64>;
+  fn GetTotalCount(Manager enabledPackageManagers) -> util::types::Result<util::types::u64>;
 
   /**
    * @brief Gets package count from a database using SQLite.

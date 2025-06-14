@@ -1,4 +1,5 @@
-#include <Drac++/Config/Config.hpp>
+#include "Config.hpp"
+
 #include <DracUtils/Definitions.hpp>
 #include <DracUtils/Logging.hpp>
 #include <format> // std::{format, format_error}
@@ -15,9 +16,7 @@
 
 namespace fs = std::filesystem;
 #else
-  #include <Drac++/Services/Weather/MetNoService.hpp>
-  #include <Drac++/Services/Weather/OpenMeteoService.hpp>
-  #include <Drac++/Services/Weather/OpenWeatherMapService.hpp>
+  #include <Drac++/Services/Weather.hpp>
 
   #include "../config.hpp" // user-defined config
 #endif
@@ -175,7 +174,7 @@ fn Config::getInstance() -> Config {
 
   #if DRAC_ENABLE_WEATHER
   using namespace weather;
-  using enum config::WeatherProvider;
+  using enum weather::Provider;
 
   cfg.weather.enabled      = true;
   cfg.weather.apiKey       = DRAC_API_KEY;
@@ -189,7 +188,8 @@ fn Config::getInstance() -> Config {
       cfg.weather.enabled = false;
     }
 
-    cfg.weather.service = std::make_unique<OpenWeatherMapService>(
+    cfg.weather.service = CreateWeatherService(
+      OPENWEATHERMAP,
       config::DRAC_LOCATION,
       *cfg.weather.apiKey,
       cfg.weather.units
@@ -198,9 +198,9 @@ fn Config::getInstance() -> Config {
     if (std::holds_alternative<Coords>(DRAC_LOCATION)) {
       const auto& coords = std::get<Coords>(DRAC_LOCATION);
 
-      cfg.weather.service = std::make_unique<OpenMeteoService>(
-        coords.lat,
-        coords.lon,
+      cfg.weather.service = CreateWeatherService(
+        OPENMETEO,
+        coords,
         cfg.weather.units
       );
     } else {
@@ -211,9 +211,9 @@ fn Config::getInstance() -> Config {
     if (std::holds_alternative<Coords>(DRAC_LOCATION)) {
       const auto& coords = std::get<Coords>(DRAC_LOCATION);
 
-      cfg.weather.service = std::make_unique<MetNoService>(
-        coords.lat,
-        coords.lon,
+      cfg.weather.service = CreateWeatherService(
+        METNO,
+        coords,
         cfg.weather.units
       );
     } else {
@@ -230,6 +230,10 @@ fn Config::getInstance() -> Config {
     cfg.weather.enabled = false;
   }
   #endif // DRAC_ENABLE_WEATHER
+
+  #if DRAC_ENABLE_PACKAGECOUNT
+  cfg.enabledPackageManagers = config::DRAC_ENABLED_PACKAGE_MANAGERS;
+  #endif
 
   #if DRAC_ENABLE_NOWPLAYING
   cfg.nowPlaying.enabled = true;

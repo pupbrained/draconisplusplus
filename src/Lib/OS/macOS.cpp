@@ -82,7 +82,7 @@ namespace os {
     return GetCurrentPlayingInfo();
   }
 
-  fn System::getOSVersion() -> Result<String> {
+  fn System::getOSVersion() -> Result<SZString> {
     // clang-format off
     static constexpr Array<Pair<u8, StringView>, 6> VERSION_NAMES = {{
       { 11, "Big Sur"  },
@@ -180,14 +180,14 @@ namespace os {
         break;
       }
 
-    return std::format("macOS {} {}", versionNumber, versionName);
+    return SZString(std::format("macOS {} {}", versionNumber, versionName));
   }
 
-  fn System::getDesktopEnvironment() -> Result<String> {
-    return "Aqua";
+  fn System::getDesktopEnvironment() -> Result<SZString> {
+    return SZString("Aqua");
   }
 
-  fn System::getWindowManager() -> Result<String> {
+  fn System::getWindowManager() -> Result<SZString> {
     constexpr Array<StringView, 6> knownWms = {
       "yabai",
       "kwm",
@@ -229,20 +229,20 @@ namespace os {
       for (const StringView& wmName : knownWms)
         if (StrEqualsIgnoreCase(comm, wmName)) {
           if (const Option<String> capitalized = Capitalize(comm))
-            return *capitalized;
+            return SZString(*capitalized);
 
           return Err(DracError(DracErrorCode::ParseError, "Failed to capitalize window manager name"));
         }
     }
 
-    return "Quartz";
+    return SZString("Quartz");
   }
 
-  fn System::getKernelVersion() -> Result<String> {
+  fn System::getKernelVersion() -> Result<SZString> {
     const String cacheKey = "macos_kernel";
 
     if (Result<String> cachedKernel = GetValidCache<String>(cacheKey))
-      return *cachedKernel;
+      return SZString(*cachedKernel);
 
     Array<char, 256> kernelVersion {};
     usize            kernelVersionLen = sizeof(kernelVersion);
@@ -254,14 +254,14 @@ namespace os {
     if (Result writeResult = WriteCache(cacheKey, version); !writeResult)
       debug_at(writeResult.error());
 
-    return version;
+    return SZString(version);
   }
 
-  fn System::getHost() -> Result<String> {
+  fn System::getHost() -> Result<SZString> {
     const String cacheKey = "macos_host";
 
     if (Result<String> cachedHost = GetValidCache<String>(cacheKey))
-      return *cachedHost;
+      return SZString(*cachedHost);
 
     Array<char, 256> hwModel {};
     usize            hwModelLen = sizeof(hwModel);
@@ -428,20 +428,20 @@ namespace os {
     if (Result writeResult = WriteCache(cacheKey, host); !writeResult)
       debug_at(writeResult.error());
 
-    return host;
+    return SZString(host);
   }
 
-  fn System::getCPUModel() -> Result<String> {
+  fn System::getCPUModel() -> Result<SZString> {
     Array<char, 256> cpuModel {};
     usize            cpuModelLen = sizeof(cpuModel);
 
     if (sysctlbyname("machdep.cpu.brand_string", cpuModel.data(), &cpuModelLen, nullptr, 0) == -1)
       return Err(DracError("Failed to get CPU model"));
 
-    return String(cpuModel.data());
+    return SZString(cpuModel.data());
   }
 
-  fn System::getGPUModel() -> Result<String> {
+  fn System::getGPUModel() -> Result<SZString> {
     io_iterator_t          iterator = 0;
     CFMutableDictionaryRef matches  = IOServiceMatching("IOAccelerator");
     CFDictionaryAddValue(matches, CFSTR("IOMatchCategory"), CFSTR("IOAccelerator"));
@@ -496,7 +496,7 @@ namespace os {
     if (gpuModel.empty())
       return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to get GPU model"));
 
-    return gpuModel;
+    return SZString(gpuModel);
   }
 
   fn System::getDiskUsage() -> Result<ResourceUsage> {
@@ -511,7 +511,7 @@ namespace os {
     };
   }
 
-  fn System::getShell() -> Result<String> {
+  fn System::getShell() -> Result<SZString> {
     if (const Result<String> shellPath = GetEnv("SHELL")) {
       // clang-format off
       constexpr Array<Pair<StringView, StringView>, 8> shellMap {{
@@ -528,9 +528,9 @@ namespace os {
 
       for (const auto& [exe, name] : shellMap)
         if (shellPath->ends_with(exe))
-          return String(name);
+          return SZString(name);
 
-      return *shellPath;
+      return SZString(*shellPath);
     }
 
     return Err(DracError(DracErrorCode::NotFound, "Could not find SHELL environment variable"));

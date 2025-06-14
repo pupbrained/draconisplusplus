@@ -3,10 +3,6 @@
 // clang-format off
 #include <Drac++/Services/PackageCounting.hpp>
 
-#if DRAC_PRECOMPILED_CONFIG
-  #include "config.hpp"
-#endif
-
 #if !defined(__serenity__) && !defined(_WIN32)
   #include <SQLiteCpp/Database.h>  // SQLite::{Database, OPEN_READONLY}
   #include <SQLiteCpp/Exception.h> // SQLite::Exception
@@ -23,7 +19,7 @@
 #include <matchit.hpp>  // matchit::{match, is, or_, _}
 #include <system_error> // std::{errc, error_code}
 
-#include <DracUtils/Caching.hpp>
+#include "Utils/Caching.hpp"
 #include <DracUtils/Env.hpp>
 #include <DracUtils/Error.hpp>
 #include <DracUtils/Logging.hpp>
@@ -38,7 +34,6 @@ using enum util::error::DracErrorCode;
 using util::cache::GetValidCache, util::cache::WriteCache;
 
 namespace {
-
   fn GetCountFromDirectoryImpl(
     const String&         pmId,
     const fs::path&       dirPath,
@@ -266,9 +261,9 @@ namespace package {
 
     fs::path cargoPath {};
 
-    if (const Result<String> cargoHome = GetEnv("CARGO_HOME"))
+    if (const Result<CStr> cargoHome = GetEnv("CARGO_HOME"))
       cargoPath = fs::path(*cargoHome) / "bin";
-    else if (const Result<String> homeDir = GetEnv("HOME"))
+    else if (const Result<CStr> homeDir = GetEnv("HOME"))
       cargoPath = fs::path(*homeDir) / ".cargo" / "bin";
 
     if (cargoPath.empty() || !fs::exists(cargoPath))
@@ -277,7 +272,7 @@ namespace package {
     return GetCountFromDirectory("cargo", cargoPath);
   }
 
-  fn GetTotalCount() -> Result<u64> {
+  fn GetTotalCount(const Manager enabledPackageManagers) -> Result<u64> {
   #if DRAC_PRECOMPILED_CONFIG
     #if DRAC_ENABLE_PACKAGECOUNT
     Vec<Future<Result<u64>>> futures;
@@ -285,52 +280,52 @@ namespace package {
 
       // Platform-specific package managers
       #ifdef __linux__
-    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::APK))
+    if (HasPackageManager(enabledPackageManagers, Manager::APK))
       futures.emplace_back(std::async(std::launch::async, CountApk));
-    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::DPKG))
+    if (HasPackageManager(enabledPackageManagers, Manager::DPKG))
       futures.emplace_back(std::async(std::launch::async, CountDpkg));
-    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::MOSS))
+    if (HasPackageManager(enabledPackageManagers, Manager::MOSS))
       futures.emplace_back(std::async(std::launch::async, CountMoss));
-    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::PACMAN))
+    if (HasPackageManager(enabledPackageManagers, Manager::PACMAN))
       futures.emplace_back(std::async(std::launch::async, CountPacman));
-    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::RPM))
+    if (HasPackageManager(enabledPackageManagers, Manager::RPM))
       futures.emplace_back(std::async(std::launch::async, CountRpm));
         #ifdef HAVE_PUGIXML
-    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::XBPS))
+    if (HasPackageManager(enabledPackageManagers, Manager::XBPS))
       futures.emplace_back(std::async(std::launch::async, CountXbps));
         #endif
       #elifdef __APPLE__
-    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::HOMEBREW))
+    if (HasPackageManager(enabledPackageManagers, Manager::HOMEBREW))
       futures.emplace_back(std::async(std::launch::async, GetHomebrewCount));
-    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::MACPORTS))
+    if (HasPackageManager(enabledPackageManagers, Manager::MACPORTS))
       futures.emplace_back(std::async(std::launch::async, GetMacPortsCount));
       #elifdef _WIN32
-    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::WINGET))
+    if (HasPackageManager(enabledPackageManagers, Manager::WINGET))
       futures.emplace_back(std::async(std::launch::async, CountWinGet));
-    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::CHOCOLATEY))
+    if (HasPackageManager(enabledPackageManagers, Manager::CHOCOLATEY))
       futures.emplace_back(std::async(std::launch::async, CountChocolatey));
-    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::SCOOP))
+    if (HasPackageManager(enabledPackageManagers, Manager::SCOOP))
       futures.emplace_back(std::async(std::launch::async, CountScoop));
       #elif defined(__FreeBSD__) || defined(__DragonFly__)
-    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::PKGNG))
+    if (HasPackageManager(enabledPackageManagers, Manager::PKGNG))
       futures.emplace_back(std::async(std::launch::async, GetPkgNgCount));
       #elifdef __NetBSD__
-    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::PKGSRC))
+    if (HasPackageManager(enabledPackageManagers, Manager::PKGSRC))
       futures.emplace_back(std::async(std::launch::async, GetPkgSrcCount));
       #elifdef __HAIKU__
-    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::HAIKUPKG))
+    if (HasPackageManager(enabledPackageManagers, Manager::HAIKUPKG))
       futures.emplace_back(std::async(std::launch::async, GetHaikuCount));
       #elifdef __serenity__
-    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::SERENITY))
+    if (HasPackageManager(enabledPackageManagers, Manager::SERENITY))
       futures.emplace_back(std::async(std::launch::async, GetSerenityCount));
       #endif
 
       // Cross-platform package managers
       #if defined(__linux__) || defined(__APPLE__) // Nix support
-    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::NIX))
+    if (HasPackageManager(enabledPackageManagers, Manager::NIX))
       futures.emplace_back(std::async(std::launch::async, CountNix));
       #endif
-    if (HasPackageManager(config::DRAC_ENABLED_PACKAGE_MANAGERS, config::PackageManager::CARGO))
+    if (HasPackageManager(enabledPackageManagers, Manager::CARGO))
       futures.emplace_back(std::async(std::launch::async, CountCargo));
 
     if (futures.empty())

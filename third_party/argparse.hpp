@@ -292,8 +292,7 @@ namespace argparse {
      * @param s The string to check
      * @return true if s starts with prefix, false otherwise
      */
-    template <class CharT, class Traits>
-    constexpr fn starts_with(std::basic_string_view<CharT, Traits> prefix, std::basic_string_view<CharT, Traits> s) noexcept -> bool {
+    constexpr fn starts_with(util::types::StringView prefix, util::types::StringView s) noexcept -> bool {
       return s.substr(0, prefix.size()) == prefix;
     }
 

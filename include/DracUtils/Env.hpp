@@ -12,10 +12,9 @@ namespace util::helpers {
   /**
    * @brief Safely retrieves an environment variable.
    * @param name  The name of the environment variable to retrieve.
-   * @return A Result containing the value of the environment variable as a String,
-   * or an EnvError if an error occurred.
+   * @return A Result containing the value of the environment variable as a CStr.
    */
-  [[nodiscard]] inline fn GetEnv(types::CStr name) -> types::Result<types::String> {
+  [[nodiscard]] inline fn GetEnv(types::CStr name) -> types::Result<types::CStr> {
 #ifdef _WIN32
     char*        rawPtr     = nullptr;
     types::usize bufferSize = 0;
@@ -42,4 +41,28 @@ namespace util::helpers {
     return value;
 #endif
   }
+
+#ifdef _WIN32
+  /**
+   * @brief Safely retrieves an environment variable as a wstring.
+   * @param name  The name of the environment variable to retrieve.
+   * @return A Result containing the value of the environment variable as a wstring.
+   */
+  [[nodiscard]] inline fn GetEnvW(const wchar_t* name) -> types::Result<wchar_t*> {
+    wchar_t*     rawPtr     = nullptr;
+    types::usize bufferSize = 0;
+
+    const types::i32 err = _wdupenv_s(&rawPtr, &bufferSize, name);
+
+    const types::UniquePointer<wchar_t, decltype(&free)> ptrManager(rawPtr, free);
+
+    if (err != 0)
+      return types::Err(error::DracError(error::DracErrorCode::PermissionDenied, "Failed to retrieve environment variable"));
+
+    if (!ptrManager)
+      return types::Err(error::DracError(error::DracErrorCode::NotFound, "Environment variable not found"));
+
+    return ptrManager.get();
+  }
+#endif
 } // namespace util::helpers

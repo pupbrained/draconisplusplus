@@ -1,7 +1,7 @@
 #if DRAC_ENABLE_WEATHER
 
 // clang-format off
-#include <Drac++/Services/Weather/WeatherUtils.hpp>
+#include "WeatherUtils.hpp"
 
 #include <charconv> // For std::from_chars
 #include <ctime>    // For std::tm, timegm, _mkgmtime

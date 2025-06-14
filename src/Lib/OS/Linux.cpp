@@ -215,7 +215,7 @@ namespace os {
   using util::helpers::GetEnv;
   using util::types::ResourceUsage;
 
-  fn System::GetOSVersion() -> Result<String> {
+  fn System::GetOSVersion() -> Result<SZString> {
     using util::types::StringView;
 
     std::ifstream file("/etc/os-release");
@@ -237,7 +237,7 @@ namespace os {
         if (value.empty())
           return Err(DracError(DracErrorCode::ParseError, std::format("PRETTY_NAME value is empty or only quotes in /etc/os-release")));
 
-        return value;
+        return SZString(value);
       }
     }
 
@@ -362,7 +362,7 @@ namespace os {
     return Err(DracError(DracErrorCode::NotFound, "No media player found or an unknown error occurred"));
   }
 
-  fn System::GetWindowManager() -> Result<String> {
+  fn System::GetWindowManager() -> Result<SZString> {
   #if !defined(HAVE_WAYLAND) && !defined(HAVE_XCB)
     return Err(DracError(DracErrorCode::NotSupported, "Wayland or XCB support not available"));
   #endif
@@ -376,17 +376,20 @@ namespace os {
     return Err(DracError(DracErrorCode::NotFound, "No display server detected"));
   }
 
-  fn System::GetDesktopEnvironment() -> Result<String> {
+  fn System::GetDesktopEnvironment() -> Result<SZString> {
     return GetEnv("XDG_CURRENT_DESKTOP")
       .transform([](String xdgDesktop) -> String {
         if (const usize colonPos = xdgDesktop.find(':'); colonPos != String::npos)
           xdgDesktop.resize(colonPos);
         return xdgDesktop;
       })
-      .or_else([](DracError) { return GetEnv("DESKTOP_SESSION"); });
+      .or_else([](DracError) { return GetEnv("DESKTOP_SESSION"); })
+      .transform([](String xdgDesktop) -> SZString {
+        return SZString(xdgDesktop);
+      });
   }
 
-  fn System::GetShell() -> Result<String> {
+  fn System::GetShell() -> Result<SZString> {
     using util::types::Pair, util::types::Array, util::types::StringView;
 
     return GetEnv("SHELL").transform([](String shellPath) -> String {
@@ -407,10 +410,13 @@ namespace os {
       if (const usize lastSlash = shellPath.find_last_of('/'); lastSlash != String::npos)
         return shellPath.substr(lastSlash + 1);
       return shellPath;
+    })
+    .transform([](String shellPath) -> SZString {
+      return SZString(shellPath);
     });
   }
 
-  fn System::GetHost() -> Result<String> {
+  fn System::GetHost() -> Result<SZString> {
     using util::types::CStr;
 
     constexpr CStr primaryPath  = "/sys/class/dmi/id/product_family";
@@ -455,7 +461,7 @@ namespace os {
     ));
   }
 
-  fn System::GetKernelVersion() -> Result<String> {
+  fn System::GetKernelVersion() -> Result<SZString> {
     utsname uts;
 
     if (uname(&uts) == -1)
@@ -464,7 +470,7 @@ namespace os {
     if (std::strlen(uts.release) == 0)
       return Err(DracError(DracErrorCode::ParseError, "uname returned null kernel release"));
 
-    return uts.release;
+    return SZString(uts.release);
   }
 
   fn System::GetDiskUsage() -> Result<ResourceUsage> {
