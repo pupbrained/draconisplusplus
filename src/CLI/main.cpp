@@ -5,8 +5,6 @@
 #include <ftxui/dom/node.hpp>      // ftxui::{Render}
 #include <ftxui/screen/screen.hpp> // ftxui::{Screen, Dimension::Full}
 #include <matchit.hpp>             // matchit::{match, is, _}
-#include <sys/syscall.h>           // SYS_sysctl
-#include <sys/sysctl.h>            // sysctl(3)
 
 #ifdef __cpp_lib_print
   #include <print> // std::print
@@ -74,17 +72,35 @@ namespace {
       failures.emplace_back("Weather", data.weather.error());
 #endif
 
+    const util::types::SZString summary = util::formatting::SzFormat(
+      "We've collected a total of {} readouts including {} failed read{}.\n\n",
+      totalPossibleReadouts,
+      failures.size(),
+      failures.size() == 1 ? "" : "s"
+    );
+
 #ifdef __cpp_lib_print
-    std::println("We've collected a total of {} readouts including {} failed read{}.\n", totalPossibleReadouts, failures.size(), failures.size() == 1 ? "" : "s");
-
-    for (const auto& [readout, err] : failures)
-      std::println("Readout \"{}\" failed: {} (code: {})", readout, err.message, err.code);
+    std::println("{}", summary.c_str());
 #else
-    std::cout << std::format("We've collected a total of {} readouts including {} failed read{}.\n\n", totalPossibleReadouts, failures.size(), failures.size() == 1 ? "" : "s");
+    std::cout << summary;
+#endif
 
-    for (const auto& fail : failures)
-      std::cout << std::format("Readout \"{}\" failed: {} (code: {})\n", fail.first, fail.second.message, fail.second.code);
+    for (const auto& [readout, err] : failures) {
+      const util::types::SZString failureLine = util::formatting::SzFormat(
+        "Readout \"{}\" failed: {} (code: {})\n",
+        readout,
+        err.message,
+        err.code
+      );
 
+#ifdef __cpp_lib_print
+      std::println("{}", failureLine.c_str());
+#else
+      std::cout << failureLine;
+#endif
+    }
+
+#ifndef __cpp_lib_print
     std::cout << std::flush;
 #endif
   }

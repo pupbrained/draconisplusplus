@@ -1,18 +1,14 @@
 #if DRAC_ENABLE_WEATHER
 
-// clang-format off
-#include "OpenMeteoService.hpp"
+  #include "OpenMeteoService.hpp"
 
-#include <DracUtils/Error.hpp>
-#include <DracUtils/Types.hpp>
-#include <format> // std::format
+  #include <DracUtils/Error.hpp>
+  #include <DracUtils/Types.hpp>
 
-#include "Wrappers/Curl.hpp"
-
-#include "DataTransferObjects.hpp"
-#include "Utils/Caching.hpp"
-#include "WeatherUtils.hpp"
-// clang-format on
+  #include "DataTransferObjects.hpp"
+  #include "Utils/Caching.hpp"
+  #include "WeatherUtils.hpp"
+  #include "Wrappers/Curl.hpp"
 
 using namespace util::types;
 using util::error::DracError;
@@ -33,14 +29,14 @@ fn OpenMeteoService::getWeatherInfo() const -> Result<WeatherReport> {
   else
     debug_at(cachedDataResult.error());
 
-  String url = std::format(
+  SZString url = util::formatting::SzFormat(
     "https://api.open-meteo.com/v1/forecast?latitude={:.4f}&longitude={:.4f}&current_weather=true&temperature_unit={}",
     m_lat,
     m_lon,
     m_units == Unit::IMPERIAL ? "fahrenheit" : "celsius"
   );
 
-  String responseBuffer;
+  SZString responseBuffer;
 
   Curl::Easy curl({
     .url                = url,
@@ -61,8 +57,8 @@ fn OpenMeteoService::getWeatherInfo() const -> Result<WeatherReport> {
 
   weather::dto::openmeteo::Response apiResp {};
 
-  if (error_ctx errc = read<glz::opts { .error_on_unknown_keys = false }>(apiResp, responseBuffer); errc.ec != error_code::none)
-    return Err(DracError(ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer.data()))));
+  if (error_ctx errc = read<glz::opts { .error_on_unknown_keys = false }>(apiResp, responseBuffer.data()); errc.ec != error_code::none)
+    return Err(DracError(ParseError, util::formatting::SzFormat("Failed to parse JSON response: {}", format_error(errc, responseBuffer.data()))));
 
   Result<usize> timestamp = weather::utils::ParseIso8601ToEpoch(apiResp.currentWeather.time);
 
@@ -72,7 +68,7 @@ fn OpenMeteoService::getWeatherInfo() const -> Result<WeatherReport> {
   WeatherReport out = {
     .temperature = apiResp.currentWeather.temperature,
     .name        = None,
-    .description = String(weather::utils::GetOpenmeteoWeatherDescription(apiResp.currentWeather.weathercode)),
+    .description = weather::utils::GetOpenmeteoWeatherDescription(apiResp.currentWeather.weathercode),
   };
 
   if (Result writeResult = WriteCache("weather", out); !writeResult)

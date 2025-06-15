@@ -34,7 +34,7 @@
  * @brief Holds general configuration settings.
  */
 struct General {
-  util::types::String name = getDefaultName(); ///< Default display name, retrieved from the system.
+  util::types::SZString name = getDefaultName(); ///< Default display name, retrieved from the system.
 
   /**
    * @brief Retrieves the default name for the user.
@@ -45,7 +45,7 @@ struct General {
    * On POSIX systems, it first tries to get the username using getpwuid,
    * then checks the USER and LOGNAME environment variables.
    */
-  static fn getDefaultName() -> util::types::String {
+  static fn getDefaultName() -> util::types::SZString {
 #ifdef _WIN32
     using util::types::Array;
 
@@ -56,12 +56,12 @@ struct General {
     return GetUserNameA(username.data(), &size) ? username.data() : "User";
 #else
     using util::helpers::GetEnv;
-    using util::types::CStr, util::types::String, util::types::Result;
+    using util::types::CStr, util::types::SZString, util::types::Result;
 
     const passwd*        pwd        = getpwuid(getuid());
     CStr                 pwdName    = pwd ? pwd->pw_name : nullptr;
-    const Result<String> envUser    = GetEnv("USER");
-    const Result<String> envLogname = GetEnv("LOGNAME");
+    const Result<SZString> envUser    = GetEnv("USER");
+    const Result<SZString> envLogname = GetEnv("LOGNAME");
 
     return pwdName ? pwdName
       : envUser    ? *envUser
@@ -77,12 +77,12 @@ struct General {
    * @return A General instance with the parsed values, or defaults otherwise.
    */
   static fn fromToml(const toml::table& tbl) -> General {
-    using util::types::String;
+    using util::types::SZString;
 
     General gen;
 
     if (const toml::node_view<const toml::node> nameNode = tbl["name"])
-      if (auto nameVal = nameNode.value<String>())
+      if (auto nameVal = nameNode.value<SZString>())
         gen.name = *nameVal;
 
     return gen;
@@ -118,7 +118,7 @@ struct NowPlaying {
  */
 struct Weather {
   weather::Location                        location; ///< Location for weather data, can be a city name or coordinates.
-  util::types::Option<util::types::String> apiKey;   ///< API key for the weather service.
+  util::types::Option<util::types::SZString> apiKey;   ///< API key for the weather service.
   weather::Unit                            units;    ///< Units for temperature, either "metric" or "imperial".
 
   bool                                      enabled      = false;   ///< Flag to enable or disable the Weather feature.
@@ -132,7 +132,7 @@ struct Weather {
    * @return A Weather instance with the parsed values, or defaults otherwise.
    */
   static fn fromToml(const toml::table& tbl) -> Weather {
-    using util::types::String;
+    using util::types::SZString;
 
     using matchit::match, matchit::is, matchit::_;
 
@@ -144,14 +144,14 @@ struct Weather {
 
     Weather weather;
 
-    weather.apiKey  = tbl["api_key"].value<String>();
+    weather.apiKey  = tbl["api_key"].value<SZString>();
     weather.enabled = tbl["enabled"].value_or<bool>(false);
 
     if (!weather.enabled)
       return weather;
 
     weather.showTownName = tbl["show_town_name"].value_or(false);
-    String unitsStr      = tbl["units"].value_or("metric");
+    SZString unitsStr      = tbl["units"].value_or("metric");
 
     match(unitsStr)(
       is | "metric"   = [&]() { weather.units = weather::Unit::METRIC; },
@@ -159,14 +159,14 @@ struct Weather {
       is | _          = [&]() { SET_ERROR("Invalid units: '{}'. Accepted values are 'metric' and 'imperial'.", unitsStr); }
     );
 
-    String provider = tbl["provider"].value_or("openweathermap");
+    SZString provider = tbl["provider"].value_or("openweathermap");
 
     if (const toml::node_view<const toml::node> locationNode = tbl["location"]) {
       using matchit::app;
 
       // clang-format off
       match(locationNode)(
-        is | app([](const toml::node_view<const toml::node>& node) { return node.is_string(); }, true) = [&]() { weather.location = *locationNode.value<String>(); },
+        is | app([](const toml::node_view<const toml::node>& node) { return node.is_string(); }, true) = [&]() { weather.location = *locationNode.value<SZString>(); },
         is | app([](const toml::node_view<const toml::node>& node) { return node.is_table(); }, true)  = [&]() {
           weather.location = weather::Coords {
             .lat = *locationNode.as_table()->get("lat")->value<double>(),

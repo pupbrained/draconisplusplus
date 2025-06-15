@@ -1,14 +1,16 @@
 #pragma once
 
-#include <format> // std::{formatter, format_to}
-
 #if DRAC_ENABLE_WEATHER
   #include "Drac++/Services/Weather.hpp"
 #endif
 
 #include "DracUtils/Definitions.hpp"
 #include "DracUtils/Error.hpp"
+#include "DracUtils/Formatting.hpp"
 #include "DracUtils/Types.hpp"
+
+/// @brief Conversion factor from bytes to GiB
+constexpr util::types::u64 GIB = 1'073'741'824;
 
 /**
  * @struct BytesToGiB
@@ -27,87 +29,29 @@ struct BytesToGiB {
   explicit constexpr BytesToGiB(const util::types::u64 value) : value(value) {}
 };
 
-/// @brief Conversion factor from bytes to GiB
-constexpr util::types::u64 GIB = 1'073'741'824;
+namespace util::formatting {
+  template <>
+  struct Formatter<BytesToGiB> {
+    Formatter<double> doubleFormatter;
 
-/**
- * @brief Custom formatter for BytesToGiB.
- *
- * Allows formatting BytesToGiB values using std::format.
- * Outputs the value in GiB with two decimal places.
- *
- * @code{.cpp}
- * #include <format>
- * #include "system_data.h"
- *
- * int main() {
- *   BytesToGiB data_size{2'147'483'648}; // 2 GiB
- *   std::string formatted = std::format("Size: {}", data_size);
- *   std::println("{}", formatted); // formatted will be "Size: 2.00GiB"
- *   return 0;
- * }
- * @endcode
- */
-template <>
-struct std::formatter<BytesToGiB> : std::formatter<double> {
-  /**
-   * @brief Formats the BytesToGiB value.
-   * @param BTG The BytesToGiB instance to format.
-   * @param ctx The formatting context.
-   * @return An iterator to the end of the formatted output.
-   */
-  fn format(const BytesToGiB& BTG, auto& ctx) const {
-    return std::format_to(ctx.out(), "{:.2f}GiB", static_cast<util::types::f64>(BTG.value) / GIB);
-  }
-};
+    constexpr fn parse(detail::FormatParseContext& parseCtx) {
+      doubleFormatter.parse(parseCtx);
+    }
+
+    fn format(const BytesToGiB& btg, auto& ctx) const {
+      Formatter<double> localDoubleFormatter;
+
+      localDoubleFormatter.precision = 2;
+      localDoubleFormatter.fmt       = std::chars_format::fixed;
+
+      localDoubleFormatter.format(static_cast<double>(btg.value) / GIB, ctx);
+
+      ctx.out().append("GiB");
+    }
+  };
+} // namespace util::formatting
 
 namespace os {
-  /**
-   * @struct SystemInfo
-   * @brief Groups related system information that is often fetched together
-   */
-  struct SystemInfo {
-    util::types::Result<util::types::SZString>      date;          ///< Current date (e.g., "April 26th").
-    util::types::Result<util::types::SZString>      host;          ///< Host/product family (e.g., "MacBook Air").
-    util::types::Result<util::types::SZString>      kernelVersion; ///< OS kernel version (e.g., "6.14.4").
-    util::types::Result<util::types::SZString>      osVersion;     ///< OS pretty name (e.g., "Ubuntu 24.04.2 LTS").
-    util::types::Result<util::types::ResourceUsage> memInfo;       ///< Total physical RAM in bytes.
-    util::types::Result<util::types::SZString>      desktopEnv;    ///< Desktop environment (e.g., "KDE").
-    util::types::Result<util::types::SZString>      windowMgr;     ///< Window manager (e.g., "KWin").
-    util::types::Result<util::types::ResourceUsage> diskUsage;     ///< Used/Total disk space for root filesystem.
-    util::types::Result<util::types::SZString>      shell;         ///< Name of the current user shell (e.g., "zsh").
-    util::types::Result<util::types::SZString>      cpuModel;      ///< CPU model name.
-    util::types::Result<util::types::SZString>      gpuModel;      ///< GPU model name.
-#if DRAC_ENABLE_PACKAGECOUNT
-    util::types::Result<util::types::u64> packageCount; ///< Total number of packages installed.
-#endif
-#if DRAC_ENABLE_NOWPLAYING
-    util::types::Result<util::types::MediaInfo> nowPlaying; ///< Result of fetching media info.
-#endif
-#if DRAC_ENABLE_WEATHER
-    util::types::Result<weather::WeatherReport> weather; ///< Result of fetching weather info.
-#endif
-  };
-
-  /**
-   * @struct EnvironmentInfo
-   * @brief Groups desktop environment related information
-   */
-  struct EnvironmentInfo {
-    util::types::String desktopEnv; ///< Desktop environment
-    util::types::String windowMgr;  ///< Window manager
-    util::types::String shell;      ///< Current user shell
-  };
-
-  /**
-   * @struct ResourceInfo
-   * @brief Groups system resource usage information
-   */
-  struct ResourceInfo {
-    util::types::ResourceUsage memInfo;   ///< Memory usage information
-    util::types::ResourceUsage diskUsage; ///< Disk usage information
-  };
-
   /**
    * @class System
    * @brief Holds various pieces of system information collected from the OS,

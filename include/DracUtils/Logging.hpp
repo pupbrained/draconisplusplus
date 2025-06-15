@@ -19,9 +19,11 @@
 
 #include "Definitions.hpp"
 #include "Error.hpp"
+#include "Formatting.hpp"
 #include "Types.hpp"
 
 namespace util::logging {
+
   inline fn GetLogMutex() -> types::Mutex& {
     static types::Mutex LogMutexInstance;
     return LogMutexInstance;
@@ -91,7 +93,7 @@ namespace util::logging {
    * @return Styled string with ANSI codes
    */
   inline fn Colorize(const types::SZStringView text, const ftxui::Color::Palette16& color) -> types::SZString {
-    return std::format("{}{}{}", LogLevelConst::COLOR_CODE_LITERALS.at(color), text, LogLevelConst::RESET_CODE);
+    return formatting::SzFormat("{}{}{}", LogLevelConst::COLOR_CODE_LITERALS.at(color), text, LogLevelConst::RESET_CODE);
   }
 
   /**
@@ -100,7 +102,7 @@ namespace util::logging {
    * @return Bold text
    */
   inline fn Bold(const types::SZStringView text) -> types::SZString {
-    return std::format("{}{}{}", LogLevelConst::BOLD_START, text, LogLevelConst::BOLD_END);
+    return formatting::SzFormat("{}{}{}", LogLevelConst::BOLD_START, text, LogLevelConst::BOLD_END);
   }
 
   /**
@@ -109,7 +111,7 @@ namespace util::logging {
    * @return Italic text
    */
   inline fn Italic(const types::SZStringView text) -> types::SZString {
-    return std::format("{}{}{}", LogLevelConst::ITALIC_START, text, LogLevelConst::ITALIC_END);
+    return formatting::SzFormat("{}{}{}", LogLevelConst::ITALIC_START, text, LogLevelConst::ITALIC_END);
   }
 
   /**
@@ -178,7 +180,7 @@ namespace util::logging {
 #ifndef NDEBUG
     const std::source_location& loc,
 #endif
-    std::format_string<Args...> fmt,
+    std::string_view fmt,
     Args&&... args
   ) {
     using namespace std::chrono;
@@ -208,6 +210,7 @@ namespace util::logging {
       if (formattedTime > 0) {
         timestamp = timeBuffer.data();
       } else {
+        // too much work to support this one thing with SZFormat
         try {
           timestamp = std::format("{:%X}", nowTp);
         } catch ([[maybe_unused]] const std::format_error& fmtErr) { timestamp = "??:??:??"; }
@@ -215,9 +218,9 @@ namespace util::logging {
     } else
       timestamp = "??:??:??";
 
-    const types::SZString message = std::format(fmt, std::forward<Args>(args)...);
+    const types::SZString message = formatting::SzFormat(fmt, std::forward<Args>(args)...);
 
-    const types::SZString mainLogLine = std::format(
+    const types::SZString mainLogLine = formatting::SzFormat(
       LogLevelConst::LOG_FORMAT,
       Colorize(types::SZString("[") + timestamp + "]", LogLevelConst::DEBUG_INFO_COLOR),
       GetLevelInfo().at(static_cast<types::usize>(level)),
@@ -225,17 +228,16 @@ namespace util::logging {
     );
 
 #ifdef __cpp_lib_print
-    std::print("{}", mainLogLine);
+    std::print("{}", mainLogLine.c_str());
 #else
     std::cout << mainLogLine;
 #endif
 
 #ifndef NDEBUG
-    const types::SZString fileLine =
-      std::format(LogLevelConst::FILE_LINE_FORMAT, path(loc.file_name()).lexically_normal().string(), loc.line());
-    const types::SZString fullDebugLine = std::format("{}{}", LogLevelConst::DEBUG_LINE_PREFIX, fileLine);
+    const types::SZString fileLine      = formatting::SzFormat(LogLevelConst::FILE_LINE_FORMAT, path(loc.file_name()).lexically_normal().string(), loc.line());
+    const types::SZString fullDebugLine = formatting::SzFormat("{}{}", LogLevelConst::DEBUG_LINE_PREFIX, fileLine);
   #ifdef __cpp_lib_print
-    std::print("\n{}", Italic(Colorize(fullDebugLine, LogLevelConst::DEBUG_INFO_COLOR)));
+    std::print("\n{}", Italic(Colorize(fullDebugLine, LogLevelConst::DEBUG_INFO_COLOR)).c_str());
   #else
     std::cout << '\n'
               << Italic(Colorize(fullDebugLine, LogLevelConst::DEBUG_INFO_COLOR));
@@ -289,18 +291,18 @@ namespace util::logging {
 #define error_at(error_obj) ::util::logging::LogError(::util::logging::LogLevel::Error, error_obj)
 
 #ifdef NDEBUG
-  #define debug_log(fmt, ...) ::util::logging::LogImpl(::util::logging::LogLevel::Debug, fmt __VA_OPT__(, ) __VA_ARGS__)
-  #define info_log(fmt, ...)  ::util::logging::LogImpl(::util::logging::LogLevel::Info, fmt __VA_OPT__(, ) __VA_ARGS__)
-  #define warn_log(fmt, ...)  ::util::logging::LogImpl(::util::logging::LogLevel::Warn, fmt __VA_OPT__(, ) __VA_ARGS__)
-  #define error_log(fmt, ...) ::util::logging::LogImpl(::util::logging::LogLevel::Error, fmt __VA_OPT__(, ) __VA_ARGS__)
+  #define debug_log(fmt, ...) ::util::logging::LogImpl(::util::logging::LogLevel::Debug, std::string_view(fmt) __VA_OPT__(, ) __VA_ARGS__)
+  #define info_log(fmt, ...)  ::util::logging::LogImpl(::util::logging::LogLevel::Info, std::string_view(fmt) __VA_OPT__(, ) __VA_ARGS__)
+  #define warn_log(fmt, ...)  ::util::logging::LogImpl(::util::logging::LogLevel::Warn, std::string_view(fmt) __VA_OPT__(, ) __VA_ARGS__)
+  #define error_log(fmt, ...) ::util::logging::LogImpl(::util::logging::LogLevel::Error, std::string_view(fmt) __VA_OPT__(, ) __VA_ARGS__)
 #else
   #define debug_log(fmt, ...) \
-    ::util::logging::LogImpl(::util::logging::LogLevel::Debug, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
+    ::util::logging::LogImpl(::util::logging::LogLevel::Debug, std::source_location::current(), std::string_view(fmt) __VA_OPT__(, ) __VA_ARGS__)
   #define info_log(fmt, ...) \
-    ::util::logging::LogImpl(::util::logging::LogLevel::Info, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
+    ::util::logging::LogImpl(::util::logging::LogLevel::Info, std::source_location::current(), std::string_view(fmt) __VA_OPT__(, ) __VA_ARGS__)
   #define warn_log(fmt, ...) \
-    ::util::logging::LogImpl(::util::logging::LogLevel::Warn, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
+    ::util::logging::LogImpl(::util::logging::LogLevel::Warn, std::source_location::current(), std::string_view(fmt) __VA_OPT__(, ) __VA_ARGS__)
   #define error_log(fmt, ...) \
-    ::util::logging::LogImpl(::util::logging::LogLevel::Error, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
+    ::util::logging::LogImpl(::util::logging::LogLevel::Error, std::source_location::current(), std::string_view(fmt) __VA_OPT__(, ) __VA_ARGS__)
 #endif
 } // namespace util::logging

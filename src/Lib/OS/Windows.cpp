@@ -21,6 +21,7 @@
   #include "Drac++/Services/PackageCounting.hpp"
 #endif
 
+#include "Utils/Caching.hpp"
 #include "DracUtils/Env.hpp"
 
 #include "Drac++/Core/System.hpp"
@@ -29,7 +30,8 @@
 using RtlGetVersionPtr = NTSTATUS(WINAPI*)(PRTL_OSVERSIONINFOW);
 
 namespace {
-  using util::error::DracError, util::error::DracErrorCode;
+  using util::error::DracError;
+  using enum util::error::DracErrorCode;
   using namespace util::types;
 
   constexpr const wchar_t* WINDOWS_10      = L"Windows 10";
@@ -222,7 +224,7 @@ namespace {
       if (GetLastError() == ERROR_FILE_NOT_FOUND)
         return 0;
 
-      return Err(DracError(DracErrorCode::PlatformSpecific, "FindFirstFileW failed"));
+      return Err(DracError(PlatformSpecific, "FindFirstFileW failed"));
     }
 
     u64 count = 0;
@@ -262,7 +264,7 @@ namespace {
   template <usize sz>
   fn FindShellInProcessTree(const DWORD startPid, const Array<Pair<SZStringView, SZStringView>, sz>& shellMap) -> Result<SZString> {
     if (startPid == 0)
-      return Err(DracError(DracErrorCode::PlatformSpecific, "Start PID is 0"));
+      return Err(DracError(PlatformSpecific, "Start PID is 0"));
 
     ProcessTreeCache::getInstance().initialize();
     const std::unordered_map<DWORD, ProcessData>& processMap = ProcessTreeCache::getInstance().getProcessMap();
@@ -287,7 +289,7 @@ namespace {
       depth++;
     }
 
-    return Err(DracError(DracErrorCode::NotFound, "Shell not found"));
+    return Err(DracError(NotFound, "Shell not found"));
   }
 
   fn GetBuildNumber() -> Result<u64> {
@@ -304,7 +306,7 @@ namespace {
       return Err(DracError(e));
     } catch (const Exception& e) { return Err(DracError(e)); }
 
-    return Err(DracError(DracErrorCode::NotFound, "Failed to get build number"));
+    return Err(DracError(NotFound, "Failed to get build number"));
   }
 } // namespace
 
@@ -316,7 +318,7 @@ namespace os {
     if (GlobalMemoryStatusEx(&MemInfo))
       return ResourceUsage { .usedBytes = MemInfo.ullTotalPhys - MemInfo.ullAvailPhys, .totalBytes = MemInfo.ullTotalPhys };
 
-    return Err(DracError(DracErrorCode::PlatformSpecific, std::format("GlobalMemoryStatusEx failed with error code {}", GetLastError())));
+    return Err(DracError(PlatformSpecific, util::formatting::SzFormat("GlobalMemoryStatusEx failed with error code {}", GetLastError())));
   }
 
   #if DRAC_ENABLE_NOWPLAYING
@@ -338,7 +340,7 @@ namespace os {
         return MediaInfo(winrt::to_string(mediaProperties.Title()), winrt::to_string(mediaProperties.Artist()));
       }
 
-      return Err(DracError(DracErrorCode::NotFound, "No media session found"));
+      return Err(DracError(NotFound, "No media session found"));
     } catch (const winrt::hresult_error& e) { return Err(DracError(e)); }
   }
   #endif // DRAC_ENABLE_NOWPLAYING
@@ -351,12 +353,12 @@ namespace os {
 
       if (!currentVersionKey)
         if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_READ, &currentVersionKey) != ERROR_SUCCESS)
-          return Err(DracError(DracErrorCode::NotFound, "Failed to open registry key"));
+          return Err(DracError(NotFound, "Failed to open registry key"));
 
       std::wstring productName = GetRegistryValue(currentVersionKey, PRODUCT_NAME);
 
       if (productName.empty())
-        return Err(DracError(DracErrorCode::NotFound, "ProductName not found in registry"));
+        return Err(DracError(NotFound, "ProductName not found in registry"));
 
       if (const Result<u64> buildNumberOpt = GetBuildNumber()) {
         if (const u64 buildNumber = *buildNumberOpt; buildNumber >= 22000) {
@@ -389,7 +391,7 @@ namespace os {
 
     if (!hardwareConfigKey)
       if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SYSTEM\\HardwareConfig\\Current", 0, KEY_READ, &hardwareConfigKey) != ERROR_SUCCESS)
-        return Err(DracError(DracErrorCode::NotFound, "Failed to open registry key"));
+        return Err(DracError(NotFound, "Failed to open registry key"));
 
     const std::wstring systemFamily = GetRegistryValue(hardwareConfigKey, SYSTEM_FAMILY);
 
@@ -403,7 +405,7 @@ namespace os {
     const ULONG buildNumber  = *reinterpret_cast<const ULONG*>(KUSER_SHARED_NtBuildNumber);
     // NOLINTEND(*-pro-type-reinterpret-cast, *-no-int-to-ptr)
 
-    return std::format("{}.{}.{}", majorVersion, minorVersion, buildNumber);
+    return util::formatting::SzFormat("{}.{}.{}", majorVersion, minorVersion, buildNumber);
   }
 
   fn System::getWindowManager() -> Result<SZString> {
@@ -412,7 +414,7 @@ namespace os {
     if (SUCCEEDED(DwmIsCompositionEnabled(&compositionEnabled)))
       return compositionEnabled ? "DWM" : "Windows Manager (Basic)";
 
-    return Err(DracError(DracErrorCode::NotFound, "Failed to get window manager (DwmIsCompositionEnabled failed"));
+    return Err(DracError(NotFound, "Failed to get window manager (DwmIsCompositionEnabled failed"));
   }
 
   fn System::getDesktopEnvironment() -> Result<SZString> {
@@ -422,12 +424,12 @@ namespace os {
 
     if (!currentVersionKey)
       if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_READ, &currentVersionKey) != ERROR_SUCCESS)
-        return Err(DracError(DracErrorCode::NotFound, "Failed to open registry key"));
+        return Err(DracError(NotFound, "Failed to open registry key"));
 
     const std::wstring buildStr = GetRegistryValue(currentVersionKey, CURRENT_BUILD);
 
     if (buildStr.empty())
-      return Err(DracError(DracErrorCode::InternalError, "Failed to get CurrentBuildNumber from registry"));
+      return Err(DracError(InternalError, "Failed to get CurrentBuildNumber from registry"));
 
     try {
       const i32 build = stoi(buildStr);
@@ -460,24 +462,23 @@ namespace os {
 
       // Pre-Win7
       return "Classic";
-    } catch (...) { return Err(DracError(DracErrorCode::ParseError, "Failed to parse CurrentBuildNumber")); }
+    } catch (...) { return Err(DracError(ParseError, "Failed to parse CurrentBuildNumber")); }
   }
 
   fn System::getShell() -> Result<SZString> {
     using util::helpers::GetEnv;
 
-    if (const Result<String> msystemResult = GetEnv("MSYSTEM"); msystemResult && !msystemResult->empty()) {
-      String shellPath;
+    if (const Result<SZString> msystemResult = GetEnv("MSYSTEM"); msystemResult && !msystemResult->empty()) {
+      SZString shellPath;
 
-      if (const Result<String> shellResult = GetEnv("SHELL"); shellResult && !shellResult->empty())
+      if (const Result<SZString> shellResult = GetEnv("SHELL"); shellResult && !shellResult->empty())
         shellPath = *shellResult;
-      else if (const Result<String> loginShellResult = GetEnv("LOGINSHELL");
-               loginShellResult && !loginShellResult->empty())
+      else if (const Result<SZString> loginShellResult = GetEnv("LOGINSHELL"); loginShellResult && !loginShellResult->empty())
         shellPath = *loginShellResult;
 
       if (!shellPath.empty()) {
         const usize lastSlash = shellPath.find_last_of("\\/");
-        SZString    shellExe  = (lastSlash != String::npos) ? shellPath.substr(lastSlash + 1) : shellPath;
+        SZString    shellExe  = (lastSlash != SZString::npos) ? shellPath.substr(lastSlash + 1) : shellPath;
         std::ranges::transform(shellExe, shellExe.begin(), [](const u8 character) { return std::tolower(character); });
         if (shellExe.ends_with(".exe"))
           shellExe.resize(shellExe.length() - 4);
@@ -486,7 +487,7 @@ namespace os {
             iter != std::ranges::end(msysShellMap))
           return iter->second;
 
-        return Err(DracError(DracErrorCode::NotFound, "Shell not found"));
+        return Err(DracError(NotFound, "Shell not found"));
       }
 
       const DWORD            currentPid = GetCurrentProcessId();
@@ -503,7 +504,7 @@ namespace os {
     if (const Result<SZString> windowsShell = FindShellInProcessTree(currentPid, windowsShellMap))
       return *windowsShell;
 
-    return Err(DracError(DracErrorCode::NotFound, "Shell not found"));
+    return Err(DracError(NotFound, "Shell not found"));
   }
 
   fn System::getDiskUsage() -> Result<ResourceUsage> {
@@ -512,10 +513,11 @@ namespace os {
     if (GetDiskFreeSpaceExW(L"C:\\\\", nullptr, &totalBytes, &freeBytes))
       return ResourceUsage { .usedBytes = totalBytes.QuadPart - freeBytes.QuadPart, .totalBytes = totalBytes.QuadPart };
 
-    return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to get disk usage"));
+    return Err(DracError(PlatformSpecific, "Failed to get disk usage"));
   }
 
   fn System::getCPUModel() -> Result<SZString> {
+  #if DRAC_ARCH_X86_64 || DRAC_ARCH_I686
     Array<i32, 4>   cpuInfo     = { -1 };
     Array<char, 49> brandString = {};
 
@@ -524,7 +526,7 @@ namespace os {
     const u32 maxFunction = cpuInfo[0];
 
     if (maxFunction < 0x80000004)
-      return Err(DracError(DracErrorCode::PlatformSpecific, "CPU does not support brand string"));
+      return Err(DracError(PlatformSpecific, "CPU does not support brand string"));
 
     for (u32 i = 0; i < 3; i++) {
       __cpuid(0x80000002 + i, cpuInfo[0], cpuInfo[1], cpuInfo[2], cpuInfo[3]);
@@ -537,9 +539,26 @@ namespace os {
       result.pop_back();
 
     if (result.empty())
-      return Err(DracError(DracErrorCode::NotFound, "Failed to get CPU model"));
+      return Err(DracError(NotFound, "Failed to get CPU model"));
 
     return result;
+  #else
+    HKEY hKey = nullptr;
+
+    if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+      Array<wchar_t, 256> szBuffer = {};
+
+      // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+      if (RegQueryValueExW(hKey, L"ProcessorNameString", nullptr, nullptr, reinterpret_cast<LPBYTE>(szBuffer.data()), &szBuffer.size()) == ERROR_SUCCESS) {
+        RegCloseKey(hKey);
+        return ConvertWStringToUTF8(szBuffer);
+      }
+
+      RegCloseKey(hKey);
+    }
+
+    return Err(DracError(NotFound, "Failed to get CPU model from registry"));
+  #endif
   }
 
   fn System::getGPUModel() -> Result<SZString> {
@@ -549,14 +568,14 @@ namespace os {
   #pragma clang diagnostic ignored "-Wlanguage-extension-token"
     // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
     if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), reinterpret_cast<void**>(&pFactory))))
-      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to create DXGI Factory"));
+      return Err(DracError(PlatformSpecific, "Failed to create DXGI Factory"));
   #pragma clang diagnostic pop
 
     IDXGIAdapter* pAdapter = nullptr;
 
     if (pFactory->EnumAdapters(0, &pAdapter) == DXGI_ERROR_NOT_FOUND) {
       pFactory->Release();
-      return Err(DracError(DracErrorCode::NotFound, "No DXGI adapters found"));
+      return Err(DracError(NotFound, "No DXGI adapters found"));
     }
 
     DXGI_ADAPTER_DESC desc {};
@@ -564,7 +583,7 @@ namespace os {
     if (FAILED(pAdapter->GetDesc(&desc))) {
       pAdapter->Release();
       pFactory->Release();
-      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to get adapter description"));
+      return Err(DracError(PlatformSpecific, "Failed to get adapter description"));
     }
 
     Array<char, 128> gpuName {};
@@ -580,19 +599,42 @@ namespace os {
 
   #if DRAC_ENABLE_PACKAGECOUNT
 namespace package {
+  using util::cache::GetValidCache, util::cache::WriteCache;
   using util::helpers::GetEnvW;
 
   fn CountChocolatey() -> Result<u64> {
+    const SZString cacheKey = "chocolatey_";
+
+    if (Result<u64> cachedCount = GetValidCache<u64>(cacheKey))
+      return *cachedCount;
+    else
+      debug_at(cachedCount.error());
+
     std::wstring chocoPath = L"C:\\ProgramData\\chocolatey";
 
     if (auto chocoEnv = GetEnvW(L"ChocolateyInstall"); chocoEnv)
       chocoPath = *chocoEnv;
 
     chocoPath.append(L"\\lib");
-    return GetDirCount(chocoPath);
+
+    if (Result<u64> dirCount = GetDirCount(chocoPath)) {
+      if (Result writeResult = WriteCache(cacheKey, *dirCount); !writeResult)
+        debug_at(writeResult.error());
+
+      return *dirCount;
+    }
+
+    return Err(DracError(NotFound, "Failed to get Chocolatey package count"));
   }
 
   fn CountScoop() -> Result<u64> {
+    const SZString cacheKey = "scoop_";
+
+    if (Result<u64> cachedCount = GetValidCache<u64>(cacheKey))
+      return *cachedCount;
+    else
+      debug_at(cachedCount.error());
+
     std::wstring scoopAppsPath;
 
     if (auto scoopEnv = GetEnvW(L"SCOOP"); scoopEnv) {
@@ -602,14 +644,33 @@ namespace package {
       scoopAppsPath = *userProfile;
       scoopAppsPath.append(L"\\scoop\\apps");
     } else
-      return Err(DracError(DracErrorCode::NotFound, "Could not determine Scoop installation directory (SCOOP and USERPROFILE environment variables not found)"));
+      return Err(DracError(NotFound, "Could not determine Scoop installation directory (SCOOP and USERPROFILE environment variables not found)"));
 
-    return GetDirCount(scoopAppsPath);
+    if (Result<u64> dirCount = GetDirCount(scoopAppsPath)) {
+      if (Result writeResult = WriteCache(cacheKey, *dirCount); !writeResult)
+        debug_at(writeResult.error());
+
+      return *dirCount;
+    }
+
+    return Err(DracError(NotFound, "Failed to get Scoop package count"));
   }
 
   fn CountWinGet() -> Result<u64> {
+    const SZString cacheKey = "winget_";
+
+    if (Result<u64> cachedCount = GetValidCache<u64>(cacheKey))
+      return *cachedCount;
+    else
+      debug_at(cachedCount.error());
+
     try {
-      return std::ranges::distance(winrt::Windows::Management::Deployment::PackageManager().FindPackagesForUser(L""));
+      const u64 count = std::ranges::distance(winrt::Windows::Management::Deployment::PackageManager().FindPackagesForUser(L""));
+
+      if (Result writeResult = WriteCache(cacheKey, count); !writeResult)
+        debug_at(writeResult.error());
+
+      return count;
     } catch (const winrt::hresult_error& e) { return Err(DracError(e)); }
   }
 } // namespace package

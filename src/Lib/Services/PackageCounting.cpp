@@ -14,7 +14,6 @@
 #endif
 
 #include <filesystem>   // std::filesystem
-#include <format>       // std::format
 #include <future>       // std::{async, future, launch}
 #include <matchit.hpp>  // matchit::{match, is, or_, _}
 #include <system_error> // std::{errc, error_code}
@@ -32,17 +31,22 @@ using namespace util::types;
 using util::error::DracError;
 using enum util::error::DracErrorCode;
 using util::cache::GetValidCache, util::cache::WriteCache;
+using util::formatting::SzFormat;
 
 namespace {
+  constexpr const char* CACHE_KEY_PREFIX = "pkg_count_";
+
   fn GetCountFromDirectoryImpl(
-    const String&         pmId,
-    const fs::path&       dirPath,
-    const Option<String>& fileExtensionFilter,
-    const bool            subtractOne
+    const SZString&         pmId,
+    const fs::path&         dirPath,
+    const Option<SZString>& fileExtensionFilter,
+    const bool              subtractOne
   ) -> Result<u64> {
     std::error_code fsErrCode;
 
-    const String cacheKey = std::format("pkg_count_{}", pmId);
+    const SZString cacheKey = fileExtensionFilter
+      ? SzFormat("{}{}_{}_{}", CACHE_KEY_PREFIX, pmId, dirPath.string(), *fileExtensionFilter)
+      : SzFormat("{}{}_{}", CACHE_KEY_PREFIX, pmId, dirPath.string());
 
     if (Result<u64> cachedDataResult = GetValidCache<u64>(cacheKey))
       return *cachedDataResult;
@@ -55,65 +59,60 @@ namespace {
       if (fsErrCode && fsErrCode != std::errc::no_such_file_or_directory)
         return Err(DracError(
           IoError,
-          std::format("Filesystem error checking if '{}' is a directory: {}", dirPath.string(), fsErrCode.message())
+          SzFormat("Filesystem error checking if '{}' is a directory: {}", dirPath.string(), fsErrCode.message())
         ));
 
-      return Err(DracError(NotFound, std::format("{} path is not a directory: {}", pmId, dirPath.string())));
+      return Err(DracError(NotFound, SzFormat("{} path is not a directory: {}", pmId, dirPath.string())));
     }
 
     fsErrCode.clear();
 
-    u64 count = 0;
+    u64                count     = 0;
+    const bool         hasFilter = fileExtensionFilter.has_value();
+    const SZStringView filter    = fileExtensionFilter ? SZStringView(*fileExtensionFilter) : SZStringView();
 
     try {
-      const fs::directory_iterator dirIter(dirPath, fs::directory_options::skip_permission_denied, fsErrCode);
+      const fs::directory_iterator dirIter(
+        dirPath,
+        fs::directory_options::skip_permission_denied | fs::directory_options::follow_directory_symlink,
+        fsErrCode
+      );
 
       if (fsErrCode)
-        return Err(DracError(
-          IoError,
-          std::format(
-            "Failed to create iterator for {} directory '{}': {}", pmId, dirPath.string(), fsErrCode.message()
-          )
-        ));
+        return Err(DracError(IoError, SzFormat("Failed to create iterator for {} directory '{}': {}", pmId, dirPath.string(), fsErrCode.message())));
 
-      for (const fs::directory_entry& entry : dirIter) {
-        fsErrCode.clear();
-
-        if (entry.path().empty())
-          continue;
-
-        if (fileExtensionFilter) {
-          bool isFile = false;
-          isFile      = entry.is_regular_file(fsErrCode);
-
-          if (fsErrCode) {
-            warn_log("Error stating entry '{}' in {} directory: {}", entry.path().string(), pmId, fsErrCode.message());
+      if (hasFilter) {
+        for (const fs::directory_entry& entry : dirIter) {
+          if (entry.path().empty())
             continue;
-          }
 
-          if (isFile && entry.path().extension().string() == *fileExtensionFilter)
-            count++;
-
-          continue;
+          std::error_code isFileErr;
+          if (entry.is_regular_file(isFileErr) && !isFileErr) {
+            const SZStringView ext(entry.path().extension().string());
+            if (ext == filter)
+              count++;
+          } else if (isFileErr)
+            warn_log(SzFormat("Error stating entry '{}' in {} directory: {}", entry.path().string(), pmId, isFileErr.message()));
         }
-
-        if (!fileExtensionFilter)
-          count++;
+      } else {
+        for (const fs::directory_entry& entry : dirIter) {
+          if (!entry.path().empty())
+            count++;
+        }
       }
     } catch (const fs::filesystem_error& fsCatchErr) {
       return Err(DracError(
         IoError,
-        std::format("Filesystem error during {} directory iteration: {}", pmId, fsCatchErr.what())
+        SzFormat("Filesystem error during {} directory iteration: {}", pmId, fsCatchErr.what())
       ));
-    } catch (const Exception& exc) { return Err(DracError(InternalError, exc.what())); } catch (...) {
-      return Err(DracError(Other, std::format("Unknown error iterating {} directory", pmId)));
+    } catch (const Exception& exc) {
+      return Err(DracError(InternalError, exc.what()));
+    } catch (...) {
+      return Err(DracError(Other, SzFormat("Unknown error iterating {} directory", pmId)));
     }
 
     if (subtractOne && count > 0)
       count--;
-
-    if (count == 0)
-      return Err(DracError(NotFound, std::format("No packages found in {} directory", pmId)));
 
     if (Result writeResult = WriteCache(cacheKey, count); !writeResult)
       debug_at(writeResult.error());
@@ -124,30 +123,29 @@ namespace {
 
 namespace package {
   fn GetCountFromDirectory(
-    const String&   pmId,
+    const SZString& pmId,
     const fs::path& dirPath,
-    const String&   fileExtensionFilter,
+    const SZString& fileExtensionFilter,
     const bool      subtractOne
   ) -> Result<u64> {
     return GetCountFromDirectoryImpl(pmId, dirPath, fileExtensionFilter, subtractOne);
   }
 
-  fn GetCountFromDirectory(const String& pmId, const fs::path& dirPath, const String& fileExtensionFilter)
-    -> Result<u64> {
+  fn GetCountFromDirectory(const SZString& pmId, const fs::path& dirPath, const SZString& fileExtensionFilter) -> Result<u64> {
     return GetCountFromDirectoryImpl(pmId, dirPath, fileExtensionFilter, false);
   }
 
-  fn GetCountFromDirectory(const String& pmId, const fs::path& dirPath, const bool subtractOne) -> Result<u64> {
+  fn GetCountFromDirectory(const SZString& pmId, const fs::path& dirPath, const bool subtractOne) -> Result<u64> {
     return GetCountFromDirectoryImpl(pmId, dirPath, None, subtractOne);
   }
 
-  fn GetCountFromDirectory(const String& pmId, const fs::path& dirPath) -> Result<u64> {
+  fn GetCountFromDirectory(const SZString& pmId, const fs::path& dirPath) -> Result<u64> {
     return GetCountFromDirectoryImpl(pmId, dirPath, None, false);
   }
 
   #if !defined(__serenity__) && !defined(_WIN32)
-  fn GetCountFromDb(const String& pmId, const fs::path& dbPath, const String& countQuery) -> Result<u64> {
-    const String cacheKey = std::format("pkg_count_{}", pmId);
+  fn GetCountFromDb(const SZString& pmId, const fs::path& dbPath, const SZString& countQuery) -> Result<u64> {
+    const SZString cacheKey = SzFormat("pkg_count_{}", pmId);
 
     if (Result<u64> cachedDataResult = GetValidCache<u64>(cacheKey))
       return *cachedDataResult;
@@ -158,7 +156,7 @@ namespace package {
 
     try {
       if (std::error_code existsErr; !fs::exists(dbPath, existsErr) || existsErr)
-        return Err(DracError(NotFound, std::format("{} database not found at '{}'", pmId, dbPath.string())));
+        return Err(DracError(NotFound, SzFormat("{} database not found at '{}'", pmId, dbPath.string())));
 
       const SQLite::Database database(dbPath.string(), SQLite::OPEN_READONLY);
 
@@ -166,23 +164,23 @@ namespace package {
         const i64 countInt64 = queryStmt.getColumn(0).getInt64();
 
         if (countInt64 < 0)
-          return Err(DracError(ParseError, std::format("Negative count returned by {} DB COUNT query.", pmId)));
+          return Err(DracError(ParseError, SzFormat("Negative count returned by {} DB COUNT query.", pmId)));
 
         count = static_cast<u64>(countInt64);
       } else
-        return Err(DracError(ParseError, std::format("No rows returned by {} DB COUNT query.", pmId)));
+        return Err(DracError(ParseError, SzFormat("No rows returned by {} DB COUNT query.", pmId)));
     } catch (const SQLite::Exception& e) {
-      error_log("SQLite error occurred accessing {} DB '{}': {}", pmId, dbPath.string(), e.what());
+      error_log(SzFormat("SQLite error occurred accessing {} DB '{}': {}", pmId, dbPath.string(), e.what()));
 
-      return Err(DracError(ApiUnavailable, std::format("Failed to query {} database: {}", pmId, dbPath.string())));
+      return Err(DracError(ApiUnavailable, SzFormat("Failed to query {} database: {}", pmId, dbPath.string())));
     } catch (const Exception& e) {
-      error_log("Standard exception accessing {} DB '{}': {}", pmId, dbPath.string(), e.what());
+      error_log(SzFormat("Standard exception accessing {} DB '{}': {}", pmId, dbPath.string(), e.what()));
 
       return Err(DracError(InternalError, e.what()));
     } catch (...) {
-      error_log("Unknown error occurred accessing {} DB '{}'", pmId, dbPath.string());
+      error_log(SzFormat("Unknown error occurred accessing {} DB '{}'", pmId, dbPath.string()));
 
-      return Err(DracError(Other, std::format("Unknown error occurred accessing {} DB", pmId)));
+      return Err(DracError(Other, SzFormat("Unknown error occurred accessing {} DB", pmId)));
     }
 
     if (Result writeResult = WriteCache(cacheKey, count); !writeResult)
@@ -193,10 +191,10 @@ namespace package {
   #endif // __serenity__ || _WIN32
 
   #if defined(__linux__) && defined(HAVE_PUGIXML)
-  fn GetCountFromPlist(const String& pmId, const fs::path& plistPath) -> Result<u64> {
+  fn GetCountFromPlist(const SZString& pmId, const fs::path& plistPath) -> Result<u64> {
     using pugi::xml_document, pugi::xml_node, pugi::xml_parse_result;
 
-    const String cacheKey = "pkg_count_" + pmId;
+    const SZString cacheKey = SzFormat("pkg_count_{}", pmId);
 
     if (Result<u64> cachedDataResult = GetValidCache<u64>(cacheKey))
       return *cachedDataResult;
@@ -206,20 +204,23 @@ namespace package {
     xml_document doc;
 
     if (const xml_parse_result result = doc.load_file(plistPath.c_str()); !result)
-      return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse plist file '{}': {}", plistPath.string(), result.description())));
+      return Err(DracError(DracErrorCode::ParseError, SzFormat("Failed to parse plist file '{}': {}", plistPath.string(), result.description())));
 
     const xml_node dict = doc.child("plist").child("dict");
 
     if (!dict)
-      return Err(DracError(DracErrorCode::ParseError, std::format("No <dict> in plist file '{}'.", plistPath.string())));
+      return Err(DracError(DracErrorCode::ParseError, SzFormat("No <dict> in plist file '{}'.", plistPath.string())));
 
-    u64 count = 0;
+    u64                count           = 0;
+    const SZStringView alternativesKey = "_XBPS_ALTERNATIVES_";
+    const SZStringView keyName         = "key";
+    const SZStringView stateValue      = "installed";
 
     for (xml_node node = dict.first_child(); node; node = node.next_sibling()) {
-      if (StringView(node.name()) != "key")
+      if (SZStringView(node.name()) != keyName)
         continue;
 
-      if (const StringView keyName = node.child_value(); keyName == "_XBPS_ALTERNATIVES_")
+      if (const SZStringView keyName = node.child_value(); keyName == alternativesKey)
         continue;
 
       xml_node pkgDict = node.next_sibling("dict");
@@ -230,8 +231,8 @@ namespace package {
       bool isInstalled = false;
 
       for (xml_node pkgNode = pkgDict.first_child(); pkgNode; pkgNode = pkgNode.next_sibling())
-        if (StringView(pkgNode.name()) == "key" && StringView(pkgNode.child_value()) == "state")
-          if (xml_node stateValue = pkgNode.next_sibling("string"); stateValue && StringView(stateValue.child_value()) == "installed") {
+        if (SZStringView(pkgNode.name()) == keyName && SZStringView(pkgNode.child_value()) == "state")
+          if (xml_node stateValue = pkgNode.next_sibling("string"); stateValue && SZStringView(stateValue.child_value()) == stateValue) {
             isInstalled = true;
             break;
           }
@@ -241,7 +242,7 @@ namespace package {
     }
 
     if (count == 0)
-      return Err(DracError(DracErrorCode::NotFound, std::format("No installed packages found in plist file '{}'.", plistPath.string())));
+      return Err(DracError(DracErrorCode::NotFound, SzFormat("No installed packages found in plist file '{}'.", plistPath.string())));
 
     if (Result writeResult = WriteCache(cacheKey, count); !writeResult)
       debug_at(writeResult.error());
@@ -276,61 +277,47 @@ namespace package {
   #if DRAC_PRECOMPILED_CONFIG
     #if DRAC_ENABLE_PACKAGECOUNT
     Vec<Future<Result<u64>>> futures;
-    futures.reserve(8); // Reserve a reasonable amount of space
+    futures.reserve(16);
 
-      // Platform-specific package managers
+    fn addFutureIfEnabled = [&futures, enabledPackageManagers](Manager manager, auto&& countFunc) -> void {
+      if (HasPackageManager(enabledPackageManagers, manager))
+        futures.emplace_back(std::async(std::launch::async, std::forward<decltype(countFunc)>(countFunc)));
+    };
+
       #ifdef __linux__
-    if (HasPackageManager(enabledPackageManagers, Manager::APK))
-      futures.emplace_back(std::async(std::launch::async, CountApk));
-    if (HasPackageManager(enabledPackageManagers, Manager::DPKG))
-      futures.emplace_back(std::async(std::launch::async, CountDpkg));
-    if (HasPackageManager(enabledPackageManagers, Manager::MOSS))
-      futures.emplace_back(std::async(std::launch::async, CountMoss));
-    if (HasPackageManager(enabledPackageManagers, Manager::PACMAN))
-      futures.emplace_back(std::async(std::launch::async, CountPacman));
-    if (HasPackageManager(enabledPackageManagers, Manager::RPM))
-      futures.emplace_back(std::async(std::launch::async, CountRpm));
+    addFutureIfEnabled(Manager::APK, CountApk);
+    addFutureIfEnabled(Manager::DPKG, CountDpkg);
+    addFutureIfEnabled(Manager::MOSS, CountMoss);
+    addFutureIfEnabled(Manager::PACMAN, CountPacman);
+    addFutureIfEnabled(Manager::RPM, CountRpm);
         #ifdef HAVE_PUGIXML
-    if (HasPackageManager(enabledPackageManagers, Manager::XBPS))
-      futures.emplace_back(std::async(std::launch::async, CountXbps));
+    addFutureIfEnabled(Manager::XBPS, CountXbps);
         #endif
       #elifdef __APPLE__
-    if (HasPackageManager(enabledPackageManagers, Manager::HOMEBREW))
-      futures.emplace_back(std::async(std::launch::async, GetHomebrewCount));
-    if (HasPackageManager(enabledPackageManagers, Manager::MACPORTS))
-      futures.emplace_back(std::async(std::launch::async, GetMacPortsCount));
+    addFutureIfEnabled(Manager::HOMEBREW, GetHomebrewCount);
+    addFutureIfEnabled(Manager::MACPORTS, GetMacPortsCount);
       #elifdef _WIN32
-    if (HasPackageManager(enabledPackageManagers, Manager::WINGET))
-      futures.emplace_back(std::async(std::launch::async, CountWinGet));
-    if (HasPackageManager(enabledPackageManagers, Manager::CHOCOLATEY))
-      futures.emplace_back(std::async(std::launch::async, CountChocolatey));
-    if (HasPackageManager(enabledPackageManagers, Manager::SCOOP))
-      futures.emplace_back(std::async(std::launch::async, CountScoop));
+    addFutureIfEnabled(Manager::WINGET, CountWinGet);
+    addFutureIfEnabled(Manager::CHOCOLATEY, CountChocolatey);
+    addFutureIfEnabled(Manager::SCOOP, CountScoop);
       #elif defined(__FreeBSD__) || defined(__DragonFly__)
-    if (HasPackageManager(enabledPackageManagers, Manager::PKGNG))
-      futures.emplace_back(std::async(std::launch::async, GetPkgNgCount));
+    addFutureIfEnabled(Manager::PKGNG, GetPkgNgCount);
       #elifdef __NetBSD__
-    if (HasPackageManager(enabledPackageManagers, Manager::PKGSRC))
-      futures.emplace_back(std::async(std::launch::async, GetPkgSrcCount));
+    addFutureIfEnabled(Manager::PKGSRC, GetPkgSrcCount);
       #elifdef __HAIKU__
-    if (HasPackageManager(enabledPackageManagers, Manager::HAIKUPKG))
-      futures.emplace_back(std::async(std::launch::async, GetHaikuCount));
+    addFutureIfEnabled(Manager::HAIKUPKG, GetHaikuCount);
       #elifdef __serenity__
-    if (HasPackageManager(enabledPackageManagers, Manager::SERENITY))
-      futures.emplace_back(std::async(std::launch::async, GetSerenityCount));
+    addFutureIfEnabled(Manager::SERENITY, GetSerenityCount);
       #endif
 
-      // Cross-platform package managers
-      #if defined(__linux__) || defined(__APPLE__) // Nix support
-    if (HasPackageManager(enabledPackageManagers, Manager::NIX))
-      futures.emplace_back(std::async(std::launch::async, CountNix));
+      #if defined(__linux__) || defined(__APPLE__)
+    addFutureIfEnabled(Manager::NIX, CountNix);
       #endif
-    if (HasPackageManager(enabledPackageManagers, Manager::CARGO))
-      futures.emplace_back(std::async(std::launch::async, CountCargo));
+    addFutureIfEnabled(Manager::CARGO, CountCargo);
 
     if (futures.empty())
       return Err(DracError(NotFound, "No enabled package managers for this platform in precompiled config."));
-    #else // DRAC_ENABLE_PACKAGECOUNT is false
+    #else
     return Err(DracError(NotSupported, "Package counting disabled by precompiled configuration."));
     #endif
   #else
@@ -402,21 +389,29 @@ namespace package {
     u64  totalCount   = 0;
     bool oneSucceeded = false;
 
-    for (Future<Result<u64>>& fut : futures) {
-      try {
-        using matchit::match, matchit::is, matchit::or_, matchit::_;
+    constexpr size_t chunkSize = 4;
 
-        if (Result<u64> result = fut.get()) {
-          totalCount += *result;
-          oneSucceeded = true;
-        } else
-          match(result.error().code)(
-            is | or_(NotFound, ApiUnavailable, NotSupported) = [&] -> void { debug_at(result.error()); },
-            is | _                                           = [&] -> void { error_at(result.error()); }
-          );
-      } catch (const Exception& exc) {
-        error_log("Caught exception while getting package count future: {}", exc.what());
-      } catch (...) { error_log("Caught unknown exception while getting package count future."); }
+    for (size_t i = 0; i < futures.size(); i += chunkSize) {
+      const size_t end = std::min(i + chunkSize, futures.size());
+
+      for (size_t j = i; j < end; ++j) {
+        try {
+          using matchit::match, matchit::is, matchit::or_, matchit::_;
+
+          if (Result<u64> result = futures[j].get()) {
+            totalCount += *result;
+            oneSucceeded = true;
+          } else
+            match(result.error().code)(
+              is | or_(NotFound, ApiUnavailable, NotSupported) = [&] -> void { debug_at(result.error()); },
+              is | _                                           = [&] -> void { error_at(result.error()); }
+            );
+        } catch (const Exception& exc) {
+          error_log(SzFormat("Caught exception while getting package count future: {}", exc.what()));
+        } catch (...) {
+          error_log("Caught unknown exception while getting package count future.");
+        }
+      }
     }
 
     if (!oneSucceeded && totalCount == 0)

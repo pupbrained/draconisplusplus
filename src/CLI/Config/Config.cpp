@@ -2,7 +2,6 @@
 
 #include <DracUtils/Definitions.hpp>
 #include <DracUtils/Logging.hpp>
-#include <format> // std::{format, format_error}
 
 #if !DRAC_PRECOMPILED_CONFIG
   #include <DracUtils/Env.hpp>
@@ -80,24 +79,17 @@ namespace {
         return false;
       }
 
-      std::ofstream file(configPath);
-      if (!file) {
-        error_log("Failed to open config file for writing: {}", configPath.string());
-        return false;
-      }
-
-      try {
-        const String defaultName   = General::getDefaultName();
-        String       configContent = std::format(R"toml(# Draconis++ Configuration File
+      const SZString defaultName   = General::getDefaultName();
+      SZString     configContent = util::formatting::SzFormat(R"toml(# Draconis++ Configuration File
 
 # General settings
 [general]
 name = "{}" # Your display name
 )toml",
-                                           defaultName);
+                                                        defaultName);
 
   #if DRAC_ENABLE_NOWPLAYING
-        configContent += R"toml(
+      configContent += R"toml(
 # Now Playing integration
 [now_playing]
 enabled = false # Set to true to enable media integration
@@ -105,7 +97,7 @@ enabled = false # Set to true to enable media integration
   #endif
 
   #if DRAC_ENABLE_WEATHER
-        configContent += R"toml(
+      configContent += R"toml(
 # Weather settings
 [weather]
 enabled = false        # Set to true to enable weather display
@@ -121,16 +113,8 @@ location = "London"    # Your city name
 )toml";
   #endif
 
-        file << configContent;
-      } catch (const std::format_error& fmtErr) {
-        error_log("Failed to format default config string: {}", fmtErr.what());
-        return false;
-      }
-
-      if (!file) {
-        error_log("Failed to write to config file: {}", configPath.string());
-        return false;
-      }
+      std::ofstream file(configPath);
+      file << configContent;
 
       info_log("Created default config file at {}", configPath.string());
       return true;

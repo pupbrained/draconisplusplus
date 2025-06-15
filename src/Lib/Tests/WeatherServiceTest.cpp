@@ -107,7 +107,7 @@ TEST_F(WeatherServiceTest, ParseISO8601ToEpoch_EmptyString) {
 }
 
 TEST_F(WeatherServiceTest, MetNoSymbolDescriptions_ClearWeather) {
-  const std::unordered_map<StringView, StringView>& descriptions = GetMetnoSymbolDescriptions();
+  const std::unordered_map<SZStringView, SZStringView>& descriptions = GetMetnoSymbolDescriptions();
 
   EXPECT_EQ(descriptions.at("clearsky"), "clear sky");
   EXPECT_EQ(descriptions.at("fair"), "fair");
@@ -117,7 +117,7 @@ TEST_F(WeatherServiceTest, MetNoSymbolDescriptions_ClearWeather) {
 }
 
 TEST_F(WeatherServiceTest, MetNoSymbolDescriptions_RainWeather) {
-  const std::unordered_map<StringView, StringView>& descriptions = GetMetnoSymbolDescriptions();
+  const std::unordered_map<SZStringView, SZStringView>& descriptions = GetMetnoSymbolDescriptions();
 
   EXPECT_EQ(descriptions.at("lightrain"), "light rain");
   EXPECT_EQ(descriptions.at("rain"), "rain");
@@ -126,7 +126,7 @@ TEST_F(WeatherServiceTest, MetNoSymbolDescriptions_RainWeather) {
 }
 
 TEST_F(WeatherServiceTest, MetNoSymbolDescriptions_SnowWeather) {
-  const std::unordered_map<StringView, StringView>& descriptions = GetMetnoSymbolDescriptions();
+  const std::unordered_map<SZStringView, SZStringView>& descriptions = GetMetnoSymbolDescriptions();
 
   EXPECT_EQ(descriptions.at("lightsnow"), "light snow");
   EXPECT_EQ(descriptions.at("snow"), "snow");
@@ -172,7 +172,7 @@ TEST_F(WeatherServiceTest, OpenMeteoWeatherDescription_UnknownCode) {
 }
 
 TEST_F(WeatherServiceTest, MetNoJsonParsing_ValidCompleteResponse) {
-  const String validJson = R"({
+  const SZString validJson = R"({
     "properties": {
       "timeseries": [
         {
@@ -208,7 +208,7 @@ TEST_F(WeatherServiceTest, MetNoJsonParsing_ValidCompleteResponse) {
 }
 
 TEST_F(WeatherServiceTest, MetNoJsonParsing_ValidMinimalResponse) {
-  const String minimalJson = R"({
+  const SZString minimalJson = R"({
     "properties": {
       "timeseries": [
         {
@@ -238,7 +238,7 @@ TEST_F(WeatherServiceTest, MetNoJsonParsing_ValidMinimalResponse) {
 }
 
 TEST_F(WeatherServiceTest, MetNoJsonParsing_InvalidJson) {
-  const String invalidJson = R"({
+  const SZString invalidJson = R"({
     "properties": {
       "timeseries": [
         {
@@ -260,7 +260,7 @@ TEST_F(WeatherServiceTest, MetNoJsonParsing_InvalidJson) {
 }
 
 TEST_F(WeatherServiceTest, MetNoJsonParsing_EmptyTimeseries) {
-  const String emptyTimeseriesJson = R"({
+  const SZString emptyTimeseriesJson = R"({
     "properties": {
       "timeseries": []
     }
@@ -274,7 +274,7 @@ TEST_F(WeatherServiceTest, MetNoJsonParsing_EmptyTimeseries) {
 }
 
 TEST_F(WeatherServiceTest, OpenMeteoJsonParsing_ValidResponse) {
-  const String validJson = R"({
+  const SZString validJson = R"({
     "current_weather": {
       "temperature": 22.5,
       "weathercode": 1,
@@ -292,7 +292,7 @@ TEST_F(WeatherServiceTest, OpenMeteoJsonParsing_ValidResponse) {
 }
 
 TEST_F(WeatherServiceTest, OpenMeteoJsonParsing_NegativeTemperature) {
-  const String coldWeatherJson = R"({
+  const SZString coldWeatherJson = R"({
     "current_weather": {
       "temperature": -15.8,
       "weathercode": 71,
@@ -310,7 +310,7 @@ TEST_F(WeatherServiceTest, OpenMeteoJsonParsing_NegativeTemperature) {
 }
 
 TEST_F(WeatherServiceTest, OpenMeteoJsonParsing_InvalidJson) {
-  const String invalidJson = R"({
+  const SZString invalidJson = R"({
     "current_weather": {
       "temperature": "not_a_number",
       "weathercode": 1,
@@ -325,7 +325,7 @@ TEST_F(WeatherServiceTest, OpenMeteoJsonParsing_InvalidJson) {
 }
 
 TEST_F(WeatherServiceTest, OpenMeteoJsonParsing_MissingFields) {
-  const String incompleteJson = R"({
+  const SZString incompleteJson = R"({
     "current_weather": {
       "temperature": 20.0
     }
@@ -344,7 +344,7 @@ TEST_F(WeatherServiceTest, OpenMeteoJsonParsing_MissingFields) {
 }
 
 TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_ValidResponse) {
-  const String validJson = R"({
+  const SZString validJson = R"({
     "main": {
       "temp": 18.7
     },
@@ -369,7 +369,7 @@ TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_ValidResponse) {
 }
 
 TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_EmptyWeatherArray) {
-  const String emptyWeatherJson = R"({
+  const SZString emptyWeatherJson = R"({
     "main": {
       "temp": 25.0
     },
@@ -389,7 +389,7 @@ TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_EmptyWeatherArray) {
 }
 
 TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_MultipleWeatherEntries) {
-  const String multiWeatherJson = R"({
+  const SZString multiWeatherJson = R"({
     "main": {
       "temp": 12.3
     },
@@ -417,7 +417,7 @@ TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_MultipleWeatherEntries) {
 }
 
 TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_InvalidJson) {
-  const String invalidJson = R"({
+  const SZString invalidJson = R"({
     "main": {
       "temp": null
     },
@@ -437,7 +437,7 @@ TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_InvalidJson) {
 }
 
 TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_EmptyName) {
-  const String emptyNameJson = R"({
+  const SZString emptyNameJson = R"({
     "main": {
       "temp": 8.9
     },

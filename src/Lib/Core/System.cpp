@@ -1,7 +1,6 @@
 #include <Drac++/Core/System.hpp>
 #include <chrono>      // std::chrono::system_clock
 #include <ctime>       // localtime_r/s, strftime, time_t, tm
-#include <format>      // std::format
 #include <matchit.hpp> // matchit::{match, is, in, _}
 
 #if DRAC_ENABLE_PACKAGECOUNT
@@ -57,9 +56,7 @@ namespace os {
 
         CStr suffix = getOrdinalSuffix(day);
 
-        try {
-          return std::format("{} {}{}", monthBuffer, day, suffix);
-        } catch (const std::format_error& e) { return Err(DracError(ParseError, e.what())); }
+        return util::formatting::SzFormat("{} {}{}", monthBuffer, day, suffix);
       }
 
       return Err(DracError(ParseError, "Failed to format date"));

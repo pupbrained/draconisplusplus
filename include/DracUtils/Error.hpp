@@ -1,10 +1,11 @@
 #pragma once
 
 #include <expected>        // std::{unexpected, expected}
-#include <format>          // std::format
 #include <matchit.hpp>     // matchit::{match, is, or_, _}
 #include <source_location> // std::source_location
 #include <system_error>    // std::error_code
+
+#include "Formatting.hpp"
 
 #ifdef _WIN32
   #include <guiddef.h>    // GUID
@@ -37,33 +38,42 @@ namespace util::error {
   };
 } // namespace util::error
 
-template <>
-struct std::formatter<::util::error::DracErrorCode> : std::formatter<::util::types::StringView> {
-  template <typename FormatContext>
-  fn format(util::error::DracErrorCode code, FormatContext& ctx) const {
-    using enum util::error::DracErrorCode;
-    using matchit::match, matchit::is, matchit::or_, matchit::_;
+namespace util::formatting {
+  template <>
+  struct Formatter<util::error::DracErrorCode> {
+   private:
+    Formatter<types::SZStringView> m_stringFormatter;
 
-    util::types::StringView name = match(code)(
-      is | ApiUnavailable   = "ApiUnavailable",
-      is | InternalError    = "InternalError",
-      is | InvalidArgument  = "InvalidArgument",
-      is | IoError          = "IoError",
-      is | NetworkError     = "NetworkError",
-      is | NotFound         = "NotFound",
-      is | NotSupported     = "NotSupported",
-      is | Other            = "Other",
-      is | OutOfMemory      = "OutOfMemory",
-      is | ParseError       = "ParseError",
-      is | PermissionDenied = "PermissionDenied",
-      is | PlatformSpecific = "PlatformSpecific",
-      is | Timeout          = "Timeout",
-      is | _                = "Unknown"
-    );
+   public:
+    constexpr fn parse(detail::FormatParseContext& ctx) {
+      m_stringFormatter.parse(ctx);
+    }
 
-    return formatter<util::types::StringView>::format(name, ctx);
-  }
-};
+    fn format(util::error::DracErrorCode code, auto& ctx) const {
+      using enum util::error::DracErrorCode;
+      using matchit::match, matchit::is, matchit::_;
+
+      types::SZStringView name = match(code)(
+        is | ApiUnavailable   = "ApiUnavailable",
+        is | InternalError    = "InternalError",
+        is | InvalidArgument  = "InvalidArgument",
+        is | IoError          = "IoError",
+        is | NetworkError     = "NetworkError",
+        is | NotFound         = "NotFound",
+        is | NotSupported     = "NotSupported",
+        is | Other            = "Other",
+        is | OutOfMemory      = "OutOfMemory",
+        is | ParseError       = "ParseError",
+        is | PermissionDenied = "PermissionDenied",
+        is | PlatformSpecific = "PlatformSpecific",
+        is | Timeout          = "Timeout",
+        is | _                = "Unknown"
+      );
+
+      m_stringFormatter.format(name, ctx);
+    }
+  };
+} // namespace util::formatting
 
 namespace util {
   namespace error {
@@ -74,13 +84,11 @@ namespace util {
      * Used as the error type in Result for many os:: functions.
      */
     struct DracError {
-      // ReSharper disable CppDFANotInitializedField
-      types::String        message;  ///< A descriptive error message, potentially including platform details.
+      types::SZString      message;  ///< A descriptive error message, potentially including platform details.
       std::source_location location; ///< The source location where the error occurred (file, line, function).
       DracErrorCode        code;     ///< The general category of the error.
-      // ReSharper restore CppDFANotInitializedField
 
-      DracError(const DracErrorCode errc, types::String msg, const std::source_location& loc = std::source_location::current())
+      DracError(const DracErrorCode errc, types::SZString msg, const std::source_location& loc = std::source_location::current())
         : message(std::move(msg)), location(loc), code(errc) {}
 
       explicit DracError(const types::Exception& exc, const std::source_location& loc = std::source_location::current())
@@ -125,8 +133,8 @@ namespace util {
         );
       }
 #else
-      DracError(const types::String& context, const std::source_location& loc = std::source_location::current())
-        : message(std::format("{}: {}", context, std::system_category().message(errno))), location(loc) {
+      DracError(const types::SZString& context, const std::source_location& loc = std::source_location::current())
+        : message(util::formatting::SzFormat("{}: {}", context, std::system_category().message(errno))), location(loc) {
         using matchit::match, matchit::is, matchit::or_, matchit::_;
         using enum DracErrorCode;
 

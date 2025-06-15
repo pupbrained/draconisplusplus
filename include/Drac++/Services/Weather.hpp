@@ -3,14 +3,14 @@
 #if DRAC_ENABLE_WEATHER
 
 // clang-format off
-#include <format>
 #include <glaze/core/common.hpp> // object
 #include <glaze/core/meta.hpp>   // Object
 #include <matchit.hpp>
 #include <variant>
 
-#include "DracUtils/Types.hpp"
 #include "DracUtils/Error.hpp"
+#include "DracUtils/Formatting.hpp"
+#include "DracUtils/Types.hpp"
 // clang-format on
 
 namespace weather {
@@ -40,9 +40,9 @@ namespace weather {
    * Contains temperature, conditions, and timestamp.
    */
   struct WeatherReport {
-    util::types::f64                         temperature; ///< Degrees (C/F)
-    util::types::Option<util::types::String> name;        ///< Optional town/city name (may be missing for some providers)
-    util::types::String                      description; ///< Weather description (e.g., "clear sky", "rain")
+    util::types::f64                           temperature; ///< Degrees (C/F)
+    util::types::Option<util::types::SZString> name;        ///< Optional town/city name (may be missing for some providers)
+    util::types::SZString                      description; ///< Weather description (e.g., "clear sky", "rain")
   };
 
   struct Coords {
@@ -50,7 +50,7 @@ namespace weather {
     util::types::f64 lon;
   };
 
-  using Location = std::variant<util::types::String, Coords>;
+  using Location = std::variant<util::types::SZString, Coords>;
 
   class IWeatherService {
    public:
@@ -68,7 +68,7 @@ namespace weather {
     IWeatherService() = default;
   };
 
-  fn CreateWeatherService(Provider provider, const Location& location, const util::types::String& apiKey, Unit units) -> util::types::UniquePointer<IWeatherService>;
+  fn CreateWeatherService(Provider provider, const Location& location, const util::types::SZString& apiKey, Unit units) -> util::types::UniquePointer<IWeatherService>;
   fn CreateWeatherService(Provider provider, const Coords& coords, Unit units) -> util::types::UniquePointer<IWeatherService>;
 } // namespace weather
 
@@ -85,17 +85,28 @@ namespace glz {
   };
 } // namespace glz
 
-template <>
-struct std::formatter<weather::Unit> {
-  static constexpr auto parse(std::format_parse_context& ctx) {
-    return ctx.begin();
-  }
+namespace util::formatting {
+  template <>
+  struct Formatter<weather::Unit> {
+   private:
+    Formatter<types::SZStringView> m_stringFormatter;
 
-  static fn format(weather::Unit unit, std::format_context& ctx) {
-    using matchit::match, matchit::is, matchit::_;
+   public:
+    constexpr fn parse(detail::FormatParseContext& ctx) {
+      m_stringFormatter.parse(ctx);
+    }
 
-    return std::format_to(ctx.out(), "{}", match(unit)(is | weather::Unit::METRIC = "metric", is | weather::Unit::IMPERIAL = "imperial"));
-  }
-};
+    fn format(weather::Unit unit, auto& ctx) const {
+      using matchit::match, matchit::is;
+
+      types::SZStringView name = match(unit)(
+        is | weather::Unit::METRIC   = "metric",
+        is | weather::Unit::IMPERIAL = "imperial"
+      );
+
+      m_stringFormatter.format(name, ctx);
+    }
+  };
+} // namespace util::formatting
 
 #endif // DRAC_ENABLE_WEATHER

@@ -15,27 +15,27 @@ namespace weather::utils {
    * @param symbol The weather symbol code.
    * @return The symbol code without the time-of-day suffix.
    */
-  fn StripTimeOfDayFromSymbol(util::types::StringView symbol) -> util::types::StringView;
+  fn StripTimeOfDayFromSymbol(util::types::SZStringView symbol) -> util::types::SZStringView;
 
   /**
    * @brief Parses an ISO8601 timestamp string (YYYY-MM-DDTHH:MM:SSZ) to a Unix epoch timestamp.
    * @param iso8601 The ISO8601 timestamp string (must be UTC, ending in 'Z').
    * @return A Result containing the epoch timestamp (usize) on success, or a DracError on failure.
    */
-  fn ParseIso8601ToEpoch(util::types::StringView iso8601) -> util::types::Result<time_t>;
+  fn ParseIso8601ToEpoch(util::types::SZStringView iso8601) -> util::types::Result<time_t>;
 
   /**
    * @brief Provides a mapping from MetNo weather symbol codes (after time-of-day stripping) to human-readable descriptions.
    * @return A const reference to an unordered_map of symbol codes to descriptions.
    */
-  fn GetMetnoSymbolDescriptions() -> const std::unordered_map<util::types::StringView, util::types::StringView>&;
+  fn GetMetnoSymbolDescriptions() -> const std::unordered_map<util::types::SZStringView, util::types::SZStringView>&;
 
   /**
    * @brief Provides a human-readable description for an OpenMeteo weather code.
    * @param code The OpenMeteo weather code (integer).
    * @return A StringView containing the description. Returns "unknown" if the code is not recognized.
    */
-  fn GetOpenmeteoWeatherDescription(util::types::i32 code) -> util::types::StringView;
+  fn GetOpenmeteoWeatherDescription(util::types::i32 code) -> util::types::SZStringView;
 } // namespace weather::utils
 
 #endif // DRAC_ENABLE_WEATHER

@@ -12,12 +12,12 @@
 namespace weather {
   class OpenWeatherMapService final : public IWeatherService {
    public:
-    OpenWeatherMapService(std::variant<util::types::String, Coords> location, util::types::String apiKey, Unit units);
+    OpenWeatherMapService(std::variant<util::types::SZString, Coords> location, util::types::SZString apiKey, Unit units);
     fn getWeatherInfo() const -> util::types::Result<WeatherReport> override;
 
    private:
-    std::variant<util::types::String, Coords> m_location;
-    util::types::String                       m_apiKey;
+    std::variant<util::types::SZString, Coords> m_location;
+    util::types::SZString                       m_apiKey;
     Unit                                      m_units;
   };
 } // namespace weather

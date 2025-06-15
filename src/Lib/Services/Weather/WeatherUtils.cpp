@@ -5,7 +5,6 @@
 
 #include <charconv> // For std::from_chars
 #include <ctime>    // For std::tm, timegm, _mkgmtime
-#include <format>   // For std::format
 
 #ifdef __HAIKU__
   #define _DEFAULT_SOURCE // exposes timegm
@@ -17,29 +16,29 @@ using util::error::DracError;
 using enum util::error::DracErrorCode;
 
 namespace weather::utils {
-  fn StripTimeOfDayFromSymbol(StringView symbol_code) -> StringView {
-    static constexpr Array<StringView, 3> SUFFIXES = { "_day", "_night", "_polartwilight" };
+  fn StripTimeOfDayFromSymbol(SZStringView symbol_code) -> SZStringView {
+    static constexpr Array<SZStringView, 3> SUFFIXES = { "_day", "_night", "_polartwilight" };
 
-    for (const StringView& suffix : SUFFIXES)
+    for (const SZStringView& suffix : SUFFIXES)
       if (symbol_code.size() > suffix.size() && symbol_code.ends_with(suffix))
         return symbol_code.substr(0, symbol_code.size() - suffix.size());
 
     return symbol_code;
   }
 
-  fn ParseIso8601ToEpoch(StringView iso8601_string) -> Result<time_t> {
+  fn ParseIso8601ToEpoch(SZStringView iso8601_string) -> Result<time_t> {
     const usize stringLen = iso8601_string.size();
 
     // Supported lengths:
     // 20: "YYYY-MM-DDTHH:MM:SSZ"
     // 16: "YYYY-MM-DDTHH:MM" (seconds assumed 00, UTC assumed)
     if (stringLen != 20 && stringLen != 16)
-      return Err(DracError(ParseError, std::format("Failed to parse ISO8601 time \'{}\', unexpected length {}. Expected 16 or 20 characters.", String(iso8601_string), stringLen)));
+      return Err(DracError(ParseError, util::formatting::SzFormat("Failed to parse ISO8601 time \'{}\', unexpected length {}. Expected 16 or 20 characters.", iso8601_string, stringLen)));
 
     std::tm timeStruct = {};
     i32     year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0; // Default second to 0
 
-    auto parseInt = [](StringView s_view, i32& out_val) -> bool {
+    auto parseInt = [](SZStringView s_view, i32& out_val) -> bool {
       auto [ptr, ec] = std::from_chars(s_view.data(), s_view.data() + s_view.size(), out_val);
       return ec == std::errc() && ptr == s_view.data() + s_view.size();
     };
@@ -57,11 +56,11 @@ namespace weather::utils {
         iso8601_string[13] != ':' ||
         !parseInt(iso8601_string.substr(14, 2), minute) // MM
     )
-      return Err(DracError(ParseError, std::format("Failed to parse common date/time components from ISO8601 string: \'{}\'", String(iso8601_string))));
+      return Err(DracError(ParseError, util::formatting::SzFormat("Failed to parse common date/time components from ISO8601 string: \'{}\'", iso8601_string)));
 
     if (stringLen == 20) // Format: YYYY-MM-DDTHH:MM:SSZ
       if (iso8601_string[16] != ':' || !parseInt(iso8601_string.substr(17, 2), second) || iso8601_string[19] != 'Z')
-        return Err(DracError(ParseError, std::format("Failed to parse seconds or UTC zone from 20-character ISO8601 string: \'{}\'", String(iso8601_string))));
+        return Err(DracError(ParseError, util::formatting::SzFormat("Failed to parse seconds or UTC zone from 20-character ISO8601 string: \'{}\'", iso8601_string)));
 
     timeStruct.tm_year  = year - 1900;
     timeStruct.tm_mon   = month - 1;
@@ -82,14 +81,14 @@ namespace weather::utils {
     time_t epochTime = timegm(&timeStruct);
 
     if (epochTime == static_cast<time_t>(-1))
-      return Err(DracError(ParseError, std::format("Failed to convert time to epoch using timegm (invalid date components or out of range)")));
+      return Err(DracError(ParseError, util::formatting::SzFormat("Failed to convert time to epoch using timegm (invalid date components or out of range)")));
 
     return epochTime;
   #endif
   }
 
-  fn GetMetnoSymbolDescriptions() -> const std::unordered_map<StringView, StringView>& {
-    static const std::unordered_map<StringView, StringView> MAP = {
+  fn GetMetnoSymbolDescriptions() -> const std::unordered_map<SZStringView, SZStringView>& {
+    static const std::unordered_map<SZStringView, SZStringView> MAP = {
       // Clear / Fair
       {             "clearsky",               "clear sky" },
       {                 "fair",                    "fair" },
@@ -133,7 +132,7 @@ namespace weather::utils {
     return MAP;
   }
 
-  fn GetOpenmeteoWeatherDescription(int weather_code) -> StringView {
+  fn GetOpenmeteoWeatherDescription(int weather_code) -> SZStringView {
     // Based on WMO Weather interpretation codes (WW)
     // https://open-meteo.com/en/docs
     if (weather_code == 0)

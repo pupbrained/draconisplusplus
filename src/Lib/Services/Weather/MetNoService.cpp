@@ -1,18 +1,15 @@
 #if DRAC_ENABLE_WEATHER
 
-// clang-format off
-#include "MetNoService.hpp"
+  #include "MetNoService.hpp"
 
-#include <DracUtils/Error.hpp>
-#include <DracUtils/Types.hpp>
-#include <format> // std::format
+  #include <DracUtils/Error.hpp>
+  #include <DracUtils/Formatting.hpp>
+  #include <DracUtils/Types.hpp>
 
-#include "Wrappers/Curl.hpp"
-
-#include "DataTransferObjects.hpp"
-#include "Utils/Caching.hpp"
-#include "WeatherUtils.hpp"
-// clang-format on
+  #include "DataTransferObjects.hpp"
+  #include "Utils/Caching.hpp"
+  #include "WeatherUtils.hpp"
+  #include "Wrappers/Curl.hpp"
 
 using namespace util::types;
 using util::error::DracError;
@@ -33,17 +30,15 @@ fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
   else
     debug_at(cachedDataResult.error());
 
-  String responseBuffer;
+  SZString responseBuffer;
 
-  // clang-format off
   Curl::Easy curl({
-    .url             = std::format("https://api.met.no/weatherapi/locationforecast/2.0/compact?lat={:.4f}&lon={:.4f}", m_lat, m_lon),
-    .writeBuffer     = &responseBuffer,
+    .url                = util::formatting::SzFormat("https://api.met.no/weatherapi/locationforecast/2.0/compact?lat={:.4f}&lon={:.4f}", m_lat, m_lon),
+    .writeBuffer        = &responseBuffer,
     .timeoutSecs        = 10L,
     .connectTimeoutSecs = 5L,
-    .userAgent       = "draconisplusplus/" DRACONISPLUSPLUS_VERSION " git.pupbrained.xyz/draconisplusplus"
+    .userAgent          = SZString("draconisplusplus/" DRACONISPLUSPLUS_VERSION " git.pupbrained.xyz/draconisplusplus"),
   });
-  // clang-format on
 
   if (!curl) {
     if (Option<DracError> initError = curl.getInitializationError())
@@ -58,7 +53,7 @@ fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
   weather::dto::metno::Response apiResp {};
 
   if (error_ctx errc = read<glz::opts { .error_on_unknown_keys = false }>(apiResp, responseBuffer); errc.ec != error_code::none)
-    return Err(DracError(ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer.data()))));
+    return Err(DracError(ParseError, util::formatting::SzFormat("Failed to parse JSON response: {}", format_error(errc, responseBuffer.data()))));
 
   if (apiResp.properties.timeseries.empty())
     return Err(DracError(ParseError, "No timeseries data in met.no response"));
@@ -70,10 +65,11 @@ fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
   if (m_units == Unit::IMPERIAL)
     temp = temp * 9.0 / 5.0 + 32.0;
 
-  String symbolCode = data.next1Hours ? data.next1Hours->summary.symbolCode : "";
+  SZString symbolCode = data.next1Hours ? data.next1Hours->summary.symbolCode : "";
 
   if (!symbolCode.empty()) {
-    const StringView strippedSymbol = weather::utils::StripTimeOfDayFromSymbol(symbolCode);
+    const SZStringView strippedSymbol = weather::utils::StripTimeOfDayFromSymbol(symbolCode);
+
     if (auto iter = weather::utils::GetMetnoSymbolDescriptions().find(strippedSymbol); iter != weather::utils::GetMetnoSymbolDescriptions().end())
       symbolCode = iter->second;
   }
@@ -86,7 +82,7 @@ fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
   WeatherReport out = {
     .temperature = temp,
     .name        = None,
-    .description = std::move(symbolCode),
+    .description = symbolCode,
   };
 
   if (Result writeResult = WriteCache("weather", out); !writeResult)

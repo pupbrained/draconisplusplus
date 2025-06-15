@@ -1,7 +1,6 @@
 #pragma once
 
 #include <array>       // std::array (Array)
-#include <format>      // std::formatter
 #include <future>      // std::future (Future)
 #include <map>         // std::map (Map)
 #include <memory>      // std::shared_ptr and std::unique_ptr (SharedPointer, UniquePointer)
@@ -143,30 +142,3 @@ namespace util::types {
       : title(std::move(title)), artist(std::move(artist)) {}
   };
 } // namespace util::types
-
-// Custom formatters for SZString and SZStringView
-namespace std {
-  /**
-   * @brief Formatter specialization for SZString
-   * @tparam CharT Character type (char)
-   */
-  template <typename CharT>
-  struct formatter<util::types::SZString, CharT> : formatter<util::types::StringView, CharT> {
-    template <typename FormatContext>
-    auto format(const util::types::SZString& str, FormatContext& ctx) const {
-      return formatter<util::types::StringView, CharT>::format(util::types::StringView(str.data(), str.size()), ctx);
-    }
-  };
-
-  /**
-   * @brief Formatter specialization for SZStringView
-   * @tparam CharT Character type (char)
-   */
-  template <typename CharT>
-  struct formatter<util::types::SZStringView, CharT> : formatter<util::types::StringView, CharT> {
-    template <typename FormatContext>
-    auto format(const util::types::SZStringView& str, FormatContext& ctx) const {
-      return formatter<util::types::StringView, CharT>::format(util::types::StringView(str.data(), str.size()), ctx);
-    }
-  };
-} // namespace std

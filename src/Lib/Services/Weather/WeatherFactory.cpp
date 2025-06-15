@@ -1,13 +1,13 @@
 #include <DracUtils/Types.hpp>
 
+#include "Drac++/Services/Weather.hpp"
+
 #include "Services/Weather/MetNoService.hpp"
 #include "Services/Weather/OpenMeteoService.hpp"
 #include "Services/Weather/OpenWeatherMapService.hpp"
 
-#include "Drac++/Services/Weather.hpp"
-
 namespace weather {
-  fn CreateWeatherService(Provider provider, const Location& location, const util::types::String& apiKey, Unit units) -> util::types::UniquePointer<IWeatherService> {
+  fn CreateWeatherService(Provider provider, const Location& location, const util::types::SZString& apiKey, Unit units) -> util::types::UniquePointer<IWeatherService> {
     switch (provider) {
       case Provider::OPENWEATHERMAP:
         return std::make_unique<OpenWeatherMapService>(location, apiKey, units);
