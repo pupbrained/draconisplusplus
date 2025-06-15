@@ -3,6 +3,7 @@
 #include <ftxui/dom/elements.hpp>
 #include <ranges> // std::ranges::{begin, end, iota, transform}
 
+#include <DracUtils/Formatting.hpp>
 #include <DracUtils/Logging.hpp>
 #include <DracUtils/Types.hpp>
 
@@ -118,7 +119,7 @@ namespace ui {
   namespace {
 #ifdef __linux__
     // clang-format off
-    constexpr Array<Pair<SZString, SZString>, 13> distro_icons {{
+    constexpr Array<Pair<SZStringView, SZStringView>, 13> distro_icons {{
       {        "NixOS", "   " },
       {        "Zorin", "   " },
       {       "Debian", "   " },
@@ -219,11 +220,15 @@ namespace ui {
 
       CStr tempUnit = config.weather.units == weather::Unit::METRIC ? "C" : "F";
 
-      SZString weatherValue = config.weather.showTownName && weatherInfo.name
-        ? SzFormat("{}°{} in {}", std::lround(weatherInfo.temperature), tempUnit, *weatherInfo.name)
-        : SzFormat("{}°{}, {}", std::lround(weatherInfo.temperature), tempUnit, weatherInfo.description);
-
-      initialRows.push_back({ .icon = weatherIcon, .label = "Weather", .value = std::move(weatherValue) });
+      initialRows.push_back(
+        {
+          .icon  = weatherIcon,
+          .label = "Weather",
+          .value = config.weather.showTownName && weatherInfo.name
+            ? SzFormat("{}°{} in {}", std::lround(weatherInfo.temperature), tempUnit, *weatherInfo.name)
+            : SzFormat("{}°{}, {}", std::lround(weatherInfo.temperature), tempUnit, weatherInfo.description),
+        }
+      );
     } else if (config.weather.enabled && !data.weather.has_value())
       error_at(data.weather.error());
 #endif
@@ -246,9 +251,13 @@ namespace ui {
       systemInfoRows.push_back({ .icon = kernelIcon, .label = "Kernel", .value = *data.kernelVersion });
 
     if (data.memInfo)
-      hardwareRows.push_back({ .icon = memoryIcon, .label = "RAM", .value = SzFormat("{}/{}", BytesToGiB(data.memInfo->usedBytes), BytesToGiB(data.memInfo->totalBytes)) });
-    else if (!data.memInfo.has_value())
-      debug_at(data.memInfo.error());
+      hardwareRows.push_back(
+        {
+          .icon  = memoryIcon,
+          .label = "RAM",
+          .value = SzFormat("{}/{}", BytesToGiB(data.memInfo->usedBytes), BytesToGiB(data.memInfo->totalBytes)),
+        }
+      );
 
     if (data.diskUsage)
       hardwareRows.push_back(
@@ -269,9 +278,8 @@ namespace ui {
       softwareRows.push_back({ .icon = shellIcon, .label = "Shell", .value = *data.shell });
 
 #if DRAC_ENABLE_PACKAGECOUNT
-    if (data.packageCount)
-      if (*data.packageCount > 0)
-        softwareRows.push_back({ .icon = packageIcon, .label = "Packages", .value = SzFormat("{}", *data.packageCount) });
+    if (data.packageCount && *data.packageCount > 0)
+      softwareRows.push_back({ .icon = packageIcon, .label = "Packages", .value = SzFormat("{}", *data.packageCount) });
 #endif
 
     bool addedDe = false;
@@ -281,9 +289,8 @@ namespace ui {
       addedDe = true;
     }
 
-    if (data.windowMgr)
-      if (!addedDe || (data.desktopEnv && *data.desktopEnv != *data.windowMgr))
-        envInfoRows.push_back({ .icon = wmIcon, .label = "WM", .value = *data.windowMgr });
+    if (data.windowMgr && (!addedDe || (data.desktopEnv && *data.desktopEnv != *data.windowMgr)))
+      envInfoRows.push_back({ .icon = wmIcon, .label = "WM", .value = *data.windowMgr });
 
 #if DRAC_ENABLE_NOWPLAYING
     bool     nowPlayingActive = false;

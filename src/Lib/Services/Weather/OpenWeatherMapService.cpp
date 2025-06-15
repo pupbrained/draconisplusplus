@@ -2,6 +2,8 @@
 
   #include "OpenWeatherMapService.hpp"
 
+  #include <utility>
+
   #include "DracUtils/Error.hpp"
   #include "DracUtils/Logging.hpp"
   #include "DracUtils/Types.hpp"
@@ -67,7 +69,7 @@ namespace {
   }
 } // namespace
 
-OpenWeatherMapService::OpenWeatherMapService(std::variant<SZString, Coords> location, SZString apiKey, Unit units)
+OpenWeatherMapService::OpenWeatherMapService(Location location, SZString apiKey, Unit units)
   : m_location(std::move(location)), m_apiKey(std::move(apiKey)), m_units(units) {}
 
 fn OpenWeatherMapService::getWeatherInfo() const -> Result<WeatherReport> {
@@ -88,8 +90,8 @@ fn OpenWeatherMapService::getWeatherInfo() const -> Result<WeatherReport> {
     return *result;
   };
 
-  if (std::holds_alternative<SZString>(m_location)) {
-    const auto& city = std::get<SZString>(m_location);
+  if (std::holds_alternative<String>(m_location)) {
+    const auto& city = std::get<String>(m_location);
 
     Result<SZString> escapedUrl = Curl::Easy::escape(city);
     if (!escapedUrl)

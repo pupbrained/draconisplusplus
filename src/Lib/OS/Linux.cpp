@@ -1,43 +1,41 @@
 #ifdef __linux__
 
-// clang-format off
-#include <climits>              // PATH_MAX
-#include <cstring>              // std::strlen
-#include <expected>             // std::{unexpected, expected}
-#include <filesystem>           // std::filesystem::{current_path, directory_entry, directory_iterator, etc.}
-#include <format>               // std::{format, format_to_n}
-#include <fstream>              // std::ifstream
-#include <glaze/beve/read.hpp>  // glz::read_beve
-#include <glaze/beve/write.hpp> // glz::write_beve
-#include <limits>               // std::numeric_limits
-#include <matchit.hpp>          // matchit::{is, is_not, is_any, etc.}
-#include <string>               // std::{getline, string (String)}
-#include <string_view>          // std::string_view (StringView)
-#include <sys/socket.h>         // ucred, getsockopt, SOL_SOCKET, SO_PEERCRED
-#include <sys/statvfs.h>        // statvfs
-#include <sys/sysinfo.h>        // sysinfo
-#include <sys/utsname.h>        // utsname, uname
-#include <unistd.h>             // readlink
-#include <utility>              // std::move
+  #include <climits>              // PATH_MAX
+  #include <cpuid.h>              // __get_cpuid
+  #include <cstring>              // std::strlen
+  #include <expected>             // std::{unexpected, expected}
+  #include <filesystem>           // std::filesystem::{current_path, directory_entry, directory_iterator, etc.}
+  #include <format>               // std::{format, format_to_n}
+  #include <fstream>              // std::ifstream
+  #include <glaze/beve/read.hpp>  // glz::read_beve
+  #include <glaze/beve/write.hpp> // glz::write_beve
+  #include <matchit.hpp>          // matchit::{is, is_not, is_any, etc.}
+  #include <string>               // std::{getline, string (String)}
+  #include <string_view>          // std::string_view (StringView)
+  #include <sys/socket.h>         // ucred, getsockopt, SOL_SOCKET, SO_PEERCRED
+  #include <sys/statvfs.h>        // statvfs
+  #include <sys/sysinfo.h>        // sysinfo
+  #include <sys/utsname.h>        // utsname, uname
+  #include <unistd.h>             // readlink
+  #include <utility>              // std::move
 
-#include "Services/PackageCounting.hpp"
+  #include <Drac++/Core/System.hpp>
+  #include <Drac++/Services/PackageCounting.hpp>
 
-#include "Util/Caching.hpp"
-#include "Util/Definitions.hpp"
-#include "Util/Env.hpp"
-#include "Util/Error.hpp"
-#include "Util/Logging.hpp"
-#include "Util/Types.hpp"
+  #include <DracUtils/Definitions.hpp>
+  #include <DracUtils/Env.hpp>
+  #include <DracUtils/Error.hpp>
+  #include <DracUtils/Formatting.hpp>
+  #include <DracUtils/Types.hpp>
 
-#include "Wrappers/DBus.hpp"
-#include "Wrappers/Wayland.hpp"
-#include "Wrappers/XCB.hpp"
+  #include "Utils/Caching.hpp"
+  #include "Wrappers/DBus.hpp"
+  #include "Wrappers/Wayland.hpp"
+  #include "Wrappers/XCB.hpp"
 
-#include "Core/System.hpp"
-// clang-format on
-
-using util::error::DracError, util::error::DracErrorCode;
-using util::types::String, util::types::Result, util::types::Err, util::types::usize;
+using util::error::DracError;
+using enum util::error::DracErrorCode;
+using namespace util::types;
 
 // clang-format off
 #ifdef __GLIBC__
@@ -59,7 +57,7 @@ namespace {
       if (const i32 err = ConnectionHasError(conn.get()))
         return Err(
           DracError(
-            DracErrorCode::ApiUnavailable,
+            ApiUnavailable,
             match(err)(
               is | Generic         = "Stream/Socket/Pipe Error",
               is | ExtNotSupported = "Extension Not Supported",
@@ -79,7 +77,7 @@ namespace {
       const ReplyGuard<IntAtomReply> reply(InternAtomReply(conn.get(), InternAtom(conn.get(), 0, static_cast<u16>(name.size()), name.data()), nullptr));
 
       if (!reply)
-        return Err(DracError(DracErrorCode::PlatformSpecific, std::format("Failed to get X11 atom reply for '{}'", name)));
+        return Err(DracError(PlatformSpecific, std::format("Failed to get X11 atom reply for '{}'", name)));
 
       return reply->atom;
     };
@@ -98,7 +96,7 @@ namespace {
       if (!utf8StringAtom)
         error_log("Failed to get UTF8_STRING atom");
 
-      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to get X11 atoms"));
+      return Err(DracError(PlatformSpecific, "Failed to get X11 atoms"));
     }
 
     const ReplyGuard<GetPropReply> wmWindowReply(GetPropertyReply(
@@ -109,7 +107,7 @@ namespace {
 
     if (!wmWindowReply || wmWindowReply->type != ATOM_WINDOW || wmWindowReply->format != 32 ||
         GetPropertyValueLength(wmWindowReply.get()) == 0)
-      return Err(DracError(DracErrorCode::NotFound, "Failed to get _NET_SUPPORTING_WM_CHECK property"));
+      return Err(DracError(NotFound, "Failed to get _NET_SUPPORTING_WM_CHECK property"));
 
     const Window wmRootWindow = *static_cast<Window*>(GetPropertyValue(wmWindowReply.get()));
 
@@ -118,7 +116,7 @@ namespace {
     ));
 
     if (!wmNameReply || wmNameReply->type != *utf8StringAtom || GetPropertyValueLength(wmNameReply.get()) == 0)
-      return Err(DracError(DracErrorCode::NotFound, "Failed to get _NET_WM_NAME property"));
+      return Err(DracError(NotFound, "Failed to get _NET_WM_NAME property"));
 
     const char* nameData = static_cast<const char*>(GetPropertyValue(wmNameReply.get()));
     const usize length   = GetPropertyValueLength(wmNameReply.get());
@@ -127,7 +125,7 @@ namespace {
   }
   #else
   fn GetX11WindowManager() -> Result<String> {
-    return Err(DracError(DracErrorCode::NotSupported, "XCB (X11) support not available"));
+    return Err(DracError(NotSupported, "XCB (X11) support not available"));
   }
   #endif
 
@@ -138,11 +136,11 @@ namespace {
     const Wayland::DisplayGuard display;
 
     if (!display)
-      return Err(DracError(DracErrorCode::NotFound, "Failed to connect to display (is Wayland running?)"));
+      return Err(DracError(NotFound, "Failed to connect to display (is Wayland running?)"));
 
     const i32 fileDescriptor = display.fd();
     if (fileDescriptor < 0)
-      return Err(DracError(DracErrorCode::ApiUnavailable, "Failed to get Wayland file descriptor"));
+      return Err(DracError(ApiUnavailable, "Failed to get Wayland file descriptor"));
 
     ucred     cred;
     socklen_t len = sizeof(cred);
@@ -155,7 +153,7 @@ namespace {
     auto [out, size] = std::format_to_n(exeLinkPathBuf.data(), exeLinkPathBuf.size() - 1, "/proc/{}/exe", cred.pid);
 
     if (out >= exeLinkPathBuf.data() + exeLinkPathBuf.size() - 1)
-      return Err(DracError(DracErrorCode::InternalError, "Failed to format /proc path (PID too large?)"));
+      return Err(DracError(InternalError, "Failed to format /proc path (PID too large?)"));
 
     *out = '\0';
 
@@ -189,7 +187,7 @@ namespace {
       compositorNameView = filenameView;
 
     if (compositorNameView.empty() || compositorNameView == "." || compositorNameView == "/")
-      return Err(DracError(DracErrorCode::NotFound, "Failed to get compositor name from path"));
+      return Err(DracError(NotFound, "Failed to get compositor name from path"));
 
     if (constexpr StringView wrappedSuffix = "-wrapped"; compositorNameView.length() > 1 + wrappedSuffix.length() &&
         compositorNameView[0] == '.' && compositorNameView.ends_with(wrappedSuffix)) {
@@ -197,7 +195,7 @@ namespace {
         compositorNameView.substr(1, compositorNameView.length() - 1 - wrappedSuffix.length());
 
       if (cleanedView.empty())
-        return Err(DracError(DracErrorCode::NotFound, "Compositor name invalid after heuristic"));
+        return Err(DracError(NotFound, "Compositor name invalid after heuristic"));
 
       return String(cleanedView);
     }
@@ -206,7 +204,7 @@ namespace {
   }
   #else
   fn GetWaylandCompositor() -> Result<String> {
-    return Err(DracError(DracErrorCode::NotSupported, "Wayland support not available"));
+    return Err(DracError(NotSupported, "Wayland support not available"));
   }
   #endif
 } // namespace
@@ -215,13 +213,13 @@ namespace os {
   using util::helpers::GetEnv;
   using util::types::ResourceUsage;
 
-  fn System::GetOSVersion() -> Result<SZString> {
+  fn System::getOSVersion() -> Result<SZString> {
     using util::types::StringView;
 
     std::ifstream file("/etc/os-release");
 
     if (!file)
-      return Err(DracError(DracErrorCode::NotFound, std::format("Failed to open /etc/os-release")));
+      return Err(DracError(NotFound, std::format("Failed to open /etc/os-release")));
 
     String               line;
     constexpr StringView prefix = "PRETTY_NAME=";
@@ -235,23 +233,23 @@ namespace os {
           value = value.substr(1, value.length() - 2);
 
         if (value.empty())
-          return Err(DracError(DracErrorCode::ParseError, std::format("PRETTY_NAME value is empty or only quotes in /etc/os-release")));
+          return Err(DracError(ParseError, std::format("PRETTY_NAME value is empty or only quotes in /etc/os-release")));
 
         return SZString(value);
       }
     }
 
-    return Err(DracError(DracErrorCode::NotFound, "PRETTY_NAME line not found in /etc/os-release"));
+    return Err(DracError(NotFound, "PRETTY_NAME line not found in /etc/os-release"));
   }
 
-  fn System::GetMemInfo() -> Result<ResourceUsage> {
+  fn System::getMemInfo() -> Result<ResourceUsage> {
     struct sysinfo info;
 
     if (sysinfo(&info) != 0)
       return Err(DracError("sysinfo call failed"));
 
     if (info.mem_unit == 0)
-      return Err(DracError(DracErrorCode::InternalError, "sysinfo.mem_unit is 0, cannot calculate memory"));
+      return Err(DracError(InternalError, "sysinfo.mem_unit is 0, cannot calculate memory"));
 
     return ResourceUsage {
       .usedBytes  = (info.totalram - info.freeram) * info.mem_unit,
@@ -259,112 +257,142 @@ namespace os {
     };
   }
 
-  fn System::GetNowPlaying() -> Result<MediaInfo> {
+  fn System::getNowPlaying() -> Result<MediaInfo> {
   #ifdef HAVE_DBUS
     using namespace DBus;
 
-    ConnectionGuard conn;
+    Result<Connection> connectionResult = Connection::busGet(DBUS_BUS_SESSION);
+    if (!connectionResult)
+      return Err(connectionResult.error());
 
-    if (!conn)
-      return Err(DracError(DracErrorCode::ApiUnavailable, "Failed to connect to DBus session"));
+    const Connection& connection = *connectionResult;
 
-    const MethodCall getOwnerCall("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "ListNames");
-    const ReplyGuard reply(conn.sendWithReplyAndBlock(getOwnerCall, 2500));
+    Option<String> activePlayer = None;
 
-    if (!reply)
-      return Err(DracError(DracErrorCode::NotFound, "Failed to list DBus names"));
+    {
+      Result<Message> listNamesResult =
+        Message::newMethodCall("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "ListNames");
+      if (!listNamesResult)
+        return Err(listNamesResult.error());
 
-    MessageIter iter;
-    reply.iterInit(iter);
+      Result<Message> listNamesReplyResult = connection.sendWithReplyAndBlock(*listNamesResult, 100);
+      if (!listNamesReplyResult)
+        return Err(listNamesReplyResult.error());
 
-    if (iter.getType() != DBUS_TYPE_ARRAY || iter.getElementType() != DBUS_TYPE_STRING)
-      return Err(DracError(DracErrorCode::ParseError, "Invalid DBus reply format"));
+      MessageIter iter = listNamesReplyResult->iterInit();
+      if (!iter.isValid() || iter.getArgType() != DBUS_TYPE_ARRAY)
+        return Err(DracError(DracErrorCode::ParseError, "Invalid DBus ListNames reply format: Expected array"));
 
-    MessageIter subIter;
-    iter.recurse(subIter);
-
-    while (subIter.getType() == DBUS_TYPE_STRING) {
-      CStr name = nullptr;
-      subIter.getBasic(name);
-
-      if (StringView(name).starts_with("org.mpris.MediaPlayer2.")) {
-        const MethodCall getPlayerCall(
-          name, "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "Get"
+      MessageIter subIter = iter.recurse();
+      if (!subIter.isValid())
+        return Err(
+          DracError(DracErrorCode::ParseError, "Invalid DBus ListNames reply format: Could not recurse into array")
         );
-        MessageAppendIter appendIter;
-        Message           mesg;
-        getPlayerCall.iterInit(mesg, appendIter);
 
-        CStr iface = "org.mpris.MediaPlayer2.Player";
-        CStr prop  = "Metadata";
-
-        appendIter.appendBasic(iface);
-        appendIter.appendBasic(prop);
-
-        const ReplyGuard playerReply(conn.sendWithReplyAndBlock(mesg, 2500));
-
-        if (playerReply) {
-          MessageIter playerIter;
-          playerReply.iterInit(playerIter);
-
-          if (playerIter.getType() == DBUS_TYPE_VARIANT) {
-            MessageIter variantIter;
-            playerIter.recurse(variantIter);
-
-            if (variantIter.getType() == DBUS_TYPE_ARRAY && variantIter.getElementType() == DBUS_TYPE_DICT_ENTRY) {
-              MessageIter dictIter;
-              variantIter.recurse(dictIter);
-
-              String artist, title;
-
-              while (dictIter.getType() == DBUS_TYPE_DICT_ENTRY) {
-                MessageIter entryIter;
-                dictIter.recurse(entryIter);
-
-                if (entryIter.getType() == DBUS_TYPE_STRING) {
-                  CStr key = nullptr;
-                  entryIter.getBasic(key);
-
-                  entryIter.next();
-
-                  MessageIter valueIter;
-                  entryIter.recurse(valueIter);
-
-                  if (StringView(key) == "xesam:artist" && valueIter.getType() == DBUS_TYPE_ARRAY &&
-                      valueIter.getElementType() == DBUS_TYPE_STRING) {
-                    MessageIter artistIter;
-                    valueIter.recurse(artistIter);
-                    if (artistIter.getType() == DBUS_TYPE_STRING) {
-                      CStr val = nullptr;
-                      artistIter.getBasic(val);
-                      artist = val;
-                    }
-                  } else if (StringView(key) == "xesam:title" && valueIter.getType() == DBUS_TYPE_STRING) {
-                    CStr val = nullptr;
-                    valueIter.getBasic(val);
-                    title = val;
-                  }
-                }
-                dictIter.next();
-              }
-              if (!title.empty())
-                return MediaInfo { std::move(title), std::move(artist) };
-            }
+      while (subIter.getArgType() != DBUS_TYPE_INVALID) {
+        if (Option<String> name = subIter.getString())
+          if (name->starts_with("org.mpris.MediaPlayer2.")) {
+            activePlayer = std::move(*name);
+            break;
           }
+        if (!subIter.next())
+          break;
+      }
+    }
+
+    if (!activePlayer)
+      return Err(DracError(DracErrorCode::NotFound, "No active MPRIS players found"));
+
+    Result<Message> msgResult = Message::newMethodCall(
+      activePlayer->c_str(), "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "Get"
+    );
+
+    if (!msgResult)
+      return Err(msgResult.error());
+
+    Message& msg = *msgResult;
+
+    if (!msg.appendArgs("org.mpris.MediaPlayer2.Player", "Metadata"))
+      return Err(DracError(DracErrorCode::InternalError, "Failed to append arguments to Properties.Get message"));
+
+    Result<Message> replyResult = connection.sendWithReplyAndBlock(msg, 100);
+
+    if (!replyResult)
+      return Err(replyResult.error());
+
+    Option<String> title  = None;
+    Option<String> artist = None;
+
+    MessageIter propIter = replyResult->iterInit();
+    if (!propIter.isValid())
+      return Err(DracError(DracErrorCode::ParseError, "Properties.Get reply has no arguments or invalid iterator"));
+
+    if (propIter.getArgType() != DBUS_TYPE_VARIANT)
+      return Err(DracError(DracErrorCode::ParseError, "Properties.Get reply argument is not a variant"));
+
+    MessageIter variantIter = propIter.recurse();
+    if (!variantIter.isValid())
+      return Err(DracError(DracErrorCode::ParseError, "Could not recurse into variant"));
+
+    if (variantIter.getArgType() != DBUS_TYPE_ARRAY || variantIter.getElementType() != DBUS_TYPE_DICT_ENTRY)
+      return Err(DracError(DracErrorCode::ParseError, "Metadata variant content is not a dictionary array (a{sv})"));
+
+    MessageIter dictIter = variantIter.recurse();
+    if (!dictIter.isValid())
+      return Err(DracError(DracErrorCode::ParseError, "Could not recurse into metadata dictionary array"));
+
+    while (dictIter.getArgType() == DBUS_TYPE_DICT_ENTRY) {
+      MessageIter entryIter = dictIter.recurse();
+      if (!entryIter.isValid()) {
+        if (!dictIter.next())
+          break;
+        continue;
+      }
+
+      Option<String> key = entryIter.getString();
+      if (!key) {
+        if (!dictIter.next())
+          break;
+        continue;
+      }
+
+      if (!entryIter.next() || entryIter.getArgType() != DBUS_TYPE_VARIANT) {
+        if (!dictIter.next())
+          break;
+        continue;
+      }
+
+      MessageIter valueVariantIter = entryIter.recurse();
+      if (!valueVariantIter.isValid()) {
+        if (!dictIter.next())
+          break;
+        continue;
+      }
+
+      if (*key == "xesam:title") {
+        title = valueVariantIter.getString();
+      } else if (*key == "xesam:artist") {
+        if (valueVariantIter.getArgType() == DBUS_TYPE_ARRAY && valueVariantIter.getElementType() == DBUS_TYPE_STRING) {
+          if (MessageIter artistArrayIter = valueVariantIter.recurse(); artistArrayIter.isValid())
+            artist = artistArrayIter.getString();
         }
       }
-      subIter.next();
+
+      if (!dictIter.next())
+        break;
     }
+
+    return MediaInfo(std::move(title), std::move(artist));
   #else
-    return Err(DracError(DracErrorCode::NotSupported, "DBus support not available"));
+    return Err(DracError(NotSupported, "DBus support not available"));
   #endif
 
-    return Err(DracError(DracErrorCode::NotFound, "No media player found or an unknown error occurred"));
+    return Err(DracError(NotFound, "No media player found or an unknown error occurred"));
   }
 
-  fn System::GetWindowManager() -> Result<SZString> {
+  fn System::getWindowManager() -> Result<SZString> {
   #if !defined(HAVE_WAYLAND) && !defined(HAVE_XCB)
-    return Err(DracError(DracErrorCode::NotSupported, "Wayland or XCB support not available"));
+    return Err(DracError(NotSupported, "Wayland or XCB support not available"));
   #endif
 
     if (GetEnv("WAYLAND_DISPLAY"))
@@ -373,50 +401,58 @@ namespace os {
     if (GetEnv("DISPLAY"))
       return GetX11WindowManager();
 
-    return Err(DracError(DracErrorCode::NotFound, "No display server detected"));
+    return Err(DracError(NotFound, "No display server detected"));
   }
 
-  fn System::GetDesktopEnvironment() -> Result<SZString> {
-    return GetEnv("XDG_CURRENT_DESKTOP")
-      .transform([](String xdgDesktop) -> String {
-        if (const usize colonPos = xdgDesktop.find(':'); colonPos != String::npos)
-          xdgDesktop.resize(colonPos);
-        return xdgDesktop;
-      })
-      .or_else([](DracError) { return GetEnv("DESKTOP_SESSION"); })
-      .transform([](String xdgDesktop) -> SZString {
-        return SZString(xdgDesktop);
-      });
+  fn System::getDesktopEnvironment() -> Result<SZString> {
+    Result<CStr> xdgEnvResult = GetEnv("XDG_CURRENT_DESKTOP");
+
+    if (xdgEnvResult) {
+      SZString xdgDesktopSz = SZString(*xdgEnvResult);
+
+      if (const usize colonPos = xdgDesktopSz.find(':'); colonPos != SZString::npos)
+        xdgDesktopSz.resize(colonPos);
+
+      return xdgDesktopSz;
+    }
+
+    Result<CStr> desktopSessionResult = GetEnv("DESKTOP_SESSION");
+
+    if (desktopSessionResult)
+      return *desktopSessionResult;
+
+    return Err(desktopSessionResult.error());
   }
 
-  fn System::GetShell() -> Result<SZString> {
+  fn System::getShell() -> Result<SZString> {
     using util::types::Pair, util::types::Array, util::types::StringView;
 
-    return GetEnv("SHELL").transform([](String shellPath) -> String {
-      constexpr Array<Pair<StringView, StringView>, 5> shellMap {
-        {
-         { "/usr/bin/bash", "Bash" },
-         { "/usr/bin/zsh", "Zsh" },
-         { "/usr/bin/fish", "Fish" },
-         { "/usr/bin/nu", "Nushell" },
-         { "/usr/bin/sh", "SH" },
-         }
-      };
+    // clang-format off
+    return GetEnv("SHELL")
+      .transform([](String shellPath) -> String {
+        constexpr Array<Pair<StringView, StringView>, 5> shellMap {{
+          { "/usr/bin/bash", "Bash" },
+          { "/usr/bin/zsh", "Zsh" },
+          { "/usr/bin/fish", "Fish" },
+          { "/usr/bin/nu", "Nushell" },
+          { "/usr/bin/sh", "SH" },
+        }};
 
-      for (const auto& [exe, name] : shellMap)
-        if (shellPath == exe)
-          return String(name);
+        for (const auto& [exe, name] : shellMap)
+          if (shellPath == exe)
+            return String(name);
 
-      if (const usize lastSlash = shellPath.find_last_of('/'); lastSlash != String::npos)
-        return shellPath.substr(lastSlash + 1);
-      return shellPath;
-    })
-    .transform([](String shellPath) -> SZString {
-      return SZString(shellPath);
-    });
+        if (const usize lastSlash = shellPath.find_last_of('/'); lastSlash != String::npos)
+          return shellPath.substr(lastSlash + 1);
+        return shellPath;
+      })
+      .transform([](const String& shellPath) -> SZString {
+        return shellPath;
+      });
+    // clang-format on
   }
 
-  fn System::GetHost() -> Result<SZString> {
+  fn System::getHost() -> Result<SZString> {
     using util::types::CStr;
 
     constexpr CStr primaryPath  = "/sys/class/dmi/id/product_family";
@@ -427,10 +463,10 @@ namespace os {
       String        line;
 
       if (!file)
-        return Err(DracError(DracErrorCode::NotFound, std::format("Failed to open DMI product identifier file '{}'", path)));
+        return Err(DracError(NotFound, util::formatting::SzFormat("Failed to open DMI product identifier file '{}'", path)));
 
       if (!std::getline(file, line) || line.empty())
-        return Err(DracError(DracErrorCode::ParseError, std::format("DMI product identifier file ('{}') is empty", path)));
+        return Err(DracError(ParseError, util::formatting::SzFormat("DMI product identifier file ('{}') is empty", path)));
 
       return line;
     };
@@ -450,8 +486,8 @@ namespace os {
     DracError fallbackError = fallbackResult.error();
 
     return Err(DracError(
-      DracErrorCode::InternalError,
-      std::format(
+      InternalError,
+      util::formatting::SzFormat(
         "Failed to get host identifier. Primary ('{}'): {}. Fallback ('{}'): {}",
         primaryPath,
         primaryError.message,
@@ -461,19 +497,48 @@ namespace os {
     ));
   }
 
-  fn System::GetKernelVersion() -> Result<SZString> {
+  fn System::getCPUModel() -> Result<SZString> {
+    std::array<unsigned int, 4> cpuInfo;
+    std::array<char, 49>        brandString = { 0 };
+
+    __get_cpuid(0x80000000, cpuInfo.data(), &cpuInfo[1], &cpuInfo[2], &cpuInfo[3]);
+    const unsigned int maxFunction = cpuInfo[0];
+
+    if (maxFunction < 0x80000004)
+      throw std::runtime_error("CPU does not support brand string");
+
+    for (unsigned int i = 0; i < 3; ++i) {
+      __get_cpuid(0x80000002 + i, cpuInfo.data(), &cpuInfo[1], &cpuInfo[2], &cpuInfo[3]);
+      std::memcpy(&brandString.at(i * 16), cpuInfo.data(), sizeof(cpuInfo));
+    }
+
+    std::string result(brandString.data());
+
+    result.erase(result.find_last_not_of(" \t\n\r") + 1);
+
+    if (result.empty())
+      throw std::runtime_error("Failed to get CPU model string via CPUID");
+
+    return result;
+  }
+
+  fn System::getGPUModel() -> Result<SZString> {
+    return Err(DracError("GPU model string not supported"));
+  }
+
+  fn System::getKernelVersion() -> Result<SZString> {
     utsname uts;
 
     if (uname(&uts) == -1)
       return Err(DracError("uname call failed"));
 
     if (std::strlen(uts.release) == 0)
-      return Err(DracError(DracErrorCode::ParseError, "uname returned null kernel release"));
+      return Err(DracError(ParseError, "uname returned null kernel release"));
 
     return SZString(uts.release);
   }
 
-  fn System::GetDiskUsage() -> Result<ResourceUsage> {
+  fn System::getDiskUsage() -> Result<ResourceUsage> {
     struct statvfs stat;
 
     if (statvfs("/", &stat) == -1)
@@ -488,6 +553,8 @@ namespace os {
 
   #ifdef DRAC_ENABLE_PACKAGECOUNT
 namespace package {
+  namespace fs = std::filesystem;
+
   fn CountApk() -> Result<u64> {
     using namespace util::cache;
 
@@ -503,14 +570,14 @@ namespace package {
     if (std::error_code fsErrCode; !fs::exists(apkDbPath, fsErrCode)) {
       if (fsErrCode) {
         warn_log("Filesystem error checking for Apk DB at '{}': {}", apkDbPath.string(), fsErrCode.message());
-        return Err(DracError(DracErrorCode::IoError, "Filesystem error checking Apk DB: " + fsErrCode.message()));
+        return Err(DracError(IoError, "Filesystem error checking Apk DB: " + fsErrCode.message()));
       }
-      return Err(DracError(DracErrorCode::NotFound, std::format("Apk database path '{}' does not exist", apkDbPath.string())));
+      return Err(DracError(NotFound, util::formatting::SzFormat("Apk database path '{}' does not exist", apkDbPath.string())));
     }
 
     std::ifstream file(apkDbPath);
     if (!file.is_open())
-      return Err(DracError(DracErrorCode::IoError, std::format("Failed to open Apk database file '{}'", apkDbPath.string())));
+      return Err(DracError(IoError, util::formatting::SzFormat("Failed to open Apk database file '{}'", apkDbPath.string())));
 
     u64 count = 0;
 
@@ -522,13 +589,13 @@ namespace package {
           count++;
     } catch (const std::ios_base::failure& e) {
       return Err(DracError(
-        DracErrorCode::IoError,
-        std::format("Error reading Apk database file '{}': {}", apkDbPath.string(), e.what())
+        IoError,
+        util::formatting::SzFormat("Error reading Apk database file '{}': {}", apkDbPath.string(), e.what())
       ));
     }
 
     if (file.bad())
-      return Err(DracError(DracErrorCode::IoError, std::format("IO error while reading Apk database file '{}'", apkDbPath.string())));
+      return Err(DracError(IoError, util::formatting::SzFormat("IO error while reading Apk database file '{}'", apkDbPath.string())));
 
     if (Result writeResult = WriteCache(cacheKey, count); !writeResult)
       debug_at(writeResult.error());
@@ -565,7 +632,7 @@ namespace package {
     const CStr xbpsDbPath = "/var/db/xbps";
 
     if (!fs::exists(xbpsDbPath))
-      return Err(DracError(DracErrorCode::NotFound, std::format("Xbps database path '{}' does not exist", xbpsDbPath)));
+      return Err(DracError(NotFound, std::format("Xbps database path '{}' does not exist", xbpsDbPath)));
 
     fs::path plistPath;
 
@@ -576,7 +643,7 @@ namespace package {
       }
 
     if (plistPath.empty())
-      return Err(DracError(DracErrorCode::NotFound, "No Xbps database found"));
+      return Err(DracError(NotFound, "No Xbps database found"));
 
     return GetCountFromPlist("xbps", plistPath);
   }

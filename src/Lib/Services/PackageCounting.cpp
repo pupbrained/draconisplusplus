@@ -43,9 +43,7 @@ namespace {
   ) -> Result<u64> {
     std::error_code fsErrCode;
 
-    const SZString cacheKey = fileExtensionFilter
-      ? SzFormat("{}{}_{}_{}", CACHE_KEY_PREFIX, pmId, dirPath.string(), *fileExtensionFilter)
-      : SzFormat("{}{}_{}", CACHE_KEY_PREFIX, pmId, dirPath.string());
+    const SZString cacheKey = SzFormat("{}{}", CACHE_KEY_PREFIX, pmId);
 
     if (Result<u64> cachedDataResult = GetValidCache<u64>(cacheKey))
       return *cachedDataResult;

@@ -146,7 +146,7 @@
             if stdenv.isDarwin
             then "${pkgs.darwin.moltenvk}/share/vulkan/icd.d/MoltenVK_icd.json"
             else let
-              vulkanDir = "${pkgs.mesa.drivers}/share/vulkan/icd.d";
+              vulkanDir = "${pkgs.mesa}/share/vulkan/icd.d";
               vulkanFiles = builtins.filter (file: builtins.match ".*\\.json$" file != null) (builtins.attrNames (builtins.readDir vulkanDir));
               vulkanPaths = nixpkgs.lib.concatStringsSep ":" (map (file: "${vulkanDir}/${file}") vulkanFiles);
             in

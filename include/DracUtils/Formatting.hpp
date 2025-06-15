@@ -1,6 +1,7 @@
 #pragma once
 
 #include <charconv>
+#include <cstring>
 #include <stringzilla/stringzilla.hpp>
 
 #include "Definitions.hpp"
@@ -26,7 +27,7 @@ namespace util::formatting {
       [[nodiscard]] constexpr auto size() const noexcept {
         return m_specView.size();
       }
-      [[nodiscard]] constexpr bool empty() const noexcept {
+      [[nodiscard]] constexpr auto empty() const noexcept -> bool {
         return m_specView.empty();
       }
 

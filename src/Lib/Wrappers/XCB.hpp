@@ -2,12 +2,10 @@
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__)
 
-// clang-format off
-#include <xcb/xcb.h> // XCB library
+  #include <xcb/xcb.h> // XCB library
 
-#include "Util/Definitions.hpp"
-#include "Util/Types.hpp"
-// clang-format on
+  #include <DracUtils/Definitions.hpp>
+  #include <DracUtils/Types.hpp>
 
 namespace XCB {
   using util::types::u8, util::types::u16, util::types::i32, util::types::u32, util::types::CStr, util::types::None;

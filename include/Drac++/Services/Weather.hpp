@@ -48,7 +48,7 @@ namespace weather {
     util::types::f64 lon;
   };
 
-  using Location = std::variant<util::types::SZString, Coords>;
+  using Location = std::variant<util::types::String, Coords>;
 
   class IWeatherService {
    public:

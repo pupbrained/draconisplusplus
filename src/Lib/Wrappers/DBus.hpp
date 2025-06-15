@@ -2,17 +2,15 @@
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__)
 
-// clang-format off
-#include <cstring>
-#include <dbus/dbus.h> // DBus Library
-#include <utility>     // std::exchange, std::forward
-#include <format>      // std::format
-#include <type_traits> // std::is_convertible_v
+  #include <cstring>
+  #include <dbus/dbus.h> // DBus Library
+  #include <format>      // std::format
+  #include <type_traits> // std::is_convertible_v
+  #include <utility>     // std::exchange, std::forward
 
-#include "Util/Definitions.hpp"
-#include "Util/Error.hpp"
-#include "Util/Types.hpp"
-// clang-format on
+  #include <DracUtils/Definitions.hpp>
+  #include <DracUtils/Error.hpp>
+  #include <DracUtils/Types.hpp>
 
 namespace DBus {
   using util::error::DracError, util::error::DracErrorCode;

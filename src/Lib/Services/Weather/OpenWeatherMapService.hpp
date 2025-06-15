@@ -13,9 +13,9 @@ namespace weather {
     fn getWeatherInfo() const -> util::types::Result<WeatherReport> override;
 
    private:
-    std::variant<util::types::SZString, Coords> m_location;
-    util::types::SZString                       m_apiKey;
-    Unit                                        m_units;
+    Location              m_location;
+    util::types::SZString m_apiKey;
+    Unit                  m_units;
   };
 } // namespace weather
 

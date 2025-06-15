@@ -2,13 +2,11 @@
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__)
 
-// clang-format off
-#include <wayland-client.h> // Wayland client library
+  #include <wayland-client.h> // Wayland client library
 
-#include "Util/Definitions.hpp"
-#include "Util/Logging.hpp"
-#include "Util/Types.hpp"
-// clang-format on
+  #include <DracUtils/Definitions.hpp>
+  #include <DracUtils/Logging.hpp>
+  #include <DracUtils/Types.hpp>
 
 namespace Wayland {
   using util::types::i32, util::types::CStr, util::types::None;
