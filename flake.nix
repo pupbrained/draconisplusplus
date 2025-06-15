@@ -32,7 +32,7 @@
           )
           llvmPackages.stdenv;
 
-        stringzilla-pkg = stdenv.mkDerivation rec {
+        stringzilla-pkg = stdenv.mkDerivation {
           pname = "stringzilla";
           version = "3.12.5";
           src = stringzilla;
@@ -111,7 +111,7 @@
             wayland
           ]));
 
-        draconisPkgs = import ./nix {inherit nixpkgs self system;};
+        draconisPkgs = import ./nix {inherit nixpkgs self system stringzilla-pkg;};
       in {
         packages = draconisPkgs;
         checks = draconisPkgs;

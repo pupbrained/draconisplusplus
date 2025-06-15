@@ -1,6 +1,8 @@
 {
   pkgs,
   self,
+  stringzilla-pkg,
+  ...
 }: let
   llvmPackages = pkgs.llvmPackages_20;
 
@@ -40,6 +42,7 @@
     ++ (with pkgsStatic; [
       dbus
       pugixml
+      stringzilla-pkg
       xorg.libxcb
       wayland
     ]));
@@ -64,6 +67,10 @@
       ];
 
       buildInputs = deps;
+
+      mesonFlags = [
+        "-Dbuild_examples=false"
+      ];
 
       configurePhase = ''
         meson setup build --buildtype=release $mesonFlags

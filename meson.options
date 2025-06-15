@@ -10,6 +10,10 @@
 # Note: This is primarily intended for use with Nix.
 option('build_for_musl', type: 'boolean', value: false)
 
+# Option: build_examples
+# Description: Build example programs.
+option('build_examples', type: 'boolean', value: true)
+
 # Option: use_pugixml
 # Description: Use pugixml to parse XBPS package metadata on Void Linux.
 # Note: This is required for package count functionality on Void Linux.

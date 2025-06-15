@@ -2,6 +2,8 @@
   pkgs,
   nixpkgs,
   self,
+  stringzilla-pkg,
+  ...
 }: let
   muslPkgs = import nixpkgs {
     system = "x86_64-linux-musl";
@@ -63,6 +65,7 @@
     llvmPackages_20.libcxx
     openssl
     sqlite
+    stringzilla-pkg
     wayland
     xorg.libXau
     xorg.libXdmcp
@@ -95,6 +98,7 @@
 
       mesonFlags = [
         "-Dbuild_for_musl=true"
+        "-Dbuild_examples=false"
       ];
 
       buildInputs = deps;
