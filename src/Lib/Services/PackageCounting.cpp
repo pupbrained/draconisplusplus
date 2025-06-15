@@ -1,29 +1,28 @@
 #if DRAC_ENABLE_PACKAGECOUNT
 
-// clang-format off
-#include <Drac++/Services/PackageCounting.hpp>
+  #include "Drac++/Services/PackageCounting.hpp"
 
-#if !defined(__serenity__) && !defined(_WIN32)
-  #include <SQLiteCpp/Database.h>  // SQLite::{Database, OPEN_READONLY}
-  #include <SQLiteCpp/Exception.h> // SQLite::Exception
-  #include <SQLiteCpp/Statement.h> // SQLite::Statement
-#endif
+  #if !defined(__serenity__) && !defined(_WIN32)
+    #include <SQLiteCpp/Database.h>  // SQLite::{Database, OPEN_READONLY}
+    #include <SQLiteCpp/Exception.h> // SQLite::Exception
+    #include <SQLiteCpp/Statement.h> // SQLite::Statement
+  #endif
 
-#if defined(__linux__) && defined(HAVE_PUGIXML)
-  #include <pugixml.hpp> // pugi::{xml_document, xml_node, xml_parse_result}
-#endif
+  #if defined(__linux__) && defined(HAVE_PUGIXML)
+    #include <pugixml.hpp> // pugi::{xml_document, xml_node, xml_parse_result}
+  #endif
 
-#include <filesystem>   // std::filesystem
-#include <future>       // std::{async, future, launch}
-#include <matchit.hpp>  // matchit::{match, is, or_, _}
-#include <system_error> // std::{errc, error_code}
+  #include <filesystem>   // std::filesystem
+  #include <future>       // std::{async, future, launch}
+  #include <matchit.hpp>  // matchit::{match, is, or_, _}
+  #include <system_error> // std::{errc, error_code}
 
-#include "Utils/Caching.hpp"
-#include <DracUtils/Env.hpp>
-#include <DracUtils/Error.hpp>
-#include <DracUtils/Logging.hpp>
-#include <DracUtils/Types.hpp>
-// clang-format on
+  #include <DracUtils/Env.hpp>
+  #include <DracUtils/Error.hpp>
+  #include <DracUtils/Logging.hpp>
+  #include <DracUtils/Types.hpp>
+
+  #include "Utils/Caching.hpp"
 
 namespace fs = std::filesystem;
 

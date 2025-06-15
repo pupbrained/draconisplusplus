@@ -1,12 +1,14 @@
-#include <Drac++/Core/System.hpp>
-#include <Drac++/Services/PackageCounting.hpp>
-#include <DracUtils/Error.hpp>
-#include <DracUtils/Logging.hpp>
-#include <DracUtils/Types.hpp>
 #include <algorithm>
 #include <chrono>
 #include <span>
 #include <vector>
+
+#include <Drac++/Core/System.hpp>
+#include <Drac++/Services/PackageCounting.hpp>
+
+#include <DracUtils/Error.hpp>
+#include <DracUtils/Logging.hpp>
+#include <DracUtils/Types.hpp>
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>

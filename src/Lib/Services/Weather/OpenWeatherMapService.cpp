@@ -1,19 +1,14 @@
 #if DRAC_ENABLE_WEATHER
 
-// clang-format off
-#include "OpenWeatherMapService.hpp"
+  #include "OpenWeatherMapService.hpp"
 
-#include <DracUtils/Error.hpp>
-#include <DracUtils/Logging.hpp>
-#include <DracUtils/Types.hpp>
-#include <utility>
-#include <variant>
+  #include "DracUtils/Error.hpp"
+  #include "DracUtils/Logging.hpp"
+  #include "DracUtils/Types.hpp"
 
-#include "Wrappers/Curl.hpp"
-
-#include "DataTransferObjects.hpp"
-#include "Utils/Caching.hpp"
-// clang-format on
+  #include "DataTransferObjects.hpp"
+  #include "Utils/Caching.hpp"
+  #include "Wrappers/Curl.hpp"
 
 using namespace util::types;
 using util::error::DracError;

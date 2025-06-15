@@ -1,14 +1,11 @@
 #if DRAC_ENABLE_WEATHER
 
-// clang-format off
-#include "Services/Weather/DataTransferObjects.hpp"
-#include "Services/Weather/WeatherUtils.hpp"
+  #include <DracUtils/Error.hpp>
+  #include <DracUtils/Types.hpp>
 
-#include <DracUtils/Error.hpp>
-#include <DracUtils/Types.hpp>
-
-#include "gtest/gtest.h"
-// clang-format on
+  #include "Services/Weather/DataTransferObjects.hpp"
+  #include "Services/Weather/WeatherUtils.hpp"
+  #include "gtest/gtest.h"
 
 using namespace util::types;
 using namespace weather::utils;

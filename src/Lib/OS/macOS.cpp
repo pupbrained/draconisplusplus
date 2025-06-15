@@ -1,28 +1,26 @@
 #ifdef __APPLE__
 
-// clang-format off
-#include "OS/macOS/Bridge.hpp"
+  #include <CoreFoundation/CFPropertyList.h> // CFPropertyListCreateWithData, kCFPropertyListImmutable
+  #include <CoreFoundation/CFStream.h>       // CFReadStreamClose, CFReadStreamCreateWithFile, CFReadStreamOpen, CFReadStreamRead, CFReadStreamRef
+  #include <IOKit/IOKitLib.h>                // IOKit types and functions
+  #include <flat_map>                        // std::flat_map
+  #include <mach/mach_host.h>                // host_statistics64
+  #include <mach/mach_init.h>                // host_page_size, mach_host_self
+  #include <mach/vm_statistics.h>            // vm_statistics64_data_t
+  #include <sys/statvfs.h>                   // statvfs
+  #include <sys/sysctl.h>                    // {CTL_KERN, KERN_PROC, KERN_PROC_ALL, kinfo_proc, sysctl, sysctlbyname}
 
-#include <CoreFoundation/CFPropertyList.h> // CFPropertyListCreateWithData, kCFPropertyListImmutable
-#include <CoreFoundation/CFStream.h>       // CFReadStreamClose, CFReadStreamCreateWithFile, CFReadStreamOpen, CFReadStreamRead, CFReadStreamRef
-#include <IOKit/IOKitLib.h>                // IOKit types and functions
-#include <flat_map>                        // std::flat_map
-#include <mach/mach_host.h>                // host_statistics64
-#include <mach/mach_init.h>                // host_page_size, mach_host_self
-#include <mach/vm_statistics.h>            // vm_statistics64_data_t
-#include <sys/statvfs.h>                   // statvfs
-#include <sys/sysctl.h>                    // {CTL_KERN, KERN_PROC, KERN_PROC_ALL, kinfo_proc, sysctl, sysctlbyname}
+  #include <Drac++/Core/System.hpp>
+  #include <Drac++/Services/PackageCounting.hpp>
 
-#include <Drac++/Core/System.hpp>
+  #include <DracUtils/Definitions.hpp>
+  #include <DracUtils/Env.hpp>
+  #include <DracUtils/Error.hpp>
+  #include <DracUtils/Formatting.hpp>
+  #include <DracUtils/Types.hpp>
 
-#include <Drac++/Services/PackageCounting.hpp>
-
-#include "Utils/Caching.hpp"
-#include <DracUtils/Definitions.hpp>
-#include <DracUtils/Env.hpp>
-#include <DracUtils/Error.hpp>
-#include <DracUtils/Types.hpp>
-// clang-format on
+  #include "OS/macOS/Bridge.hpp"
+  #include "Utils/Caching.hpp"
 
 using namespace util::types;
 using util::cache::GetValidCache, util::cache::WriteCache;
@@ -30,17 +28,17 @@ using util::error::DracError, util::error::DracErrorCode;
 using util::helpers::GetEnv;
 
 namespace {
-  fn StrEqualsIgnoreCase(StringView strA, StringView strB) -> bool {
+  fn StrEqualsIgnoreCase(StringView strA, SZStringView strB) -> bool {
     return std::ranges::equal(strA, strB, [](char aChar, char bChar) {
       return std::tolower(static_cast<u8>(aChar)) == std::tolower(static_cast<u8>(bChar));
     });
   }
 
-  fn Capitalize(StringView sview) -> Option<String> {
+  fn Capitalize(StringView sview) -> Option<SZString> {
     if (sview.empty())
       return None;
 
-    String result(sview);
+    SZString result(sview);
     result.front() = static_cast<char>(std::toupper(static_cast<u8>(result.front())));
 
     return result;
@@ -83,8 +81,12 @@ namespace os {
   }
 
   fn System::getOSVersion() -> Result<SZString> {
+    const SZString cacheKey = "macos_version";
+    if (Result<SZString> cachedVersion = GetValidCache<SZString>(cacheKey))
+      return *cachedVersion;
+
     // clang-format off
-    static constexpr Array<Pair<u8, StringView>, 6> VERSION_NAMES = {{
+    static constexpr Array<Pair<u8, SZStringView>, 6> VERSION_NAMES = {{
       { 11, "Big Sur"  },
       { 12, "Monterey" },
       { 13, "Ventura"  },
@@ -161,18 +163,18 @@ namespace os {
       return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to convert version string to C string"));
     }
 
-    String versionNumber(versionBuffer.data());
+    SZString versionNumber(versionBuffer.data());
     CFRelease(plist);
 
     if (versionNumber.empty())
       return Err(DracError(DracErrorCode::PlatformSpecific, "Version string is empty"));
 
     const usize dotPos = versionNumber.find('.');
-    if (dotPos == String::npos)
+    if (dotPos == SZString::npos)
       return Err(DracError(DracErrorCode::PlatformSpecific, "Invalid version number format"));
 
-    const u8   majorVersion = static_cast<u8>(std::stoi(versionNumber.substr(0, dotPos)));
-    StringView versionName  = "Unknown";
+    const u8     majorVersion = static_cast<u8>(std::stoi(versionNumber.substr(0, dotPos)));
+    SZStringView versionName  = "Unknown";
 
     for (const auto& [version, name] : VERSION_NAMES)
       if (version == majorVersion) {
@@ -180,15 +182,24 @@ namespace os {
         break;
       }
 
-    return SZString(std::format("macOS {} {}", versionNumber, versionName));
+    SZString version = util::formatting::SzFormat("macOS {} {}", versionNumber, versionName);
+
+    if (Result writeResult = WriteCache(cacheKey, version); !writeResult)
+      debug_at(writeResult.error());
+
+    return version;
   }
 
   fn System::getDesktopEnvironment() -> Result<SZString> {
-    return SZString("Aqua");
+    return "Aqua";
   }
 
   fn System::getWindowManager() -> Result<SZString> {
-    constexpr Array<StringView, 6> knownWms = {
+    const SZString cacheKey = "macos_wm";
+    if (Result<SZString> cachedWm = GetValidCache<SZString>(cacheKey))
+      return *cachedWm;
+
+    constexpr Array<SZStringView, 6> knownWms = {
       "yabai",
       "kwm",
       "chunkwm",
@@ -224,25 +235,33 @@ namespace os {
     std::span<const kinfo_proc> processes = std::span(reinterpret_cast<const kinfo_proc*>(buf.data()), count);
 
     for (const kinfo_proc& procInfo : processes) {
-      StringView comm(procInfo.kp_proc.p_comm);
+      SZStringView comm(procInfo.kp_proc.p_comm);
 
-      for (const StringView& wmName : knownWms)
+      for (const SZStringView& wmName : knownWms)
         if (StrEqualsIgnoreCase(comm, wmName)) {
-          if (const Option<String> capitalized = Capitalize(comm))
-            return SZString(*capitalized);
+          if (const Option<SZString> capitalized = Capitalize(comm)) {
+            if (Result writeResult = WriteCache(cacheKey, *capitalized); !writeResult)
+              debug_at(writeResult.error());
+            return *capitalized;
+          }
 
           return Err(DracError(DracErrorCode::ParseError, "Failed to capitalize window manager name"));
         }
     }
 
-    return SZString("Quartz");
+    SZString manager = "Quartz";
+
+    if (Result writeResult = WriteCache(cacheKey, manager); !writeResult)
+      debug_at(writeResult.error());
+
+    return manager;
   }
 
   fn System::getKernelVersion() -> Result<SZString> {
-    const String cacheKey = "macos_kernel";
+    const SZString cacheKey = "macos_kernel";
 
-    if (Result<String> cachedKernel = GetValidCache<String>(cacheKey))
-      return SZString(*cachedKernel);
+    if (Result<SZString> cachedKernel = GetValidCache<SZString>(cacheKey))
+      return *cachedKernel;
 
     Array<char, 256> kernelVersion {};
     usize            kernelVersionLen = sizeof(kernelVersion);
@@ -250,18 +269,17 @@ namespace os {
     if (sysctlbyname("kern.osrelease", kernelVersion.data(), &kernelVersionLen, nullptr, 0) == -1)
       return Err(DracError("Failed to get kernel version"));
 
-    String version(kernelVersion.data());
-    if (Result writeResult = WriteCache(cacheKey, version); !writeResult)
+    if (Result writeResult = WriteCache(cacheKey, kernelVersion.data()); !writeResult)
       debug_at(writeResult.error());
 
-    return SZString(version);
+    return kernelVersion.data();
   }
 
   fn System::getHost() -> Result<SZString> {
-    const String cacheKey = "macos_host";
+    const SZString cacheKey = "macos_host";
 
-    if (Result<String> cachedHost = GetValidCache<String>(cacheKey))
-      return SZString(*cachedHost);
+    if (Result<SZString> cachedHost = GetValidCache<SZString>(cacheKey))
+      return *cachedHost;
 
     Array<char, 256> hwModel {};
     usize            hwModelLen = sizeof(hwModel);
@@ -271,7 +289,7 @@ namespace os {
 
     // taken from https://github.com/fastfetch-cli/fastfetch/blob/dev/src/detection/host/host_mac.c
     // shortened a lot of the entries to remove unnecessary info
-    static const std::flat_map<StringView, StringView> MODEL_NAME_BY_HW_MODEL = {
+    static const std::flat_map<SZStringView, SZStringView> MODEL_NAME_BY_HW_MODEL = {
       // MacBook Pro
       { "MacBookPro18,3",      "MacBook Pro (14-inch, 2021)" },
       { "MacBookPro18,4",      "MacBook Pro (14-inch, 2021)" },
@@ -424,7 +442,7 @@ namespace os {
     if (iter == MODEL_NAME_BY_HW_MODEL.end())
       return Err(DracError("Failed to get host info"));
 
-    String host(iter->second);
+    SZString host(iter->second);
     if (Result writeResult = WriteCache(cacheKey, host); !writeResult)
       debug_at(writeResult.error());
 
@@ -442,7 +460,20 @@ namespace os {
   }
 
   fn System::getGPUModel() -> Result<SZString> {
-    return bridge::GetGPUModel();
+    const SZString cacheKey = "macos_gpu";
+
+    if (Result<SZString> cachedGPU = GetValidCache<SZString>(cacheKey))
+      return *cachedGPU;
+
+    const Result<SZString> gpuModel = bridge::GetGPUModel();
+
+    if (!gpuModel)
+      return Err(DracError("Failed to get GPU model"));
+
+    if (Result writeResult = WriteCache(cacheKey, *gpuModel); !writeResult)
+      debug_at(writeResult.error());
+
+    return *gpuModel;
   }
 
   fn System::getDiskUsage() -> Result<ResourceUsage> {
@@ -458,9 +489,9 @@ namespace os {
   }
 
   fn System::getShell() -> Result<SZString> {
-    if (const Result<String> shellPath = GetEnv("SHELL")) {
+    if (const Result<SZString> shellPath = GetEnv("SHELL")) {
       // clang-format off
-      constexpr Array<Pair<StringView, StringView>, 8> shellMap {{
+      constexpr Array<Pair<SZStringView, SZStringView>, 8> shellMap {{
         { "bash", "Bash"      },
         { "zsh",  "Zsh"       },
         { "ksh",  "KornShell" },
@@ -474,9 +505,9 @@ namespace os {
 
       for (const auto& [exe, name] : shellMap)
         if (shellPath->ends_with(exe))
-          return SZString(name);
+          return name;
 
-      return SZString(*shellPath);
+      return *shellPath;
     }
 
     return Err(DracError(DracErrorCode::NotFound, "Could not find SHELL environment variable"));
@@ -488,7 +519,7 @@ namespace package {
   namespace fs = std::filesystem;
 
   fn GetHomebrewCount() -> Result<u64> {
-    const String cacheKey = "homebrew_total";
+    const SZString cacheKey = "homebrew_total";
 
     if (Result<u64> cachedCountResult = GetValidCache<u64>(cacheKey))
       return *cachedCountResult;
@@ -510,8 +541,8 @@ namespace package {
         continue;
       }
 
-      const String cacheKey = "homebrew_" + cellarPath.filename().string();
-      Result       dirCount = GetCountFromDirectory(cacheKey, cellarPath, true);
+      const SZString cacheKey = "homebrew_" + cellarPath.filename().string();
+      Result         dirCount = GetCountFromDirectory(cacheKey, cellarPath, true);
 
       if (!dirCount) {
         if (dirCount.error().code != DracErrorCode::NotFound)

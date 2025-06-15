@@ -2,13 +2,11 @@
 
 #if DRAC_ENABLE_PACKAGECOUNT
 
-// clang-format off
-#include <filesystem> // std::filesystem::path
+  #include <filesystem> // std::filesystem::path
 
-#include "DracUtils/Definitions.hpp"
-#include "DracUtils/Error.hpp"
-#include "DracUtils/Types.hpp"
-// clang-format on
+  #include "DracUtils/Definitions.hpp"
+  #include "DracUtils/Error.hpp"
+  #include "DracUtils/Types.hpp"
 
 namespace package {
   /**

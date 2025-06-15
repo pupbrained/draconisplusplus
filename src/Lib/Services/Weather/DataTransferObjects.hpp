@@ -3,13 +3,13 @@
 #if DRAC_ENABLE_WEATHER
 
 // clang-format off
-// we need glaze.hpp include before any other includes that might use it
-// because core/meta.hpp complains about not having uint8_t defined otherwise
-#include <glaze/glaze.hpp>
-#include <glaze/core/meta.hpp>
-#include <glaze/json/read.hpp>
+  // we need glaze.hpp include before any other includes that might use it
+  // because core/meta.hpp complains about not having uint8_t defined otherwise
+  #include <glaze/glaze.hpp>
+  #include <glaze/core/meta.hpp>
+  #include <glaze/json/read.hpp>
 
-#include "DracUtils/Types.hpp"
+  #include "DracUtils/Types.hpp"
 // clang-format on
 
 namespace weather::dto {

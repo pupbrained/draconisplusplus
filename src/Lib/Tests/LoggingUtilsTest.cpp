@@ -1,3 +1,5 @@
+#include <ftxui/screen/color.hpp> // ftxui::Color
+
 #include <DracUtils/Logging.hpp>
 #include <DracUtils/Types.hpp>
 

@@ -1,6 +1,6 @@
-#include <DracUtils/Types.hpp>
-
 #include "Drac++/Services/Weather.hpp"
+
+#include "DracUtils/Types.hpp"
 
 #include "Services/Weather/MetNoService.hpp"
 #include "Services/Weather/OpenMeteoService.hpp"

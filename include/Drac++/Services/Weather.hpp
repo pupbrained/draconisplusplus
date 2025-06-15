@@ -2,16 +2,14 @@
 
 #if DRAC_ENABLE_WEATHER
 
-// clang-format off
-#include <glaze/core/common.hpp> // object
-#include <glaze/core/meta.hpp>   // Object
-#include <matchit.hpp>
-#include <variant>
+  #include <glaze/core/common.hpp> // object
+  #include <glaze/core/meta.hpp>   // Object
+  #include <matchit.hpp>
+  #include <variant>
 
-#include "DracUtils/Error.hpp"
-#include "DracUtils/Formatting.hpp"
-#include "DracUtils/Types.hpp"
-// clang-format on
+  #include "DracUtils/Error.hpp"
+  #include "DracUtils/Formatting.hpp"
+  #include "DracUtils/Types.hpp"
 
 namespace weather {
   /**

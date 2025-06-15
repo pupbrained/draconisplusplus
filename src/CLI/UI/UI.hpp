@@ -3,10 +3,11 @@
 #include <ftxui/dom/elements.hpp> // ftxui::Element
 #include <ftxui/screen/color.hpp> // ftxui::Color
 
-#include "Config/Config.hpp"
+#include <Drac++/Core/System.hpp>
 
-#include "Drac++/Core/System.hpp"
-#include "DracUtils/Types.hpp"
+#include <DracUtils/Types.hpp>
+
+#include "Config/Config.hpp"
 
 namespace ui {
   struct Theme {

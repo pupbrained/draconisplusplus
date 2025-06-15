@@ -4,14 +4,15 @@
 #include <DracUtils/Logging.hpp>
 
 #if !DRAC_PRECOMPILED_CONFIG
-  #include <DracUtils/Env.hpp>
-  #include <DracUtils/Types.hpp>
   #include <filesystem>                // std::filesystem::{path, operator/, exists, create_directories}
   #include <fstream>                   // std::{ifstream, ofstream, operator<<}
   #include <system_error>              // std::error_code
   #include <toml++/impl/node_view.hpp> // toml::node_view
   #include <toml++/impl/parser.hpp>    // toml::{parse_file, parse_result}
   #include <toml++/impl/table.hpp>     // toml::table
+
+  #include <DracUtils/Env.hpp>
+  #include <DracUtils/Types.hpp>
 
 namespace fs = std::filesystem;
 #else
@@ -80,13 +81,13 @@ namespace {
       }
 
       const SZString defaultName   = General::getDefaultName();
-      SZString     configContent = util::formatting::SzFormat(R"toml(# Draconis++ Configuration File
+      SZString       configContent = util::formatting::SzFormat(R"toml(# Draconis++ Configuration File
 
 # General settings
 [general]
 name = "{}" # Your display name
 )toml",
-                                                        defaultName);
+                                                          defaultName);
 
   #if DRAC_ENABLE_NOWPLAYING
       configContent += R"toml(

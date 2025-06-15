@@ -1,15 +1,13 @@
 #if DRAC_ENABLE_WEATHER
 
-// clang-format off
-#include "WeatherUtils.hpp"
+  #include "WeatherUtils.hpp"
 
-#include <charconv> // For std::from_chars
-#include <ctime>    // For std::tm, timegm, _mkgmtime
+  #include <charconv> // For std::from_chars
+  #include <ctime>    // For std::tm, timegm, _mkgmtime
 
-#ifdef __HAIKU__
-  #define _DEFAULT_SOURCE // exposes timegm
-#endif
-// clang-format on
+  #ifdef __HAIKU__
+    #define _DEFAULT_SOURCE // exposes timegm
+  #endif
 
 using namespace util::types;
 using util::error::DracError;

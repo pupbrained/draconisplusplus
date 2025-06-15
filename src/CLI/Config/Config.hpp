@@ -58,8 +58,8 @@ struct General {
     using util::helpers::GetEnv;
     using util::types::CStr, util::types::SZString, util::types::Result;
 
-    const passwd*        pwd        = getpwuid(getuid());
-    CStr                 pwdName    = pwd ? pwd->pw_name : nullptr;
+    const passwd*          pwd        = getpwuid(getuid());
+    CStr                   pwdName    = pwd ? pwd->pw_name : nullptr;
     const Result<SZString> envUser    = GetEnv("USER");
     const Result<SZString> envLogname = GetEnv("LOGNAME");
 
@@ -117,9 +117,9 @@ struct NowPlaying {
  * @brief Holds configuration settings for the Weather feature.
  */
 struct Weather {
-  weather::Location                        location; ///< Location for weather data, can be a city name or coordinates.
+  weather::Location                          location; ///< Location for weather data, can be a city name or coordinates.
   util::types::Option<util::types::SZString> apiKey;   ///< API key for the weather service.
-  weather::Unit                            units;    ///< Units for temperature, either "metric" or "imperial".
+  weather::Unit                              units;    ///< Units for temperature, either "metric" or "imperial".
 
   bool                                      enabled      = false;   ///< Flag to enable or disable the Weather feature.
   bool                                      showTownName = false;   ///< Flag to show the town name in the output.
@@ -151,7 +151,7 @@ struct Weather {
       return weather;
 
     weather.showTownName = tbl["show_town_name"].value_or(false);
-    SZString unitsStr      = tbl["units"].value_or("metric");
+    SZString unitsStr    = tbl["units"].value_or("metric");
 
     match(unitsStr)(
       is | "metric"   = [&]() { weather.units = weather::Unit::METRIC; },

@@ -2,12 +2,10 @@
 
 #if DRAC_ENABLE_WEATHER
 
-// clang-format off
-#include <unordered_map>
+  #include <unordered_map>
 
-#include "DracUtils/Error.hpp"
-#include "DracUtils/Types.hpp"
-// clang-format on
+  #include "DracUtils/Error.hpp"
+  #include "DracUtils/Types.hpp"
 
 namespace weather::utils {
   /**

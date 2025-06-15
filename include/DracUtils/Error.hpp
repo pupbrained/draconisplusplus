@@ -5,8 +5,6 @@
 #include <source_location> // std::source_location
 #include <system_error>    // std::error_code
 
-#include "Formatting.hpp"
-
 #ifdef _WIN32
   #include <guiddef.h>    // GUID
   #include <winerror.h>   // error values
@@ -14,6 +12,7 @@
 #endif
 
 #include "Definitions.hpp"
+#include "Formatting.hpp"
 #include "Types.hpp"
 
 namespace util::error {

@@ -1,4 +1,3 @@
-#include <DracUtils/Error.hpp>
 #include <argparse.hpp>            // argparse::ArgumentParser
 #include <cstdlib>                 // EXIT_FAILURE, EXIT_SUCCESS
 #include <ftxui/dom/elements.hpp>  // ftxui::{Element, hbox, vbox, text, separator, filler, etc.}
@@ -13,7 +12,9 @@
 #endif
 
 #include <Drac++/Core/System.hpp>
+
 #include <DracUtils/Definitions.hpp>
+#include <DracUtils/Error.hpp>
 #include <DracUtils/Logging.hpp>
 #include <DracUtils/Types.hpp>
 

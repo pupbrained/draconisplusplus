@@ -1,14 +1,12 @@
 #ifdef __APPLE__
 
-// clang-format off
-#include "Bridge.hpp"
+  #include "Bridge.hpp"
 
-#include <Metal/Metal.h>       // MTLDevice
-#include <dispatch/dispatch.h> // dispatch_semaphore_t, dispatch_queue_t
-#include <memory>              // std::shared_ptr, std::remove_pointer_t
+  #include <Metal/Metal.h>       // MTLDevice
+  #include <dispatch/dispatch.h> // dispatch_semaphore_t, dispatch_queue_t
+  #include <memory>              // std::shared_ptr, std::remove_pointer_t
 
-#include <DracUtils/Error.hpp>
-// clang-format on
+  #include <DracUtils/Error.hpp>
 
 using namespace util::types;
 using util::error::DracError;

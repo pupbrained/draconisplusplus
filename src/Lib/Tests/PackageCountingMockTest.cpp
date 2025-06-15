@@ -1,6 +1,12 @@
+#include <filesystem> // std::filesystem::{path, temp_directory_path}
+
 #include <Drac++/Services/PackageCounting.hpp>
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
+
+#include <DracUtils/Error.hpp>
+#include <DracUtils/Types.hpp>
+
+#include "gmock/gmock.h"
+#include "gtest/gtest.h"
 
 using namespace testing;
 using namespace package;

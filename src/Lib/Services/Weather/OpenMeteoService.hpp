@@ -2,10 +2,9 @@
 
 #if DRAC_ENABLE_WEATHER
 
-// clang-format off
-#include "Drac++/Services/Weather.hpp"
-#include "DracUtils/Types.hpp"
-// clang-format on
+  #include "Drac++/Services/Weather.hpp"
+
+  #include "DracUtils/Types.hpp"
 
 namespace weather {
   class OpenMeteoService final : public IWeatherService {

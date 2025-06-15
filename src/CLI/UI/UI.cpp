@@ -1,10 +1,10 @@
 #include "UI.hpp"
 
-#include <DracUtils/Logging.hpp>
-#include <DracUtils/Types.hpp>
+#include <ftxui/dom/elements.hpp>
 #include <ranges> // std::ranges::{begin, end, iota, transform}
 
-#include "ftxui/dom/elements.hpp"
+#include <DracUtils/Logging.hpp>
+#include <DracUtils/Types.hpp>
 
 using namespace ftxui;
 using namespace util::types;
@@ -286,14 +286,14 @@ namespace ui {
         envInfoRows.push_back({ .icon = wmIcon, .label = "WM", .value = *data.windowMgr });
 
 #if DRAC_ENABLE_NOWPLAYING
-    bool   nowPlayingActive = false;
+    bool     nowPlayingActive = false;
     SZString npText;
 
     if (config.nowPlaying.enabled && data.nowPlaying) {
       const SZString title  = data.nowPlaying->title.value_or("Unknown Title");
       const SZString artist = data.nowPlaying->artist.value_or("Unknown Artist");
-      npText              = artist + " - " + title;
-      nowPlayingActive    = true;
+      npText                = artist + " - " + title;
+      nowPlayingActive      = true;
     }
 #endif
 

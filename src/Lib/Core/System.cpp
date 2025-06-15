@@ -1,7 +1,8 @@
-#include <Drac++/Core/System.hpp>
 #include <chrono>      // std::chrono::system_clock
 #include <ctime>       // localtime_r/s, strftime, time_t, tm
 #include <matchit.hpp> // matchit::{match, is, in, _}
+
+#include <Drac++/Core/System.hpp>
 
 #if DRAC_ENABLE_PACKAGECOUNT
   #include <Drac++/Services/PackageCounting.hpp>
