@@ -9,13 +9,13 @@
 namespace weather {
   class OpenWeatherMapService final : public IWeatherService {
    public:
-    OpenWeatherMapService(Location location, util::types::SZString apiKey, Unit units);
+    OpenWeatherMapService(Location location, util::types::String apiKey, Unit units);
     fn getWeatherInfo() const -> util::types::Result<WeatherReport> override;
 
    private:
-    Location              m_location;
-    util::types::SZString m_apiKey;
-    Unit                  m_units;
+    Location            m_location;
+    util::types::String m_apiKey;
+    Unit                m_units;
   };
 } // namespace weather
 

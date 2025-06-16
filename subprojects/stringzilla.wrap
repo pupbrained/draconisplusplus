@@ -1,7 +1,0 @@
-[wrap-git]
-url = https://github.com/ashvardanian/stringzilla.git
-revision = main
-depth = 1
-
-[provide]
-stringzilla_dep = stringzilla_dep 

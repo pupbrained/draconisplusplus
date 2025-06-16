@@ -20,7 +20,7 @@ namespace weather::dto {
     };
 
     struct Next1hSummary {
-      util::types::SZString symbolCode;
+      util::types::String symbolCode;
     };
 
     struct Next1h {
@@ -37,8 +37,8 @@ namespace weather::dto {
     };
 
     struct Timeseries {
-      util::types::SZString time;
-      Data                  data;
+      util::types::String time;
+      Data                data;
     };
 
     struct Properties {
@@ -54,9 +54,9 @@ namespace weather::dto {
   namespace openmeteo {
     struct Response {
       struct Current {
-        util::types::f64      temperature;
-        util::types::i32      weathercode;
-        util::types::SZString time;
+        util::types::f64    temperature;
+        util::types::i32    weathercode;
+        util::types::String time;
       } currentWeather;
     };
   } // namespace openmeteo
@@ -69,15 +69,15 @@ namespace weather::dto {
       };
 
       struct Weather {
-        util::types::SZString description;
+        util::types::String description;
       };
 
-      Main                                       main;
-      util::types::Vec<Weather>                  weather;
-      util::types::SZString                      name;
-      util::types::i64                           dt;
-      util::types::Option<util::types::i32>      cod;
-      util::types::Option<util::types::SZString> message;
+      Main                                     main;
+      util::types::Vec<Weather>                weather;
+      util::types::String                      name;
+      util::types::i64                         dt;
+      util::types::Option<util::types::i32>    cod;
+      util::types::Option<util::types::String> message;
     };
   } // namespace owm
 } // namespace weather::dto

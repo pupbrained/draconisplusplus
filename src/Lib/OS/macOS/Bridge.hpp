@@ -8,7 +8,7 @@
 
 namespace os::bridge {
   fn GetNowPlayingInfo() -> util::types::Result<util::types::MediaInfo>;
-  fn GetGPUModel() -> util::types::Result<util::types::SZString>;
+  fn GetGPUModel() -> util::types::Result<util::types::String>;
 } // namespace os::bridge
 
 #endif

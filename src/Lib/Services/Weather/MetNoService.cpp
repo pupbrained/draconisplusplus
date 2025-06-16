@@ -3,7 +3,6 @@
   #include "MetNoService.hpp"
 
   #include "DracUtils/Error.hpp"
-  #include "DracUtils/Formatting.hpp"
   #include "DracUtils/Types.hpp"
 
   #include "DataTransferObjects.hpp"
@@ -30,14 +29,14 @@ fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
   else
     debug_at(cachedDataResult.error());
 
-  SZString responseBuffer;
+  String responseBuffer;
 
   Curl::Easy curl({
-    .url                = util::formatting::SzFormat("https://api.met.no/weatherapi/locationforecast/2.0/compact?lat={:.4f}&lon={:.4f}", m_lat, m_lon),
+    .url                = std::format("https://api.met.no/weatherapi/locationforecast/2.0/compact?lat={:.4f}&lon={:.4f}", m_lat, m_lon),
     .writeBuffer        = &responseBuffer,
     .timeoutSecs        = 10L,
     .connectTimeoutSecs = 5L,
-    .userAgent          = SZString("draconisplusplus/" DRACONISPLUSPLUS_VERSION " git.pupbrained.xyz/draconisplusplus"),
+    .userAgent          = String("draconisplusplus/" DRACONISPLUSPLUS_VERSION " git.pupbrained.xyz/draconisplusplus"),
   });
 
   if (!curl) {
@@ -53,7 +52,7 @@ fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
   weather::dto::metno::Response apiResp {};
 
   if (error_ctx errc = read<glz::opts { .error_on_unknown_keys = false }>(apiResp, responseBuffer); errc.ec != error_code::none)
-    return Err(DracError(ParseError, util::formatting::SzFormat("Failed to parse JSON response: {}", format_error(errc, responseBuffer.data()))));
+    return Err(DracError(ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer.data()))));
 
   if (apiResp.properties.timeseries.empty())
     return Err(DracError(ParseError, "No timeseries data in met.no response"));
@@ -65,10 +64,10 @@ fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
   if (m_units == Unit::IMPERIAL)
     temp = temp * 9.0 / 5.0 + 32.0;
 
-  SZString symbolCode = data.next1Hours ? data.next1Hours->summary.symbolCode : "";
+  String symbolCode = data.next1Hours ? data.next1Hours->summary.symbolCode : "";
 
   if (!symbolCode.empty()) {
-    const SZStringView strippedSymbol = weather::utils::StripTimeOfDayFromSymbol(symbolCode);
+    const String strippedSymbol = weather::utils::StripTimeOfDayFromSymbol(symbolCode);
 
     if (auto iter = weather::utils::GetMetnoSymbolDescriptions().find(strippedSymbol); iter != weather::utils::GetMetnoSymbolDescriptions().end())
       symbolCode = iter->second;

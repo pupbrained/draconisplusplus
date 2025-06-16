@@ -35,7 +35,7 @@ namespace {
 } // namespace
 
 namespace os {
-  fn System::getDate() -> Result<SZString> {
+  fn System::getDate() -> Result<String> {
     using std::chrono::system_clock;
 
     const system_clock::time_point nowTp = system_clock::now();
@@ -50,14 +50,14 @@ namespace os {
 #endif
       i32 day = nowTm.tm_mday;
 
-      SZString monthBuffer(32, '\0');
+      String monthBuffer(32, '\0');
 
       if (const usize monthLen = std::strftime(monthBuffer.data(), monthBuffer.size(), "%B", &nowTm); monthLen > 0) {
         monthBuffer.resize(monthLen);
 
         CStr suffix = getOrdinalSuffix(day);
 
-        return util::formatting::SzFormat("{} {}{}", monthBuffer, day, suffix);
+        return std::format("{} {}{}", monthBuffer, day, suffix);
       }
 
       return Err(DracError(ParseError, "Failed to format date"));

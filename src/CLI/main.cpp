@@ -73,7 +73,7 @@ namespace {
       failures.emplace_back("Weather", data.weather.error());
 #endif
 
-    const util::types::SZString summary = util::formatting::SzFormat(
+    const util::types::String summary = std::format(
       "We've collected a total of {} readouts including {} failed read{}.\n\n",
       totalPossibleReadouts,
       failures.size(),
@@ -81,13 +81,13 @@ namespace {
     );
 
 #ifdef __cpp_lib_print
-    std::println("{}", summary.c_str());
+    std::println("{}", summary);
 #else
     std::cout << summary;
 #endif
 
     for (const auto& [readout, err] : failures) {
-      const util::types::SZString failureLine = util::formatting::SzFormat(
+      const util::types::String failureLine = std::format(
         "Readout \"{}\" failed: {} (code: {})\n",
         readout,
         err.message,
@@ -95,7 +95,7 @@ namespace {
       );
 
 #ifdef __cpp_lib_print
-      std::println("{}", failureLine.c_str());
+      std::println("{}", failureLine);
 #else
       std::cout << failureLine;
 #endif
@@ -113,17 +113,17 @@ namespace {
     os::System system;
 
     // Use batch operations for related information
-    Future<Result<SZString>>      osFut     = std::async(async, &os::System::getOSVersion);
-    Future<Result<SZString>>      kernelFut = std::async(async, &os::System::getKernelVersion);
-    Future<Result<SZString>>      hostFut   = std::async(async, &os::System::getHost);
-    Future<Result<SZString>>      cpuFut    = std::async(async, &os::System::getCPUModel);
-    Future<Result<SZString>>      gpuFut    = std::async(async, &os::System::getGPUModel);
-    Future<Result<SZString>>      deFut     = std::async(async, &os::System::getDesktopEnvironment);
-    Future<Result<SZString>>      wmFut     = std::async(async, &os::System::getWindowManager);
-    Future<Result<SZString>>      shellFut  = std::async(async, &os::System::getShell);
+    Future<Result<String>>        osFut     = std::async(async, &os::System::getOSVersion);
+    Future<Result<String>>        kernelFut = std::async(async, &os::System::getKernelVersion);
+    Future<Result<String>>        hostFut   = std::async(async, &os::System::getHost);
+    Future<Result<String>>        cpuFut    = std::async(async, &os::System::getCPUModel);
+    Future<Result<String>>        gpuFut    = std::async(async, &os::System::getGPUModel);
+    Future<Result<String>>        deFut     = std::async(async, &os::System::getDesktopEnvironment);
+    Future<Result<String>>        wmFut     = std::async(async, &os::System::getWindowManager);
+    Future<Result<String>>        shellFut  = std::async(async, &os::System::getShell);
     Future<Result<ResourceUsage>> memFut    = std::async(async, &os::System::getMemInfo);
     Future<Result<ResourceUsage>> diskFut   = std::async(async, &os::System::getDiskUsage);
-    Future<Result<SZString>>      dateFut   = std::async(async, &os::System::getDate);
+    Future<Result<String>>        dateFut   = std::async(async, &os::System::getDate);
 
 #if DRAC_ENABLE_PACKAGECOUNT
     Future<Result<u64>> pkgFut = std::async(async, package::GetTotalCount, config.enabledPackageManagers);

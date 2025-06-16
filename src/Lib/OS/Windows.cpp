@@ -46,7 +46,7 @@ namespace {
   constexpr ULONG     KUSER_SHARED_NtMinorVersion = KUSER_SHARED_DATA + 0x270; ///< Offset to the NtMinorVersion field
   constexpr ULONG     KUSER_SHARED_NtBuildNumber  = KUSER_SHARED_DATA + 0x260; ///< Offset to the NtBuildNumber field
 
-  [[nodiscard]] fn ConvertWStringToUTF8(const std::wstring& wstr) -> SZString {
+  [[nodiscard]] fn ConvertWStringToUTF8(const std::wstring& wstr) -> String {
     if (wstr.empty())
       return {};
 
@@ -64,7 +64,7 @@ namespace {
     if (requiredSize == 0)
       return {};
 
-    SZString result(requiredSize, '\0');
+    String result(requiredSize, '\0');
 
     const int bytesConverted = WideCharToMultiByte(
       CP_UTF8,
@@ -88,8 +88,8 @@ namespace {
   } registryBuffer;
 
   struct ProcessData {
-    DWORD    parentPid = 0;
-    SZString baseExeNameLower;
+    DWORD  parentPid = 0;
+    String baseExeNameLower;
   };
 
   class RegistryCache {
@@ -176,7 +176,7 @@ namespace {
           bufferSpan[view.length() - 4] = L'\0';
         }
 
-        const SZString finalBaseName = ConvertWStringToUTF8(tempBaseName.data());
+        const String finalBaseName = ConvertWStringToUTF8(tempBaseName.data());
 
         m_processMap[pe32.th32ProcessID] = ProcessData {
           .parentPid        = pe32.th32ParentProcessID,
@@ -200,13 +200,13 @@ namespace {
   };
 
   // clang-format off
-  constexpr Array<Pair<SZStringView, SZStringView>, 3> windowsShellMap = {{
+  constexpr Array<Pair<StringView, StringView>, 3> windowsShellMap = {{
     {        "cmd",  "Command Prompt" },
     { "powershell",      "PowerShell" },
     {       "pwsh", "PowerShell Core" },
   }};
 
-  constexpr Array<Pair<SZStringView, SZStringView>, 3> msysShellMap = {{
+  constexpr Array<Pair<StringView, StringView>, 3> msysShellMap = {{
     { "bash", "Bash" },
     {  "zsh",  "Zsh" },
     { "fish", "Fish" },
@@ -262,7 +262,7 @@ namespace {
   }
 
   template <usize sz>
-  fn FindShellInProcessTree(const DWORD startPid, const Array<Pair<SZStringView, SZStringView>, sz>& shellMap) -> Result<SZString> {
+  fn FindShellInProcessTree(const DWORD startPid, const Array<Pair<StringView, StringView>, sz>& shellMap) -> Result<String> {
     if (startPid == 0)
       return Err(DracError(PlatformSpecific, "Start PID is 0"));
 
@@ -279,11 +279,11 @@ namespace {
       if (procIt == processMap.end())
         break;
 
-      const SZString& processName = procIt->second.baseExeNameLower;
+      const String& processName = procIt->second.baseExeNameLower;
 
-      if (const auto mapIter = std::ranges::find_if(shellMap, [&](const Pair<SZStringView, SZStringView>& pair) { return SZStringView { processName } == pair.first; });
+      if (const auto mapIter = std::ranges::find_if(shellMap, [&](const Pair<StringView, StringView>& pair) { return StringView { processName } == pair.first; });
           mapIter != std::ranges::end(shellMap))
-        return mapIter->second;
+        return String(mapIter->second);
 
       currentPid = procIt->second.parentPid;
       depth++;
@@ -318,7 +318,7 @@ namespace os {
     if (GlobalMemoryStatusEx(&MemInfo))
       return ResourceUsage { .usedBytes = MemInfo.ullTotalPhys - MemInfo.ullAvailPhys, .totalBytes = MemInfo.ullTotalPhys };
 
-    return Err(DracError(PlatformSpecific, util::formatting::SzFormat("GlobalMemoryStatusEx failed with error code {}", GetLastError())));
+    return Err(DracError(PlatformSpecific, std::format("GlobalMemoryStatusEx failed with error code {}", GetLastError())));
   }
 
   #if DRAC_ENABLE_NOWPLAYING
@@ -345,7 +345,7 @@ namespace os {
   }
   #endif // DRAC_ENABLE_NOWPLAYING
 
-  fn System::getOSVersion() -> Result<SZString> {
+  fn System::getOSVersion() -> Result<String> {
     try {
       RegistryCache& registry = RegistryCache::getInstance();
 
@@ -374,18 +374,18 @@ namespace os {
 
       const std::wstring displayVersion = GetRegistryValue(currentVersionKey, DISPLAY_VERSION);
 
-      SZString productNameUTF8 = ConvertWStringToUTF8(productName);
+      String productNameUTF8 = ConvertWStringToUTF8(productName);
 
       if (displayVersion.empty())
         return productNameUTF8;
 
-      SZString displayVersionUTF8 = ConvertWStringToUTF8(displayVersion);
+      String displayVersionUTF8 = ConvertWStringToUTF8(displayVersion);
 
       return productNameUTF8 + " " + displayVersionUTF8;
     } catch (const std::exception& e) { return Err(DracError(e)); }
   }
 
-  fn System::getHost() -> Result<SZString> {
+  fn System::getHost() -> Result<String> {
     RegistryCache& registry          = RegistryCache::getInstance();
     HKEY           hardwareConfigKey = registry.getHardwareConfigKey();
 
@@ -398,17 +398,17 @@ namespace os {
     return ConvertWStringToUTF8(systemFamily);
   }
 
-  fn System::getKernelVersion() -> Result<SZString> {
+  fn System::getKernelVersion() -> Result<String> {
     // NOLINTBEGIN(*-pro-type-reinterpret-cast, *-no-int-to-ptr)
     const ULONG majorVersion = *reinterpret_cast<const ULONG*>(KUSER_SHARED_NtMajorVersion);
     const ULONG minorVersion = *reinterpret_cast<const ULONG*>(KUSER_SHARED_NtMinorVersion);
     const ULONG buildNumber  = *reinterpret_cast<const ULONG*>(KUSER_SHARED_NtBuildNumber);
     // NOLINTEND(*-pro-type-reinterpret-cast, *-no-int-to-ptr)
 
-    return util::formatting::SzFormat("{}.{}.{}", majorVersion, minorVersion, buildNumber);
+    return std::format("{}.{}.{}", majorVersion, minorVersion, buildNumber);
   }
 
-  fn System::getWindowManager() -> Result<SZString> {
+  fn System::getWindowManager() -> Result<String> {
     BOOL compositionEnabled = FALSE;
 
     if (SUCCEEDED(DwmIsCompositionEnabled(&compositionEnabled)))
@@ -417,7 +417,7 @@ namespace os {
     return Err(DracError(NotFound, "Failed to get window manager (DwmIsCompositionEnabled failed"));
   }
 
-  fn System::getDesktopEnvironment() -> Result<SZString> {
+  fn System::getDesktopEnvironment() -> Result<String> {
     RegistryCache& registry = RegistryCache::getInstance();
 
     HKEY currentVersionKey = registry.getCurrentVersionKey();
@@ -465,33 +465,32 @@ namespace os {
     } catch (...) { return Err(DracError(ParseError, "Failed to parse CurrentBuildNumber")); }
   }
 
-  fn System::getShell() -> Result<SZString> {
+  fn System::getShell() -> Result<String> {
     using util::helpers::GetEnv;
 
-    if (const Result<SZString> msystemResult = GetEnv("MSYSTEM"); msystemResult && !msystemResult->empty()) {
-      SZString shellPath;
+    if (const Result<String> msystemResult = GetEnv("MSYSTEM"); msystemResult && !msystemResult->empty()) {
+      String shellPath;
 
-      if (const Result<SZString> shellResult = GetEnv("SHELL"); shellResult && !shellResult->empty())
+      if (const Result<String> shellResult = GetEnv("SHELL"); shellResult && !shellResult->empty())
         shellPath = *shellResult;
-      else if (const Result<SZString> loginShellResult = GetEnv("LOGINSHELL"); loginShellResult && !loginShellResult->empty())
+      else if (const Result<String> loginShellResult = GetEnv("LOGINSHELL"); loginShellResult && !loginShellResult->empty())
         shellPath = *loginShellResult;
 
       if (!shellPath.empty()) {
         const usize lastSlash = shellPath.find_last_of("\\/");
-        SZString    shellExe  = (lastSlash != SZString::npos) ? shellPath.substr(lastSlash + 1) : shellPath;
+        String      shellExe  = (lastSlash != String::npos) ? shellPath.substr(lastSlash + 1) : shellPath;
         std::ranges::transform(shellExe, shellExe.begin(), [](const u8 character) { return std::tolower(character); });
         if (shellExe.ends_with(".exe"))
           shellExe.resize(shellExe.length() - 4);
 
-        if (const auto iter = std::ranges::find_if(msysShellMap, [&](const Pair<SZStringView, SZStringView>& pair) { return SZStringView { shellExe } == pair.first; });
-            iter != std::ranges::end(msysShellMap))
-          return iter->second;
+        if (const auto iter = std::ranges::find_if(msysShellMap, [&](const Pair<StringView, StringView>& pair) { return StringView { shellExe } == pair.first; }); iter != std::ranges::end(msysShellMap))
+          return String(iter->second);
 
         return Err(DracError(NotFound, "Shell not found"));
       }
 
-      const DWORD            currentPid = GetCurrentProcessId();
-      const Result<SZString> msysShell  = FindShellInProcessTree(currentPid, msysShellMap);
+      const DWORD          currentPid = GetCurrentProcessId();
+      const Result<String> msysShell  = FindShellInProcessTree(currentPid, msysShellMap);
 
       if (msysShell)
         return *msysShell;
@@ -501,7 +500,7 @@ namespace os {
 
     const DWORD currentPid = GetCurrentProcessId();
 
-    if (const Result<SZString> windowsShell = FindShellInProcessTree(currentPid, windowsShellMap))
+    if (const Result<String> windowsShell = FindShellInProcessTree(currentPid, windowsShellMap))
       return *windowsShell;
 
     return Err(DracError(NotFound, "Shell not found"));
@@ -516,7 +515,7 @@ namespace os {
     return Err(DracError(PlatformSpecific, "Failed to get disk usage"));
   }
 
-  fn System::getCPUModel() -> Result<SZString> {
+  fn System::getCPUModel() -> Result<String> {
   #if DRAC_ARCH_X86_64 || DRAC_ARCH_I686
     Array<i32, 4>   cpuInfo     = { -1 };
     Array<char, 49> brandString = {};
@@ -533,7 +532,7 @@ namespace os {
       std::memcpy(&brandString.at(i * 16), cpuInfo.data(), sizeof(cpuInfo));
     }
 
-    SZString result(brandString.data());
+    String result(brandString.data());
 
     while (!result.empty() && std::isspace(result.back()))
       result.pop_back();
@@ -561,7 +560,7 @@ namespace os {
   #endif
   }
 
-  fn System::getGPUModel() -> Result<SZString> {
+  fn System::getGPUModel() -> Result<String> {
     IDXGIFactory* pFactory = nullptr;
 
   #pragma clang diagnostic push
@@ -603,7 +602,7 @@ namespace package {
   using util::helpers::GetEnvW;
 
   fn CountChocolatey() -> Result<u64> {
-    const SZString cacheKey = "chocolatey_";
+    const String cacheKey = "chocolatey_";
 
     if (Result<u64> cachedCount = GetValidCache<u64>(cacheKey))
       return *cachedCount;
@@ -628,7 +627,7 @@ namespace package {
   }
 
   fn CountScoop() -> Result<u64> {
-    const SZString cacheKey = "scoop_";
+    const String cacheKey = "scoop_";
 
     if (Result<u64> cachedCount = GetValidCache<u64>(cacheKey))
       return *cachedCount;
@@ -657,7 +656,7 @@ namespace package {
   }
 
   fn CountWinGet() -> Result<u64> {
-    const SZString cacheKey = "winget_";
+    const String cacheKey = "winget_";
 
     if (Result<u64> cachedCount = GetValidCache<u64>(cacheKey))
       return *cachedCount;

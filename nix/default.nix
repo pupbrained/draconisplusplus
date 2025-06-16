@@ -2,16 +2,15 @@
   nixpkgs,
   self,
   system,
-  stringzilla-pkg,
   ...
 }: let
   pkgs = import nixpkgs {inherit system;};
 
-  dracPackages = import ./package.nix {inherit pkgs self stringzilla-pkg;};
+  dracPackages = import ./package.nix {inherit pkgs self;};
 
   muslPackages =
     if pkgs.stdenv.isLinux
-    then import ./musl.nix {inherit pkgs nixpkgs self stringzilla-pkg;}
+    then import ./musl.nix {inherit pkgs nixpkgs self;}
     else {};
 in
   dracPackages

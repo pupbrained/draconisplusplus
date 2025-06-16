@@ -29,14 +29,14 @@ fn OpenMeteoService::getWeatherInfo() const -> Result<WeatherReport> {
   else
     debug_at(cachedDataResult.error());
 
-  SZString url = util::formatting::SzFormat(
+  String url = std::format(
     "https://api.open-meteo.com/v1/forecast?latitude={:.4f}&longitude={:.4f}&current_weather=true&temperature_unit={}",
     m_lat,
     m_lon,
     m_units == Unit::IMPERIAL ? "fahrenheit" : "celsius"
   );
 
-  SZString responseBuffer;
+  String responseBuffer;
 
   Curl::Easy curl({
     .url                = url,
@@ -58,7 +58,7 @@ fn OpenMeteoService::getWeatherInfo() const -> Result<WeatherReport> {
   weather::dto::openmeteo::Response apiResp {};
 
   if (error_ctx errc = read<glz::opts { .error_on_unknown_keys = false }>(apiResp, responseBuffer.data()); errc.ec != error_code::none)
-    return Err(DracError(ParseError, util::formatting::SzFormat("Failed to parse JSON response: {}", format_error(errc, responseBuffer.data()))));
+    return Err(DracError(ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer.data()))));
 
   Result<usize> timestamp = weather::utils::ParseIso8601ToEpoch(apiResp.currentWeather.time);
 

@@ -79,9 +79,9 @@ namespace package {
    * @brief Holds information needed to query a database-backed package manager.
    */
   struct PackageManagerInfo {
-    util::types::SZString id;         ///< Unique identifier (e.g., "pacman", "dpkg", used for cache key).
+    util::types::String   id;         ///< Unique identifier (e.g., "pacman", "dpkg", used for cache key).
     std::filesystem::path dbPath;     ///< Filesystem path to the database or primary directory.
-    util::types::SZString countQuery; ///< Query string (e.g., SQL) or specific file/pattern if not DB.
+    util::types::String   countQuery; ///< Query string (e.g., SQL) or specific file/pattern if not DB.
   };
 
   /**
@@ -98,7 +98,7 @@ namespace package {
    * @param countQuery SQL query to count packages (e.g., "SELECT COUNT(*) FROM packages").
    * @return Result containing the count (u64) or a DracError.
    */
-  fn GetCountFromDb(const util::types::SZString& pmId, const std::filesystem::path& dbPath, const util::types::SZString& countQuery) -> util::types::Result<util::types::u64>;
+  fn GetCountFromDb(const util::types::String& pmId, const std::filesystem::path& dbPath, const util::types::String& countQuery) -> util::types::Result<util::types::u64>;
 
   /**
    * @brief Gets package count by iterating entries in a directory, optionally filtering and subtracting.
@@ -109,9 +109,9 @@ namespace package {
    * @return Result containing the count (u64) or a DracError.
    */
   fn GetCountFromDirectory(
-    const util::types::SZString& pmId,
+    const util::types::String&   pmId,
     const std::filesystem::path& dirPath,
-    const util::types::SZString& fileExtensionFilter,
+    const util::types::String&   fileExtensionFilter,
     bool                         subtractOne
   ) -> util::types::Result<util::types::u64>;
 
@@ -122,7 +122,7 @@ namespace package {
    * @param fileExtensionFilter Only count files with this extension (e.g., ".list").
    * @return Result containing the count (u64) or a DracError. Defaults subtractOne to false.
    */
-  fn GetCountFromDirectory(const util::types::SZString& pmId, const std::filesystem::path& dirPath, const util::types::SZString& fileExtensionFilter) -> util::types::Result<util::types::u64>;
+  fn GetCountFromDirectory(const util::types::String& pmId, const std::filesystem::path& dirPath, const util::types::String& fileExtensionFilter) -> util::types::Result<util::types::u64>;
 
   /**
    * @brief Gets package count by iterating entries in a directory, optionally subtracting one.
@@ -139,7 +139,7 @@ namespace package {
    * @return Result containing the count (u64) or a DracError. Defaults fileExtensionFilter to "".
    */
   fn GetCountFromDirectory(
-    const util::types::SZString& pmId,
+    const util::types::String&   pmId,
     const std::filesystem::path& dirPath,
     bool                         subtractOne
   ) -> util::types::Result<util::types::u64>;
@@ -150,7 +150,7 @@ namespace package {
    * @param dirPath Path to the directory to iterate.
    * @return Result containing the count (u64) or a DracError. Defaults filter to "" and subtractOne to false.
    */
-  fn GetCountFromDirectory(const util::types::SZString& pmId, const std::filesystem::path& dirPath) -> util::types::Result<util::types::u64>;
+  fn GetCountFromDirectory(const util::types::String& pmId, const std::filesystem::path& dirPath) -> util::types::Result<util::types::u64>;
 
   #ifdef __linux__
   /**
@@ -190,7 +190,7 @@ namespace package {
    * @param plistPath Path to the plist file.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn GetCountFromPlist(const util::types::SZString& pmId, const std::filesystem::path& plistPath) -> util::types::Result<util::types::u64>;
+  fn GetCountFromPlist(const util::types::String& pmId, const std::filesystem::path& plistPath) -> util::types::Result<util::types::u64>;
   #elifdef __APPLE__
   /**
    * @brief Counts installed packages using Homebrew.

@@ -74,7 +74,7 @@ namespace os::bridge {
     }
   }
 
-  fn GetGPUModel() -> Result<SZString> {
+  fn GetGPUModel() -> Result<String> {
     @autoreleasepool {
       id<MTLDevice> device = MTLCreateSystemDefaultDevice();
       if (!device)

@@ -6,7 +6,7 @@ main_app_sources = files('Config/Config.cpp', 'UI/UI.cpp', 'main.cpp')
 # ------------------------- #
 #  Link/ObjC Configuration  #
 # ------------------------- #
-link_args = ['-Wl,--whole-archive', '-lstringzillite', '-Wl,--no-whole-archive']
+link_args = []
 objc_args = []
 
 if host_system == 'darwin'

@@ -8,7 +8,6 @@
   #include <variant>
 
   #include "DracUtils/Error.hpp"
-  #include "DracUtils/Formatting.hpp"
   #include "DracUtils/Types.hpp"
 
 namespace weather {
@@ -38,9 +37,9 @@ namespace weather {
    * Contains temperature, conditions, and timestamp.
    */
   struct WeatherReport {
-    util::types::f64                           temperature; ///< Degrees (C/F)
-    util::types::Option<util::types::SZString> name;        ///< Optional town/city name (may be missing for some providers)
-    util::types::SZString                      description; ///< Weather description (e.g., "clear sky", "rain")
+    util::types::f64                         temperature; ///< Degrees (C/F)
+    util::types::Option<util::types::String> name;        ///< Optional town/city name (may be missing for some providers)
+    util::types::String                      description; ///< Weather description (e.g., "clear sky", "rain")
   };
 
   struct Coords {
@@ -66,7 +65,7 @@ namespace weather {
     IWeatherService() = default;
   };
 
-  fn CreateWeatherService(Provider provider, const Location& location, const util::types::SZString& apiKey, Unit units) -> util::types::UniquePointer<IWeatherService>;
+  fn CreateWeatherService(Provider provider, const Location& location, const util::types::String& apiKey, Unit units) -> util::types::UniquePointer<IWeatherService>;
   fn CreateWeatherService(Provider provider, const Coords& coords, Unit units) -> util::types::UniquePointer<IWeatherService>;
 } // namespace weather
 
@@ -83,28 +82,17 @@ namespace glz {
   };
 } // namespace glz
 
-namespace util::formatting {
-  template <>
-  struct Formatter<weather::Unit> {
-   private:
-    Formatter<types::SZStringView> m_stringFormatter;
+template <>
+struct std::formatter<weather::Unit> {
+  static constexpr auto parse(std::format_parse_context& ctx) {
+    return ctx.begin();
+  }
 
-   public:
-    constexpr fn parse(detail::FormatParseContext& ctx) {
-      m_stringFormatter.parse(ctx);
-    }
+  static fn format(weather::Unit unit, std::format_context& ctx) {
+    using matchit::match, matchit::is, matchit::_;
 
-    fn format(weather::Unit unit, auto& ctx) const {
-      using matchit::match, matchit::is;
-
-      types::SZStringView name = match(unit)(
-        is | weather::Unit::METRIC   = "metric",
-        is | weather::Unit::IMPERIAL = "imperial"
-      );
-
-      m_stringFormatter.format(name, ctx);
-    }
-  };
-} // namespace util::formatting
+    return std::format_to(ctx.out(), "{}", match(unit)(is | weather::Unit::METRIC = "metric", is | weather::Unit::IMPERIAL = "imperial"));
+  }
+};
 
 #endif // DRAC_ENABLE_WEATHER

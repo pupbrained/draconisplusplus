@@ -25,7 +25,6 @@
   #include <DracUtils/Definitions.hpp>
   #include <DracUtils/Env.hpp>
   #include <DracUtils/Error.hpp>
-  #include <DracUtils/Formatting.hpp>
   #include <DracUtils/Types.hpp>
 
   #include "Utils/Caching.hpp"
@@ -207,7 +206,7 @@ namespace {
 namespace os {
   using util::helpers::GetEnv;
 
-  fn System::getOSVersion() -> Result<SZString> {
+  fn System::getOSVersion() -> Result<String> {
     std::ifstream file("/etc/os-release");
 
     if (!file)
@@ -227,7 +226,7 @@ namespace os {
         if (value.empty())
           return Err(DracError(ParseError, std::format("PRETTY_NAME value is empty or only quotes in /etc/os-release")));
 
-        return SZString(value);
+        return String(value);
       }
     }
 
@@ -382,7 +381,7 @@ namespace os {
     return Err(DracError(NotFound, "No media player found or an unknown error occurred"));
   }
 
-  fn System::getWindowManager() -> Result<SZString> {
+  fn System::getWindowManager() -> Result<String> {
   #if !defined(HAVE_WAYLAND) && !defined(HAVE_XCB)
     return Err(DracError(NotSupported, "Wayland or XCB support not available"));
   #endif
@@ -396,13 +395,13 @@ namespace os {
     return Err(DracError(NotFound, "No display server detected"));
   }
 
-  fn System::getDesktopEnvironment() -> Result<SZString> {
+  fn System::getDesktopEnvironment() -> Result<String> {
     Result<CStr> xdgEnvResult = GetEnv("XDG_CURRENT_DESKTOP");
 
     if (xdgEnvResult) {
-      SZString xdgDesktopSz = SZString(*xdgEnvResult);
+      String xdgDesktopSz = String(*xdgEnvResult);
 
-      if (const usize colonPos = xdgDesktopSz.find(':'); colonPos != SZString::npos)
+      if (const usize colonPos = xdgDesktopSz.find(':'); colonPos != String::npos)
         xdgDesktopSz.resize(colonPos);
 
       return xdgDesktopSz;
@@ -416,7 +415,7 @@ namespace os {
     return Err(desktopSessionResult.error());
   }
 
-  fn System::getShell() -> Result<SZString> {
+  fn System::getShell() -> Result<String> {
     // clang-format off
     return GetEnv("SHELL")
       .transform([](String shellPath) -> String {
@@ -436,13 +435,13 @@ namespace os {
           return shellPath.substr(lastSlash + 1);
         return shellPath;
       })
-      .transform([](const String& shellPath) -> SZString {
+      .transform([](const String& shellPath) -> String {
         return shellPath;
       });
     // clang-format on
   }
 
-  fn System::getHost() -> Result<SZString> {
+  fn System::getHost() -> Result<String> {
     constexpr CStr primaryPath  = "/sys/class/dmi/id/product_family";
     constexpr CStr fallbackPath = "/sys/class/dmi/id/product_name";
 
@@ -451,10 +450,10 @@ namespace os {
       String        line;
 
       if (!file)
-        return Err(DracError(NotFound, util::formatting::SzFormat("Failed to open DMI product identifier file '{}'", path)));
+        return Err(DracError(NotFound, std::format("Failed to open DMI product identifier file '{}'", path)));
 
       if (!std::getline(file, line) || line.empty())
-        return Err(DracError(ParseError, util::formatting::SzFormat("DMI product identifier file ('{}') is empty", path)));
+        return Err(DracError(ParseError, std::format("DMI product identifier file ('{}') is empty", path)));
 
       return line;
     };
@@ -475,7 +474,7 @@ namespace os {
 
     return Err(DracError(
       InternalError,
-      util::formatting::SzFormat(
+      std::format(
         "Failed to get host identifier. Primary ('{}'): {}. Fallback ('{}'): {}",
         primaryPath,
         primaryError.message,
@@ -485,7 +484,7 @@ namespace os {
     ));
   }
 
-  fn System::getCPUModel() -> Result<SZString> {
+  fn System::getCPUModel() -> Result<String> {
     std::array<unsigned int, 4> cpuInfo;
     std::array<char, 49>        brandString = { 0 };
 
@@ -510,11 +509,11 @@ namespace os {
     return result;
   }
 
-  fn System::getGPUModel() -> Result<SZString> {
+  fn System::getGPUModel() -> Result<String> {
     return Err(DracError("GPU model string not supported"));
   }
 
-  fn System::getKernelVersion() -> Result<SZString> {
+  fn System::getKernelVersion() -> Result<String> {
     utsname uts;
 
     if (uname(&uts) == -1)
@@ -523,7 +522,7 @@ namespace os {
     if (std::strlen(uts.release) == 0)
       return Err(DracError(ParseError, "uname returned null kernel release"));
 
-    return SZString(uts.release);
+    return String(uts.release);
   }
 
   fn System::getDiskUsage() -> Result<ResourceUsage> {
@@ -560,12 +559,12 @@ namespace package {
         warn_log("Filesystem error checking for Apk DB at '{}': {}", apkDbPath.string(), fsErrCode.message());
         return Err(DracError(IoError, "Filesystem error checking Apk DB: " + fsErrCode.message()));
       }
-      return Err(DracError(NotFound, util::formatting::SzFormat("Apk database path '{}' does not exist", apkDbPath.string())));
+      return Err(DracError(NotFound, std::format("Apk database path '{}' does not exist", apkDbPath.string())));
     }
 
     std::ifstream file(apkDbPath);
     if (!file.is_open())
-      return Err(DracError(IoError, util::formatting::SzFormat("Failed to open Apk database file '{}'", apkDbPath.string())));
+      return Err(DracError(IoError, std::format("Failed to open Apk database file '{}'", apkDbPath.string())));
 
     u64 count = 0;
 
@@ -578,12 +577,12 @@ namespace package {
     } catch (const std::ios_base::failure& e) {
       return Err(DracError(
         IoError,
-        util::formatting::SzFormat("Error reading Apk database file '{}': {}", apkDbPath.string(), e.what())
+        std::format("Error reading Apk database file '{}': {}", apkDbPath.string(), e.what())
       ));
     }
 
     if (file.bad())
-      return Err(DracError(IoError, util::formatting::SzFormat("IO error while reading Apk database file '{}'", apkDbPath.string())));
+      return Err(DracError(IoError, std::format("IO error while reading Apk database file '{}'", apkDbPath.string())));
 
     if (Result writeResult = WriteCache(cacheKey, count); !writeResult)
       debug_at(writeResult.error());

@@ -3,13 +3,11 @@
 #include <ftxui/dom/elements.hpp>
 #include <ranges> // std::ranges::{begin, end, iota, transform}
 
-#include <DracUtils/Formatting.hpp>
 #include <DracUtils/Logging.hpp>
 #include <DracUtils/Types.hpp>
 
 using namespace ftxui;
 using namespace util::types;
-using namespace util::formatting;
 
 namespace ui {
   constexpr Theme DEFAULT_THEME = {
@@ -111,15 +109,15 @@ namespace ui {
   constexpr inline Icons ICON_TYPE = NERD;
 
   struct RowInfo {
-    SZStringView icon;
-    SZStringView label;
-    SZString     value;
+    StringView icon;
+    StringView label;
+    String     value;
   };
 
   namespace {
 #ifdef __linux__
     // clang-format off
-    constexpr Array<Pair<SZStringView, SZStringView>, 13> distro_icons {{
+    constexpr Array<Pair<StringView, StringView>, 13> distro_icons {{
       {        "NixOS", "   " },
       {        "Zorin", "   " },
       {       "Debian", "   " },
@@ -135,7 +133,7 @@ namespace ui {
     }};
     // clang-format on
 
-    fn GetDistroIcon(SZStringView distro) -> Option<SZStringView> {
+    fn GetDistroIcon(StringView distro) -> Option<StringView> {
       for (const auto& [distroName, distroIcon] : distro_icons)
         if (distro.contains(distroName))
           return distroIcon;
@@ -159,12 +157,12 @@ namespace ui {
       return hbox(Elements(begin(colorView), end(colorView)));
     }
 
-    fn get_visual_width(const SZString& str) -> usize {
+    fn get_visual_width(const String& str) -> usize {
       return string_width(str);
     }
 
-    fn get_visual_width_sv(const SZStringView& sview) -> usize {
-      return string_width(SZString(sview));
+    fn get_visual_width_sv(const StringView& sview) -> usize {
+      return string_width(String(sview));
     }
 
     fn find_max_label_len(const std::vector<RowInfo>& rows) -> usize {
@@ -176,7 +174,7 @@ namespace ui {
   } // namespace
 
   fn CreateUI(const Config& config, const os::System& data) -> Element {
-    const SZString& name = config.general.name;
+    const String& name = config.general.name;
 
     // clang-format off
     const auto& [
@@ -225,8 +223,8 @@ namespace ui {
           .icon  = weatherIcon,
           .label = "Weather",
           .value = config.weather.showTownName && weatherInfo.name
-            ? SzFormat("{}°{} in {}", std::lround(weatherInfo.temperature), tempUnit, *weatherInfo.name)
-            : SzFormat("{}°{}, {}", std::lround(weatherInfo.temperature), tempUnit, weatherInfo.description),
+            ? std::format("{}°{} in {}", std::lround(weatherInfo.temperature), tempUnit, *weatherInfo.name)
+            : std::format("{}°{}, {}", std::lround(weatherInfo.temperature), tempUnit, weatherInfo.description),
         }
       );
     } else if (config.weather.enabled && !data.weather.has_value())
@@ -255,7 +253,7 @@ namespace ui {
         {
           .icon  = memoryIcon,
           .label = "RAM",
-          .value = SzFormat("{}/{}", BytesToGiB(data.memInfo->usedBytes), BytesToGiB(data.memInfo->totalBytes)),
+          .value = std::format("{}/{}", BytesToGiB(data.memInfo->usedBytes), BytesToGiB(data.memInfo->totalBytes)),
         }
       );
 
@@ -264,7 +262,7 @@ namespace ui {
         {
           .icon  = diskIcon,
           .label = "Disk",
-          .value = SzFormat("{}/{}", BytesToGiB(data.diskUsage->usedBytes), BytesToGiB(data.diskUsage->totalBytes)),
+          .value = std::format("{}/{}", BytesToGiB(data.diskUsage->usedBytes), BytesToGiB(data.diskUsage->totalBytes)),
         }
       );
 
@@ -279,7 +277,7 @@ namespace ui {
 
 #if DRAC_ENABLE_PACKAGECOUNT
     if (data.packageCount && *data.packageCount > 0)
-      softwareRows.push_back({ .icon = packageIcon, .label = "Packages", .value = SzFormat("{}", *data.packageCount) });
+      softwareRows.push_back({ .icon = packageIcon, .label = "Packages", .value = std::format("{}", *data.packageCount) });
 #endif
 
     bool addedDe = false;
@@ -293,14 +291,14 @@ namespace ui {
       envInfoRows.push_back({ .icon = wmIcon, .label = "WM", .value = *data.windowMgr });
 
 #if DRAC_ENABLE_NOWPLAYING
-    bool     nowPlayingActive = false;
-    SZString npText;
+    bool   nowPlayingActive = false;
+    String npText;
 
     if (config.nowPlaying.enabled && data.nowPlaying) {
-      const SZString title  = data.nowPlaying->title.value_or("Unknown Title");
-      const SZString artist = data.nowPlaying->artist.value_or("Unknown Artist");
-      npText                = artist + " - " + title;
-      nowPlayingActive      = true;
+      const String title  = data.nowPlaying->title.value_or("Unknown Title");
+      const String artist = data.nowPlaying->artist.value_or("Unknown Artist");
+      npText              = artist + " - " + title;
+      nowPlayingActive    = true;
     }
 #endif
 
@@ -370,8 +368,8 @@ namespace ui {
     fn createStandardRow = [&](const RowInfo& row, const usize sectionRequiredVisualWidth) {
       return hbox({
         hbox({
-          text(SZString(row.icon)) | color(ui::DEFAULT_THEME.icon),
-          text(SZString(row.label)) | color(ui::DEFAULT_THEME.label),
+          text(String(row.icon)) | color(ui::DEFAULT_THEME.icon),
+          text(String(row.label)) | color(ui::DEFAULT_THEME.label),
         }) |
           size(WIDTH, EQUAL, static_cast<int>(sectionRequiredVisualWidth)),
         text(" "),
@@ -383,7 +381,7 @@ namespace ui {
 
     Elements content;
 
-    content.push_back(text(SZString(userIcon) + "Hello " + name + "! ") | bold | color(Color::Cyan));
+    content.push_back(text(String(userIcon) + "Hello " + name + "! ") | bold | color(Color::Cyan));
     content.push_back(separator() | color(ui::DEFAULT_THEME.border));
     content.push_back(hbox({ text(String(paletteIcon)) | color(ui::DEFAULT_THEME.icon), CreateColorCircles() }));
 
@@ -424,7 +422,7 @@ namespace ui {
 
     if (nowPlayingActive) {
       content.push_back(hbox({
-        text(SZString(musicIcon)) | color(ui::DEFAULT_THEME.icon),
+        text(String(musicIcon)) | color(ui::DEFAULT_THEME.icon),
         text("Playing") | color(ui::DEFAULT_THEME.label),
         text(" "),
         filler(),

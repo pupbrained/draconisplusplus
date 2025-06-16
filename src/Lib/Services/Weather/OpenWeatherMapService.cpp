@@ -20,11 +20,11 @@ using weather::Unit;
 using weather::WeatherReport;
 
 namespace {
-  fn MakeApiRequest(const SZString& url) -> Result<WeatherReport> {
+  fn MakeApiRequest(const String& url) -> Result<WeatherReport> {
     using glz::error_ctx, glz::read, glz::error_code;
     using util::types::None, util::types::Option;
 
-    SZString responseBuffer;
+    String responseBuffer;
 
     Curl::Easy curl({
       .url                = url,
@@ -45,23 +45,23 @@ namespace {
     weather::dto::owm::OWMResponse owmResponse;
 
     if (const error_ctx errc = read<glz::opts { .error_on_unknown_keys = false }>(owmResponse, responseBuffer); errc.ec != error_code::none)
-      return Err(DracError(ParseError, util::formatting::SzFormat("Failed to parse JSON response: {}", format_error(errc, responseBuffer.data()))));
+      return Err(DracError(ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer.data()))));
 
     if (owmResponse.cod && *owmResponse.cod != 200) {
       using matchit::match, matchit::is, matchit::or_, matchit::_;
 
-      SZString apiErrorMessage = "OpenWeatherMap API error";
+      String apiErrorMessage = "OpenWeatherMap API error";
       if (owmResponse.message && !owmResponse.message->empty())
-        apiErrorMessage += util::formatting::SzFormat(" ({}): {}", *owmResponse.cod, *owmResponse.message);
+        apiErrorMessage += std::format(" ({}): {}", *owmResponse.cod, *owmResponse.message);
       else
-        apiErrorMessage += util::formatting::SzFormat(" (Code: {})", *owmResponse.cod);
+        apiErrorMessage += std::format(" (Code: {})", *owmResponse.cod);
 
       return Err(DracError(match(*owmResponse.cod)(is | 401 = PermissionDenied, is | 404 = NotFound, is | or_(429, _) = ApiUnavailable), apiErrorMessage));
     }
 
     WeatherReport report = {
       .temperature = owmResponse.main.temp,
-      .name        = owmResponse.name.empty() ? None : Option<SZString>(owmResponse.name),
+      .name        = owmResponse.name.empty() ? None : Option<String>(owmResponse.name),
       .description = !owmResponse.weather.empty() ? owmResponse.weather[0].description : "",
     };
 
@@ -69,7 +69,7 @@ namespace {
   }
 } // namespace
 
-OpenWeatherMapService::OpenWeatherMapService(Location location, SZString apiKey, Unit units)
+OpenWeatherMapService::OpenWeatherMapService(Location location, String apiKey, Unit units)
   : m_location(std::move(location)), m_apiKey(std::move(apiKey)), m_units(units) {}
 
 fn OpenWeatherMapService::getWeatherInfo() const -> Result<WeatherReport> {
@@ -93,11 +93,11 @@ fn OpenWeatherMapService::getWeatherInfo() const -> Result<WeatherReport> {
   if (std::holds_alternative<String>(m_location)) {
     const auto& city = std::get<String>(m_location);
 
-    Result<SZString> escapedUrl = Curl::Easy::escape(city);
+    Result<String> escapedUrl = Curl::Easy::escape(city);
     if (!escapedUrl)
       return Err(escapedUrl.error());
 
-    const SZString apiUrl = util::formatting::SzFormat("https://api.openweathermap.org/data/2.5/weather?q={}&appid={}&units={}", *escapedUrl, m_apiKey, m_units);
+    const String apiUrl = std::format("https://api.openweathermap.org/data/2.5/weather?q={}&appid={}&units={}", *escapedUrl, m_apiKey, m_units);
 
     return handleApiResult(MakeApiRequest(apiUrl));
   }
@@ -105,7 +105,7 @@ fn OpenWeatherMapService::getWeatherInfo() const -> Result<WeatherReport> {
   if (std::holds_alternative<Coords>(m_location)) {
     const auto& [lat, lon] = std::get<Coords>(m_location);
 
-    const SZString apiUrl = util::formatting::SzFormat("https://api.openweathermap.org/data/2.5/weather?lat={:.3f}&lon={:.3f}&appid={}&units={}", lat, lon, m_apiKey, m_units);
+    const String apiUrl = std::format("https://api.openweathermap.org/data/2.5/weather?lat={:.3f}&lon={:.3f}&appid={}&units={}", lat, lon, m_apiKey, m_units);
 
     return handleApiResult(MakeApiRequest(apiUrl));
   }

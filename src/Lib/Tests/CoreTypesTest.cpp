@@ -1,63 +1,62 @@
 #include <Drac++/Core/System.hpp>
 
-#include <DracUtils/Formatting.hpp>
 #include <DracUtils/Types.hpp>
 
 #include "gtest/gtest.h"
 
-using util::types::SZString, util::types::i32;
+using util::types::String, util::types::i32;
 
 class CoreTypesTest : public testing::Test {};
 
 TEST_F(CoreTypesTest, BytesToGiB_ZeroBytes) {
   BytesToGiB dataSize(0);
-  SZString   formatted = util::formatting::SzFormat("{}", dataSize);
+  String     formatted = std::format("{}", dataSize);
   EXPECT_EQ(formatted, "0.00GiB");
 }
 
 TEST_F(CoreTypesTest, BytesToGiB_OneGiB) {
   BytesToGiB dataSize(1073741824); // 1 * GIB (1 * 1024 * 1024 * 1024)
-  SZString   formatted = util::formatting::SzFormat("{}", dataSize);
+  String     formatted = std::format("{}", dataSize);
   EXPECT_EQ(formatted, "1.00GiB");
 }
 
 TEST_F(CoreTypesTest, BytesToGiB_OnePointFiveGiB) {
   BytesToGiB dataSize(1610612736); // 1.5 * GIB
-  SZString   formatted = util::formatting::SzFormat("{}", dataSize);
+  String     formatted = std::format("{}", dataSize);
   EXPECT_EQ(formatted, "1.50GiB");
 }
 
 TEST_F(CoreTypesTest, BytesToGiB_RoundingToTwoDecimalPlaces) {
   BytesToGiB dataSize(1325153042);
-  SZString   formatted = util::formatting::SzFormat("{}", dataSize);
+  String     formatted = std::format("{}", dataSize);
   EXPECT_EQ(formatted, "1.23GiB");
 }
 
 TEST_F(CoreTypesTest, BytesToGiB_HalfGiB) {
   BytesToGiB dataSize(536870912); // 0.5 * GIB
-  SZString   formatted = util::formatting::SzFormat("{}", dataSize);
+  String     formatted = std::format("{}", dataSize);
   EXPECT_EQ(formatted, "0.50GiB");
 }
 
 TEST_F(CoreTypesTest, BytesToGiB_LargeValue) {
   BytesToGiB dataSize(107374182400); // 100 * GIB
-  SZString   formatted = util::formatting::SzFormat("{}", dataSize);
+  String     formatted = std::format("{}", dataSize);
   EXPECT_EQ(formatted, "100.00GiB");
 }
 
 TEST_F(CoreTypesTest, BytesToGiB_SmallFractionalValueRoundsToZero) {
   BytesToGiB dataSize(1073741);
-  SZString   formatted = util::formatting::SzFormat("{}", dataSize);
+  String     formatted = std::format("{}", dataSize);
   EXPECT_EQ(formatted, "0.00GiB");
 }
 
 TEST_F(CoreTypesTest, BytesToGiB_RoundingNearBoundary) {
   BytesToGiB dataSizeRoundDown(5368709);
-  SZString   formattedRoundDown = util::formatting::SzFormat("{}", dataSizeRoundDown);
+  String     formattedRoundDown = std::format("{}", dataSizeRoundDown);
   EXPECT_EQ(formattedRoundDown, "0.00GiB");
 
   BytesToGiB dataSizeRoundUp(10737418);
-  SZString   formattedRoundUp = util::formatting::SzFormat("{}", dataSizeRoundUp);
+  String     formattedRoundUp = std::format("{}", dataSizeRoundUp);
   EXPECT_EQ(formattedRoundUp, "0.01GiB");
 }
 

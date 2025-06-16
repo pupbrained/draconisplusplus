@@ -80,14 +80,14 @@ namespace {
         return false;
       }
 
-      const SZString defaultName   = General::getDefaultName();
-      SZString       configContent = util::formatting::SzFormat(R"toml(# Draconis++ Configuration File
+      const String defaultName   = General::getDefaultName();
+      String       configContent = std::format(R"toml(# Draconis++ Configuration File
 
 # General settings
 [general]
 name = "{}" # Your display name
 )toml",
-                                                          defaultName);
+                                         defaultName);
 
   #if DRAC_ENABLE_NOWPLAYING
       configContent += R"toml(

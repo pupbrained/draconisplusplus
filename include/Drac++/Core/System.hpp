@@ -6,7 +6,6 @@
 
 #include "DracUtils/Definitions.hpp"
 #include "DracUtils/Error.hpp"
-#include "DracUtils/Formatting.hpp"
 #include "DracUtils/Types.hpp"
 
 /// @brief Conversion factor from bytes to GiB
@@ -29,27 +28,36 @@ struct BytesToGiB {
   explicit constexpr BytesToGiB(const util::types::u64 value) : value(value) {}
 };
 
-namespace util::formatting {
-  template <>
-  struct Formatter<BytesToGiB> {
-    Formatter<double> doubleFormatter;
-
-    constexpr fn parse(detail::FormatParseContext& parseCtx) {
-      doubleFormatter.parse(parseCtx);
-    }
-
-    fn format(const BytesToGiB& btg, auto& ctx) const {
-      Formatter<double> localDoubleFormatter;
-
-      localDoubleFormatter.precision = 2;
-      localDoubleFormatter.fmt       = std::chars_format::fixed;
-
-      localDoubleFormatter.format(static_cast<double>(btg.value) / GIB, ctx);
-
-      ctx.out().append("GiB");
-    }
-  };
-} // namespace util::formatting
+/**
+ * @brief Custom formatter for BytesToGiB.
+ *
+ * Allows formatting BytesToGiB values using std::format.
+ * Outputs the value in GiB with two decimal places.
+ *
+ * @code{.cpp}
+ * #include <format>
+ * #include "system_data.h"
+ *
+ * int main() {
+ *   BytesToGiB data_size{2'147'483'648}; // 2 GiB
+ *   std::string formatted = std::format("Size: {}", data_size);
+ *   std::println("{}", formatted); // formatted will be "Size: 2.00GiB"
+ *   return 0;
+ * }
+ * @endcode
+ */
+template <>
+struct std::formatter<BytesToGiB> : std::formatter<double> {
+  /**
+   * @brief Formats the BytesToGiB value.
+   * @param BTG The BytesToGiB instance to format.
+   * @param ctx The formatting context.
+   * @return An iterator to the end of the formatted output.
+   */
+  fn format(const BytesToGiB& BTG, auto& ctx) const {
+    return std::format_to(ctx.out(), "{:.2f}GiB", static_cast<util::types::f64>(BTG.value) / GIB);
+  }
+};
 
 namespace os {
   /**
@@ -63,17 +71,17 @@ namespace os {
    */
   class System {
    public:
-    util::types::Result<util::types::SZString>      date;          ///< Current date (e.g., "April 26th").
-    util::types::Result<util::types::SZString>      host;          ///< Host/product family (e.g., "MacBook Air").
-    util::types::Result<util::types::SZString>      kernelVersion; ///< OS kernel version (e.g., "6.14.4").
-    util::types::Result<util::types::SZString>      osVersion;     ///< OS pretty name (e.g., "Ubuntu 24.04.2 LTS").
+    util::types::Result<util::types::String>        date;          ///< Current date (e.g., "April 26th").
+    util::types::Result<util::types::String>        host;          ///< Host/product family (e.g., "MacBook Air").
+    util::types::Result<util::types::String>        kernelVersion; ///< OS kernel version (e.g., "6.14.4").
+    util::types::Result<util::types::String>        osVersion;     ///< OS pretty name (e.g., "Ubuntu 24.04.2 LTS").
     util::types::Result<util::types::ResourceUsage> memInfo;       ///< Total physical RAM in bytes.
-    util::types::Result<util::types::SZString>      desktopEnv;    ///< Desktop environment (e.g., "KDE").
-    util::types::Result<util::types::SZString>      windowMgr;     ///< Window manager (e.g., "KWin").
+    util::types::Result<util::types::String>        desktopEnv;    ///< Desktop environment (e.g., "KDE").
+    util::types::Result<util::types::String>        windowMgr;     ///< Window manager (e.g., "KWin").
     util::types::Result<util::types::ResourceUsage> diskUsage;     ///< Used/Total disk space for root filesystem.
-    util::types::Result<util::types::SZString>      shell;         ///< Name of the current user shell (e.g., "zsh").
-    util::types::Result<util::types::SZString>      cpuModel;      ///< CPU model name.
-    util::types::Result<util::types::SZString>      gpuModel;      ///< GPU model name.
+    util::types::Result<util::types::String>        shell;         ///< Name of the current user shell (e.g., "zsh").
+    util::types::Result<util::types::String>        cpuModel;      ///< CPU model name.
+    util::types::Result<util::types::String>        gpuModel;      ///< GPU model name.
 #if DRAC_ENABLE_PACKAGECOUNT
     util::types::Result<util::types::u64> packageCount; ///< Total number of packages installed.
 #endif
@@ -102,49 +110,49 @@ namespace os {
      * @brief Fetches the OS version.
      * @return Result containing the OS version.
      */
-    static fn getOSVersion() -> util::types::Result<util::types::SZString>;
+    static fn getOSVersion() -> util::types::Result<util::types::String>;
 
     /**
      * @brief Fetches the desktop environment.
      * @return Result containing the desktop environment.
      */
-    static fn getDesktopEnvironment() -> util::types::Result<util::types::SZString>;
+    static fn getDesktopEnvironment() -> util::types::Result<util::types::String>;
 
     /**
      * @brief Fetches the window manager.
      * @return Result containing the window manager.
      */
-    static fn getWindowManager() -> util::types::Result<util::types::SZString>;
+    static fn getWindowManager() -> util::types::Result<util::types::String>;
 
     /**
      * @brief Fetches the shell.
      * @return Result containing the shell.
      */
-    static fn getShell() -> util::types::Result<util::types::SZString>;
+    static fn getShell() -> util::types::Result<util::types::String>;
 
     /**
      * @brief Fetches the host.
      * @return Result containing the host.
      */
-    static fn getHost() -> util::types::Result<util::types::SZString>;
+    static fn getHost() -> util::types::Result<util::types::String>;
 
     /**
      * @brief Fetches the CPU model.
      * @return Result containing the CPU model.
      */
-    static fn getCPUModel() -> util::types::Result<util::types::SZString>;
+    static fn getCPUModel() -> util::types::Result<util::types::String>;
 
     /**
      * @brief Fetches the GPU model.
      * @return Result containing the GPU model.
      */
-    static fn getGPUModel() -> util::types::Result<util::types::SZString>;
+    static fn getGPUModel() -> util::types::Result<util::types::String>;
 
     /**
      * @brief Fetches the kernel version.
      * @return Result containing the kernel version.
      */
-    static fn getKernelVersion() -> util::types::Result<util::types::SZString>;
+    static fn getKernelVersion() -> util::types::Result<util::types::String>;
 
     /**
      * @brief Fetches the disk usage.
@@ -156,6 +164,6 @@ namespace os {
      * @brief Fetches the date.
      * @return Result containing the date.
      */
-    static fn getDate() -> util::types::Result<util::types::SZString>;
+    static fn getDate() -> util::types::Result<util::types::String>;
   };
 } // namespace os

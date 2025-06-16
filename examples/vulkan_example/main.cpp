@@ -456,38 +456,36 @@ fn main() -> i32 {
     ImGui::NewFrame();
     ImGui::Begin("Draconis++");
     {
-      using util::formatting::SzFormat;
-
-      ImGui::TextUnformatted(SzFormat("Date: {}", date.value_or("N/A")).c_str());
-      ImGui::TextUnformatted(SzFormat("Host: {}", host.value_or("N/A")).c_str());
-      ImGui::TextUnformatted(SzFormat("Kernel: {}", kernelVersion.value_or("N/A")).c_str());
-      ImGui::TextUnformatted(SzFormat("OS: {}", osVersion.value_or("N/A")).c_str());
-      ImGui::TextUnformatted(SzFormat("CPU: {}", cpuModel.value_or("N/A")).c_str());
-      ImGui::TextUnformatted(SzFormat("GPU: {}", gpuModel.value_or("N/A")).c_str());
+      ImGui::TextUnformatted(std::format("Date: {}", date.value_or("N/A")).c_str());
+      ImGui::TextUnformatted(std::format("Host: {}", host.value_or("N/A")).c_str());
+      ImGui::TextUnformatted(std::format("Kernel: {}", kernelVersion.value_or("N/A")).c_str());
+      ImGui::TextUnformatted(std::format("OS: {}", osVersion.value_or("N/A")).c_str());
+      ImGui::TextUnformatted(std::format("CPU: {}", cpuModel.value_or("N/A")).c_str());
+      ImGui::TextUnformatted(std::format("GPU: {}", gpuModel.value_or("N/A")).c_str());
 
       if (memInfo.has_value())
-        ImGui::TextUnformatted(SzFormat("Memory: {} / {}", BytesToGiB(memInfo->usedBytes), BytesToGiB(memInfo->totalBytes)).c_str());
+        ImGui::TextUnformatted(std::format("Memory: {} / {}", BytesToGiB(memInfo->usedBytes), BytesToGiB(memInfo->totalBytes)).c_str());
       else
         ImGui::TextUnformatted("Memory: N/A");
 
-      ImGui::TextUnformatted(SzFormat("DE: {}", desktopEnv.value_or("N/A")).c_str());
-      ImGui::TextUnformatted(SzFormat("WM: {}", windowMgr.value_or("N/A")).c_str());
+      ImGui::TextUnformatted(std::format("DE: {}", desktopEnv.value_or("N/A")).c_str());
+      ImGui::TextUnformatted(std::format("WM: {}", windowMgr.value_or("N/A")).c_str());
 
       if (diskUsage.has_value())
-        ImGui::TextUnformatted(SzFormat("Disk: {} / {}", BytesToGiB(diskUsage->usedBytes), BytesToGiB(diskUsage->totalBytes)).c_str());
+        ImGui::TextUnformatted(std::format("Disk: {} / {}", BytesToGiB(diskUsage->usedBytes), BytesToGiB(diskUsage->totalBytes)).c_str());
       else
         ImGui::TextUnformatted("Disk: N/A");
 
-      ImGui::TextUnformatted(SzFormat("Shell: {}", shell.value_or("N/A")).c_str());
+      ImGui::TextUnformatted(std::format("Shell: {}", shell.value_or("N/A")).c_str());
 
 #if DRAC_ENABLE_PACKAGECOUNT
-      ImGui::TextUnformatted(SzFormat("Packages: {}", packageCount.value_or(0)).c_str());
+      ImGui::TextUnformatted(std::format("Packages: {}", packageCount.value_or(0)).c_str());
 #endif
 
 #if DRAC_ENABLE_NOWPLAYING
       if (nowPlaying) {
         const util::types::MediaInfo& nowPlayingInfo = *nowPlaying;
-        ImGui::TextUnformatted(SzFormat("Now Playing: {} - {}", nowPlayingInfo.artist.value_or("N/A"), nowPlayingInfo.title.value_or("N/A")).c_str());
+        ImGui::TextUnformatted(std::format("Now Playing: {} - {}", nowPlayingInfo.artist.value_or("N/A"), nowPlayingInfo.title.value_or("N/A")).c_str());
       } else
         ImGui::TextUnformatted("Now Playing: N/A");
 #endif
@@ -496,22 +494,20 @@ fn main() -> i32 {
 
     ImGui::Begin("Vulkan & GLFW Info");
     {
-      using util::formatting::SzFormat;
-
-      ImGui::TextUnformatted(SzFormat("FPS: {:.1f}", ImGui::GetIO().Framerate).c_str());
+      ImGui::TextUnformatted(std::format("FPS: {:.1f}", ImGui::GetIO().Framerate).c_str());
       ImGui::Separator();
       const vk::PhysicalDeviceProperties props = physicalDevice.getProperties();
-      ImGui::TextUnformatted(SzFormat("GLFW Version: {}", glfwGetVersionString()).c_str());
+      ImGui::TextUnformatted(std::format("GLFW Version: {}", glfwGetVersionString()).c_str());
       ImGui::Separator();
-      ImGui::TextUnformatted(SzFormat("Vulkan API Version: {}.{}.{}", VK_API_VERSION_MAJOR(props.apiVersion), VK_API_VERSION_MINOR(props.apiVersion), VK_API_VERSION_PATCH(props.apiVersion)).c_str());
-      ImGui::TextUnformatted(SzFormat("Device: {}", props.deviceName.data()).c_str());
-      ImGui::TextUnformatted(SzFormat("Driver Version: {}", props.driverVersion).c_str());
+      ImGui::TextUnformatted(std::format("Vulkan API Version: {}.{}.{}", VK_API_VERSION_MAJOR(props.apiVersion), VK_API_VERSION_MINOR(props.apiVersion), VK_API_VERSION_PATCH(props.apiVersion)).c_str());
+      ImGui::TextUnformatted(std::format("Device: {}", props.deviceName.data()).c_str());
+      ImGui::TextUnformatted(std::format("Driver Version: {}", props.driverVersion).c_str());
       ImGui::Separator();
-      ImGui::TextUnformatted(SzFormat("Swapchain Extent: {}x{}", swapChainExtent.width, swapChainExtent.height).c_str());
-      ImGui::TextUnformatted(SzFormat("Swapchain Images: {}", swapChainImages.size()).c_str());
-      ImGui::TextUnformatted(SzFormat("Surface Format: {}", vk::to_string(surfaceFormat.format)).c_str());
-      ImGui::TextUnformatted(SzFormat("Color Space: {}", vk::to_string(surfaceFormat.colorSpace)).c_str());
-      ImGui::TextUnformatted(SzFormat("Present Mode: {}", vk::to_string(presentMode)).c_str());
+      ImGui::TextUnformatted(std::format("Swapchain Extent: {}x{}", swapChainExtent.width, swapChainExtent.height).c_str());
+      ImGui::TextUnformatted(std::format("Swapchain Images: {}", swapChainImages.size()).c_str());
+      ImGui::TextUnformatted(std::format("Surface Format: {}", vk::to_string(surfaceFormat.format)).c_str());
+      ImGui::TextUnformatted(std::format("Color Space: {}", vk::to_string(surfaceFormat.colorSpace)).c_str());
+      ImGui::TextUnformatted(std::format("Present Mode: {}", vk::to_string(presentMode)).c_str());
     }
     ImGui::End();
 

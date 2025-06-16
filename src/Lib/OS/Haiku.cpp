@@ -29,7 +29,7 @@ using util::error::DracError, util::error::DracErrorCode;
 using util::helpers::GetEnv;
 
 namespace os {
-  fn GetOSVersion() -> Result<SZString> {
+  fn GetOSVersion() -> Result<String> {
     BFile    file;
     status_t status = file.SetTo("/boot/system/lib/libbe.so", B_READ_ONLY);
 
@@ -53,7 +53,7 @@ namespace os {
     if (versionShortString.empty())
       return Err(DracError(DracErrorCode::InternalError, "Version info short_info is empty"));
 
-    return SZString(versionShortString.c_str());
+    return String(versionShortString.c_str());
   }
 
   fn GetMemInfo() -> Result<u64> {
@@ -70,15 +70,15 @@ namespace os {
     return Err(DracError(DracErrorCode::NotSupported, "Now playing is not supported on Haiku"));
   }
 
-  fn GetWindowManager() -> Result<SZString> {
+  fn GetWindowManager() -> Result<String> {
     return "app_server";
   }
 
-  fn GetDesktopEnvironment() -> Result<SZString> {
+  fn GetDesktopEnvironment() -> Result<String> {
     return "Haiku Desktop Environment";
   }
 
-  fn GetShell() -> Result<SZString> {
+  fn GetShell() -> Result<String> {
     if (const Result<String> shellPath = GetEnv("SHELL")) {
       // clang-format off
       constexpr Array<Pair<StringView, StringView>, 5> shellMap {{
@@ -92,7 +92,7 @@ namespace os {
 
       for (const auto& [exe, name] : shellMap)
         if (shellPath->contains(exe))
-          return SZString(name.c_str());
+          return String(name.c_str());
 
       return *shellPath; // fallback to the raw shell path
     }
@@ -100,7 +100,7 @@ namespace os {
     return Err(DracError(DracErrorCode::NotFound, "Could not find SHELL environment variable"));
   }
 
-  fn GetHost() -> Result<SZString> {
+  fn GetHost() -> Result<String> {
     Array<char, HOST_NAME_MAX + 1> hostnameBuffer {};
 
     if (gethostname(hostnameBuffer.data(), hostnameBuffer.size()) != 0)
@@ -110,17 +110,17 @@ namespace os {
 
     hostnameBuffer.at(HOST_NAME_MAX) = '\0';
 
-    return SZString(hostnameBuffer.data());
+    return String(hostnameBuffer.data());
   }
 
-  fn GetKernelVersion() -> Result<SZString> {
+  fn GetKernelVersion() -> Result<String> {
     system_info    sysinfo;
     const status_t status = get_system_info(&sysinfo);
 
     if (status != B_OK)
       return Err(DracError(DracErrorCode::InternalError, std::format("get_system_info failed: {}", strerror(status))));
 
-    return SZString(std::to_string(sysinfo.kernel_version).c_str());
+    return String(std::to_string(sysinfo.kernel_version).c_str());
   }
 
   fn GetDiskUsage() -> Result<DiskSpace> {

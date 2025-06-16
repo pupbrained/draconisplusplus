@@ -110,16 +110,6 @@ includes_dep = declare_dependency(include_directories: [project_public_includes,
 lib_deps = [includes_dep]
 fs = import('fs')
 
-stringzilla_dep = dependency('stringzilla', required: false, static: true, include_type: 'system')
-if not stringzilla_dep.found()
-  cmake = import('cmake')
-  stringzilla_opts = cmake.subproject_options()
-  stringzilla_opts.add_cmake_defines({'STRINGZILLA_BUILD_SHARED': false})
-  stringzilla_proj = cmake.subproject('stringzilla', options: stringzilla_opts)
-  stringzilla_dep = stringzilla_proj.dependency('stringzilla', include_type: 'system')
-endif
-lib_deps += stringzilla_dep
-
 if get_option('precompiled_config') == true
   add_project_arguments('-DDRAC_PRECOMPILED_CONFIG', language: ['cpp'])
   config_hpp_path = meson.project_source_root() / 'config.hpp'

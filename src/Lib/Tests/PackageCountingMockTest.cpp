@@ -19,8 +19,8 @@ using util::types::u64;
 // Mock functions for package counting
 class PackageCountingMock {
  public:
-  MOCK_METHOD(Result<u64>, getCountFromDirectory, (const util::types::SZString&, const std::filesystem::path&, const util::types::SZString&, bool), ());
-  MOCK_METHOD(Result<u64>, getCountFromDb, (const util::types::SZString&, const std::filesystem::path&, const util::types::SZString&), ());
+  MOCK_METHOD(Result<u64>, getCountFromDirectory, (const util::types::String&, const std::filesystem::path&, const util::types::String&, bool), ());
+  MOCK_METHOD(Result<u64>, getCountFromDb, (const util::types::String&, const std::filesystem::path&, const util::types::String&), ());
   MOCK_METHOD(Result<u64>, getTotalCount, (Manager), ());
 };
 
@@ -32,9 +32,9 @@ class PackageCountingTest : public Test {
 // Basic functionality tests
 TEST_F(PackageCountingTest, GetCountFromDirectoryReturnsExpectedValue) {
   // Arrange
-  util::types::SZString pmId        = "test";
+  util::types::String   pmId        = "test";
   std::filesystem::path dirPath     = "/test/path";
-  util::types::SZString filter      = ".pkg";
+  util::types::String   filter      = ".pkg";
   bool                  subtractOne = false;
 
   EXPECT_CALL(m_mockCounter, getCountFromDirectory(pmId, dirPath, filter, subtractOne))
@@ -50,9 +50,9 @@ TEST_F(PackageCountingTest, GetCountFromDirectoryReturnsExpectedValue) {
 
 TEST_F(PackageCountingTest, GetCountFromDbReturnsExpectedValue) {
   // Arrange
-  util::types::SZString pmId   = "test";
+  util::types::String   pmId   = "test";
   std::filesystem::path dbPath = "/test/db.sqlite";
-  util::types::SZString query  = "SELECT COUNT(*) FROM packages";
+  util::types::String   query  = "SELECT COUNT(*) FROM packages";
 
   EXPECT_CALL(m_mockCounter, getCountFromDb(pmId, dbPath, query))
     .WillOnce(Return(Result<u64>(100)));
@@ -87,9 +87,9 @@ TEST_F(PackageCountingTest, GetTotalCountReturnsExpectedValue) {
 // Error condition tests
 TEST_F(PackageCountingTest, GetCountFromDirectoryReturnsErrorWhenDirectoryNotFound) {
   // Arrange
-  util::types::SZString pmId        = "test";
+  util::types::String   pmId        = "test";
   std::filesystem::path dirPath     = "/nonexistent/path";
-  util::types::SZString filter      = ".pkg";
+  util::types::String   filter      = ".pkg";
   bool                  subtractOne = false;
 
   EXPECT_CALL(m_mockCounter, getCountFromDirectory(pmId, dirPath, filter, subtractOne))
@@ -105,9 +105,9 @@ TEST_F(PackageCountingTest, GetCountFromDirectoryReturnsErrorWhenDirectoryNotFou
 
 TEST_F(PackageCountingTest, GetCountFromDbReturnsErrorWhenDatabaseCorrupt) {
   // Arrange
-  util::types::SZString pmId   = "test";
+  util::types::String   pmId   = "test";
   std::filesystem::path dbPath = "/test/corrupt.sqlite";
-  util::types::SZString query  = "SELECT COUNT(*) FROM packages";
+  util::types::String   query  = "SELECT COUNT(*) FROM packages";
 
   EXPECT_CALL(m_mockCounter, getCountFromDb(pmId, dbPath, query))
     .WillOnce(Return(Err(DracError(DracErrorCode::ParseError, "Database is corrupt"))));

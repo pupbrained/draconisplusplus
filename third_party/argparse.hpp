@@ -75,7 +75,6 @@
 
 #include <DracUtils/Definitions.hpp>
 #include <DracUtils/Error.hpp>
-#include <DracUtils/Formatting.hpp>
 #include <DracUtils/Types.hpp>
 
 #ifndef ARGPARSE_CUSTOM_STRTOF
@@ -1268,7 +1267,7 @@ namespace argparse {
         Result<int> result = details::parse_number<int, details::radix_10>()(s);
 
         if (!result)
-          return Err(DracError(result.error().code, util::formatting::SzFormat("Failed to parse '{}' as decimal integer for vector: {}", s, result.error().message)));
+          return Err(DracError(result.error().code, std::format("Failed to parse '{}' as decimal integer for vector: {}", s, result.error().message)));
 
         variable.push_back(*result);
         return variable;
@@ -1321,7 +1320,7 @@ namespace argparse {
         Result<i32> result = details::parse_number<i32, details::radix_10>()(s);
 
         if (!result)
-          return Err(DracError(result.error().code, util::formatting::SzFormat("Failed to parse '{}' as decimal integer for set: {}", s, result.error().message)));
+          return Err(DracError(result.error().code, std::format("Failed to parse '{}' as decimal integer for set: {}", s, result.error().message)));
 
         variable.insert(*result);
         return variable;

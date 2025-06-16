@@ -11,7 +11,7 @@
 using namespace testing;
 using namespace package;
 using util::error::DracErrorCode;
-using util::types::Result, util::types::SZString, util::types::u64;
+using util::types::Result, util::types::String, util::types::u64;
 
 namespace fs = std::filesystem;
 
@@ -29,7 +29,7 @@ class PackageCountingIntegrationTest : public Test {
     fs::remove_all(mTestDir);
   }
 
-  static void CreateTestFile(const fs::path& path, const SZString& content = "") {
+  static void CreateTestFile(const fs::path& path, const String& content = "") {
     std::ofstream file(path);
     file << content;
   }
@@ -62,7 +62,7 @@ TEST_F(PackageCountingIntegrationTest, GetCountFromDirectory_WithFilter) {
   CreateTestFile(mTestDir / "file1.dat");
   CreateTestFile(mTestDir / "file2.dat");
 
-  const auto result = package::GetCountFromDirectory("test_filter", mTestDir, SZString(".txt"));
+  const auto result = package::GetCountFromDirectory("test_filter", mTestDir, String(".txt"));
   EXPECT_TRUE(result);
   EXPECT_EQ(*result, 3);
 }

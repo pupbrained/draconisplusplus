@@ -1,16 +1,15 @@
 #pragma once
 
-#include <array>                       // std::array (Array)
-#include <future>                      // std::future (Future)
-#include <map>                         // std::map (Map)
-#include <memory>                      // std::shared_ptr and std::unique_ptr (SharedPointer, UniquePointer)
-#include <mutex>                       // std::mutex and std::lock_guard (Mutex, LockGuard)
-#include <optional>                    // std::optional (Option)
-#include <string>                      // std::string (String, StringView)
-#include <string_view>                 // std::string_view (StringView)
-#include <stringzilla/stringzilla.hpp> // ashvardanian::stringzilla::{string, string_view}
-#include <utility>                     // std::pair (Pair)
-#include <vector>                      // std::vector (Vec)
+#include <array>       // std::array (Array)
+#include <future>      // std::future (Future)
+#include <map>         // std::map (Map)
+#include <memory>      // std::shared_ptr and std::unique_ptr (SharedPointer, UniquePointer)
+#include <mutex>       // std::mutex and std::lock_guard (Mutex, LockGuard)
+#include <optional>    // std::optional (Option)
+#include <string>      // std::string (String, StringView)
+#include <string_view> // std::string_view (StringView)
+#include <utility>     // std::pair (Pair)
+#include <vector>      // std::vector (Vec)
 
 namespace util::types {
   using u8  = std::uint8_t;  ///< 8-bit unsigned integer.
@@ -31,9 +30,6 @@ namespace util::types {
 
   using String     = std::string;      ///< Owning, mutable string.
   using StringView = std::string_view; ///< Non-owning view of a string.
-
-  using SZString     = ashvardanian::stringzilla::string;      ///< Owning, mutable string.
-  using SZStringView = ashvardanian::stringzilla::string_view; ///< Non-owning view of a string.
 
   using CStr = const char*; ///< Pointer to a null-terminated C-style string.
 
@@ -133,12 +129,12 @@ namespace util::types {
    * Using Option<> for fields that might not always be available.
    */
   struct MediaInfo {
-    Option<SZString> title;  ///< Track title.
-    Option<SZString> artist; ///< Track artist(s).
+    Option<String> title;  ///< Track title.
+    Option<String> artist; ///< Track artist(s).
 
     MediaInfo() = default;
 
-    MediaInfo(Option<SZString> title, Option<SZString> artist)
+    MediaInfo(Option<String> title, Option<String> artist)
       : title(std::move(title)), artist(std::move(artist)) {}
   };
 } // namespace util::types

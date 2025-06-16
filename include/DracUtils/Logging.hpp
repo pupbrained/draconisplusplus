@@ -19,7 +19,6 @@
 
 #include "Definitions.hpp"
 #include "Error.hpp"
-#include "Formatting.hpp"
 #include "Types.hpp"
 
 namespace util::logging {
@@ -31,7 +30,7 @@ namespace util::logging {
 
   struct LogLevelConst {
     // clang-format off
-    static constexpr types::Array<types::SZStringView, 16> COLOR_CODE_LITERALS = {
+    static constexpr types::Array<types::StringView, 16> COLOR_CODE_LITERALS = {
       "\033[38;5;0m",  "\033[38;5;1m",  "\033[38;5;2m",  "\033[38;5;3m",
       "\033[38;5;4m",  "\033[38;5;5m",  "\033[38;5;6m",  "\033[38;5;7m",
       "\033[38;5;8m",  "\033[38;5;9m",  "\033[38;5;10m", "\033[38;5;11m",
@@ -45,10 +44,10 @@ namespace util::logging {
     static constexpr const char* ITALIC_START = "\033[3m";
     static constexpr const char* ITALIC_END   = "\033[23m";
 
-    static constexpr types::SZStringView DEBUG_STR = "DEBUG";
-    static constexpr types::SZStringView INFO_STR  = "INFO ";
-    static constexpr types::SZStringView WARN_STR  = "WARN ";
-    static constexpr types::SZStringView ERROR_STR = "ERROR";
+    static constexpr types::StringView DEBUG_STR = "DEBUG";
+    static constexpr types::StringView INFO_STR  = "INFO ";
+    static constexpr types::StringView WARN_STR  = "WARN ";
+    static constexpr types::StringView ERROR_STR = "ERROR";
 
     static constexpr ftxui::Color::Palette16 DEBUG_COLOR      = ftxui::Color::Palette16::Cyan;
     static constexpr ftxui::Color::Palette16 INFO_COLOR       = ftxui::Color::Palette16::Green;
@@ -92,8 +91,8 @@ namespace util::logging {
    * @param color The FTXUI color
    * @return Styled string with ANSI codes
    */
-  inline fn Colorize(const types::SZStringView text, const ftxui::Color::Palette16& color) -> types::SZString {
-    return formatting::SzFormat("{}{}{}", LogLevelConst::COLOR_CODE_LITERALS.at(color), text, LogLevelConst::RESET_CODE);
+  inline fn Colorize(const types::StringView text, const ftxui::Color::Palette16& color) -> types::String {
+    return std::format("{}{}{}", LogLevelConst::COLOR_CODE_LITERALS.at(color), text, LogLevelConst::RESET_CODE);
   }
 
   /**
@@ -101,8 +100,8 @@ namespace util::logging {
    * @param text The text to make bold
    * @return Bold text
    */
-  inline fn Bold(const types::SZStringView text) -> types::SZString {
-    return formatting::SzFormat("{}{}{}", LogLevelConst::BOLD_START, text, LogLevelConst::BOLD_END);
+  inline fn Bold(const types::StringView text) -> types::String {
+    return std::format("{}{}{}", LogLevelConst::BOLD_START, text, LogLevelConst::BOLD_END);
   }
 
   /**
@@ -110,8 +109,8 @@ namespace util::logging {
    * @param text The text to make italic
    * @return Italic text
    */
-  inline fn Italic(const types::SZStringView text) -> types::SZString {
-    return formatting::SzFormat("{}{}{}", LogLevelConst::ITALIC_START, text, LogLevelConst::ITALIC_END);
+  inline fn Italic(const types::StringView text) -> types::String {
+    return std::format("{}{}{}", LogLevelConst::ITALIC_START, text, LogLevelConst::ITALIC_END);
   }
 
   /**
@@ -119,8 +118,8 @@ namespace util::logging {
    * @note Uses function-local static for lazy initialization to avoid
    * static initialization order issues and CERT-ERR58-CPP warnings.
    */
-  inline fn GetLevelInfo() -> const types::Array<types::SZString, 4>& {
-    static const types::Array<types::SZString, 4> LEVEL_INFO_INSTANCE = {
+  inline fn GetLevelInfo() -> const types::Array<types::String, 4>& {
+    static const types::Array<types::String, 4> LEVEL_INFO_INSTANCE = {
       Bold(Colorize(LogLevelConst::DEBUG_STR, LogLevelConst::DEBUG_COLOR)),
       Bold(Colorize(LogLevelConst::INFO_STR, LogLevelConst::INFO_COLOR)),
       Bold(Colorize(LogLevelConst::WARN_STR, LogLevelConst::WARN_COLOR)),
@@ -151,7 +150,7 @@ namespace util::logging {
    * @param level The log level
    * @return String representation
    */
-  constexpr fn GetLevelString(const LogLevel level) -> types::SZStringView {
+  constexpr fn GetLevelString(const LogLevel level) -> types::StringView {
     using namespace matchit;
     using enum LogLevel;
 
@@ -180,7 +179,7 @@ namespace util::logging {
 #ifndef NDEBUG
     const std::source_location& loc,
 #endif
-    std::string_view fmt,
+    std::format_string<Args...> fmt,
     Args&&... args
   ) {
     using namespace std::chrono;
@@ -195,7 +194,7 @@ namespace util::logging {
     const std::time_t nowTt = system_clock::to_time_t(nowTp);
     std::tm           localTm {};
 
-    types::SZString timestamp;
+    types::String timestamp;
 
 #ifdef _WIN32
     if (localtime_s(&localTm, &nowTt) == 0) {
@@ -210,7 +209,6 @@ namespace util::logging {
       if (formattedTime > 0) {
         timestamp = timeBuffer.data();
       } else {
-        // too much work to support this one thing with SZFormat
         try {
           timestamp = std::format("{:%X}", nowTp);
         } catch ([[maybe_unused]] const std::format_error& fmtErr) { timestamp = "??:??:??"; }
@@ -218,26 +216,26 @@ namespace util::logging {
     } else
       timestamp = "??:??:??";
 
-    const types::SZString message = formatting::SzFormat(fmt, std::forward<Args>(args)...);
+    const types::String message = std::format(fmt, std::forward<Args>(args)...);
 
-    const types::SZString mainLogLine = formatting::SzFormat(
+    const types::String mainLogLine = std::format(
       LogLevelConst::LOG_FORMAT,
-      Colorize(types::SZString("[") + timestamp + "]", LogLevelConst::DEBUG_INFO_COLOR),
+      Colorize(types::String("[") + timestamp + "]", LogLevelConst::DEBUG_INFO_COLOR),
       GetLevelInfo().at(static_cast<types::usize>(level)),
       message
     );
 
 #ifdef __cpp_lib_print
-    std::print("{}", mainLogLine.c_str());
+    std::print("{}", mainLogLine);
 #else
     std::cout << mainLogLine;
 #endif
 
 #ifndef NDEBUG
-    const types::SZString fileLine      = formatting::SzFormat(LogLevelConst::FILE_LINE_FORMAT, path(loc.file_name()).lexically_normal().string(), loc.line());
-    const types::SZString fullDebugLine = formatting::SzFormat("{}{}", LogLevelConst::DEBUG_LINE_PREFIX, fileLine);
+    const types::String fileLine      = std::format(LogLevelConst::FILE_LINE_FORMAT, path(loc.file_name()).lexically_normal().string(), loc.line());
+    const types::String fullDebugLine = std::format("{}{}", LogLevelConst::DEBUG_LINE_PREFIX, fileLine);
   #ifdef __cpp_lib_print
-    std::print("\n{}", Italic(Colorize(fullDebugLine, LogLevelConst::DEBUG_INFO_COLOR)).c_str());
+    std::print("\n{}", Italic(Colorize(fullDebugLine, LogLevelConst::DEBUG_INFO_COLOR)));
   #else
     std::cout << '\n'
               << Italic(Colorize(fullDebugLine, LogLevelConst::DEBUG_INFO_COLOR));
@@ -259,7 +257,7 @@ namespace util::logging {
     std::source_location logLocation;
 #endif
 
-    types::SZString errorMessagePart;
+    types::String errorMessagePart;
 
     if constexpr (std::is_same_v<DecayedErrorType, error::DracError>) {
 #ifndef NDEBUG
@@ -291,18 +289,18 @@ namespace util::logging {
 #define error_at(error_obj) ::util::logging::LogError(::util::logging::LogLevel::Error, error_obj)
 
 #ifdef NDEBUG
-  #define debug_log(fmt, ...) ::util::logging::LogImpl(::util::logging::LogLevel::Debug, std::string_view(fmt) __VA_OPT__(, ) __VA_ARGS__)
-  #define info_log(fmt, ...)  ::util::logging::LogImpl(::util::logging::LogLevel::Info, std::string_view(fmt) __VA_OPT__(, ) __VA_ARGS__)
-  #define warn_log(fmt, ...)  ::util::logging::LogImpl(::util::logging::LogLevel::Warn, std::string_view(fmt) __VA_OPT__(, ) __VA_ARGS__)
-  #define error_log(fmt, ...) ::util::logging::LogImpl(::util::logging::LogLevel::Error, std::string_view(fmt) __VA_OPT__(, ) __VA_ARGS__)
+  #define debug_log(fmt, ...) ::util::logging::LogImpl(::util::logging::LogLevel::Debug, fmt __VA_OPT__(, ) __VA_ARGS__)
+  #define info_log(fmt, ...)  ::util::logging::LogImpl(::util::logging::LogLevel::Info, fmt __VA_OPT__(, ) __VA_ARGS__)
+  #define warn_log(fmt, ...)  ::util::logging::LogImpl(::util::logging::LogLevel::Warn, fmt __VA_OPT__(, ) __VA_ARGS__)
+  #define error_log(fmt, ...) ::util::logging::LogImpl(::util::logging::LogLevel::Error, fmt __VA_OPT__(, ) __VA_ARGS__)
 #else
   #define debug_log(fmt, ...) \
-    ::util::logging::LogImpl(::util::logging::LogLevel::Debug, std::source_location::current(), std::string_view(fmt) __VA_OPT__(, ) __VA_ARGS__)
+    ::util::logging::LogImpl(::util::logging::LogLevel::Debug, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
   #define info_log(fmt, ...) \
-    ::util::logging::LogImpl(::util::logging::LogLevel::Info, std::source_location::current(), std::string_view(fmt) __VA_OPT__(, ) __VA_ARGS__)
+    ::util::logging::LogImpl(::util::logging::LogLevel::Info, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
   #define warn_log(fmt, ...) \
-    ::util::logging::LogImpl(::util::logging::LogLevel::Warn, std::source_location::current(), std::string_view(fmt) __VA_OPT__(, ) __VA_ARGS__)
+    ::util::logging::LogImpl(::util::logging::LogLevel::Warn, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
   #define error_log(fmt, ...) \
-    ::util::logging::LogImpl(::util::logging::LogLevel::Error, std::source_location::current(), std::string_view(fmt) __VA_OPT__(, ) __VA_ARGS__)
+    ::util::logging::LogImpl(::util::logging::LogLevel::Error, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
 #endif
 } // namespace util::logging

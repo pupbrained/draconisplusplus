@@ -2,7 +2,6 @@
   pkgs,
   nixpkgs,
   self,
-  stringzilla-pkg,
   ...
 }: let
   muslPkgs = import nixpkgs {
@@ -65,18 +64,6 @@
     llvmPackages_20.libcxx
     openssl
     sqlite
-    (stringzilla-pkg.overrideAttrs {
-      postPatch = ''
-        sed -i '1i#include <type_traits>' include/stringzilla/stringzilla.hpp
-
-        substituteInPlace CMakeLists.txt \
-          --replace 'add_library(''${target} SHARED c/lib.c)' 'add_library(''${target} STATIC c/lib.c)' \
-          --replace 'target_link_options(stringzillite PRIVATE "$<$<CXX_COMPILER_ID:GNU,Clang>:-nostdlib>")' "" \
-          --replace '";-nostdlib>"' '";>"'
-
-        sed -i '/install(DIRECTORY .\/c\/ DESTINATION \/usr\/src/d' CMakeLists.txt
-      '';
-    })
     wayland
     xorg.libXau
     xorg.libXdmcp
