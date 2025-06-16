@@ -12,7 +12,7 @@ option('build_for_musl', type: 'boolean', value: false)
 
 # Option: build_tests
 # Description: Build the test suite.
-option('build_tests', type: 'boolean', value: false)
+option('build_tests', type: 'boolean', value: true)
 
 # Option: use_pugixml
 # Description: Use pugixml to parse XBPS package metadata on Void Linux.

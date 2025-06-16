@@ -215,12 +215,7 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
         is | "debug" = Debug,
         is | "info"  = Info,
         is | "warn"  = Warn,
-        is | "error" = Error,
-#ifndef NDEBUG
-        is | _ = Debug
-#else
-        is | _ = Info
-#endif
+        is | "error" = Error
       );
 
       SetRuntimeLogLevel(minLevel);
