@@ -31,7 +31,7 @@ namespace package {
   #ifdef __linux__
     APK    = 1 << 2, ///< apk, the Alpine Linux package manager.
     DPKG   = 1 << 3, ///< dpkg, the Debian package system (used by APT).
-    MOSS   = 1 << 4, ///< Moss, the package manager for MOOS.
+    MOSS   = 1 << 4, ///< moss, the package manager for AerynOS.
     PACMAN = 1 << 5, ///< Pacman, the Arch Linux package manager.
     RPM    = 1 << 6, ///< RPM, package manager used by Fedora, RHEL, etc.
     XBPS   = 1 << 7, ///< XBPS, the X Binary Package System (used by Void Linux).

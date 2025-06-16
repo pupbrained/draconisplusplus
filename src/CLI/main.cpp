@@ -23,8 +23,52 @@
 
 using namespace util::types;
 using util::error::DracError;
+using enum util::error::DracErrorCode;
 
 namespace {
+  fn getOrdinalSuffix(const i32 day) -> CStr {
+    using matchit::match, matchit::is, matchit::_, matchit::in;
+
+    return match(day)(
+      is | in(11, 13)    = "th",
+      is | (_ % 10 == 1) = "st",
+      is | (_ % 10 == 2) = "nd",
+      is | (_ % 10 == 3) = "rd",
+      is | _             = "th"
+    );
+  }
+
+  fn getDate() -> Result<String> {
+    using std::chrono::system_clock;
+
+    const system_clock::time_point nowTp = system_clock::now();
+    const std::time_t              nowTt = system_clock::to_time_t(nowTp);
+
+    std::tm nowTm;
+
+#ifdef _WIN32
+    if (localtime_s(&nowTm, &nowTt) == 0) {
+#else
+    if (localtime_r(&nowTt, &nowTm) != nullptr) {
+#endif
+      i32 day = nowTm.tm_mday;
+
+      String monthBuffer(32, '\0');
+
+      if (const usize monthLen = std::strftime(monthBuffer.data(), monthBuffer.size(), "%B", &nowTm); monthLen > 0) {
+        monthBuffer.resize(monthLen);
+
+        CStr suffix = getOrdinalSuffix(day);
+
+        return std::format("{} {}{}", monthBuffer, day, suffix);
+      }
+
+      return Err(DracError(ParseError, "Failed to format date"));
+    }
+
+    return Err(DracError(ParseError, "Failed to get local time"));
+  }
+
   fn PrintDoctorReport(const os::System& data) -> void {
     Vec<Pair<String, DracError>> failures;
 
@@ -123,7 +167,7 @@ namespace {
     Future<Result<String>>        shellFut  = std::async(async, &os::System::getShell);
     Future<Result<ResourceUsage>> memFut    = std::async(async, &os::System::getMemInfo);
     Future<Result<ResourceUsage>> diskFut   = std::async(async, &os::System::getDiskUsage);
-    Future<Result<String>>        dateFut   = std::async(async, &os::System::getDate);
+    Future<Result<String>>        dateFut   = std::async(async, &getDate);
 
 #if DRAC_ENABLE_PACKAGECOUNT
     Future<Result<u64>> pkgFut = std::async(async, package::GetTotalCount, config.enabledPackageManagers);

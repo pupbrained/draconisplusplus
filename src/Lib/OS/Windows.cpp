@@ -41,11 +41,6 @@ namespace {
   constexpr const wchar_t* CURRENT_BUILD   = L"CurrentBuildNumber";
   constexpr const wchar_t* SYSTEM_FAMILY   = L"SystemFamily";
 
-  constexpr ULONG_PTR KUSER_SHARED_DATA           = 0x7FFE0000;                ///< Base address of the shared kernel-user data page
-  constexpr ULONG     KUSER_SHARED_NtMajorVersion = KUSER_SHARED_DATA + 0x26C; ///< Offset to the NtMajorVersion field
-  constexpr ULONG     KUSER_SHARED_NtMinorVersion = KUSER_SHARED_DATA + 0x270; ///< Offset to the NtMinorVersion field
-  constexpr ULONG     KUSER_SHARED_NtBuildNumber  = KUSER_SHARED_DATA + 0x260; ///< Offset to the NtBuildNumber field
-
   [[nodiscard]] fn ConvertWStringToUTF8(const std::wstring& wstr) -> String {
     if (wstr.empty())
       return {};
@@ -346,43 +341,39 @@ namespace os {
   #endif // DRAC_ENABLE_NOWPLAYING
 
   fn System::getOSVersion() -> Result<String> {
-    try {
-      RegistryCache& registry = RegistryCache::getInstance();
+    RegistryCache& registry = RegistryCache::getInstance();
 
-      HKEY currentVersionKey = registry.getCurrentVersionKey();
+    HKEY currentVersionKey = registry.getCurrentVersionKey();
 
-      if (!currentVersionKey)
-        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_READ, &currentVersionKey) != ERROR_SUCCESS)
-          return Err(DracError(NotFound, "Failed to open registry key"));
+    if (!currentVersionKey)
+      if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_READ, &currentVersionKey) != ERROR_SUCCESS)
+        return Err(DracError(NotFound, "Failed to open registry key"));
 
-      std::wstring productName = GetRegistryValue(currentVersionKey, PRODUCT_NAME);
+    std::wstring productName = GetRegistryValue(currentVersionKey, PRODUCT_NAME);
 
-      if (productName.empty())
-        return Err(DracError(NotFound, "ProductName not found in registry"));
+    if (productName.empty())
+      return Err(DracError(NotFound, "ProductName not found in registry"));
 
-      if (const Result<u64> buildNumberOpt = GetBuildNumber()) {
-        if (const u64 buildNumber = *buildNumberOpt; buildNumber >= 22000) {
-          if (const size_t pos = productName.find(WINDOWS_10); pos != std::wstring::npos) {
-            const bool startBoundary = (pos == 0 || !iswalnum(productName[pos - 1]));
-            const bool endBoundary   = (pos + std::wcslen(WINDOWS_10) == productName.length() || !iswalnum(productName[pos + std::wcslen(WINDOWS_10)]));
+    if (const Result<u64> buildNumberOpt = GetBuildNumber())
+      if (const u64 buildNumber = *buildNumberOpt; buildNumber >= 22000)
+        if (const size_t pos = productName.find(WINDOWS_10); pos != std::wstring::npos) {
+          const bool startBoundary = (pos == 0 || !iswalnum(productName[pos - 1]));
+          const bool endBoundary   = (pos + std::wcslen(WINDOWS_10) == productName.length() || !iswalnum(productName[pos + std::wcslen(WINDOWS_10)]));
 
-            if (startBoundary && endBoundary)
-              productName.replace(pos, std::wcslen(WINDOWS_10), WINDOWS_11);
-          }
+          if (startBoundary && endBoundary)
+            productName.replace(pos, std::wcslen(WINDOWS_10), WINDOWS_11);
         }
-      }
 
-      const std::wstring displayVersion = GetRegistryValue(currentVersionKey, DISPLAY_VERSION);
+    const std::wstring displayVersion = GetRegistryValue(currentVersionKey, DISPLAY_VERSION);
 
-      String productNameUTF8 = ConvertWStringToUTF8(productName);
+    String productNameUTF8 = ConvertWStringToUTF8(productName);
 
-      if (displayVersion.empty())
-        return productNameUTF8;
+    if (displayVersion.empty())
+      return productNameUTF8;
 
-      String displayVersionUTF8 = ConvertWStringToUTF8(displayVersion);
+    String displayVersionUTF8 = ConvertWStringToUTF8(displayVersion);
 
-      return productNameUTF8 + " " + displayVersionUTF8;
-    } catch (const std::exception& e) { return Err(DracError(e)); }
+    return productNameUTF8 + " " + displayVersionUTF8;
   }
 
   fn System::getHost() -> Result<String> {
@@ -399,11 +390,35 @@ namespace os {
   }
 
   fn System::getKernelVersion() -> Result<String> {
+    fn filter = [](u32 code, struct _EXCEPTION_POINTERS* /*ep*/) -> i32 {
+      if (code == EXCEPTION_ACCESS_VIOLATION)
+        return EXCEPTION_EXECUTE_HANDLER;
+
+      return EXCEPTION_CONTINUE_SEARCH;
+    };
+
+    constexpr ULONG_PTR kuserSharedData = 0x7FFE0000; ///< Base address of the shared kernel-user data page
+
+    constexpr u32 kuserSharedNtMajorVersion = kuserSharedData + 0x26C; ///< Offset to the NtMajorVersion field
+    constexpr u32 kuserSharedNtMinorVersion = kuserSharedData + 0x270; ///< Offset to the NtMinorVersion field
+    constexpr u32 kuserSharedNtBuildNumber  = kuserSharedData + 0x260; ///< Offset to the NtBuildNumber field
+
+    u32 majorVersion = 0;
+    u32 minorVersion = 0;
+    u32 buildNumber  = 0;
+
+  #pragma clang diagnostic push
+  #pragma clang diagnostic ignored "-Wlanguage-extension-token"
     // NOLINTBEGIN(*-pro-type-reinterpret-cast, *-no-int-to-ptr)
-    const ULONG majorVersion = *reinterpret_cast<const ULONG*>(KUSER_SHARED_NtMajorVersion);
-    const ULONG minorVersion = *reinterpret_cast<const ULONG*>(KUSER_SHARED_NtMinorVersion);
-    const ULONG buildNumber  = *reinterpret_cast<const ULONG*>(KUSER_SHARED_NtBuildNumber);
+    __try {
+      majorVersion = *reinterpret_cast<const volatile u32*>(kuserSharedNtMajorVersion);
+      minorVersion = *reinterpret_cast<const volatile u32*>(kuserSharedNtMinorVersion);
+      buildNumber  = *reinterpret_cast<const volatile u32*>(kuserSharedNtBuildNumber);
+    } __except (filter(GetExceptionCode(), GetExceptionInformation())) {
+      return Err(DracError(PlatformSpecific, "Failed to read kernel version from KUSER_SHARED_DATA"));
+    }
     // NOLINTEND(*-pro-type-reinterpret-cast, *-no-int-to-ptr)
+  #pragma clang diagnostic pop
 
     return std::format("{}.{}.{}", majorVersion, minorVersion, buildNumber);
   }
@@ -509,10 +524,10 @@ namespace os {
   fn System::getDiskUsage() -> Result<ResourceUsage> {
     ULARGE_INTEGER freeBytes, totalBytes;
 
-    if (GetDiskFreeSpaceExW(L"C:\\\\", nullptr, &totalBytes, &freeBytes))
-      return ResourceUsage { .usedBytes = totalBytes.QuadPart - freeBytes.QuadPart, .totalBytes = totalBytes.QuadPart };
+    if (FAILED(GetDiskFreeSpaceExW(L"C:\\\\", nullptr, &totalBytes, &freeBytes)))
+      return Err(DracError(PlatformSpecific, "Failed to get disk usage"));
 
-    return Err(DracError(PlatformSpecific, "Failed to get disk usage"));
+    return ResourceUsage { .usedBytes = totalBytes.QuadPart - freeBytes.QuadPart, .totalBytes = totalBytes.QuadPart };
   }
 
   fn System::getCPUModel() -> Result<String> {

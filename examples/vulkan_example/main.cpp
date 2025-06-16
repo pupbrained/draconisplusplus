@@ -397,7 +397,6 @@ fn main() -> i32 {
   ImGui_ImplVulkan_CreateFontsTexture();
 
   std::chrono::time_point lastUpdateTime = std::chrono::steady_clock::now();
-  Result<String>          date;
   Result<String>          host;
   Result<String>          kernelVersion;
   Result<String>          osVersion;
@@ -420,7 +419,6 @@ fn main() -> i32 {
 
     const std::chrono::time_point now = std::chrono::steady_clock::now();
     if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdateTime).count() >= 1) {
-      date          = os::System::getDate();
       host          = os::System::getHost();
       kernelVersion = os::System::getKernelVersion();
       osVersion     = os::System::getOSVersion();
@@ -456,7 +454,6 @@ fn main() -> i32 {
     ImGui::NewFrame();
     ImGui::Begin("Draconis++");
     {
-      ImGui::TextUnformatted(std::format("Date: {}", date.value_or("N/A")).c_str());
       ImGui::TextUnformatted(std::format("Host: {}", host.value_or("N/A")).c_str());
       ImGui::TextUnformatted(std::format("Kernel: {}", kernelVersion.value_or("N/A")).c_str());
       ImGui::TextUnformatted(std::format("OS: {}", osVersion.value_or("N/A")).c_str());

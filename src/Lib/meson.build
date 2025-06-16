@@ -1,7 +1,7 @@
 # ------- #
 #  Files  #
 # ------- #
-lib_base_sources = [files('Core/System.cpp')]
+lib_base_sources = []
 
 if get_option('enable_packagecount') == true
   lib_base_sources += files('Services/PackageCounting.cpp')

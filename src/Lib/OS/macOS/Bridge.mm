@@ -44,9 +44,8 @@ namespace os::bridge {
         CFBundleGetFunctionPointerForName(bundleRef, CFSTR("MRMediaRemoteGetNowPlayingInfo"))
       );
 
-      if (!mrMediaRemoteGetNowPlayingInfo) {
+      if (!mrMediaRemoteGetNowPlayingInfo)
         return Err(DracError(ApiUnavailable, "Failed to get MRMediaRemoteGetNowPlayingInfo function pointer"));
-      }
 
       __block Result<MediaInfo>  result;
       const dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
@@ -54,9 +53,9 @@ namespace os::bridge {
       mrMediaRemoteGetNowPlayingInfo(
         dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
         ^(NSDictionary* information) {
-          if (!information) {
+          if (!information)
             result = Err(DracError(NotFound, "No media metadata available - no media is currently playing"));
-          } else {
+          else {
             const NSString* const title  = [information objectForKey:@"kMRMediaRemoteNowPlayingInfoTitle"];
             const NSString* const artist = [information objectForKey:@"kMRMediaRemoteNowPlayingInfoArtist"];
 

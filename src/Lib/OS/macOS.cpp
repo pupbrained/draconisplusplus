@@ -49,10 +49,9 @@ namespace os {
     static mach_port_t HostPort = mach_host_self();
     static vm_size_t   PageSize = 0;
 
-    if (PageSize == 0) {
+    if (PageSize == 0)
       if (host_page_size(HostPort, &PageSize) != KERN_SUCCESS)
         return Err(DracError("Failed to get page size"));
-    }
 
     u64   totalMem = 0;
     usize size     = sizeof(totalMem);
