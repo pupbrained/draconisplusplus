@@ -58,6 +58,7 @@
             "-DSTRINGZILLA_BUILD_SHARED=ON"
             "-DCMAKE_INSTALL_INCLUDEDIR=include"
             "-DCMAKE_INSTALL_LIBDIR=lib"
+            "-DCMAKE_C_FLAGS=-fno-builtin-memcpy"
           ];
 
           postInstall = ''

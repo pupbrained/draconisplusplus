@@ -49,7 +49,6 @@ namespace {
     using namespace XCB;
     using namespace matchit;
     using enum ConnError;
-    using util::types::StringView;
 
     const DisplayGuard conn;
 
@@ -72,8 +71,6 @@ namespace {
         );
 
     fn internAtom = [&conn](const StringView name) -> Result<Atom> {
-      using util::types::u16;
-
       const ReplyGuard<IntAtomReply> reply(InternAtomReply(conn.get(), InternAtom(conn.get(), 0, static_cast<u16>(name.size()), name.data()), nullptr));
 
       if (!reply)
@@ -131,8 +128,6 @@ namespace {
 
   #ifdef HAVE_WAYLAND
   fn GetWaylandCompositor() -> Result<String> {
-    using util::types::i32, util::types::Array, util::types::isize, util::types::StringView;
-
     const Wayland::DisplayGuard display;
 
     if (!display)
@@ -211,11 +206,8 @@ namespace {
 
 namespace os {
   using util::helpers::GetEnv;
-  using util::types::ResourceUsage;
 
   fn System::getOSVersion() -> Result<SZString> {
-    using util::types::StringView;
-
     std::ifstream file("/etc/os-release");
 
     if (!file)
@@ -425,8 +417,6 @@ namespace os {
   }
 
   fn System::getShell() -> Result<SZString> {
-    using util::types::Pair, util::types::Array, util::types::StringView;
-
     // clang-format off
     return GetEnv("SHELL")
       .transform([](String shellPath) -> String {
@@ -453,8 +443,6 @@ namespace os {
   }
 
   fn System::getHost() -> Result<SZString> {
-    using util::types::CStr;
-
     constexpr CStr primaryPath  = "/sys/class/dmi/id/product_family";
     constexpr CStr fallbackPath = "/sys/class/dmi/id/product_name";
 
@@ -627,8 +615,6 @@ namespace package {
 
     #ifdef HAVE_PUGIXML
   fn CountXbps() -> Result<u64> {
-    using util::types::CStr;
-
     const CStr xbpsDbPath = "/var/db/xbps";
 
     if (!fs::exists(xbpsDbPath))
