@@ -2,8 +2,9 @@
 
   #include "WeatherUtils.hpp"
 
-  #include <charconv> // For std::from_chars
-  #include <ctime>    // For std::tm, timegm, _mkgmtime
+  #include <charconv> // std::from_chars
+  #include <ctime>    // std::tm, timegm, _mkgmtime
+  #include <format>   // std::format
 
   #ifdef __HAIKU__
     #define _DEFAULT_SOURCE // exposes timegm

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <expected>        // std::{unexpected, expected}
+#include <format>          // std::formatter
 #include <matchit.hpp>     // matchit::{match, is, or_, _}
 #include <source_location> // std::source_location
 #include <system_error>    // std::error_code
