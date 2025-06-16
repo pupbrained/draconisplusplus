@@ -76,7 +76,6 @@
 
         sed -i '/install(DIRECTORY .\/c\/ DESTINATION \/usr\/src/d' CMakeLists.txt
       '';
-      NIX_LDFLAGS = "-Wl,--whole-archive -lstringzillite -Wl,--no-whole-archive";
     })
     wayland
     xorg.libXau
