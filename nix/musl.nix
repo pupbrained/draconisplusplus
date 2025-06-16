@@ -27,7 +27,16 @@
     muslPkgs.stdenvAdapters.useMoldLinker
     llvmPackages.libcxxStdenv;
 
-  glaze = (muslPkgs.glaze.override {inherit stdenv;}).overrideAttrs (oldAttrs: {
+  glaze = (muslPkgs.glaze.override {inherit stdenv;}).overrideAttrs (oldAttrs: rec {
+    version = "5.5.0";
+
+    src = pkgs.fetchFromGitHub {
+      owner = "stephenberry";
+      repo = "glaze";
+      tag = "v${version}";
+      hash = "sha256-HC8R1wyNySVhuTZczdbiHkQ8STTXA/1GJLKdTXN9VAo=";
+    };
+
     cmakeFlags =
       (oldAttrs.cmakeFlags or [])
       ++ [
@@ -110,7 +119,9 @@
         meson compile -C build
       '';
 
-      doCheck = true;
+      checkPhase = ''
+        meson test -C build --print-errorlogs
+      '';
 
       installPhase = ''
         mkdir -p $out/bin

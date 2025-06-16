@@ -31,7 +31,18 @@
 
         devShellDeps = with pkgs;
           [
-            (glaze.override {enableAvx2 = hostPlatform.isx86;})
+            ((glaze.override {
+                enableAvx2 = hostPlatform.isx86;
+              }).overrideAttrs rec {
+                version = "5.5.0";
+
+                src = fetchFromGitHub {
+                  owner = "stephenberry";
+                  repo = "glaze";
+                  tag = "v${version}";
+                  hash = "sha256-HC8R1wyNySVhuTZczdbiHkQ8STTXA/1GJLKdTXN9VAo=";
+                };
+              })
             (imgui.override {
               IMGUI_BUILD_GLFW_BINDING = true;
               IMGUI_BUILD_VULKAN_BINDING = true;

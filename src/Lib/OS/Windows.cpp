@@ -1,31 +1,29 @@
 #ifdef _WIN32
 
-// clang-format off
-#include <dxgi.h>
-#include <dwmapi.h>
-#include <algorithm>
-#include <ranges>
-#include <tlhelp32.h>
-#include <wincrypt.h>
-#include <windows.h>
-#include <setupapi.h>
-#include <devguid.h>
-#include <intrin.h> 
+  #include <algorithm>
+  #include <devguid.h>
+  #include <dwmapi.h>
+  #include <dxgi.h>
+  #include <intrin.h>
+  #include <ranges>
+  #include <setupapi.h>
+  #include <tlhelp32.h>
+  #include <wincrypt.h>
+  #include <windows.h>
+  #include <winrt/Windows.Foundation.Collections.h>
+  #include <winrt/Windows.Management.Deployment.h>
+  #include <winrt/Windows.Media.Control.h>
+  #include <winrt/Windows.System.Profile.h>
 
-#include <winrt/Windows.Foundation.Collections.h>
-#include <winrt/Windows.Management.Deployment.h>
-#include <winrt/Windows.Media.Control.h>
-#include <winrt/Windows.System.Profile.h>
+  #if DRAC_ENABLE_PACKAGECOUNT
+    #include "Drac++/Services/PackageCounting.hpp"
+  #endif
 
-#if DRAC_ENABLE_PACKAGECOUNT
-  #include "Drac++/Services/PackageCounting.hpp"
-#endif
+  #include "Drac++/Core/System.hpp"
 
-#include "Utils/Caching.hpp"
-#include "DracUtils/Env.hpp"
+  #include "DracUtils/Env.hpp"
 
-#include "Drac++/Core/System.hpp"
-// clang-format on
+  #include "Utils/Caching.hpp"
 
 using RtlGetVersionPtr = NTSTATUS(WINAPI*)(PRTL_OSVERSIONINFOW);
 
