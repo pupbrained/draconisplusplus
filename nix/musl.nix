@@ -116,7 +116,7 @@
 
       installPhase = ''
         mkdir -p $out/bin
-        mv build/draconis++ $out/bin/draconis++
+        mv build/src/CLI/draconis++ $out/bin/draconis++
       '';
 
       NIX_ENFORCE_NO_NATIVE =
