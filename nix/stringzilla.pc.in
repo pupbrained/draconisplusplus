@@ -7,5 +7,5 @@ Name: stringzilla
 Description: SIMD-accelerated string search, sort, hashes, fingerprints, & edit distances
 Version: @version@
 Requires:
-Libs: -L${libdir} -lstringzilla
+Libs: -L${libdir} -lstringzillite
 Cflags: -I${includedir}
