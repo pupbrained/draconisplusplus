@@ -6,7 +6,7 @@ ALLOW_UNICODE_NAMES    = YES
 INLINE_INHERITED_MEMB  = YES
 RECURSIVE              = YES
 EXCLUDE_PATTERNS       = */build/* \
+                         */tests/* \
                          */subprojects/* \
                          */third_party/* \
-                         */tests/* \
                          */examples/*
