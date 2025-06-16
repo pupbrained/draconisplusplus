@@ -35,25 +35,8 @@
     "root": {
       "inputs": {
         "nixpkgs": "nixpkgs",
-        "stringzilla": "stringzilla",
         "treefmt-nix": "treefmt-nix",
         "utils": "utils"
-      }
-    },
-    "stringzilla": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1745009009,
-        "narHash": "sha256-Hp66R4+gic0WstRVnutMBx8g+DMzLEnxPzt3sgvWGG4=",
-        "owner": "ashvardanian",
-        "repo": "StringZilla",
-        "rev": "960967d78c7facf6de2de9d5eecc0ac7f5ce19b8",
-        "type": "github"
-      },
-      "original": {
-        "owner": "ashvardanian",
-        "repo": "StringZilla",
-        "type": "github"
       }
     },
     "systems": {
