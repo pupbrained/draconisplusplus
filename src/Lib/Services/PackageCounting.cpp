@@ -165,15 +165,15 @@ namespace package {
       } else
         return Err(DracError(ParseError, std::format("No rows returned by {} DB COUNT query.", pmId)));
     } catch (const SQLite::Exception& e) {
-      error_log(std::format("SQLite error occurred accessing {} DB '{}': {}", pmId, dbPath.string(), e.what()));
+      error_log("SQLite error occurred accessing {} DB '{}': {}", pmId, dbPath.string(), e.what());
 
       return Err(DracError(ApiUnavailable, std::format("Failed to query {} database: {}", pmId, dbPath.string())));
     } catch (const Exception& e) {
-      error_log(std::format("Standard exception accessing {} DB '{}': {}", pmId, dbPath.string(), e.what()));
+      error_log("Standard exception accessing {} DB '{}': {}", pmId, dbPath.string(), e.what());
 
       return Err(DracError(InternalError, e.what()));
     } catch (...) {
-      error_log(std::format("Unknown error occurred accessing {} DB '{}'", pmId, dbPath.string()));
+      error_log("Unknown error occurred accessing {} DB '{}'", pmId, dbPath.string());
 
       return Err(DracError(Other, std::format("Unknown error occurred accessing {} DB", pmId)));
     }
