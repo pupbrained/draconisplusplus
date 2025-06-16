@@ -239,12 +239,18 @@ if not glaze_dep.found()
 endif
 lib_deps += glaze_dep
 
-# --------------------- #
-#  Subdirectories       #
-# --------------------- #
+# ---------------- #
+#  Subdirectories  #
+# ---------------- #
 subdir('src/Lib')
-subdir('src/Lib/Tests')
 subdir('src/CLI')
+
+# ------- #
+#  Tests  #
+# ------- #
+if get_option('build_tests')
+  subdir('src/Lib/Tests')
+endif
 
 # -------------------- #
 #  Example Executable  #

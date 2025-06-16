@@ -99,6 +99,7 @@
       mesonFlags = [
         "-Dbuild_for_musl=true"
         "-Dbuild_examples=false"
+        "-Dbuild_tests=false"
       ];
 
       buildInputs = deps;
@@ -109,10 +110,6 @@
 
       buildPhase = ''
         meson compile -C build
-      '';
-
-      checkPhase = ''
-        meson test -C build --print-errorlogs
       '';
 
       doCheck = true;

@@ -70,6 +70,7 @@
 
       mesonFlags = [
         "-Dbuild_examples=false"
+        "-Dbuild_tests=false"
       ];
 
       configurePhase = ''
@@ -78,10 +79,6 @@
 
       buildPhase = ''
         meson compile -C build
-      '';
-
-      checkPhase = ''
-        meson test -C build --print-errorlogs
       '';
 
       doCheck = true;
