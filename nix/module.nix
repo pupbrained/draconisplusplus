@@ -31,30 +31,27 @@ with lib; let
 
       #if DRAC_PRECOMPILED_CONFIG
 
-      #if DRAC_ENABLE_WEATHER || DRAC_ENABLE_PACKAGECOUNT
-        #include "Config/Config.hpp"
-        #include "Util/ConfigData.hpp"
+      #if DRAC_ENABLE_WEATHER
+        #include <Drac++/Services/Weather.hpp>
       #endif
 
-      #if DRAC_ENABLE_WEATHER
-        #include "Services/Weather/MetNoService.hpp"
-        #include "Services/Weather/OpenMeteoService.hpp"
-        #include "Services/Weather/OpenWeatherMapService.hpp"
+      #if DRAC_ENABLE_PACKAGECOUNT
+        #include <Drac++/Services/PackageCounting.hpp>
       #endif
 
       namespace config {
         constexpr const char* DRAC_USERNAME = "${cfg.username}";
 
         #if DRAC_ENABLE_WEATHER
-        constexpr WeatherProvider DRAC_WEATHER_PROVIDER = WeatherProvider::${lib.toUpper cfg.weatherProvider};
-        constexpr WeatherUnit DRAC_WEATHER_UNIT = WeatherUnit::${lib.toUpper cfg.weatherUnit};
+        constexpr weather::Provider DRAC_WEATHER_PROVIDER = weather::Provider::${lib.toUpper cfg.weatherProvider};
+        constexpr weather::Unit DRAC_WEATHER_UNIT = weather::Unit::${lib.toUpper cfg.weatherUnit};
         constexpr bool DRAC_SHOW_TOWN_NAME = ${toString cfg.showTownName};
         constexpr std::optional<std::string> DRAC_API_KEY = ${apiKey};
-        constexpr Location DRAC_LOCATION = ${location};
+        constexpr weather::Location DRAC_LOCATION = ${location};
         #endif
 
         #if DRAC_ENABLE_PACKAGECOUNT
-        constexpr PackageManager DRAC_ENABLED_PACKAGE_MANAGERS = ${builtins.concatStringsSep " | " (map (pkg: "PackageManager::" + lib.toUpper pkg) cfg.packageManagers)};
+        constexpr package::Manager DRAC_ENABLED_PACKAGE_MANAGERS = ${builtins.concatStringsSep " | " (map (pkg: "package::Manager::" + lib.toUpper pkg) cfg.packageManagers)};
         #endif
       }
 
