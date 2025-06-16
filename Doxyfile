@@ -7,4 +7,6 @@ INLINE_INHERITED_MEMB  = YES
 RECURSIVE              = YES
 EXCLUDE_PATTERNS       = */build/* \
                          */subprojects/* \
-                         */third_party/*
+                         */third_party/* \
+                         */tests/* \
+                         */examples/*
