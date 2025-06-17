@@ -214,7 +214,7 @@ namespace ui {
 
 #if DRAC_ENABLE_WEATHER
     if (config.weather.enabled && data.weather) {
-      const weather::WeatherReport& weatherInfo = *data.weather;
+      const weather::Report& weatherInfo = *data.weather;
 
       CStr tempUnit = config.weather.units == weather::Unit::METRIC ? "C" : "F";
 

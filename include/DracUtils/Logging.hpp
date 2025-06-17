@@ -61,7 +61,7 @@ namespace util::logging {
 #ifndef NDEBUG
     static constexpr types::CStr DEBUG_INFO_FORMAT = "{}{}{}\n";
     static constexpr types::CStr FILE_LINE_FORMAT  = "{}:{}";
-    static constexpr types::CStr DEBUG_LINE_PREFIX = "           ╰── ";
+    static constexpr types::CStr DEBUG_LINE_PREFIX = "           ╰──── ";
 #endif
   };
 

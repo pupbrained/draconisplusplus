@@ -89,7 +89,7 @@ namespace os {
     util::types::Result<util::types::MediaInfo> nowPlaying; ///< Result of fetching media info.
 #endif
 #if DRAC_ENABLE_WEATHER
-    util::types::Result<weather::WeatherReport> weather; ///< Result of fetching weather info.
+    util::types::Result<weather::Report> weather; ///< Result of fetching weather info.
 #endif
 
     /**

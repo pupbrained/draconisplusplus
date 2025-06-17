@@ -14,17 +14,17 @@ using namespace util::types;
 using util::error::DracError;
 using enum util::error::DracErrorCode;
 using weather::OpenMeteoService;
+using weather::Report;
 using weather::Unit;
-using weather::WeatherReport;
 
 OpenMeteoService::OpenMeteoService(const f64 lat, const f64 lon, Unit units)
   : m_lat(lat), m_lon(lon), m_units(units) {}
 
-fn OpenMeteoService::getWeatherInfo() const -> Result<WeatherReport> {
+fn OpenMeteoService::getWeatherInfo() const -> Result<Report> {
   using glz::error_ctx, glz::read, glz::error_code;
   using util::cache::GetValidCache, util::cache::WriteCache;
 
-  if (Result<WeatherReport> cachedDataResult = GetValidCache<WeatherReport>("weather"))
+  if (Result<Report> cachedDataResult = GetValidCache<Report>("weather"))
     return *cachedDataResult;
   else
     debug_at(cachedDataResult.error());
@@ -65,7 +65,7 @@ fn OpenMeteoService::getWeatherInfo() const -> Result<WeatherReport> {
   if (!timestamp)
     return Err(timestamp.error());
 
-  WeatherReport out = {
+  Report out = {
     .temperature = apiResp.currentWeather.temperature,
     .name        = None,
     .description = weather::utils::GetOpenmeteoWeatherDescription(apiResp.currentWeather.weathercode),

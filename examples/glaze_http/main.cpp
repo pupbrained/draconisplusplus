@@ -1,0 +1,299 @@
+#include <asio/error.hpp>            // asio::error::operation_aborted
+#include <chrono>                    // std::chrono::{minutes, steady_clock, time_point}
+#include <csignal>                   // SIGINT, SIGTERM, SIG_ERR, std::signal
+#include <cstdlib>                   // EXIT_FAILURE, EXIT_SUCCESS
+#include <glaze/core/context.hpp>    // glz::error_ctx
+#include <glaze/core/meta.hpp>       // glz::{meta, detail::Object}
+#include <glaze/net/http_server.hpp> // glz::http_server
+#include <matchit.hpp>               // matchit::impl::Overload
+#include <mutex>                     // std::{mutex, unique_lock}
+#include <optional>                  // std::optional
+#include <utility>                   // std::move
+
+#include <Drac++/Core/System.hpp>
+#include <Drac++/Services/Weather.hpp>
+
+#include <DracUtils/Definitions.hpp>
+#include <DracUtils/Error.hpp>
+#include <DracUtils/Logging.hpp>
+#include <DracUtils/Types.hpp>
+
+using namespace util::types;
+using util::error::DracError;
+
+namespace {
+  constexpr i16 port = 3722;
+
+  struct State {
+#if DRAC_ENABLE_WEATHER
+    mutable struct WeatherCache {
+      std::optional<Result<weather::Report>> report;
+      std::chrono::steady_clock::time_point  lastChecked;
+      mutable std::mutex                     mtx;
+    } weatherCache;
+
+    mutable UniquePointer<weather::IWeatherService> weatherService;
+#endif
+  };
+
+  fn GetState() -> const State& {
+    static const State STATE;
+
+    return STATE;
+  }
+} // namespace
+
+struct SystemProperty {
+  String name;
+  String value;
+  String error;
+  bool   hasError = false;
+
+  SystemProperty(String name, String value)
+    : name(std::move(name)), value(std::move(value)) {}
+
+  SystemProperty(String name, const DracError& err)
+    : name(std::move(name)), error(std::format("{} ({})", err.message, err.code)), hasError(true) {}
+};
+
+struct SystemInfo {
+  Vec<SystemProperty> properties;
+};
+
+namespace glz {
+  template <>
+  struct meta<SystemProperty> {
+    using T = SystemProperty;
+
+    // clang-format off
+    static constexpr glz::detail::Object value = glz::object(
+      "name", &T::name,
+      "value", &T::value,
+      "error", &T::error,
+      "hasError", &T::hasError
+    );
+    // clang-format on
+  };
+
+  template <>
+  struct meta<SystemInfo> {
+    using T = SystemInfo;
+
+    static constexpr glz::detail::Object value = glz::object("properties", &T::properties);
+  };
+} // namespace glz
+
+constexpr StringView HTML_LAYOUT = R"html(
+  <!DOCTYPE html>
+  <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>System Information</title>
+      <style>
+        .container { max-width: 800px; margin: 20px auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1), 0 8px 16px rgba(0,0,0,0.1); }
+        .error { color: #fa383e; font-style: italic; }
+        .property-name { font-weight: 500; color: #333; }
+
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; background-color: #f0f2f5; color: #1c1e21; }
+        footer { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid #dddfe2; font-size: 0.9em; color: #606770; }
+        h1 { color: #1877f2; border-bottom: 2px solid #1877f2; padding-bottom: 10px; margin-bottom: 20px; text-align: center; }
+
+        table { border-collapse: collapse; width: 100%; }
+        th { background-color: #e9ebee; color: #4b4f56; font-weight: 600; }
+        th, td { border: 1px solid #dddfe2; padding: 12px 15px; text-align: left; }
+        tr:nth-child(even) { background-color: #f7f8fa; }
+
+        @media (max-width: 600px) {
+            .container { margin: 0; padding: 10px; width: 100%; box-shadow: none; border-radius: 0; }
+
+            body { padding: 0; }
+            h1 { font-size: 1.75em; }
+
+            tr:first-of-type { display: none; }
+            table thead tr { position: absolute; top: -9999px; left: -9999px; }
+            table, thead, tbody, th, td, tr { display: block; }
+            td { border: none; border-bottom: 1px solid #eee; position: relative; padding-left: 5px; }
+            td.property-name { background-color: #f7f8fa; font-weight: 600; }
+            tr { border: 1px solid #dddfe2; margin-bottom: 10px; }
+            tr:nth-child(even) { background-color: #fff; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <h1>Draconis++ System Information</h1>
+        <table>
+        <tr><th>Property</th><th>Value</th></tr>
+        {{#properties}}
+        <tr>
+          <td class="property-name">{{name}}</td>
+          <td>
+            {{^hasError}}{{value}}{{/hasError}}
+            {{#hasError}}<span class="error">{{error}}</span>{{/hasError}}
+          </td>
+        </tr>
+        {{/properties}}
+        </table>
+        <footer>Generated by Draconis++ v)html" DRAC_VERSION R"html(</footer>
+      </div>
+    </body>
+  </html>
+)html";
+
+fn main() -> i32 {
+  glz::http_server server;
+
+#if DRAC_ENABLE_WEATHER
+  {
+    using namespace weather;
+
+    GetState().weatherService = CreateWeatherService(Provider::METNO, Coords(40.71427, -74.00597), Unit::IMPERIAL);
+
+    if (!GetState().weatherService)
+      error_log("Error: Failed to initialize WeatherService.");
+  }
+#endif
+
+  server.on_error([](std::error_code errc, std::source_location loc) {
+    if (errc != asio::error::operation_aborted)
+      error_log("Server error at {}:{} -> {}", loc.file_name(), loc.line(), errc.message());
+  });
+
+  server.get("/", [](const glz::request& req, glz::response& res) {
+    info_log("Handling request from {}", req.remote_ip);
+
+    SystemInfo sysInfo;
+
+    {
+      using os::System;
+      using matchit::impl::Overload;
+      using enum util::error::DracErrorCode;
+
+      fn addProperty = Overload {
+        [&](const String& name, const Result<String>& result) -> void {
+          if (result)
+            sysInfo.properties.emplace_back(name, *result);
+          else if (result.error().code != NotSupported)
+            sysInfo.properties.emplace_back(name, result.error());
+        },
+        [&](const String& name, const Result<ResourceUsage>& result) -> void {
+          if (result)
+            sysInfo.properties.emplace_back(name, std::format("{} / {}", BytesToGiB(result->usedBytes), BytesToGiB(result->totalBytes)));
+          else
+            sysInfo.properties.emplace_back(name, result.error());
+        },
+#if DRAC_ENABLE_NOWPLAYING
+        [&](const String& name, const Result<MediaInfo>& result) -> void {
+          if (result)
+            sysInfo.properties.emplace_back(name, std::format("{} - {}", result->title.value_or("Unknown Title"), result->artist.value_or("Unknown Artist")));
+          else if (result.error().code == NotFound)
+            sysInfo.properties.emplace_back(name, "No media playing");
+          else
+            sysInfo.properties.emplace_back(name, result.error());
+        },
+#endif
+#if DRAC_ENABLE_WEATHER
+        [&](const String& name, const Result<weather::Report>& result) -> void {
+          if (result)
+            sysInfo.properties.emplace_back(name, std::format("{}°F, {}", std::lround(result->temperature), result->description));
+          else if (result.error().code == NotFound)
+            sysInfo.properties.emplace_back(name, "No weather data available");
+          else
+            sysInfo.properties.emplace_back(name, result.error());
+        },
+#endif
+      };
+
+      addProperty("OS Version", System::getOSVersion());
+      addProperty("Kernel Version", System::getKernelVersion());
+      addProperty("Host", System::getHost());
+      addProperty("Shell", System::getShell());
+      addProperty("Desktop Environment", System::getDesktopEnvironment());
+      addProperty("Window Manager", System::getWindowManager());
+      addProperty("CPU Model", System::getCPUModel());
+      addProperty("GPU Model", System::getGPUModel());
+      addProperty("Memory", System::getMemInfo());
+      addProperty("Disk Usage", System::getDiskUsage());
+#if DRAC_ENABLE_NOWPLAYING
+      addProperty("Now Playing", System::getNowPlaying());
+#endif
+#if DRAC_ENABLE_WEATHER
+      {
+        using namespace weather;
+        using namespace std::chrono;
+
+        Result<Report> weatherResultToAdd;
+
+        std::unique_lock<std::mutex> lock(GetState().weatherCache.mtx);
+
+        time_point now = steady_clock::now();
+
+        bool needsFetch = true;
+
+        if (GetState().weatherCache.report.has_value() && now - GetState().weatherCache.lastChecked < minutes(10)) {
+          info_log("Using cached weather data.");
+          weatherResultToAdd = *GetState().weatherCache.report;
+          needsFetch         = false;
+        }
+
+        if (needsFetch) {
+          info_log("Fetching new weather data...");
+          if (GetState().weatherService) {
+            Result<Report> fetchedReport        = GetState().weatherService->getWeatherInfo();
+            GetState().weatherCache.report      = fetchedReport;
+            GetState().weatherCache.lastChecked = now;
+            weatherResultToAdd                  = fetchedReport;
+          } else {
+            error_log("Weather service is not initialized. Cannot fetch new data.");
+            Result<Report> errorReport          = Err(DracError(ApiUnavailable, "Weather service not initialized"));
+            GetState().weatherCache.report      = errorReport;
+            GetState().weatherCache.lastChecked = now;
+            weatherResultToAdd                  = errorReport;
+          }
+        }
+
+        lock.unlock();
+
+        addProperty("Weather", weatherResultToAdd);
+      }
+#endif
+    }
+
+    Result<String, glz::error_ctx> result = glz::stencil(HTML_LAYOUT, sysInfo);
+
+    if (result)
+      res.header("Content-Type", "text/html; charset=utf-8").body(*result);
+    else {
+      String errorString = glz::format_error(result.error(), HTML_LAYOUT);
+      error_log("Failed to render stencil template:\n{}", errorString);
+      res.status(500).body("Internal Server Error: Template rendering failed.");
+    }
+  });
+
+  server.bind(port);
+  server.start();
+
+  info_log("Server started at http://localhost:{}. Press Ctrl+C to exit.", port);
+
+  {
+    using namespace asio;
+
+    io_context signalContext;
+
+    signal_set signals(signalContext, SIGINT, SIGTERM);
+
+    signals.async_wait([&](const error_code& error, i32 signal_number) {
+      if (!error) {
+        info_log("\nShutdown signal ({}) received. Stopping server...", signal_number);
+        server.stop();
+        signalContext.stop();
+      }
+    });
+
+    signalContext.run();
+  }
+
+  info_log("Server stopped. Exiting.");
+  return EXIT_SUCCESS;
+}

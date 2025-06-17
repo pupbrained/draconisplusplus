@@ -10,7 +10,7 @@ namespace weather {
   class MetNoService final : public IWeatherService {
    public:
     MetNoService(util::types::f64 lat, util::types::f64 lon, Unit units);
-    [[nodiscard]] fn getWeatherInfo() const -> util::types::Result<WeatherReport> override;
+    [[nodiscard]] fn getWeatherInfo() const -> util::types::Result<Report> override;
 
    private:
     util::types::f64 m_lat;

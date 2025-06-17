@@ -35,6 +35,7 @@
 using util::error::DracError;
 using enum util::error::DracErrorCode;
 using namespace util::types;
+namespace fs = std::filesystem;
 
 // clang-format off
 #ifdef __GLIBC__
@@ -492,7 +493,7 @@ namespace os {
     const unsigned int maxFunction = cpuInfo[0];
 
     if (maxFunction < 0x80000004)
-      throw std::runtime_error("CPU does not support brand string");
+      return Err(DracError(NotSupported, "CPU does not support brand string"));
 
     for (unsigned int i = 0; i < 3; ++i) {
       __get_cpuid(0x80000002 + i, cpuInfo.data(), &cpuInfo[1], &cpuInfo[2], &cpuInfo[3]);
@@ -504,20 +505,20 @@ namespace os {
     result.erase(result.find_last_not_of(" \t\n\r") + 1);
 
     if (result.empty())
-      throw std::runtime_error("Failed to get CPU model string via CPUID");
+      return Err(DracError(InternalError, "Failed to get CPU model string via CPUID"));
 
     return result;
   }
 
   fn System::getGPUModel() -> Result<String> {
-    return Err(DracError("GPU model string not supported"));
+    return Err(DracError(NotSupported, "GPU model retrieval is not supported on Linux"));
   }
 
   fn System::getKernelVersion() -> Result<String> {
     utsname uts;
 
     if (uname(&uts) == -1)
-      return Err(DracError("uname call failed"));
+      return Err(DracError(InternalError, "uname call failed"));
 
     if (std::strlen(uts.release) == 0)
       return Err(DracError(ParseError, "uname returned null kernel release"));
@@ -529,7 +530,7 @@ namespace os {
     struct statvfs stat;
 
     if (statvfs("/", &stat) == -1)
-      return Err(DracError("Failed to get filesystem stats for '/' (statvfs call failed)"));
+      return Err(DracError(InternalError, "Failed to get filesystem stats for '/' (statvfs call failed)"));
 
     return ResourceUsage {
       .usedBytes  = (stat.f_blocks * stat.f_frsize) - (stat.f_bfree * stat.f_frsize),
@@ -540,8 +541,6 @@ namespace os {
 
   #ifdef DRAC_ENABLE_PACKAGECOUNT
 namespace package {
-  namespace fs = std::filesystem;
-
   fn CountApk() -> Result<u64> {
     using namespace util::cache;
 
@@ -559,6 +558,7 @@ namespace package {
         warn_log("Filesystem error checking for Apk DB at '{}': {}", apkDbPath.string(), fsErrCode.message());
         return Err(DracError(IoError, "Filesystem error checking Apk DB: " + fsErrCode.message()));
       }
+
       return Err(DracError(NotFound, std::format("Apk database path '{}' does not exist", apkDbPath.string())));
     }
 

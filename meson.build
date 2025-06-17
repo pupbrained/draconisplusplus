@@ -16,7 +16,7 @@ project(
 )
 
 add_project_arguments(
-  '-DDRACONISPLUSPLUS_VERSION="' + meson.project_version() + '"',
+  '-DDRAC_VERSION="' + meson.project_version() + '"',
   language: ['cpp', 'objcpp'],
 )
 
@@ -235,16 +235,17 @@ lib_deps += glaze_dep
 subdir('src/Lib')
 subdir('src/CLI')
 
+# -------------------- #
+#  Example Executable  #
+# -------------------- #
+if get_option('build_examples')
+  lib_deps += dependency('asio', static: true)
+  subdir('examples')
+endif
+
 # ------- #
 #  Tests  #
 # ------- #
 if get_option('build_tests')
   subdir('src/Lib/Tests')
-endif
-
-# -------------------- #
-#  Example Executable  #
-# -------------------- #
-if get_option('build_examples')
-  subdir('examples')
 endif

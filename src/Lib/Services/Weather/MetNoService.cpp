@@ -14,17 +14,17 @@ using namespace util::types;
 using util::error::DracError;
 using enum util::error::DracErrorCode;
 using weather::MetNoService;
+using weather::Report;
 using weather::Unit;
-using weather::WeatherReport;
 
 MetNoService::MetNoService(const f64 lat, const f64 lon, Unit units)
   : m_lat(lat), m_lon(lon), m_units(units) {}
 
-fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
+fn MetNoService::getWeatherInfo() const -> Result<Report> {
   using glz::error_ctx, glz::read, glz::error_code;
   using util::cache::GetValidCache, util::cache::WriteCache;
 
-  if (Result<WeatherReport> cachedDataResult = GetValidCache<WeatherReport>("weather"))
+  if (Result<Report> cachedDataResult = GetValidCache<Report>("weather"))
     return *cachedDataResult;
   else
     debug_at(cachedDataResult.error());
@@ -36,7 +36,7 @@ fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
     .writeBuffer        = &responseBuffer,
     .timeoutSecs        = 10L,
     .connectTimeoutSecs = 5L,
-    .userAgent          = String("draconisplusplus/" DRACONISPLUSPLUS_VERSION " git.pupbrained.xyz/draconisplusplus"),
+    .userAgent          = String("draconisplusplus/" DRAC_VERSION " git.pupbrained.xyz/draconisplusplus"),
   });
 
   if (!curl) {
@@ -78,7 +78,7 @@ fn MetNoService::getWeatherInfo() const -> Result<WeatherReport> {
   if (!timestamp)
     return Err(timestamp.error());
 
-  WeatherReport out = {
+  Report out = {
     .temperature = temp,
     .name        = None,
     .description = symbolCode,

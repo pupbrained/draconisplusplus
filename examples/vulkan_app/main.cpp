@@ -1,7 +1,5 @@
-#include <algorithm>
-#include <chrono>
-#include <span>
-#include <vector>
+#include <algorithm> // std::{clamp, ranges::find_if}
+#include <chrono>    // std::chrono::{duration_cast, seconds, steady_clock, time_point}
 
 #include <Drac++/Core/System.hpp>
 #include <Drac++/Services/PackageCounting.hpp>
@@ -29,7 +27,7 @@ using util::error::DracError;
 using enum util::error::DracErrorCode;
 
 namespace {
-  fn cleanupSwapChain(vk::Device device, std::vector<vk::ImageView>& swapChainImageViews, vk::CommandPool commandPool, std::vector<vk::CommandBuffer>& commandBuffers) -> void {
+  fn cleanupSwapChain(vk::Device device, Vec<vk::ImageView>& swapChainImageViews, vk::CommandPool commandPool, Vec<vk::CommandBuffer>& commandBuffers) -> void {
     if (!commandBuffers.empty()) {
       device.freeCommandBuffers(commandPool, commandBuffers);
       commandBuffers.clear();
@@ -42,7 +40,7 @@ namespace {
     swapChainImageViews.clear();
   }
 
-  fn recreateSwapChain(GLFWwindow* window, vk::Device device, vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface, vk::SwapchainKHR& swapChain, std::vector<vk::Image>& swapChainImages, vk::SurfaceFormatKHR& surfaceFormat, vk::Extent2D& swapChainExtent, std::vector<vk::ImageView>& swapChainImageViews, vk::CommandPool commandPool, std::vector<vk::CommandBuffer>& commandBuffers, vk::PresentModeKHR& presentMode) -> Result<> {
+  fn recreateSwapChain(GLFWwindow* window, vk::Device device, vk::PhysicalDevice physicalDevice, vk::SurfaceKHR surface, vk::SwapchainKHR& swapChain, Vec<vk::Image>& swapChainImages, vk::SurfaceFormatKHR& surfaceFormat, vk::Extent2D& swapChainExtent, Vec<vk::ImageView>& swapChainImageViews, vk::CommandPool commandPool, Vec<vk::CommandBuffer>& commandBuffers, vk::PresentModeKHR& presentMode) -> Result<> {
     i32 width = 0, height = 0;
     glfwGetFramebufferSize(window, &width, &height);
 
@@ -209,13 +207,13 @@ fn main() -> i32 {
 
   vk::ApplicationInfo appInfo("Vulkan Example", 1, "Draconis++ Example", 1, VK_API_VERSION_1_3);
 
-  u32          glfwExtensionCount = 0;
-  const char** glfwExtensions     = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+  u32   glfwExtensionCount = 0;
+  CStr* glfwExtensions     = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-  std::vector<const char*> extensions;
+  Vec<CStr> extensions;
   extensions.reserve(glfwExtensionCount);
-  std::span<const char*> glfwExts(glfwExtensions, glfwExtensionCount);
-  for (const char* ext : glfwExts)
+  Span<CStr> glfwExts(glfwExtensions, glfwExtensionCount);
+  for (CStr ext : glfwExts)
     extensions.push_back(ext);
 
 #ifdef __APPLE__
@@ -389,7 +387,7 @@ fn main() -> i32 {
   initInfo.DescriptorPool = imguiPoolResult.value;
 
   // Set up ImGui to use the same dynamic Vulkan function pointers
-  ImGui_ImplVulkan_LoadFunctions([](const char* function_name, void* vulkan_instance) {
+  ImGui_ImplVulkan_LoadFunctions([](CStr function_name, void* vulkan_instance) {
     return VULKAN_HPP_DEFAULT_DISPATCHER.vkGetInstanceProcAddr(static_cast<VkInstance>(vulkan_instance), function_name);
   });
 

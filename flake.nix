@@ -55,6 +55,7 @@
             vulkan-tools
           ]
           ++ (with pkgsStatic; [
+            asio
             curl
             ftxui
             sqlitecpp

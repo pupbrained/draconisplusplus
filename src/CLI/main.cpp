@@ -178,7 +178,7 @@ namespace {
 #endif
 
 #if DRAC_ENABLE_WEATHER
-    Future<Result<weather::WeatherReport>> wthrFut = std::async(
+    Future<Result<weather::Report>> wthrFut = std::async(
       config.weather.enabled ? std::launch::async : std::launch::deferred,
       [&service = config.weather.service]() { return service->getWeatherInfo(); }
     );
@@ -222,7 +222,7 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
   {
     using argparse::ArgumentParser;
 
-    ArgumentParser parser("draconis", DRACONISPLUSPLUS_VERSION);
+    ArgumentParser parser("draconis", DRAC_VERSION);
 
     parser
       .add_argument("--log-level")

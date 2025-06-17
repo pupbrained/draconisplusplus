@@ -31,12 +31,12 @@ namespace weather {
   };
 
   /**
-   * @struct WeatherReport
+   * @struct Report
    * @brief Represents a weather report.
    *
    * Contains temperature, conditions, and timestamp.
    */
-  struct WeatherReport {
+  struct Report {
     util::types::f64                         temperature; ///< Degrees (C/F)
     util::types::Option<util::types::String> name;        ///< Optional town/city name (may be missing for some providers)
     util::types::String                      description; ///< Weather description (e.g., "clear sky", "rain")
@@ -59,7 +59,7 @@ namespace weather {
 
     virtual ~IWeatherService() = default;
 
-    [[nodiscard]] virtual fn getWeatherInfo() const -> util::types::Result<WeatherReport> = 0;
+    [[nodiscard]] virtual fn getWeatherInfo() const -> util::types::Result<Report> = 0;
 
    protected:
     IWeatherService() = default;
@@ -71,12 +71,14 @@ namespace weather {
 
 namespace glz {
   template <>
-  struct meta<weather::WeatherReport> {
+  struct meta<weather::Report> {
+    using T = weather::Report;
+
     // clang-format off
     static constexpr detail::Object value = object(
-      "temperature", &weather::WeatherReport::temperature,
-      "name",        &weather::WeatherReport::name,
-      "description", &weather::WeatherReport::description
+      "temperature", &T::temperature,
+      "name",        &T::name,
+      "description", &T::description
     );
     // clang-format on
   };

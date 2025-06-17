@@ -6,6 +6,7 @@
 #include <memory>      // std::shared_ptr and std::unique_ptr (SharedPointer, UniquePointer)
 #include <mutex>       // std::mutex and std::lock_guard (Mutex, LockGuard)
 #include <optional>    // std::optional (Option)
+#include <span>        // std::span (Span)
 #include <string>      // std::string (String, StringView)
 #include <string_view> // std::string_view (StringView)
 #include <utility>     // std::pair (Pair)
@@ -66,6 +67,14 @@ namespace util::types {
    */
   template <typename Tp>
   using Vec = std::vector<Tp>;
+
+  /**
+   * @typedef Span
+   * @brief Alias for std::span<Tp>. Represents a non-owning view of a contiguous sequence of elements.
+   * @tparam Tp The element type.
+   */
+  template <typename Tp>
+  using Span = std::span<Tp>;
 
   /**
    * @typedef Pair

@@ -16,11 +16,11 @@ using namespace util::types;
 using util::error::DracError;
 using enum util::error::DracErrorCode;
 using weather::OpenWeatherMapService;
+using weather::Report;
 using weather::Unit;
-using weather::WeatherReport;
 
 namespace {
-  fn MakeApiRequest(const String& url) -> Result<WeatherReport> {
+  fn MakeApiRequest(const String& url) -> Result<Report> {
     using glz::error_ctx, glz::read, glz::error_code;
     using util::types::None, util::types::Option;
 
@@ -59,7 +59,7 @@ namespace {
       return Err(DracError(match(*owmResponse.cod)(is | 401 = PermissionDenied, is | 404 = NotFound, is | or_(429, _) = ApiUnavailable), apiErrorMessage));
     }
 
-    WeatherReport report = {
+    Report report = {
       .temperature = owmResponse.main.temp,
       .name        = owmResponse.name.empty() ? None : Option<String>(owmResponse.name),
       .description = !owmResponse.weather.empty() ? owmResponse.weather[0].description : "",
@@ -72,15 +72,15 @@ namespace {
 OpenWeatherMapService::OpenWeatherMapService(Location location, String apiKey, Unit units)
   : m_location(std::move(location)), m_apiKey(std::move(apiKey)), m_units(units) {}
 
-fn OpenWeatherMapService::getWeatherInfo() const -> Result<WeatherReport> {
+fn OpenWeatherMapService::getWeatherInfo() const -> Result<Report> {
   using util::cache::GetValidCache, util::cache::WriteCache;
 
-  if (Result<WeatherReport> cachedDataResult = GetValidCache<WeatherReport>("weather"))
+  if (Result<Report> cachedDataResult = GetValidCache<Report>("weather"))
     return *cachedDataResult;
   else
     debug_at(cachedDataResult.error());
 
-  fn handleApiResult = [](const Result<WeatherReport>& result) -> Result<WeatherReport> {
+  fn handleApiResult = [](const Result<Report>& result) -> Result<Report> {
     if (!result)
       return Err(result.error());
 

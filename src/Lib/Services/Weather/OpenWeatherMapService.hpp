@@ -10,7 +10,7 @@ namespace weather {
   class OpenWeatherMapService final : public IWeatherService {
    public:
     OpenWeatherMapService(Location location, util::types::String apiKey, Unit units);
-    fn getWeatherInfo() const -> util::types::Result<WeatherReport> override;
+    fn getWeatherInfo() const -> util::types::Result<Report> override;
 
    private:
     Location            m_location;

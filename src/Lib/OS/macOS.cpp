@@ -230,7 +230,7 @@ namespace os {
     usize count = len / sizeof(kinfo_proc);
 
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    std::span<const kinfo_proc> processes = std::span(reinterpret_cast<const kinfo_proc*>(buf.data()), count);
+    Span<const kinfo_proc> processes(reinterpret_cast<const kinfo_proc*>(buf.data()), count);
 
     for (const kinfo_proc& procInfo : processes) {
       StringView comm(procInfo.kp_proc.p_comm);

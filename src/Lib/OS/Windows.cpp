@@ -165,7 +165,7 @@ namespace {
         std::wstring_view view(tempBaseName.data());
 
         if (view.ends_with(L".exe")) {
-          std::span<wchar_t, MAX_PATH> bufferSpan(tempBaseName.data(), tempBaseName.size());
+          Span<wchar_t, MAX_PATH> bufferSpan(tempBaseName.data(), tempBaseName.size());
           bufferSpan[view.length() - 4] = L'\0';
         }
 
