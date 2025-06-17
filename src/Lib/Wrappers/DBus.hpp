@@ -13,9 +13,9 @@
   #include <DracUtils/Types.hpp>
 
 namespace DBus {
-  using util::error::DracError, util::error::DracErrorCode;
-  using util::types::Option, util::types::Result, util::types::Err, util::types::String, util::types::i32,
-    util::types::u32, util::types::None;
+  using drac::error::DracError, drac::error::DracErrorCode;
+  using drac::types::Option, drac::types::Result, drac::types::Err, drac::types::String, drac::types::i32,
+    drac::types::u32, drac::types::None;
 
   /**
    * @brief RAII wrapper for DBusError. Automatically initializes and frees the error.

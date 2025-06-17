@@ -157,32 +157,32 @@ namespace package {
    * @brief Counts installed packages using APK.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn CountApk() -> util::types::Result<util::types::u64>;
+  fn CountApk() -> drac::types::Result<drac::types::u64>;
   /**
    * @brief Counts installed packages using Dpkg.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn CountDpkg() -> util::types::Result<util::types::u64>;
+  fn CountDpkg() -> drac::types::Result<drac::types::u64>;
   /**
    * @brief Counts installed packages using Moss.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn CountMoss() -> util::types::Result<util::types::u64>;
+  fn CountMoss() -> drac::types::Result<drac::types::u64>;
   /**
    * @brief Counts installed packages using Pacman.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn CountPacman() -> util::types::Result<util::types::u64>;
+  fn CountPacman() -> drac::types::Result<drac::types::u64>;
   /**
    * @brief Counts installed packages using Rpm.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn CountRpm() -> util::types::Result<util::types::u64>;
+  fn CountRpm() -> drac::types::Result<drac::types::u64>;
   /**
    * @brief Counts installed packages using Xbps.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn CountXbps() -> util::types::Result<util::types::u64>;
+  fn CountXbps() -> drac::types::Result<drac::types::u64>;
 
   /**
    * @brief Counts installed packages in a plist file (used by xbps and potentially others).
@@ -190,18 +190,18 @@ namespace package {
    * @param plistPath Path to the plist file.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn GetCountFromPlist(const util::types::String& pmId, const std::filesystem::path& plistPath) -> util::types::Result<util::types::u64>;
+  fn GetCountFromPlist(const drac::types::String& pmId, const std::filesystem::path& plistPath) -> drac::types::Result<drac::types::u64>;
   #elifdef __APPLE__
   /**
    * @brief Counts installed packages using Homebrew.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn GetHomebrewCount() -> util::types::Result<util::types::u64>;
+  fn GetHomebrewCount() -> drac::types::Result<drac::types::u64>;
   /**
    * @brief Counts installed packages using MacPorts.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn GetMacPortsCount() -> util::types::Result<util::types::u64>;
+  fn GetMacPortsCount() -> drac::types::Result<drac::types::u64>;
   #elifdef _WIN32
   /**
    * @brief Counts installed packages using WinGet.
@@ -223,19 +223,19 @@ namespace package {
    * @brief Counts installed packages using PkgNg.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn GetPkgNgCount() -> util::types::Result<util::types::u64>;
+  fn GetPkgNgCount() -> drac::types::Result<drac::types::u64>;
   #elifdef __NetBSD__
   /**
    * @brief Counts installed packages using PkgSrc.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn GetPkgSrcCount() -> util::types::Result<util::types::u64>;
+  fn GetPkgSrcCount() -> drac::types::Result<drac::types::u64>;
   #elifdef __HAIKU__
   /**
    * @brief Counts installed packages using Haiku.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn GetSerenityCount() -> util::types::Result<util::types::u64>;
+  fn GetSerenityCount() -> drac::types::Result<drac::types::u64>;
   #endif
 
   #if defined(__linux__) || defined(__APPLE__)
@@ -243,7 +243,7 @@ namespace package {
    * @brief Counts installed packages using Nix.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn CountNix() -> util::types::Result<util::types::u64>;
+  fn CountNix() -> drac::types::Result<drac::types::u64>;
   #endif
   /**
    * @brief Counts installed packages using Cargo.

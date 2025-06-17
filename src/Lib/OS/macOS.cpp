@@ -21,10 +21,10 @@
   #include "OS/macOS/Bridge.hpp"
   #include "Utils/Caching.hpp"
 
-using namespace util::types;
-using util::cache::GetValidCache, util::cache::WriteCache;
-using util::error::DracError, util::error::DracErrorCode;
-using util::helpers::GetEnv;
+using namespace drac::types;
+using drac::cache::GetValidCache, drac::cache::WriteCache;
+using drac::env::GetEnv;
+using drac::error::DracError, drac::error::DracErrorCode;
 
 namespace {
   fn StrEqualsIgnoreCase(StringView strA, StringView strB) -> bool {
@@ -503,7 +503,7 @@ namespace os {
 
       for (const auto& [exe, name] : shellMap)
         if (shellPath->ends_with(exe))
-          return name;
+          return String(name);
 
       return *shellPath;
     }

@@ -8,7 +8,7 @@
   #include <DracUtils/Types.hpp>
 
 namespace XCB {
-  using util::types::u8, util::types::u16, util::types::i32, util::types::u32, util::types::CStr, util::types::None;
+  using drac::types::u8, drac::types::u16, drac::types::i32, drac::types::u32, drac::types::CStr, drac::types::None;
 
   using Connection = xcb_connection_t;
   using Setup      = xcb_setup_t;

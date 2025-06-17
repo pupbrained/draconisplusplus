@@ -8,9 +8,9 @@
 
   #include <DracUtils/Error.hpp>
 
-using namespace util::types;
-using util::error::DracError;
-using enum util::error::DracErrorCode;
+using namespace drac::types;
+using drac::error::DracError;
+using enum drac::error::DracErrorCode;
 
 using MRMediaRemoteGetNowPlayingInfoFunction =
   void (*)(dispatch_queue_t queue, void (^handler)(NSDictionary* information));

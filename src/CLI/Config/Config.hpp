@@ -55,8 +55,8 @@ struct General {
 
     return GetUserNameA(username.data(), &size) ? username.data() : "User";
 #else
-    using util::helpers::GetEnv;
-    using util::types::CStr, util::types::String, util::types::Result;
+    using drac::env::GetEnv;
+    using drac::types::CStr, drac::types::String, drac::types::Result;
 
     const passwd*        pwd        = getpwuid(getuid());
     CStr                 pwdName    = pwd ? pwd->pw_name : nullptr;
@@ -77,7 +77,7 @@ struct General {
    * @return A General instance with the parsed values, or defaults otherwise.
    */
   static fn fromToml(const toml::table& tbl) -> General {
-    using util::types::String;
+    using drac::types::String;
 
     General gen;
 
@@ -132,7 +132,7 @@ struct Weather {
    * @return A Weather instance with the parsed values, or defaults otherwise.
    */
   static fn fromToml(const toml::table& tbl) -> Weather {
-    using util::types::String;
+    using drac::types::String;
 
     using matchit::match, matchit::is, matchit::_;
 

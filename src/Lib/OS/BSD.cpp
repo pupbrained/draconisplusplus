@@ -28,8 +28,8 @@
 #include "OperatingSystem.hpp"
 // clang-format on
 
-using namespace util::types;
-using util::error::DracError, util::error::DracErrorCode;
+using namespace drac::types;
+using drac::error::DracError, drac::error::DracErrorCode;
 
 namespace {
   #ifdef __FreeBSD__
@@ -62,7 +62,7 @@ namespace {
     using namespace xcb;
     using namespace matchit;
     using enum ConnError;
-    using util::types::StringView;
+    using drac::types::StringView;
 
     const DisplayGuard conn;
 
@@ -85,7 +85,7 @@ namespace {
         );
 
     fn internAtom = [&conn](const StringView name) -> Result<atom_t> {
-      using util::types::u16;
+      using drac::types::u16;
 
       const ReplyGuard<intern_atom_reply_t> reply(InternAtomReply(conn.get(), InternAtom(conn.get(), 0, static_cast<u16>(name.size()), name.data()), nullptr));
 
@@ -203,7 +203,7 @@ namespace {
 } // namespace
 
 namespace os {
-  using util::helpers::GetEnv;
+  using drac::env::GetEnv;
 
   fn GetOSVersion() -> Result<String> {
     constexpr CStr path = "/etc/os-release";

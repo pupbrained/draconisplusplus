@@ -274,4 +274,4 @@ namespace drac::types {
     MediaInfo(Option<String> title, Option<String> artist)
       : title(std::move(title)), artist(std::move(artist)) {}
   };
-} // namespace util::types
+} // namespace drac::types

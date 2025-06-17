@@ -7,8 +7,8 @@
   #include <DracUtils/Types.hpp>
 
 namespace os::bridge {
-  fn GetNowPlayingInfo() -> util::types::Result<util::types::MediaInfo>;
-  fn GetGPUModel() -> util::types::Result<util::types::String>;
+  fn GetNowPlayingInfo() -> drac::types::Result<drac::types::MediaInfo>;
+  fn GetGPUModel() -> drac::types::Result<drac::types::String>;
 } // namespace os::bridge
 
 #endif

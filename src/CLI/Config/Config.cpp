@@ -24,8 +24,8 @@ namespace fs = std::filesystem;
 #endif
 
 #if !DRAC_PRECOMPILED_CONFIG
-using namespace util::types;
-using util::helpers::GetEnv;
+using namespace drac::types;
+using drac::env::GetEnv;
 
 namespace {
   fn GetConfigPath() -> fs::path {

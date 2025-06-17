@@ -33,9 +33,9 @@
   #include "Wrappers/Wayland.hpp"
   #include "Wrappers/XCB.hpp"
 
-using util::error::DracError;
-using enum util::error::DracErrorCode;
-using namespace util::types;
+using drac::error::DracError;
+using enum drac::error::DracErrorCode;
+using namespace drac::types;
 namespace fs = std::filesystem;
 
 // clang-format off
@@ -325,7 +325,7 @@ namespace {
 } // namespace
 
 namespace os {
-  using util::helpers::GetEnv;
+  using drac::env::GetEnv;
 
   fn System::getOSVersion() -> Result<String> {
     std::ifstream file("/etc/os-release");
@@ -631,7 +631,7 @@ namespace os {
   }
 
   fn System::getGPUModel() -> Result<String> {
-    using util::cache::GetValidCache, util::cache::WriteCache;
+    using drac::cache::GetValidCache, drac::cache::WriteCache;
 
     const String cacheKey = "gpu_model";
 
@@ -710,7 +710,7 @@ namespace os {
   #ifdef DRAC_ENABLE_PACKAGECOUNT
 namespace package {
   fn CountApk() -> Result<u64> {
-    using namespace util::cache;
+    using namespace drac::cache;
 
     const String   pmID      = "apk";
     const fs::path apkDbPath = "/lib/apk/db/installed";

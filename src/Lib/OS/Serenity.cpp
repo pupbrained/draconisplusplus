@@ -28,9 +28,9 @@
 #include "OperatingSystem.hpp"
 // clang-format on
 
-using namespace util::types;
-using util::error::DracError, util::error::DracErrorCode;
-using util::helpers::GetEnv;
+using namespace drac::types;
+using drac::error::DracError, drac::error::DracErrorCode;
+using drac::env::GetEnv;
 
 namespace {
   using glz::opts, glz::detail::Object, glz::object;

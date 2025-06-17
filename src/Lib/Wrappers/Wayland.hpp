@@ -9,7 +9,7 @@
   #include <DracUtils/Types.hpp>
 
 namespace Wayland {
-  using util::types::i32, util::types::CStr, util::types::None;
+  using drac::types::i32, drac::types::CStr, drac::types::None;
 
   using Display = wl_display;
 
@@ -68,7 +68,7 @@ namespace Wayland {
      */
     DisplayGuard() {
       wl_log_set_handler_client([](CStr fmt, va_list args) -> void {
-        using util::types::i32, util::types::StringView;
+        using drac::types::i32, drac::types::StringView;
 
         va_list argsCopy;
         va_copy(argsCopy, args);
