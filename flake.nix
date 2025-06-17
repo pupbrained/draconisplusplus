@@ -58,6 +58,7 @@
             asio
             curl
             ftxui
+            libunistring
             sqlitecpp
             (tomlplusplus.overrideAttrs {
               doCheck = false;
@@ -127,6 +128,7 @@
             pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
               export SDKROOT=${pkgs.pkgsStatic.apple-sdk_15}/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
               export DEVELOPER_DIR=${pkgs.pkgsStatic.apple-sdk_15}
+              export LDFLAGS="-L${pkgs.pkgsStatic.libiconvReal}/lib $LDFLAGS"
               export NIX_CFLAGS_COMPILE="-isysroot $SDKROOT"
               export NIX_CXXFLAGS_COMPILE="-isysroot $SDKROOT"
               export NIX_OBJCFLAGS_COMPILE="-isysroot $SDKROOT"

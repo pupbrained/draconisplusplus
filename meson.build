@@ -150,7 +150,7 @@ if host_system == 'darwin'
       modules: ['foundation', 'iokit', 'mediaplayer', 'metal', 'systemconfiguration'],
       static: true,
     ),
-    dependency('iconv'),
+    cpp.find_library('iconv'),
   ]
 elif host_system == 'windows'
   platform_deps += [
