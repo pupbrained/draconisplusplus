@@ -10,19 +10,19 @@
   #include "WeatherUtils.hpp"
   #include "Wrappers/Curl.hpp"
 
-using namespace util::types;
-using util::error::DracError;
-using enum util::error::DracErrorCode;
+using namespace drac::types;
+using drac::error::DracError;
+using enum drac::error::DracErrorCode;
 using weather::OpenMeteoService;
 using weather::Report;
 using weather::Unit;
 
-OpenMeteoService::OpenMeteoService(const f64 lat, const f64 lon, Unit units)
+OpenMeteoService::OpenMeteoService(const f64 lat, const f64 lon, const Unit units)
   : m_lat(lat), m_lon(lon), m_units(units) {}
 
 fn OpenMeteoService::getWeatherInfo() const -> Result<Report> {
+  using drac::cache::GetValidCache, drac::cache::WriteCache;
   using glz::error_ctx, glz::read, glz::error_code;
-  using util::cache::GetValidCache, util::cache::WriteCache;
 
   if (Result<Report> cachedDataResult = GetValidCache<Report>("weather"))
     return *cachedDataResult;
@@ -60,9 +60,7 @@ fn OpenMeteoService::getWeatherInfo() const -> Result<Report> {
   if (error_ctx errc = read<glz::opts { .error_on_unknown_keys = false }>(apiResp, responseBuffer.data()); errc.ec != error_code::none)
     return Err(DracError(ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer.data()))));
 
-  Result<usize> timestamp = weather::utils::ParseIso8601ToEpoch(apiResp.currentWeather.time);
-
-  if (!timestamp)
+  if (Result<usize> timestamp = weather::utils::ParseIso8601ToEpoch(apiResp.currentWeather.time); !timestamp)
     return Err(timestamp.error());
 
   Report out = {

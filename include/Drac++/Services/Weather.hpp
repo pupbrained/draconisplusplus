@@ -15,7 +15,7 @@ namespace weather {
    * @brief Specifies the weather service provider.
    * @see config::DRAC_WEATHER_PROVIDER in `config(.example).hpp`.
    */
-  enum class Provider : util::types::u8 {
+  enum class Provider : drac::types::u8 {
     OPENWEATHERMAP, ///< OpenWeatherMap API. Requires an API key. @see config::DRAC_API_KEY
     OPENMETEO,      ///< OpenMeteo API. Does not require an API key.
     METNO,          ///< Met.no API. Does not require an API key.
@@ -25,7 +25,7 @@ namespace weather {
    * @brief Specifies the unit system for weather information.
    * @see config::DRAC_WEATHER_UNIT in `config(.example).hpp`.
    */
-  enum class Unit : util::types::u8 {
+  enum class Unit : drac::types::u8 {
     METRIC,   ///< Metric units (Celsius, kph, etc.).
     IMPERIAL, ///< Imperial units (Fahrenheit, mph, etc.).
   };
@@ -37,17 +37,17 @@ namespace weather {
    * Contains temperature, conditions, and timestamp.
    */
   struct Report {
-    util::types::f64                         temperature; ///< Degrees (C/F)
-    util::types::Option<util::types::String> name;        ///< Optional town/city name (may be missing for some providers)
-    util::types::String                      description; ///< Weather description (e.g., "clear sky", "rain")
+    drac::types::f64                         temperature; ///< Degrees (C/F)
+    drac::types::Option<drac::types::String> name;        ///< Optional town/city name (may be missing for some providers)
+    drac::types::String                      description; ///< Weather description (e.g., "clear sky", "rain")
   };
 
   struct Coords {
-    util::types::f64 lat;
-    util::types::f64 lon;
+    drac::types::f64 lat;
+    drac::types::f64 lon;
   };
 
-  using Location = std::variant<util::types::String, Coords>;
+  using Location = std::variant<drac::types::String, Coords>;
 
   class IWeatherService {
    public:
@@ -59,30 +59,28 @@ namespace weather {
 
     virtual ~IWeatherService() = default;
 
-    [[nodiscard]] virtual fn getWeatherInfo() const -> util::types::Result<Report> = 0;
+    [[nodiscard]] virtual fn getWeatherInfo() const -> drac::types::Result<Report> = 0;
 
    protected:
     IWeatherService() = default;
   };
 
-  fn CreateWeatherService(Provider provider, const Location& location, const util::types::String& apiKey, Unit units) -> util::types::UniquePointer<IWeatherService>;
-  fn CreateWeatherService(Provider provider, const Coords& coords, Unit units) -> util::types::UniquePointer<IWeatherService>;
+  fn CreateWeatherService(Provider provider, const Location& location, const drac::types::String& apiKey, Unit units) -> drac::types::UniquePointer<IWeatherService>;
+  fn CreateWeatherService(Provider provider, const Coords& coords, Unit units) -> drac::types::UniquePointer<IWeatherService>;
 } // namespace weather
 
-namespace glz {
-  template <>
-  struct meta<weather::Report> {
-    using T = weather::Report;
+template <>
+struct glz::meta<weather::Report> {
+  using T = weather::Report;
 
-    // clang-format off
-    static constexpr detail::Object value = object(
-      "temperature", &T::temperature,
-      "name",        &T::name,
-      "description", &T::description
-    );
-    // clang-format on
-  };
-} // namespace glz
+  // clang-format off
+  static constexpr detail::Object value = object(
+    "temperature", &T::temperature,
+    "name",        &T::name,
+    "description", &T::description
+  );
+  // clang-format on
+}; // namespace glz
 
 template <>
 struct std::formatter<weather::Unit> {

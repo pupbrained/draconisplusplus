@@ -1,3 +1,5 @@
+// ReSharper disable CppDFAUnreachableCode
+
 #include "Config.hpp"
 
 #include <DracUtils/Definitions.hpp>

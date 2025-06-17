@@ -5,6 +5,9 @@ OUTPUT_DIRECTORY       = docs
 ALLOW_UNICODE_NAMES    = YES
 INLINE_INHERITED_MEMB  = YES
 RECURSIVE              = YES
+EXTRACT_ALL            = YES
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
 EXCLUDE_PATTERNS       = */build/* \
                          */tests/* \
                          */subprojects/* \

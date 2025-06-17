@@ -7,7 +7,7 @@
 #include <DracUtils/Types.hpp>
 
 using namespace ftxui;
-using namespace util::types;
+using namespace drac::types;
 
 namespace ui {
   constexpr Theme DEFAULT_THEME = {
@@ -214,7 +214,7 @@ namespace ui {
 
 #if DRAC_ENABLE_WEATHER
     if (config.weather.enabled && data.weather) {
-      const weather::Report& weatherInfo = *data.weather;
+      const auto& [temperature, name, description] = *data.weather;
 
       CStr tempUnit = config.weather.units == weather::Unit::METRIC ? "C" : "F";
 
@@ -222,9 +222,9 @@ namespace ui {
         {
           .icon  = weatherIcon,
           .label = "Weather",
-          .value = config.weather.showTownName && weatherInfo.name
-            ? std::format("{}°{} in {}", std::lround(weatherInfo.temperature), tempUnit, *weatherInfo.name)
-            : std::format("{}°{}, {}", std::lround(weatherInfo.temperature), tempUnit, weatherInfo.description),
+          .value = config.weather.showTownName && name
+            ? std::format("{}°{} in {}", std::lround(temperature), tempUnit, *name)
+            : std::format("{}°{}, {}", std::lround(temperature), tempUnit, description),
         }
       );
     } else if (config.weather.enabled && !data.weather.has_value())

@@ -7,6 +7,7 @@
 #include <system_error>    // std::error_code
 
 #ifdef _WIN32
+  // ReSharper disable once CppUnusedIncludeDirective
   #include <guiddef.h>    // GUID
   #include <winerror.h>   // error values
   #include <winrt/base.h> // winrt::hresult_error
@@ -15,7 +16,7 @@
 #include "Definitions.hpp"
 #include "Types.hpp"
 
-namespace util::error {
+namespace drac::error {
   /**
    * @enum DracErrorCode
    * @brief Error codes for general OS-level operations.
@@ -35,16 +36,16 @@ namespace util::error {
     PlatformSpecific, ///< An unmapped error specific to the underlying OS platform occurred (check message).
     Timeout,          ///< An operation timed out (e.g., waiting for IPC reply).
   };
-} // namespace util::error
+} // namespace drac::error
 
 template <>
-struct std::formatter<::util::error::DracErrorCode> : std::formatter<::util::types::StringView> {
+struct std::formatter<::drac::error::DracErrorCode> : std::formatter<::drac::types::StringView> {
   template <typename FormatContext>
-  fn format(util::error::DracErrorCode code, FormatContext& ctx) const {
-    using enum util::error::DracErrorCode;
+  fn format(drac::error::DracErrorCode code, FormatContext& ctx) const {
+    using enum drac::error::DracErrorCode;
     using matchit::match, matchit::is, matchit::or_, matchit::_;
 
-    util::types::StringView name = match(code)(
+    drac::types::StringView name = match(code)(
       is | ApiUnavailable   = "ApiUnavailable",
       is | InternalError    = "InternalError",
       is | InvalidArgument  = "InvalidArgument",
@@ -61,11 +62,11 @@ struct std::formatter<::util::error::DracErrorCode> : std::formatter<::util::typ
       is | _                = "Unknown"
     );
 
-    return formatter<util::types::StringView>::format(name, ctx);
+    return formatter<drac::types::StringView>::format(name, ctx);
   }
 };
 
-namespace util {
+namespace drac {
   namespace error {
     /**
      * @struct DracError
@@ -161,4 +162,4 @@ namespace util {
     template <typename Er = error::DracError>
     using Err = std::unexpected<Er>;
   } // namespace types
-} // namespace util
+} // namespace drac

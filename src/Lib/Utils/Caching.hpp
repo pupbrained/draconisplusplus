@@ -14,7 +14,7 @@
 #include <DracUtils/Logging.hpp>
 #include <DracUtils/Types.hpp>
 
-namespace util::cache {
+namespace drac::cache {
   namespace fs = std::filesystem;
 
   constexpr std::chrono::hours CACHE_EXPIRY_DURATION = std::chrono::hours(1);

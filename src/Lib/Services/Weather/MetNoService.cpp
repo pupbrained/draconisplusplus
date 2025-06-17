@@ -10,19 +10,19 @@
   #include "WeatherUtils.hpp"
   #include "Wrappers/Curl.hpp"
 
-using namespace util::types;
-using util::error::DracError;
-using enum util::error::DracErrorCode;
+using namespace drac::types;
+using drac::error::DracError;
+using enum drac::error::DracErrorCode;
 using weather::MetNoService;
 using weather::Report;
 using weather::Unit;
 
-MetNoService::MetNoService(const f64 lat, const f64 lon, Unit units)
+MetNoService::MetNoService(const f64 lat, const f64 lon, const Unit units)
   : m_lat(lat), m_lon(lon), m_units(units) {}
 
 fn MetNoService::getWeatherInfo() const -> Result<Report> {
+  using drac::cache::GetValidCache, drac::cache::WriteCache;
   using glz::error_ctx, glz::read, glz::error_code;
-  using util::cache::GetValidCache, util::cache::WriteCache;
 
   if (Result<Report> cachedDataResult = GetValidCache<Report>("weather"))
     return *cachedDataResult;
@@ -73,9 +73,7 @@ fn MetNoService::getWeatherInfo() const -> Result<Report> {
       symbolCode = iter->second;
   }
 
-  Result<usize> timestamp = weather::utils::ParseIso8601ToEpoch(time);
-
-  if (!timestamp)
+  if (Result<usize> timestamp = weather::utils::ParseIso8601ToEpoch(time); !timestamp)
     return Err(timestamp.error());
 
   Report out = {

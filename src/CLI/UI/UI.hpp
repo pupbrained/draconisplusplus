@@ -20,28 +20,28 @@ namespace ui {
   extern const Theme DEFAULT_THEME;
 
   struct Icons {
-    util::types::StringView calendar;
-    util::types::StringView desktopEnvironment;
-    util::types::StringView disk;
-    util::types::StringView host;
-    util::types::StringView kernel;
-    util::types::StringView memory;
-    util::types::StringView cpu;
-    util::types::StringView gpu;
+    drac::types::StringView calendar;
+    drac::types::StringView desktopEnvironment;
+    drac::types::StringView disk;
+    drac::types::StringView host;
+    drac::types::StringView kernel;
+    drac::types::StringView memory;
+    drac::types::StringView cpu;
+    drac::types::StringView gpu;
 #if DRAC_ENABLE_NOWPLAYING
-    util::types::StringView music;
+    drac::types::StringView music;
 #endif
-    util::types::StringView os;
+    drac::types::StringView os;
 #if DRAC_ENABLE_PACKAGECOUNT
-    util::types::StringView package;
+    drac::types::StringView package;
 #endif
-    util::types::StringView palette;
-    util::types::StringView shell;
-    util::types::StringView user;
+    drac::types::StringView palette;
+    drac::types::StringView shell;
+    drac::types::StringView user;
 #if DRAC_ENABLE_WEATHER
-    util::types::StringView weather;
+    drac::types::StringView weather;
 #endif
-    util::types::StringView windowManager;
+    drac::types::StringView windowManager;
   };
 
   extern const Icons ICON_TYPE;

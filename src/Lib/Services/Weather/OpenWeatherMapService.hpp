@@ -9,12 +9,12 @@
 namespace weather {
   class OpenWeatherMapService final : public IWeatherService {
    public:
-    OpenWeatherMapService(Location location, util::types::String apiKey, Unit units);
-    fn getWeatherInfo() const -> util::types::Result<Report> override;
+    OpenWeatherMapService(Location location, drac::types::String apiKey, Unit units);
+    fn getWeatherInfo() const -> drac::types::Result<Report> override;
 
    private:
     Location            m_location;
-    util::types::String m_apiKey;
+    drac::types::String m_apiKey;
     Unit                m_units;
   };
 } // namespace weather

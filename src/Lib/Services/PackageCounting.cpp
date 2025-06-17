@@ -26,10 +26,10 @@
 
 namespace fs = std::filesystem;
 
-using namespace util::types;
-using util::error::DracError;
-using enum util::error::DracErrorCode;
-using util::cache::GetValidCache, util::cache::WriteCache;
+using namespace drac::types;
+using drac::error::DracError;
+using enum drac::error::DracErrorCode;
+using drac::cache::GetValidCache, drac::cache::WriteCache;
 
 namespace {
   constexpr const char* CACHE_KEY_PREFIX = "pkg_count_";
@@ -82,8 +82,7 @@ namespace {
           if (entry.path().empty())
             continue;
 
-          std::error_code isFileErr;
-          if (entry.is_regular_file(isFileErr) && !isFileErr) {
+          if (std::error_code isFileErr; entry.is_regular_file(isFileErr) && !isFileErr) {
             if (entry.path().extension().string() == filter)
               count++;
           } else if (isFileErr)
@@ -253,7 +252,7 @@ namespace package {
   #endif // __linux__ || __APPLE__
 
   fn CountCargo() -> Result<u64> {
-    using util::helpers::GetEnv;
+    using drac::env::GetEnv;
 
     fs::path cargoPath {};
 
@@ -274,9 +273,9 @@ namespace package {
     Vec<Future<Result<u64>>> futures;
     futures.reserve(16);
 
-    fn addFutureIfEnabled = [&futures, enabledPackageManagers](Manager manager, auto&& countFunc) -> void {
+    fn addFutureIfEnabled = [&futures, enabledPackageManagers]<typename T>(const Manager manager, T&& countFunc) -> void {
       if (HasPackageManager(enabledPackageManagers, manager))
-        futures.emplace_back(std::async(std::launch::async, std::forward<decltype(countFunc)>(countFunc)));
+        futures.emplace_back(std::async(std::launch::async, std::forward<T>(countFunc)));
     };
 
       #ifdef __linux__

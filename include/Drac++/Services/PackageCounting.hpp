@@ -20,7 +20,7 @@ namespace package {
    * @see package::operator|
    * @see package::HasPackageManager
    */
-  enum class Manager : util::types::u8 {
+  enum class Manager : drac::types::u8 {
     NONE  = 0,      ///< No package manager.
     CARGO = 1 << 0, ///< Cargo, the Rust package manager.
 
@@ -79,9 +79,9 @@ namespace package {
    * @brief Holds information needed to query a database-backed package manager.
    */
   struct PackageManagerInfo {
-    util::types::String   id;         ///< Unique identifier (e.g., "pacman", "dpkg", used for cache key).
+    drac::types::String   id;         ///< Unique identifier (e.g., "pacman", "dpkg", used for cache key).
     std::filesystem::path dbPath;     ///< Filesystem path to the database or primary directory.
-    util::types::String   countQuery; ///< Query string (e.g., SQL) or specific file/pattern if not DB.
+    drac::types::String   countQuery; ///< Query string (e.g., SQL) or specific file/pattern if not DB.
   };
 
   /**
@@ -89,7 +89,7 @@ namespace package {
    * @return Result containing the total package count (u64) on success,
    * or a DracError if aggregation fails (individual errors logged).
    */
-  fn GetTotalCount(Manager enabledPackageManagers) -> util::types::Result<util::types::u64>;
+  fn GetTotalCount(Manager enabledPackageManagers) -> drac::types::Result<drac::types::u64>;
 
   /**
    * @brief Gets package count from a database using SQLite.
@@ -98,7 +98,7 @@ namespace package {
    * @param countQuery SQL query to count packages (e.g., "SELECT COUNT(*) FROM packages").
    * @return Result containing the count (u64) or a DracError.
    */
-  fn GetCountFromDb(const util::types::String& pmId, const std::filesystem::path& dbPath, const util::types::String& countQuery) -> util::types::Result<util::types::u64>;
+  fn GetCountFromDb(const drac::types::String& pmId, const std::filesystem::path& dbPath, const drac::types::String& countQuery) -> drac::types::Result<drac::types::u64>;
 
   /**
    * @brief Gets package count by iterating entries in a directory, optionally filtering and subtracting.
@@ -109,11 +109,11 @@ namespace package {
    * @return Result containing the count (u64) or a DracError.
    */
   fn GetCountFromDirectory(
-    const util::types::String&   pmId,
+    const drac::types::String&   pmId,
     const std::filesystem::path& dirPath,
-    const util::types::String&   fileExtensionFilter,
+    const drac::types::String&   fileExtensionFilter,
     bool                         subtractOne
-  ) -> util::types::Result<util::types::u64>;
+  ) -> drac::types::Result<drac::types::u64>;
 
   /**
    * @brief Gets package count by iterating entries in a directory, filtering by extension.
@@ -122,7 +122,7 @@ namespace package {
    * @param fileExtensionFilter Only count files with this extension (e.g., ".list").
    * @return Result containing the count (u64) or a DracError. Defaults subtractOne to false.
    */
-  fn GetCountFromDirectory(const util::types::String& pmId, const std::filesystem::path& dirPath, const util::types::String& fileExtensionFilter) -> util::types::Result<util::types::u64>;
+  fn GetCountFromDirectory(const drac::types::String& pmId, const std::filesystem::path& dirPath, const drac::types::String& fileExtensionFilter) -> drac::types::Result<drac::types::u64>;
 
   /**
    * @brief Gets package count by iterating entries in a directory, optionally subtracting one.
@@ -139,10 +139,10 @@ namespace package {
    * @return Result containing the count (u64) or a DracError. Defaults fileExtensionFilter to "".
    */
   fn GetCountFromDirectory(
-    const util::types::String&   pmId,
+    const drac::types::String&   pmId,
     const std::filesystem::path& dirPath,
     bool                         subtractOne
-  ) -> util::types::Result<util::types::u64>;
+  ) -> drac::types::Result<drac::types::u64>;
 
   /**
    * @brief Gets package count by iterating all entries in a directory.
@@ -150,7 +150,7 @@ namespace package {
    * @param dirPath Path to the directory to iterate.
    * @return Result containing the count (u64) or a DracError. Defaults filter to "" and subtractOne to false.
    */
-  fn GetCountFromDirectory(const util::types::String& pmId, const std::filesystem::path& dirPath) -> util::types::Result<util::types::u64>;
+  fn GetCountFromDirectory(const drac::types::String& pmId, const std::filesystem::path& dirPath) -> drac::types::Result<drac::types::u64>;
 
   #ifdef __linux__
   /**
@@ -207,17 +207,17 @@ namespace package {
    * @brief Counts installed packages using WinGet.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn CountWinGet() -> util::types::Result<util::types::u64>;
+  fn CountWinGet() -> drac::types::Result<drac::types::u64>;
   /**
    * @brief Counts installed packages using Chocolatey.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn CountChocolatey() -> util::types::Result<util::types::u64>;
+  fn CountChocolatey() -> drac::types::Result<drac::types::u64>;
   /**
    * @brief Counts installed packages using Scoop.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn CountScoop() -> util::types::Result<util::types::u64>;
+  fn CountScoop() -> drac::types::Result<drac::types::u64>;
   #elif defined(__FreeBSD__) || defined(__DragonFly__)
   /**
    * @brief Counts installed packages using PkgNg.
@@ -249,7 +249,7 @@ namespace package {
    * @brief Counts installed packages using Cargo.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn CountCargo() -> util::types::Result<util::types::u64>;
+  fn CountCargo() -> drac::types::Result<drac::types::u64>;
 } // namespace package
 
 #endif // DRAC_ENABLE_PACKAGECOUNT

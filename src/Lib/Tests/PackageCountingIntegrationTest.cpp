@@ -10,8 +10,8 @@
 
 using namespace testing;
 using namespace package;
-using util::error::DracErrorCode;
-using util::types::Result, util::types::String, util::types::u64;
+using drac::error::DracErrorCode;
+using drac::types::Result, drac::types::String, drac::types::u64;
 
 namespace fs = std::filesystem;
 
@@ -90,13 +90,7 @@ TEST_F(PackageCountingIntegrationTest, GetTotalCount_NoManagers) {
 }
 
 TEST_F(PackageCountingIntegrationTest, GetTotalCount_CargoOnly) {
-  // Act
-  Result<u64> result = GetTotalCount(Manager::CARGO);
-
-  // Assert
-  // Note: This test might pass or fail depending on whether Cargo is installed
-  // We just check that it doesn't throw any unexpected errors
-  if (!result)
+  if (Result<u64> result = GetTotalCount(Manager::CARGO); !result)
     EXPECT_TRUE(result.error().code == DracErrorCode::NotFound || result.error().code == DracErrorCode::ApiUnavailable);
 }
 
@@ -141,14 +135,8 @@ TEST_F(PackageCountingIntegrationTest, GetTotalCount_MacManagers) {
 
 #if defined(_WIN32)
 TEST_F(PackageCountingIntegrationTest, GetTotalCount_WindowsManagers) {
-  // Act
-  Result<u64> result = GetTotalCount(Manager::CARGO | Manager::WINGET | Manager::CHOCOLATEY);
-
-  // Assert
-  // Note: This test might pass or fail depending on which package managers are installed
-  if (!result) {
+  if (Result<u64> result = GetTotalCount(Manager::CARGO | Manager::WINGET | Manager::CHOCOLATEY); !result)
     EXPECT_TRUE(result.error().code == DracErrorCode::NotFound || result.error().code == DracErrorCode::ApiUnavailable);
-  }
 }
 #endif
 

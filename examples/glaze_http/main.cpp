@@ -1,7 +1,14 @@
-#include <asio/error.hpp>            // asio::error::operation_aborted
-#include <chrono>                    // std::chrono::{minutes, steady_clock, time_point}
-#include <csignal>                   // SIGINT, SIGTERM, SIG_ERR, std::signal
-#include <cstdlib>                   // EXIT_FAILURE, EXIT_SUCCESS
+#define _WIN32_WINNT 0x0601
+
+#include <asio/error.hpp> // asio::error::operation_aborted
+#include <chrono>         // std::chrono::{minutes, steady_clock, time_point}
+#include <csignal>        // SIGINT, SIGTERM, SIG_ERR, std::signal
+#include <cstdlib>        // EXIT_FAILURE, EXIT_SUCCESS
+
+#ifdef DELETE
+  #undef DELETE
+#endif
+
 #include <glaze/core/context.hpp>    // glz::error_ctx
 #include <glaze/core/meta.hpp>       // glz::{meta, detail::Object}
 #include <glaze/net/http_server.hpp> // glz::http_server
@@ -18,8 +25,8 @@
 #include <DracUtils/Logging.hpp>
 #include <DracUtils/Types.hpp>
 
-using namespace util::types;
-using util::error::DracError;
+using namespace drac::types;
+using drac::error::DracError;
 
 namespace {
   constexpr i16 port = 3722;
@@ -67,9 +74,9 @@ namespace glz {
 
     // clang-format off
     static constexpr glz::detail::Object value = glz::object(
-      "name", &T::name,
-      "value", &T::value,
-      "error", &T::error,
+      "name",     &T::name,
+      "value",    &T::value,
+      "error",    &T::error,
       "hasError", &T::hasError
     );
     // clang-format on
@@ -155,7 +162,7 @@ fn main() -> i32 {
   }
 #endif
 
-  server.on_error([](std::error_code errc, std::source_location loc) {
+  server.on_error([](const std::error_code errc, const std::source_location& loc) {
     if (errc != asio::error::operation_aborted)
       error_log("Server error at {}:{} -> {}", loc.file_name(), loc.line(), errc.message());
   });
@@ -168,7 +175,7 @@ fn main() -> i32 {
     {
       using os::System;
       using matchit::impl::Overload;
-      using enum util::error::DracErrorCode;
+      using enum drac::error::DracErrorCode;
 
       fn addProperty = Overload {
         [&](const String& name, const Result<String>& result) -> void {
@@ -260,9 +267,7 @@ fn main() -> i32 {
 #endif
     }
 
-    Result<String, glz::error_ctx> result = glz::stencil(HTML_LAYOUT, sysInfo);
-
-    if (result)
+    if (Result<String, glz::error_ctx> result = glz::stencil(HTML_LAYOUT, sysInfo))
       res.header("Content-Type", "text/html; charset=utf-8").body(*result);
     else {
       String errorString = glz::format_error(result.error(), HTML_LAYOUT);

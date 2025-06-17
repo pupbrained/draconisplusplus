@@ -16,11 +16,11 @@ namespace weather::dto {
   // MetNo Data Transfer Objects
   namespace metno {
     struct Details {
-      util::types::f64 airTemperature;
+      drac::types::f64 airTemperature;
     };
 
     struct Next1hSummary {
-      util::types::String symbolCode;
+      drac::types::String symbolCode;
     };
 
     struct Next1h {
@@ -33,16 +33,16 @@ namespace weather::dto {
 
     struct Data {
       Instant                     instant;
-      util::types::Option<Next1h> next1Hours;
+      drac::types::Option<Next1h> next1Hours;
     };
 
     struct Timeseries {
-      util::types::String time;
+      drac::types::String time;
       Data                data;
     };
 
     struct Properties {
-      util::types::Vec<Timeseries> timeseries;
+      drac::types::Vec<Timeseries> timeseries;
     };
 
     struct Response {
@@ -54,9 +54,9 @@ namespace weather::dto {
   namespace openmeteo {
     struct Response {
       struct Current {
-        util::types::f64    temperature;
-        util::types::i32    weathercode;
-        util::types::String time;
+        drac::types::f64    temperature;
+        drac::types::i32    weathercode;
+        drac::types::String time;
       } currentWeather;
     };
   } // namespace openmeteo
@@ -65,19 +65,19 @@ namespace weather::dto {
   namespace owm {
     struct OWMResponse {
       struct Main {
-        util::types::f64 temp;
+        drac::types::f64 temp;
       };
 
       struct Weather {
-        util::types::String description;
+        drac::types::String description;
       };
 
       Main                                     main;
-      util::types::Vec<Weather>                weather;
-      util::types::String                      name;
-      util::types::i64                         dt;
-      util::types::Option<util::types::i32>    cod;
-      util::types::Option<util::types::String> message;
+      drac::types::Vec<Weather>                weather;
+      drac::types::String                      name;
+      drac::types::i64                         dt;
+      drac::types::Option<drac::types::i32>    cod;
+      drac::types::Option<drac::types::String> message;
     };
   } // namespace owm
 } // namespace weather::dto

@@ -1,12 +1,9 @@
 #ifdef _WIN32
 
   #include <algorithm>
-  #include <devguid.h>
   #include <dwmapi.h>
   #include <dxgi.h>
-  #include <intrin.h>
   #include <ranges>
-  #include <setupapi.h>
   #include <tlhelp32.h>
   #include <wincrypt.h>
   #include <windows.h>
@@ -28,9 +25,9 @@
 using RtlGetVersionPtr = NTSTATUS(WINAPI*)(PRTL_OSVERSIONINFOW);
 
 namespace {
-  using util::error::DracError;
-  using enum util::error::DracErrorCode;
-  using namespace util::types;
+  using drac::error::DracError;
+  using enum drac::error::DracErrorCode;
+  using namespace drac::types;
 
   constexpr const wchar_t* WINDOWS_10      = L"Windows 10";
   constexpr const wchar_t* WINDOWS_11      = L"Windows 11";
@@ -76,7 +73,7 @@ namespace {
     return result;
   }
 
-  const thread_local struct RegistryBuffer {
+  constexpr thread_local struct RegistryBuffer {
     mutable Array<wchar_t, 1024> data {};
   } registryBuffer;
 
@@ -143,7 +140,7 @@ namespace {
       if (m_initialized)
         return;
 
-      HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+      const HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
       if (hSnap == INVALID_HANDLE_VALUE)
         return;
 
@@ -162,9 +159,7 @@ namespace {
 
         _wcslwr_s(tempBaseName.data(), tempBaseName.size());
 
-        std::wstring_view view(tempBaseName.data());
-
-        if (view.ends_with(L".exe")) {
+        if (std::wstring_view view(tempBaseName.data()); view.ends_with(L".exe")) {
           Span<wchar_t, MAX_PATH> bufferSpan(tempBaseName.data(), tempBaseName.size());
           bufferSpan[view.length() - 4] = L'\0';
         }
@@ -185,7 +180,8 @@ namespace {
       return m_processMap;
     }
 
-    explicit ProcessTreeCache(std::unordered_map<DWORD, ProcessData> processMap) : m_processMap(std::move(processMap)) {}
+    explicit ProcessTreeCache(std::unordered_map<DWORD, ProcessData> processMap)
+      : m_processMap(std::move(processMap)) {}
     ProcessTreeCache(const ProcessTreeCache&)                = delete;
     ProcessTreeCache(ProcessTreeCache&&)                     = delete;
     fn operator=(const ProcessTreeCache&)->ProcessTreeCache& = delete;
@@ -211,7 +207,7 @@ namespace {
     searchPath.append(L"\\*");
 
     WIN32_FIND_DATAW findData;
-    HANDLE           hFind = FindFirstFileW(searchPath.c_str(), &findData);
+    const HANDLE     hFind = FindFirstFileW(searchPath.c_str(), &findData);
 
     if (hFind == INVALID_HANDLE_VALUE) {
       if (GetLastError() == ERROR_FILE_NOT_FOUND)
@@ -339,7 +335,7 @@ namespace os {
   #endif // DRAC_ENABLE_NOWPLAYING
 
   fn System::getOSVersion() -> Result<String> {
-    RegistryCache& registry = RegistryCache::getInstance();
+    const RegistryCache& registry = RegistryCache::getInstance();
 
     HKEY currentVersionKey = registry.getCurrentVersionKey();
 
@@ -356,7 +352,8 @@ namespace os {
       if (const u64 buildNumber = *buildNumberOpt; buildNumber >= 22000)
         if (const size_t pos = productName.find(WINDOWS_10); pos != std::wstring::npos) {
           const bool startBoundary = (pos == 0 || !iswalnum(productName[pos - 1]));
-          const bool endBoundary   = (pos + std::wcslen(WINDOWS_10) == productName.length() || !iswalnum(productName[pos + std::wcslen(WINDOWS_10)]));
+          // ReSharper disable once CppTooWideScopeInitStatement
+          const bool endBoundary = (pos + std::wcslen(WINDOWS_10) == productName.length() || !iswalnum(productName[pos + std::wcslen(WINDOWS_10)]));
 
           if (startBoundary && endBoundary)
             productName.replace(pos, std::wcslen(WINDOWS_10), WINDOWS_11);
@@ -369,14 +366,14 @@ namespace os {
     if (displayVersion.empty())
       return productNameUTF8;
 
-    String displayVersionUTF8 = ConvertWStringToUTF8(displayVersion);
+    const String displayVersionUTF8 = ConvertWStringToUTF8(displayVersion);
 
     return productNameUTF8 + " " + displayVersionUTF8;
   }
 
   fn System::getHost() -> Result<String> {
-    RegistryCache& registry          = RegistryCache::getInstance();
-    HKEY           hardwareConfigKey = registry.getHardwareConfigKey();
+    const RegistryCache& registry          = RegistryCache::getInstance();
+    HKEY                 hardwareConfigKey = registry.getHardwareConfigKey();
 
     if (!hardwareConfigKey)
       if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SYSTEM\\HardwareConfig\\Current", 0, KEY_READ, &hardwareConfigKey) != ERROR_SUCCESS)
@@ -388,7 +385,8 @@ namespace os {
   }
 
   fn System::getKernelVersion() -> Result<String> {
-    fn filter = [](u32 code, struct _EXCEPTION_POINTERS* /*ep*/) -> i32 {
+    // ReSharper disable once CppDFAUnusedValue
+    fn filter = [](const u32 code, struct _EXCEPTION_POINTERS* /*ep*/) -> i32 {
       if (code == EXCEPTION_ACCESS_VIOLATION)
         return EXCEPTION_EXECUTE_HANDLER;
 
@@ -412,6 +410,7 @@ namespace os {
       majorVersion = *reinterpret_cast<const volatile u32*>(kuserSharedNtMajorVersion);
       minorVersion = *reinterpret_cast<const volatile u32*>(kuserSharedNtMinorVersion);
       buildNumber  = *reinterpret_cast<const volatile u32*>(kuserSharedNtBuildNumber);
+      // ReSharper disable once CppDFAUnreachableCode
     } __except (filter(GetExceptionCode(), GetExceptionInformation())) {
       return Err(DracError(PlatformSpecific, "Failed to read kernel version from KUSER_SHARED_DATA"));
     }
@@ -431,7 +430,7 @@ namespace os {
   }
 
   fn System::getDesktopEnvironment() -> Result<String> {
-    RegistryCache& registry = RegistryCache::getInstance();
+    const RegistryCache& registry = RegistryCache::getInstance();
 
     HKEY currentVersionKey = registry.getCurrentVersionKey();
 
@@ -458,9 +457,7 @@ namespace os {
       // Windows 8.1/10 Metro Era
       if (build >= 9200) { // Windows 8+
         // Distinguish between Windows 8 and 10
-        const std::wstring productName = GetRegistryValue(currentVersionKey, PRODUCT_NAME);
-
-        if (productName.find(L"Windows 10") != std::wstring::npos)
+        if (GetRegistryValue(currentVersionKey, PRODUCT_NAME).find(L"Windows 10") != std::wstring::npos)
           return "Metro (Windows 10)";
 
         if (build >= 9600)
@@ -479,7 +476,7 @@ namespace os {
   }
 
   fn System::getShell() -> Result<String> {
-    using util::helpers::GetEnv;
+    using drac::env::GetEnv;
 
     if (const Result<String> msystemResult = GetEnv("MSYSTEM"); msystemResult && !msystemResult->empty()) {
       String shellPath;
@@ -535,9 +532,7 @@ namespace os {
 
     __cpuid(0x80000000, cpuInfo[0], cpuInfo[1], cpuInfo[2], cpuInfo[3]);
 
-    const u32 maxFunction = cpuInfo[0];
-
-    if (maxFunction < 0x80000004)
+    if (const u32 maxFunction = cpuInfo[0]; maxFunction < 0x80000004)
       return Err(DracError(PlatformSpecific, "CPU does not support brand string"));
 
     for (u32 i = 0; i < 3; i++) {
@@ -611,8 +606,8 @@ namespace os {
 
   #if DRAC_ENABLE_PACKAGECOUNT
 namespace package {
-  using util::cache::GetValidCache, util::cache::WriteCache;
-  using util::helpers::GetEnvW;
+  using drac::cache::GetValidCache, drac::cache::WriteCache;
+  using drac::env::GetEnvW;
 
   fn CountChocolatey() -> Result<u64> {
     const String cacheKey = "chocolatey_";

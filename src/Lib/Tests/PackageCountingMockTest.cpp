@@ -10,18 +10,17 @@
 
 using namespace testing;
 using namespace package;
-using util::error::DracError;
-using util::error::DracErrorCode;
-using util::types::Err;
-using util::types::Result;
-using util::types::u64;
+using drac::error::DracError;
+using drac::error::DracErrorCode;
+using drac::types::Err;
+using drac::types::Result;
+using drac::types::u64;
 
-// Mock functions for package counting
 class PackageCountingMock {
  public:
-  MOCK_METHOD(Result<u64>, getCountFromDirectory, (const util::types::String&, const std::filesystem::path&, const util::types::String&, bool), ());
-  MOCK_METHOD(Result<u64>, getCountFromDb, (const util::types::String&, const std::filesystem::path&, const util::types::String&), ());
-  MOCK_METHOD(Result<u64>, getTotalCount, (Manager), ());
+  MOCK_METHOD(Result<u64>, GetCountFromDirectory, (const drac::types::String&, const std::filesystem::path&, const drac::types::String&, bool), ());
+  MOCK_METHOD(Result<u64>, GetCountFromDb, (const drac::types::String&, const std::filesystem::path&, const drac::types::String&), ());
+  MOCK_METHOD(Result<u64>, GetTotalCount, (Manager), ());
 };
 
 class PackageCountingTest : public Test {
@@ -29,125 +28,101 @@ class PackageCountingTest : public Test {
   PackageCountingMock m_mockCounter;
 };
 
-// Basic functionality tests
 TEST_F(PackageCountingTest, GetCountFromDirectoryReturnsExpectedValue) {
-  // Arrange
-  util::types::String   pmId        = "test";
-  std::filesystem::path dirPath     = "/test/path";
-  util::types::String   filter      = ".pkg";
-  bool                  subtractOne = false;
+  const drac::types::String   pmId        = "test";
+  const std::filesystem::path dirPath     = "/test/path";
+  const drac::types::String   filter      = ".pkg";
+  constexpr bool              subtractOne = false;
 
-  EXPECT_CALL(m_mockCounter, getCountFromDirectory(pmId, dirPath, filter, subtractOne))
+  EXPECT_CALL(m_mockCounter, GetCountFromDirectory(pmId, dirPath, filter, subtractOne))
     .WillOnce(Return(Result<u64>(42)));
 
-  // Act
-  Result<u64> result = m_mockCounter.getCountFromDirectory(pmId, dirPath, filter, subtractOne);
+  const Result<u64> result = m_mockCounter.GetCountFromDirectory(pmId, dirPath, filter, subtractOne);
 
-  // Assert
   EXPECT_TRUE(result);
   EXPECT_EQ(*result, 42);
 }
 
 TEST_F(PackageCountingTest, GetCountFromDbReturnsExpectedValue) {
-  // Arrange
-  util::types::String   pmId   = "test";
-  std::filesystem::path dbPath = "/test/db.sqlite";
-  util::types::String   query  = "SELECT COUNT(*) FROM packages";
+  const drac::types::String   pmId   = "test";
+  const std::filesystem::path dbPath = "/test/db.sqlite";
+  const drac::types::String   query  = "SELECT COUNT(*) FROM packages";
 
-  EXPECT_CALL(m_mockCounter, getCountFromDb(pmId, dbPath, query))
+  EXPECT_CALL(m_mockCounter, GetCountFromDb(pmId, dbPath, query))
     .WillOnce(Return(Result<u64>(100)));
 
-  // Act
-  Result<u64> result = m_mockCounter.getCountFromDb(pmId, dbPath, query);
+  const Result<u64> result = m_mockCounter.GetCountFromDb(pmId, dbPath, query);
 
-  // Assert
   EXPECT_TRUE(result);
   EXPECT_EQ(*result, 100);
 }
 
 TEST_F(PackageCountingTest, GetTotalCountReturnsExpectedValue) {
-  // Arrange
   Manager enabledManagers = Manager::CARGO;
 
 #if defined(__linux__) || defined(__APPLE__)
   enabledManagers = enabledManagers | Manager::NIX;
 #endif
 
-  EXPECT_CALL(m_mockCounter, getTotalCount(enabledManagers))
+  EXPECT_CALL(m_mockCounter, GetTotalCount(enabledManagers))
     .WillOnce(Return(Result<u64>(150)));
 
-  // Act
-  Result<u64> result = m_mockCounter.getTotalCount(enabledManagers);
+  const Result<u64> result = m_mockCounter.GetTotalCount(enabledManagers);
 
-  // Assert
   EXPECT_TRUE(result);
   EXPECT_EQ(*result, 150);
 }
 
-// Error condition tests
 TEST_F(PackageCountingTest, GetCountFromDirectoryReturnsErrorWhenDirectoryNotFound) {
-  // Arrange
-  util::types::String   pmId        = "test";
-  std::filesystem::path dirPath     = "/nonexistent/path";
-  util::types::String   filter      = ".pkg";
-  bool                  subtractOne = false;
+  const drac::types::String   pmId        = "test";
+  const std::filesystem::path dirPath     = "/nonexistent/path";
+  const drac::types::String   filter      = ".pkg";
+  constexpr bool              subtractOne = false;
 
-  EXPECT_CALL(m_mockCounter, getCountFromDirectory(pmId, dirPath, filter, subtractOne))
+  EXPECT_CALL(m_mockCounter, GetCountFromDirectory(pmId, dirPath, filter, subtractOne))
     .WillOnce(Return(Err(DracError(DracErrorCode::NotFound, "Directory not found"))));
 
-  // Act
-  Result<u64> result = m_mockCounter.getCountFromDirectory(pmId, dirPath, filter, subtractOne);
+  Result<u64> result = m_mockCounter.GetCountFromDirectory(pmId, dirPath, filter, subtractOne);
 
-  // Assert
   EXPECT_FALSE(result);
   EXPECT_EQ(result.error().code, DracErrorCode::NotFound);
 }
 
 TEST_F(PackageCountingTest, GetCountFromDbReturnsErrorWhenDatabaseCorrupt) {
-  // Arrange
-  util::types::String   pmId   = "test";
-  std::filesystem::path dbPath = "/test/corrupt.sqlite";
-  util::types::String   query  = "SELECT COUNT(*) FROM packages";
+  const drac::types::String   pmId   = "test";
+  const std::filesystem::path dbPath = "/test/corrupt.sqlite";
+  const drac::types::String   query  = "SELECT COUNT(*) FROM packages";
 
-  EXPECT_CALL(m_mockCounter, getCountFromDb(pmId, dbPath, query))
+  EXPECT_CALL(m_mockCounter, GetCountFromDb(pmId, dbPath, query))
     .WillOnce(Return(Err(DracError(DracErrorCode::ParseError, "Database is corrupt"))));
 
-  // Act
-  Result<u64> result = m_mockCounter.getCountFromDb(pmId, dbPath, query);
+  Result<u64> result = m_mockCounter.GetCountFromDb(pmId, dbPath, query);
 
-  // Assert
   EXPECT_FALSE(result);
   EXPECT_EQ(result.error().code, DracErrorCode::ParseError);
 }
 
 TEST_F(PackageCountingTest, GetTotalCountReturnsErrorWhenNoManagersEnabled) {
-  // Arrange
-  Manager enabledManagers = Manager::NONE;
+  constexpr Manager enabledManagers = Manager::NONE;
 
-  EXPECT_CALL(m_mockCounter, getTotalCount(enabledManagers))
+  EXPECT_CALL(m_mockCounter, GetTotalCount(enabledManagers))
     .WillOnce(Return(Err(DracError(DracErrorCode::InvalidArgument, "No package managers enabled"))));
 
-  // Act
-  Result<u64> result = m_mockCounter.getTotalCount(enabledManagers);
+  Result<u64> result = m_mockCounter.GetTotalCount(enabledManagers);
 
-  // Assert
   EXPECT_FALSE(result);
   EXPECT_EQ(result.error().code, DracErrorCode::InvalidArgument);
 }
 
-// Platform-specific tests
 #ifdef __linux__
 TEST_F(PackageCountingTest, LinuxPackageManagersAreAvailable) {
-  // Arrange
-  Manager linuxManagers = Manager::CARGO | Manager::NIX | Manager::PACMAN | Manager::DPKG;
+  constexpr Manager linuxManagers = Manager::CARGO | Manager::NIX | Manager::PACMAN | Manager::DPKG;
 
-  EXPECT_CALL(m_mockCounter, getTotalCount(linuxManagers))
+  EXPECT_CALL(m_mockCounter, GetTotalCount(linuxManagers))
     .WillOnce(Return(Result<u64>(200)));
 
-  // Act
-  Result<u64> result = m_mockCounter.getTotalCount(linuxManagers);
+  const Result<u64> result = m_mockCounter.GetTotalCount(linuxManagers);
 
-  // Assert
   EXPECT_TRUE(result);
   EXPECT_EQ(*result, 200);
 }
@@ -155,16 +130,13 @@ TEST_F(PackageCountingTest, LinuxPackageManagersAreAvailable) {
 
 #ifdef __APPLE__
 TEST_F(PackageCountingTest, MacPackageManagersAreAvailable) {
-  // Arrange
-  Manager macManagers = Manager::CARGO | Manager::NIX | Manager::HOMEBREW;
+  constexpr Manager macManagers = Manager::CARGO | Manager::NIX | Manager::HOMEBREW;
 
-  EXPECT_CALL(m_mockCounter, getTotalCount(macManagers))
+  EXPECT_CALL(m_mockCounter, GetTotalCount(macManagers))
     .WillOnce(Return(Result<u64>(150)));
 
-  // Act
-  Result<u64> result = m_mockCounter.getTotalCount(macManagers);
+  const Result<u64> result = m_mockCounter.GetTotalCount(macManagers);
 
-  // Assert
   EXPECT_TRUE(result);
   EXPECT_EQ(*result, 150);
 }
@@ -172,16 +144,13 @@ TEST_F(PackageCountingTest, MacPackageManagersAreAvailable) {
 
 #ifdef _WIN32
 TEST_F(PackageCountingTest, WindowsPackageManagersAreAvailable) {
-  // Arrange
-  Manager winManagers = Manager::CARGO | Manager::WINGET | Manager::CHOCOLATEY;
+  constexpr Manager winManagers = Manager::CARGO | Manager::WINGET | Manager::CHOCOLATEY;
 
-  EXPECT_CALL(m_mockCounter, getTotalCount(winManagers))
+  EXPECT_CALL(m_mockCounter, GetTotalCount(winManagers))
     .WillOnce(Return(Result<u64>(100)));
 
-  // Act
-  Result<u64> result = m_mockCounter.getTotalCount(winManagers);
+  const Result<u64> result = m_mockCounter.GetTotalCount(winManagers);
 
-  // Assert
   EXPECT_TRUE(result);
   EXPECT_EQ(*result, 100);
 }

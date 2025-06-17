@@ -34,7 +34,7 @@
  * @brief Holds general configuration settings.
  */
 struct General {
-  util::types::String name = getDefaultName(); ///< Default display name, retrieved from the system.
+  drac::types::String name = getDefaultName(); ///< Default display name, retrieved from the system.
 
   /**
    * @brief Retrieves the default name for the user.
@@ -45,9 +45,9 @@ struct General {
    * On POSIX systems, it first tries to get the username using getpwuid,
    * then checks the USER and LOGNAME environment variables.
    */
-  static fn getDefaultName() -> util::types::String {
+  static fn getDefaultName() -> drac::types::String {
 #ifdef _WIN32
-    using util::types::Array;
+    using drac::types::Array;
 
     Array<char, 256> username;
 
@@ -118,7 +118,7 @@ struct NowPlaying {
  */
 struct Weather {
   weather::Location                        location; ///< Location for weather data, can be a city name or coordinates.
-  util::types::Option<util::types::String> apiKey;   ///< API key for the weather service.
+  drac::types::Option<drac::types::String> apiKey;   ///< API key for the weather service.
   weather::Unit                            units;    ///< Units for temperature, either "metric" or "imperial".
 
   bool                                      enabled      = false;   ///< Flag to enable or disable the Weather feature.

@@ -21,8 +21,7 @@
 #include "Error.hpp"
 #include "Types.hpp"
 
-namespace util::logging {
-
+namespace drac::logging {
   inline fn GetLogMutex() -> types::Mutex& {
     static types::Mutex LogMutexInstance;
     return LogMutexInstance;
@@ -162,14 +161,11 @@ namespace util::logging {
     );
   }
 
-  // ReSharper disable once CppDoxygenUnresolvedReference
   /**
    * @brief Logs a message with the specified log level, source location, and format string.
    * @tparam Args Parameter pack for format arguments.
    * @param level The log level (DEBUG, INFO, WARN, ERROR).
-   * \ifnot NDEBUG
    * @param loc The source location of the log message (only in Debug builds).
-   * \endif
    * @param fmt The format string.
    * @param args The arguments for the format string.
    */
@@ -283,24 +279,24 @@ namespace util::logging {
 #endif
   }
 
-#define debug_at(error_obj) ::util::logging::LogError(::util::logging::LogLevel::Debug, error_obj)
-#define info_at(error_obj)  ::util::logging::LogError(::util::logging::LogLevel::Info, error_obj)
-#define warn_at(error_obj)  ::util::logging::LogError(::util::logging::LogLevel::Warn, error_obj)
-#define error_at(error_obj) ::util::logging::LogError(::util::logging::LogLevel::Error, error_obj)
+#define debug_at(error_obj) ::drac::logging::LogError(::drac::logging::LogLevel::Debug, error_obj)
+#define info_at(error_obj)  ::drac::logging::LogError(::drac::logging::LogLevel::Info, error_obj)
+#define warn_at(error_obj)  ::drac::logging::LogError(::drac::logging::LogLevel::Warn, error_obj)
+#define error_at(error_obj) ::drac::logging::LogError(::drac::logging::LogLevel::Error, error_obj)
 
 #ifdef NDEBUG
-  #define debug_log(fmt, ...) ::util::logging::LogImpl(::util::logging::LogLevel::Debug, fmt __VA_OPT__(, ) __VA_ARGS__)
-  #define info_log(fmt, ...)  ::util::logging::LogImpl(::util::logging::LogLevel::Info, fmt __VA_OPT__(, ) __VA_ARGS__)
-  #define warn_log(fmt, ...)  ::util::logging::LogImpl(::util::logging::LogLevel::Warn, fmt __VA_OPT__(, ) __VA_ARGS__)
-  #define error_log(fmt, ...) ::util::logging::LogImpl(::util::logging::LogLevel::Error, fmt __VA_OPT__(, ) __VA_ARGS__)
+  #define debug_log(fmt, ...) ::drac::logging::LogImpl(::drac::logging::LogLevel::Debug, fmt __VA_OPT__(, ) __VA_ARGS__)
+  #define info_log(fmt, ...)  ::drac::logging::LogImpl(::drac::logging::LogLevel::Info, fmt __VA_OPT__(, ) __VA_ARGS__)
+  #define warn_log(fmt, ...)  ::drac::logging::LogImpl(::drac::logging::LogLevel::Warn, fmt __VA_OPT__(, ) __VA_ARGS__)
+  #define error_log(fmt, ...) ::drac::logging::LogImpl(::drac::logging::LogLevel::Error, fmt __VA_OPT__(, ) __VA_ARGS__)
 #else
   #define debug_log(fmt, ...) \
-    ::util::logging::LogImpl(::util::logging::LogLevel::Debug, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
+    ::drac::logging::LogImpl(::drac::logging::LogLevel::Debug, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
   #define info_log(fmt, ...) \
-    ::util::logging::LogImpl(::util::logging::LogLevel::Info, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
+    ::drac::logging::LogImpl(::drac::logging::LogLevel::Info, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
   #define warn_log(fmt, ...) \
-    ::util::logging::LogImpl(::util::logging::LogLevel::Warn, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
+    ::drac::logging::LogImpl(::drac::logging::LogLevel::Warn, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
   #define error_log(fmt, ...) \
-    ::util::logging::LogImpl(::util::logging::LogLevel::Error, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
+    ::drac::logging::LogImpl(::drac::logging::LogLevel::Error, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
 #endif
-} // namespace util::logging
+} // namespace drac::logging

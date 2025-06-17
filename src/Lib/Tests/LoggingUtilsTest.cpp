@@ -5,16 +5,16 @@
 
 #include "gtest/gtest.h"
 
-using namespace util::logging;
-using namespace util::types;
+using namespace drac::logging;
+using namespace drac::types;
 
 class LoggingUtilsTest : public testing::Test {};
 
 TEST_F(LoggingUtilsTest, Colorize_RedText) {
-  const StringView              textToColorize = "Hello, Red World!";
-  const ftxui::Color::Palette16 color          = ftxui::Color::Palette16::Red;
-  const String                  expectedPrefix = String(LogLevelConst::COLOR_CODE_LITERALS.at(color));
-  const String                  expectedSuffix = String(LogLevelConst::RESET_CODE);
+  constexpr StringView              textToColorize = "Hello, Red World!";
+  constexpr ftxui::Color::Palette16 color          = ftxui::Color::Palette16::Red;
+  const String                      expectedPrefix = String(LogLevelConst::COLOR_CODE_LITERALS.at(color));
+  const String                      expectedSuffix = String(LogLevelConst::RESET_CODE);
 
   String colorizedText = Colorize(textToColorize, color);
 
@@ -25,10 +25,10 @@ TEST_F(LoggingUtilsTest, Colorize_RedText) {
 }
 
 TEST_F(LoggingUtilsTest, Colorize_BlueText) {
-  const StringView              textToColorize = "Blue Sky";
-  const ftxui::Color::Palette16 color          = ftxui::Color::Palette16::Blue;
-  const String                  expectedPrefix = String(LogLevelConst::COLOR_CODE_LITERALS.at(color));
-  const String                  expectedSuffix = String(LogLevelConst::RESET_CODE);
+  constexpr StringView              textToColorize = "Blue Sky";
+  constexpr ftxui::Color::Palette16 color          = ftxui::Color::Palette16::Blue;
+  const String                      expectedPrefix = String(LogLevelConst::COLOR_CODE_LITERALS.at(color));
+  const String                      expectedSuffix = String(LogLevelConst::RESET_CODE);
 
   String colorizedText = Colorize(textToColorize, color);
 
@@ -39,61 +39,61 @@ TEST_F(LoggingUtilsTest, Colorize_BlueText) {
 }
 
 TEST_F(LoggingUtilsTest, Colorize_EmptyText) {
-  const StringView              textToColorize;
-  const ftxui::Color::Palette16 color          = ftxui::Color::Palette16::Green;
-  const String                  expectedPrefix = String(LogLevelConst::COLOR_CODE_LITERALS.at(color));
-  const String                  expectedSuffix = String(LogLevelConst::RESET_CODE);
+  constexpr StringView              textToColorize;
+  constexpr ftxui::Color::Palette16 color          = ftxui::Color::Palette16::Green;
+  const String                      expectedPrefix = String(LogLevelConst::COLOR_CODE_LITERALS.at(color));
+  const String                      expectedSuffix = String(LogLevelConst::RESET_CODE);
 
-  String colorizedText = Colorize(textToColorize, color);
-  String expectedText  = expectedPrefix + String(textToColorize) + expectedSuffix;
+  const String colorizedText = Colorize(textToColorize, color);
+  const String expectedText  = expectedPrefix + String(textToColorize) + expectedSuffix;
   EXPECT_EQ(colorizedText, expectedText);
 }
 
 TEST_F(LoggingUtilsTest, Bold_SimpleText) {
-  const StringView textToBold     = "This is bold.";
-  const String     expectedPrefix = String(LogLevelConst::BOLD_START);
-  const String     expectedSuffix = String(LogLevelConst::BOLD_END);
+  constexpr StringView textToBold     = "This is bold.";
+  const String         expectedPrefix = String(LogLevelConst::BOLD_START);
+  const String         expectedSuffix = String(LogLevelConst::BOLD_END);
 
-  String boldedText   = Bold(textToBold);
-  String expectedText = expectedPrefix + String(textToBold) + expectedSuffix;
+  const String boldedText   = Bold(textToBold);
+  const String expectedText = expectedPrefix + String(textToBold) + expectedSuffix;
 
   EXPECT_EQ(boldedText, expectedText);
 }
 
 TEST_F(LoggingUtilsTest, Bold_EmptyText) {
-  const StringView textToBold;
-  const String     expectedPrefix = String(LogLevelConst::BOLD_START);
-  const String     expectedSuffix = String(LogLevelConst::BOLD_END);
+  constexpr StringView textToBold;
+  const String         expectedPrefix = String(LogLevelConst::BOLD_START);
+  const String         expectedSuffix = String(LogLevelConst::BOLD_END);
 
-  String boldedText   = Bold(textToBold);
-  String expectedText = expectedPrefix + String(textToBold) + expectedSuffix;
+  const String boldedText   = Bold(textToBold);
+  const String expectedText = expectedPrefix + String(textToBold) + expectedSuffix;
   EXPECT_EQ(boldedText, expectedText);
 }
 
 TEST_F(LoggingUtilsTest, Italic_SimpleText) {
-  const StringView textToItalicize = "This is italic.";
-  const String     expectedPrefix  = String(LogLevelConst::ITALIC_START);
-  const String     expectedSuffix  = String(LogLevelConst::ITALIC_END);
+  constexpr StringView textToItalicize = "This is italic.";
+  const String         expectedPrefix  = String(LogLevelConst::ITALIC_START);
+  const String         expectedSuffix  = String(LogLevelConst::ITALIC_END);
 
-  String italicizedText = Italic(textToItalicize);
-  String expectedText   = expectedPrefix + String(textToItalicize) + expectedSuffix;
+  const String italicizedText = Italic(textToItalicize);
+  const String expectedText   = expectedPrefix + String(textToItalicize) + expectedSuffix;
 
   EXPECT_EQ(italicizedText, expectedText);
 }
 
 TEST_F(LoggingUtilsTest, Italic_EmptyText) {
-  const StringView textToItalicize;
-  const String     expectedPrefix = String(LogLevelConst::ITALIC_START);
-  const String     expectedSuffix = String(LogLevelConst::ITALIC_END);
+  constexpr StringView textToItalicize;
+  const String         expectedPrefix = String(LogLevelConst::ITALIC_START);
+  const String         expectedSuffix = String(LogLevelConst::ITALIC_END);
 
-  String italicizedText = Italic(textToItalicize);
-  String expectedText   = expectedPrefix + String(textToItalicize) + expectedSuffix;
+  const String italicizedText = Italic(textToItalicize);
+  const String expectedText   = expectedPrefix + String(textToItalicize) + expectedSuffix;
   EXPECT_EQ(italicizedText, expectedText);
 }
 
 TEST_F(LoggingUtilsTest, Combined_BoldItalicRedText) {
-  const StringView              textToStyle = "Styled Text";
-  const ftxui::Color::Palette16 color       = ftxui::Color::Palette16::Magenta;
+  constexpr StringView              textToStyle = "Styled Text";
+  constexpr ftxui::Color::Palette16 color       = ftxui::Color::Palette16::Magenta;
 
   const String colorPrefix  = String(LogLevelConst::COLOR_CODE_LITERALS.at(color));
   const String colorSuffix  = String(LogLevelConst::RESET_CODE);
@@ -102,11 +102,11 @@ TEST_F(LoggingUtilsTest, Combined_BoldItalicRedText) {
   const String italicPrefix = String(LogLevelConst::ITALIC_START);
   const String italicSuffix = String(LogLevelConst::ITALIC_END);
 
-  String styledText = Colorize(Bold(Italic(textToStyle)), color);
+  const String styledText = Colorize(Bold(Italic(textToStyle)), color);
 
-  String expectedInnerText = italicPrefix + String(textToStyle) + italicSuffix;
-  expectedInnerText        = boldPrefix + expectedInnerText + boldSuffix;
-  String expectedFinalText = colorPrefix + expectedInnerText + colorSuffix;
+  String expectedInnerText       = italicPrefix + String(textToStyle) + italicSuffix;
+  expectedInnerText              = boldPrefix + expectedInnerText + boldSuffix;
+  const String expectedFinalText = colorPrefix + expectedInnerText + colorSuffix;
 
   EXPECT_EQ(styledText, expectedFinalText);
 }

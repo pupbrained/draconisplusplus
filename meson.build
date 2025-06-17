@@ -228,7 +228,20 @@ lib_deps += ftxui_dep
 glaze_dep = dependency('glaze', include_type: 'system', required: false)
 if not glaze_dep.found()
   cmake = import('cmake')
-  glaze_proj = cmake.subproject('glaze')
+  options = cmake.subproject_options()
+  options.add_cmake_defines(
+    {
+      'glaze_ENABLE_SSL': false,
+      'glaze_BUILD_EXAMPLES': false,
+      'glaze_DEVELOPER_MODE': false,
+    },
+  )
+
+  glaze_proj = cmake.subproject(
+    'glaze',
+    options: options,
+  )
+
   glaze_dep = glaze_proj.dependency('glaze_glaze', include_type: 'system')
 endif
 lib_deps += glaze_dep
@@ -243,7 +256,7 @@ subdir('src/CLI')
 #  Example Executable  #
 # -------------------- #
 if get_option('build_examples')
-  lib_deps += dependency('asio', static: true)
+  lib_deps += dependency('asio', static: true, fallback: ['asio', 'asio_dep'])
   subdir('examples')
 endif
 

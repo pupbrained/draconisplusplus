@@ -12,11 +12,11 @@ namespace Curl {
    * @brief Options for initializing a Curl::Easy handle.
    */
   struct EasyOptions {
-    util::types::Option<util::types::String> url                = util::types::None; ///< URL to set for the transfer
-    util::types::String*                     writeBuffer        = nullptr;           ///< Pointer to a string buffer to store the response
-    util::types::Option<util::types::i64>    timeoutSecs        = util::types::None; ///< Timeout for the entire request in seconds
-    util::types::Option<util::types::i64>    connectTimeoutSecs = util::types::None; ///< Timeout for the connection phase in seconds
-    util::types::Option<util::types::String> userAgent          = util::types::None; ///< User-agent string
+    drac::types::Option<drac::types::String> url                = drac::types::None; ///< URL to set for the transfer
+    drac::types::String*                     writeBuffer        = nullptr;           ///< Pointer to a string buffer to store the response
+    drac::types::Option<drac::types::i64>    timeoutSecs        = drac::types::None; ///< Timeout for the entire request in seconds
+    drac::types::Option<drac::types::i64>    connectTimeoutSecs = drac::types::None; ///< Timeout for the connection phase in seconds
+    drac::types::Option<drac::types::String> userAgent          = drac::types::None; ///< User-agent string
   };
 
   /**
@@ -24,10 +24,10 @@ namespace Curl {
    */
   class Easy {
     CURL*                                       m_curl      = nullptr;
-    util::types::Option<util::error::DracError> m_initError = util::types::None; ///< Stores any error that occurred during initialization via options constructor
+    drac::types::Option<drac::error::DracError> m_initError = drac::types::None; ///< Stores any error that occurred during initialization via options constructor
 
-    static fn writeCallback(void* contents, util::types::usize size, util::types::usize nmemb, util::types::String* str) -> util::types::usize {
-      const util::types::usize totalSize = size * nmemb;
+    static fn writeCallback(void* contents, const drac::types::usize size, const drac::types::usize nmemb, drac::types::String* str) -> drac::types::usize {
+      const drac::types::usize totalSize = size * nmemb;
       str->append(static_cast<char*>(contents), totalSize);
       return totalSize;
     }
@@ -36,8 +36,9 @@ namespace Curl {
     /**
      * @brief Default constructor. Initializes a CURL easy handle.
      */
-    Easy() : m_curl(curl_easy_init()) {
-      using util::types::Err, util::error::DracError, util::error::DracErrorCode;
+    Easy()
+      : m_curl(curl_easy_init()) {
+      using drac::types::Err, drac::error::DracError, drac::error::DracErrorCode;
 
       if (!m_curl)
         m_initError = DracError(DracErrorCode::ApiUnavailable, "curl_easy_init() failed");
@@ -47,8 +48,9 @@ namespace Curl {
      * @brief Constructor with options. Initializes a CURL easy handle and sets options.
      * @param options The options to configure the CURL handle.
      */
-    explicit Easy(const EasyOptions& options) : m_curl(curl_easy_init()) {
-      using util::types::Err, util::types::Result, util::error::DracError, util::error::DracErrorCode;
+    explicit Easy(const EasyOptions& options)
+      : m_curl(curl_easy_init()) {
+      using drac::types::Err, drac::types::Result, drac::error::DracError, drac::error::DracErrorCode;
 
       if (!m_curl) {
         m_initError = DracError(DracErrorCode::ApiUnavailable, "curl_easy_init() failed");
@@ -133,7 +135,7 @@ namespace Curl {
      * @brief Gets any error that occurred during initialization via the options constructor.
      * @return An Option containing a DracError if initialization failed, otherwise None.
      */
-    [[nodiscard]] fn getInitializationError() const -> const util::types::Option<util::error::DracError>& {
+    [[nodiscard]] fn getInitializationError() const -> const drac::types::Option<drac::error::DracError>& {
       return m_initError;
     }
 
@@ -153,8 +155,8 @@ namespace Curl {
      * @return A Result indicating success or failure.
      */
     template <typename T>
-    fn setOpt(CURLoption option, T value) -> util::types::Result<> {
-      using util::types::Err, util::error::DracError, util::error::DracErrorCode;
+    fn setOpt(const CURLoption option, T value) -> drac::types::Result<> {
+      using drac::types::Err, drac::error::DracError, drac::error::DracErrorCode;
 
       if (!m_curl)
         return Err(DracError(DracErrorCode::InternalError, "CURL handle is not initialized or init failed"));
@@ -162,9 +164,7 @@ namespace Curl {
       if (m_initError)
         return Err(DracError(DracErrorCode::InternalError, "CURL handle initialization previously failed"));
 
-      const CURLcode res = curl_easy_setopt(m_curl, option, value);
-
-      if (res != CURLE_OK)
+      if (const CURLcode res = curl_easy_setopt(m_curl, option, value); res != CURLE_OK)
         return Err(DracError(DracErrorCode::PlatformSpecific, std::format("curl_easy_setopt failed: {}", curl_easy_strerror(res))));
 
       return {};
@@ -174,8 +174,8 @@ namespace Curl {
      * @brief Performs a blocking file transfer.
      * @return A Result indicating success or failure.
      */
-    fn perform() -> util::types::Result<> {
-      using util::types::Err, util::error::DracError, util::error::DracErrorCode;
+    fn perform() -> drac::types::Result<> {
+      using drac::types::Err, drac::error::DracError, drac::error::DracErrorCode;
 
       if (!m_curl)
         return Err(DracError(DracErrorCode::InternalError, "CURL handle is not initialized or init failed"));
@@ -183,9 +183,7 @@ namespace Curl {
       if (m_initError)
         return Err(DracError(DracErrorCode::InternalError, std::format("Cannot perform request, CURL handle initialization failed: {}", m_initError->message)));
 
-      const CURLcode res = curl_easy_perform(m_curl);
-
-      if (res != CURLE_OK)
+      if (const CURLcode res = curl_easy_perform(m_curl); res != CURLE_OK)
         return Err(DracError(DracErrorCode::ApiUnavailable, std::format("curl_easy_perform failed: {}", curl_easy_strerror(res))));
 
       return {};
@@ -199,8 +197,8 @@ namespace Curl {
      * @return A Result indicating success or failure.
      */
     template <typename T>
-    fn getInfo(CURLINFO info, T* value) -> util::types::Result<> {
-      using util::types::Err, util::error::DracError, util::error::DracErrorCode;
+    fn getInfo(const CURLINFO info, T* value) -> drac::types::Result<> {
+      using drac::types::Err, drac::error::DracError, drac::error::DracErrorCode;
 
       if (!m_curl)
         return Err(DracError(DracErrorCode::InternalError, "CURL handle is not initialized or init failed"));
@@ -208,9 +206,7 @@ namespace Curl {
       if (m_initError)
         return Err(DracError(DracErrorCode::InternalError, std::format("CURL handle initialization previously failed: {}", m_initError->message)));
 
-      const CURLcode res = curl_easy_getinfo(m_curl, info, value);
-
-      if (res != CURLE_OK)
+      if (const CURLcode res = curl_easy_getinfo(m_curl, info, value); res != CURLE_OK)
         return Err(DracError(DracErrorCode::PlatformSpecific, std::format("curl_easy_getinfo failed: {}", curl_easy_strerror(res))));
 
       return {};
@@ -221,8 +217,8 @@ namespace Curl {
      * @param url The URL string to escape.
      * @return A Result containing the escaped string or an error.
      */
-    static fn escape(const util::types::String& url) -> util::types::Result<util::types::String> {
-      using util::types::Err, util::error::DracError, util::error::DracErrorCode, util::types::String;
+    static fn escape(const drac::types::String& url) -> drac::types::Result<drac::types::String> {
+      using drac::types::Err, drac::error::DracError, drac::error::DracErrorCode, drac::types::String;
 
       char* escapedUrl = curl_easy_escape(nullptr, url.c_str(), static_cast<int>(url.length()));
 
@@ -241,7 +237,7 @@ namespace Curl {
      * @param url The URL to set.
      * @return A Result indicating success or failure.
      */
-    fn setUrl(const util::types::String& url) -> util::types::Result<> {
+    fn setUrl(const drac::types::String& url) -> drac::types::Result<> {
       return setOpt(CURLOPT_URL, url.c_str());
     }
 
@@ -250,8 +246,8 @@ namespace Curl {
      * @param buffer The string buffer to write the response to.
      * @return A Result indicating success or failure.
      */
-    fn setWriteFunction(util::types::String* buffer) -> util::types::Result<> {
-      using util::types::Err, util::types::Result, util::error::DracError, util::error::DracErrorCode;
+    fn setWriteFunction(drac::types::String* buffer) -> drac::types::Result<> {
+      using drac::types::Err, drac::types::Result, drac::error::DracError, drac::error::DracErrorCode;
 
       if (!buffer)
         return Err(DracError(DracErrorCode::InvalidArgument, "Write buffer cannot be null"));
@@ -267,7 +263,7 @@ namespace Curl {
      * @param timeout The timeout in seconds.
      * @return A Result indicating success or failure.
      */
-    fn setTimeout(util::types::i64 timeout) -> util::types::Result<> {
+    fn setTimeout(const drac::types::i64 timeout) -> drac::types::Result<> {
       return setOpt(CURLOPT_TIMEOUT, timeout);
     }
 
@@ -276,7 +272,7 @@ namespace Curl {
      * @param timeout The connect timeout in seconds.
      * @return A Result indicating success or failure.
      */
-    fn setConnectTimeout(util::types::i64 timeout) -> util::types::Result<> {
+    fn setConnectTimeout(const drac::types::i64 timeout) -> drac::types::Result<> {
       return setOpt(CURLOPT_CONNECTTIMEOUT, timeout);
     }
 
@@ -285,7 +281,7 @@ namespace Curl {
      * @param userAgent The user agent string.
      * @return A Result indicating success or failure.
      */
-    fn setUserAgent(const util::types::String& userAgent) -> util::types::Result<> {
+    fn setUserAgent(const drac::types::String& userAgent) -> drac::types::Result<> {
       return setOpt(CURLOPT_USERAGENT, userAgent.c_str());
     }
   };
@@ -295,14 +291,15 @@ namespace Curl {
    */
   class Multi {
     CURLM*                                      m_multi     = nullptr;
-    util::types::Option<util::error::DracError> m_initError = util::types::None;
+    drac::types::Option<drac::error::DracError> m_initError = drac::types::None;
 
    public:
     /**
      * @brief Constructor. Initializes a CURL multi handle.
      */
-    Multi() : m_multi(curl_multi_init()) {
-      using util::types::Err, util::error::DracError, util::error::DracErrorCode;
+    Multi()
+      : m_multi(curl_multi_init()) {
+      using drac::types::Err, drac::error::DracError, drac::error::DracErrorCode;
 
       if (!m_multi)
         m_initError = DracError(DracErrorCode::ApiUnavailable, "curl_multi_init() failed");
@@ -356,7 +353,7 @@ namespace Curl {
      * @brief Gets any error that occurred during initialization.
      * @return An Option containing a DracError if initialization failed, otherwise None.
      */
-    [[nodiscard]] fn getInitializationError() const -> const util::types::Option<util::error::DracError>& {
+    [[nodiscard]] fn getInitializationError() const -> const drac::types::Option<drac::error::DracError>& {
       return m_initError;
     }
 
@@ -373,8 +370,8 @@ namespace Curl {
      * @param easyHandle The Easy handle to add.
      * @return A Result indicating success or failure.
      */
-    fn addHandle(const Easy& easyHandle) -> util::types::Result<> {
-      using util::types::Err, util::error::DracError, util::error::DracErrorCode;
+    fn addHandle(const Easy& easyHandle) -> drac::types::Result<> {
+      using drac::types::Err, drac::error::DracError, drac::error::DracErrorCode;
 
       if (!m_multi)
         return Err(DracError(DracErrorCode::InternalError, "CURL multi handle is not initialized or init failed"));
@@ -388,9 +385,7 @@ namespace Curl {
       if (easyHandle.getInitializationError())
         return Err(DracError(DracErrorCode::InvalidArgument, std::format("Provided CURL easy handle failed initialization: {}", easyHandle.getInitializationError()->message)));
 
-      const CURLMcode res = curl_multi_add_handle(m_multi, easyHandle.get());
-
-      if (res != CURLM_OK)
+      if (const CURLMcode res = curl_multi_add_handle(m_multi, easyHandle.get()); res != CURLM_OK)
         return Err(DracError(DracErrorCode::PlatformSpecific, std::format("curl_multi_add_handle failed: {}", curl_multi_strerror(res))));
 
       return {};
@@ -401,8 +396,8 @@ namespace Curl {
      * @param easyHandle The Easy handle to remove.
      * @return A Result indicating success or failure.
      */
-    fn removeHandle(const Easy& easyHandle) -> util::types::Result<> {
-      using util::types::Err, util::error::DracError, util::error::DracErrorCode;
+    fn removeHandle(const Easy& easyHandle) -> drac::types::Result<> {
+      using drac::types::Err, drac::error::DracError, drac::error::DracErrorCode;
 
       if (!m_multi)
         return Err(DracError(DracErrorCode::InternalError, "CURL multi handle is not initialized or init failed"));
@@ -413,9 +408,7 @@ namespace Curl {
       if (!easyHandle.get()) // It's okay to try to remove a null handle, curl_multi_remove_handle handles it.
         return Err(DracError(DracErrorCode::InvalidArgument, "Provided CURL easy handle is not valid (for removal check)"));
 
-      const CURLMcode res = curl_multi_remove_handle(m_multi, easyHandle.get());
-
-      if (res != CURLM_OK) // CURLM_BAD_EASY_HANDLE is a possible error if handle was not in multi stack
+      if (const CURLMcode res = curl_multi_remove_handle(m_multi, easyHandle.get()); res != CURLM_OK) // CURLM_BAD_EASY_HANDLE is a possible error if handle was not in multi stack
         return Err(DracError(DracErrorCode::PlatformSpecific, std::format("curl_multi_remove_handle failed: {}", curl_multi_strerror(res))));
 
       return {};
@@ -426,8 +419,8 @@ namespace Curl {
      * @param stillRunning A pointer to an integer that will be set to the number of still running transfers.
      * @return A Result indicating success or failure.
      */
-    fn perform(util::types::i32* stillRunning) -> util::types::Result<> {
-      using util::types::Err, util::error::DracError, util::error::DracErrorCode;
+    fn perform(drac::types::i32* stillRunning) -> drac::types::Result<> {
+      using drac::types::Err, drac::error::DracError, drac::error::DracErrorCode;
 
       if (!m_multi)
         return Err(DracError(DracErrorCode::InternalError, "CURL multi handle is not initialized or init failed"));
@@ -435,9 +428,7 @@ namespace Curl {
       if (m_initError)
         return Err(DracError(DracErrorCode::InternalError, std::format("CURL multi handle initialization previously failed: {}", m_initError->message)));
 
-      const CURLMcode res = curl_multi_perform(m_multi, stillRunning);
-
-      if (res != CURLM_OK && res != CURLM_CALL_MULTI_PERFORM)
+      if (const CURLMcode res = curl_multi_perform(m_multi, stillRunning); res != CURLM_OK && res != CURLM_CALL_MULTI_PERFORM)
         return Err(DracError(DracErrorCode::PlatformSpecific, std::format("curl_multi_perform failed: {}", curl_multi_strerror(res))));
 
       return {};
@@ -448,8 +439,8 @@ namespace Curl {
      * @param msgsInQueue A pointer to an integer that will be set to the number of messages in the queue.
      * @return A Result containing a CURLMsg pointer or an error. The caller is responsible for checking the msg field of CURLMsg.
      */
-    fn infoRead(util::types::i32* msgsInQueue) -> util::types::Result<CURLMsg*> {
-      using util::types::Err, util::error::DracError, util::error::DracErrorCode;
+    fn infoRead(drac::types::i32* msgsInQueue) -> drac::types::Result<CURLMsg*> {
+      using drac::types::Err, drac::error::DracError, drac::error::DracErrorCode;
 
       if (!m_multi)
         return Err(DracError(DracErrorCode::InternalError, "CURL multi handle is not initialized or init failed"));
@@ -468,8 +459,8 @@ namespace Curl {
      * @param numfds A pointer to an integer that will be set to the number of file descriptors with activity. Can be nullptr.
      * @return A Result indicating success or failure.
      */
-    fn poll(util::types::i32 timeoutMs, util::types::i32* numfds) -> util::types::Result<> {
-      using util::types::Err, util::error::DracError, util::error::DracErrorCode;
+    fn poll(const drac::types::i32 timeoutMs, drac::types::i32* numfds) -> drac::types::Result<> {
+      using drac::types::Err, drac::error::DracError, drac::error::DracErrorCode;
 
       if (!m_multi)
         return Err(DracError(DracErrorCode::InternalError, "CURL multi handle is not initialized or init failed"));
@@ -477,9 +468,7 @@ namespace Curl {
       if (m_initError)
         return Err(DracError(DracErrorCode::InternalError, std::format("CURL multi handle initialization previously failed: {}", m_initError->message)));
 
-      const CURLMcode res = curl_multi_poll(m_multi, nullptr, 0, timeoutMs, numfds);
-
-      if (res != CURLM_OK)
+      if (const CURLMcode res = curl_multi_poll(m_multi, nullptr, 0, timeoutMs, numfds); res != CURLM_OK)
         return Err(DracError(DracErrorCode::PlatformSpecific, std::format("curl_multi_poll failed: {}", curl_multi_strerror(res))));
 
       return {};
@@ -494,8 +483,8 @@ namespace Curl {
      *       It requires more setup with curl_multi_fdset. For simplicity, poll is preferred if available.
      *       This is a simplified version; a full fdset handling is more complex.
      */
-    fn wait(util::types::i32 timeoutMs, util::types::i32* numfds) -> util::types::Result<> {
-      using util::types::Err, util::error::DracError, util::error::DracErrorCode;
+    fn wait(const drac::types::i32 timeoutMs, drac::types::i32* numfds) -> drac::types::Result<> {
+      using drac::types::Err, drac::error::DracError, drac::error::DracErrorCode;
 
       if (!m_multi)
         return Err(DracError(DracErrorCode::InternalError, "CURL multi handle is not initialized or init failed"));
@@ -503,9 +492,7 @@ namespace Curl {
       if (m_initError)
         return Err(DracError(DracErrorCode::InternalError, std::format("CURL multi handle initialization previously failed: {}", m_initError->message)));
 
-      const CURLMcode res = curl_multi_wait(m_multi, nullptr, 0, timeoutMs, numfds);
-
-      if (res != CURLM_OK)
+      if (const CURLMcode res = curl_multi_wait(m_multi, nullptr, 0, timeoutMs, numfds); res != CURLM_OK)
         return Err(DracError(DracErrorCode::PlatformSpecific, std::format("curl_multi_wait failed: {}", curl_multi_strerror(res))));
 
       return {};
@@ -517,12 +504,10 @@ namespace Curl {
    * @param flags CURL global init flags.
    * @return A Result indicating success or failure.
    */
-  inline fn GlobalInit(util::types::i32 flags = CURL_GLOBAL_ALL) -> util::types::Result<> {
-    using util::types::Err, util::error::DracError, util::error::DracErrorCode;
+  inline fn GlobalInit(const drac::types::i32 flags = CURL_GLOBAL_ALL) -> drac::types::Result<> {
+    using drac::types::Err, drac::error::DracError, drac::error::DracErrorCode;
 
-    const CURLcode res = curl_global_init(flags);
-
-    if (res != CURLE_OK)
+    if (const CURLcode res = curl_global_init(flags); res != CURLE_OK)
       return Err(DracError(DracErrorCode::PlatformSpecific, std::format("curl_global_init failed: {}", curl_easy_strerror(res))));
 
     return {};

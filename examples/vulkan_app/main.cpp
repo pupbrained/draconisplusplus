@@ -22,12 +22,12 @@
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
-using namespace util::types;
-using util::error::DracError;
-using enum util::error::DracErrorCode;
+using namespace drac::types;
+using drac::error::DracError;
+using enum drac::error::DracErrorCode;
 
 namespace {
-  fn cleanupSwapChain(vk::Device device, Vec<vk::ImageView>& swapChainImageViews, vk::CommandPool commandPool, Vec<vk::CommandBuffer>& commandBuffers) -> void {
+  fn cleanupSwapChain(const vk::Device device, Vec<vk::ImageView>& swapChainImageViews, const vk::CommandPool commandPool, Vec<vk::CommandBuffer>& commandBuffers) -> void {
     if (!commandBuffers.empty()) {
       device.freeCommandBuffers(commandPool, commandBuffers);
       commandBuffers.clear();
@@ -51,8 +51,7 @@ namespace {
 
     info_log("Recreating swapchain with dimensions: {}x{}", width, height);
 
-    vk::Result waitResult = device.waitIdle();
-    if (waitResult != vk::Result::eSuccess)
+    if (device.waitIdle() != vk::Result::eSuccess)
       return Err(DracError(Other, "failed to wait for device idle before recreation!"));
 
     vk::SwapchainKHR oldSwapChain = swapChain;
@@ -143,22 +142,22 @@ namespace {
 
     swapChainImageViews.resize(swapChainImages.size());
     for (size_t i = 0; i < swapChainImages.size(); i++) {
-      vk::ImageViewCreateInfo createInfo;
-      createInfo.sType                           = vk::StructureType::eImageViewCreateInfo;
-      createInfo.image                           = swapChainImages[i];
-      createInfo.viewType                        = vk::ImageViewType::e2D;
-      createInfo.format                          = surfaceFormat.format;
-      createInfo.components.r                    = vk::ComponentSwizzle::eIdentity;
-      createInfo.components.g                    = vk::ComponentSwizzle::eIdentity;
-      createInfo.components.b                    = vk::ComponentSwizzle::eIdentity;
-      createInfo.components.a                    = vk::ComponentSwizzle::eIdentity;
-      createInfo.subresourceRange.aspectMask     = vk::ImageAspectFlagBits::eColor;
-      createInfo.subresourceRange.baseMipLevel   = 0;
-      createInfo.subresourceRange.levelCount     = 1;
-      createInfo.subresourceRange.baseArrayLayer = 0;
-      createInfo.subresourceRange.layerCount     = 1;
+      vk::ImageViewCreateInfo imageViewCreateInfo;
+      imageViewCreateInfo.sType                           = vk::StructureType::eImageViewCreateInfo;
+      imageViewCreateInfo.image                           = swapChainImages[i];
+      imageViewCreateInfo.viewType                        = vk::ImageViewType::e2D;
+      imageViewCreateInfo.format                          = surfaceFormat.format;
+      imageViewCreateInfo.components.r                    = vk::ComponentSwizzle::eIdentity;
+      imageViewCreateInfo.components.g                    = vk::ComponentSwizzle::eIdentity;
+      imageViewCreateInfo.components.b                    = vk::ComponentSwizzle::eIdentity;
+      imageViewCreateInfo.components.a                    = vk::ComponentSwizzle::eIdentity;
+      imageViewCreateInfo.subresourceRange.aspectMask     = vk::ImageAspectFlagBits::eColor;
+      imageViewCreateInfo.subresourceRange.baseMipLevel   = 0;
+      imageViewCreateInfo.subresourceRange.levelCount     = 1;
+      imageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
+      imageViewCreateInfo.subresourceRange.layerCount     = 1;
 
-      vk::ResultValue<vk::ImageView> imageViewResult = device.createImageView(createInfo);
+      vk::ResultValue<vk::ImageView> imageViewResult = device.createImageView(imageViewCreateInfo);
       if (imageViewResult.result != vk::Result::eSuccess)
         return Err(DracError(Other, "failed to create image views!"));
 
@@ -200,9 +199,9 @@ fn main() -> i32 {
 
   glfwSetWindowUserPointer(window, &framebufferWasResized);
 
-  glfwSetFramebufferSizeCallback(window, [](GLFWwindow* window, i32, i32) {
-    bool* framebufferWasResized = static_cast<bool*>(glfwGetWindowUserPointer(window));
-    *framebufferWasResized      = true;
+  glfwSetFramebufferSizeCallback(window, [](GLFWwindow* windowInner, i32, i32) {
+    bool* framebufferWasResizedInner = static_cast<bool*>(glfwGetWindowUserPointer(windowInner));
+    *framebufferWasResizedInner      = true;
   });
 
   vk::ApplicationInfo appInfo("Vulkan Example", 1, "Draconis++ Example", 1, VK_API_VERSION_1_3);
@@ -212,8 +211,7 @@ fn main() -> i32 {
 
   Vec<CStr> extensions;
   extensions.reserve(glfwExtensionCount);
-  Span<CStr> glfwExts(glfwExtensions, glfwExtensionCount);
-  for (CStr ext : glfwExts)
+  for (Span<CStr> glfwExts(glfwExtensions, glfwExtensionCount); CStr ext : glfwExts)
     extensions.push_back(ext);
 
 #ifdef __APPLE__
@@ -318,8 +316,7 @@ fn main() -> i32 {
 
   Vec<vk::CommandBuffer> commandBuffers;
 
-  Result<> result = recreateSwapChain(window, device, physicalDevice, surface, swapChain, swapChainImages, surfaceFormat, swapChainExtent, swapChainImageViews, commandPool, commandBuffers, presentMode);
-  if (!result) {
+  if (Result<> result = recreateSwapChain(window, device, physicalDevice, surface, swapChain, swapChainImages, surfaceFormat, swapChainExtent, swapChainImageViews, commandPool, commandBuffers, presentMode); !result) {
     error_log("Failed to recreate swap chain! {}", result.error().message);
     glfwDestroyWindow(window);
     glfwTerminate();
@@ -386,8 +383,7 @@ fn main() -> i32 {
 
   initInfo.DescriptorPool = imguiPoolResult.value;
 
-  // Set up ImGui to use the same dynamic Vulkan function pointers
-  ImGui_ImplVulkan_LoadFunctions([](CStr function_name, void* vulkan_instance) {
+  ImGui_ImplVulkan_LoadFunctions([](const CStr function_name, void* vulkan_instance) {
     return VULKAN_HPP_DEFAULT_DISPATCHER.vkGetInstanceProcAddr(static_cast<VkInstance>(vulkan_instance), function_name);
   });
 
@@ -415,8 +411,8 @@ fn main() -> i32 {
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
 
-    const std::chrono::time_point now = std::chrono::steady_clock::now();
-    if (std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdateTime).count() >= 1) {
+    if (const std::chrono::time_point now = std::chrono::steady_clock::now();
+        std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdateTime).count() >= 1) {
       host          = os::System::getHost();
       kernelVersion = os::System::getKernelVersion();
       osVersion     = os::System::getOSVersion();
@@ -437,8 +433,21 @@ fn main() -> i32 {
     }
 
     if (framebufferWasResized) {
-      Result<> result = recreateSwapChain(window, device, physicalDevice, surface, swapChain, swapChainImages, surfaceFormat, swapChainExtent, swapChainImageViews, commandPool, commandBuffers, presentMode);
-      if (!result) {
+      if (Result<> result = recreateSwapChain(
+            window,
+            device,
+            physicalDevice,
+            surface,
+            swapChain,
+            swapChainImages,
+            surfaceFormat,
+            swapChainExtent,
+            swapChainImageViews,
+            commandPool,
+            commandBuffers,
+            presentMode
+          );
+          !result) {
         error_log("Failed to recreate swap chain! {}", result.error().message);
         glfwDestroyWindow(window);
         glfwTerminate();
@@ -479,7 +488,7 @@ fn main() -> i32 {
 
 #if DRAC_ENABLE_NOWPLAYING
       if (nowPlaying) {
-        const util::types::MediaInfo& nowPlayingInfo = *nowPlaying;
+        const drac::types::MediaInfo& nowPlayingInfo = *nowPlaying;
         ImGui::TextUnformatted(std::format("Now Playing: {} - {}", nowPlayingInfo.artist.value_or("N/A"), nowPlayingInfo.title.value_or("N/A")).c_str());
       } else
         ImGui::TextUnformatted("Now Playing: N/A");
@@ -508,11 +517,24 @@ fn main() -> i32 {
 
     ImGui::Render();
 
-    vk::ResultValue<u32> acquireResult = device.acquireNextImageKHR(swapChain, std::numeric_limits<util::types::u64>::max(), VK_NULL_HANDLE, VK_NULL_HANDLE);
+    vk::ResultValue<u32> acquireResult = device.acquireNextImageKHR(swapChain, std::numeric_limits<drac::types::u64>::max(), VK_NULL_HANDLE, VK_NULL_HANDLE);
 
     if (acquireResult.result == vk::Result::eErrorOutOfDateKHR) {
-      Result<> result = recreateSwapChain(window, device, physicalDevice, surface, swapChain, swapChainImages, surfaceFormat, swapChainExtent, swapChainImageViews, commandPool, commandBuffers, presentMode);
-      if (!result) {
+      if (Result<> result = recreateSwapChain(
+            window,
+            device,
+            physicalDevice,
+            surface,
+            swapChain,
+            swapChainImages,
+            surfaceFormat,
+            swapChainExtent,
+            swapChainImageViews,
+            commandPool,
+            commandBuffers,
+            presentMode
+          );
+          !result) {
         error_log("Failed to recreate swap chain! {}", result.error().message);
         glfwDestroyWindow(window);
         glfwTerminate();
@@ -530,9 +552,7 @@ fn main() -> i32 {
 
     u32 imageIndex = acquireResult.value;
 
-    vk::CommandBufferBeginInfo beginInfo;
-    vk::Result                 beginResult = commandBuffers[imageIndex].begin(beginInfo);
-    if (beginResult != vk::Result::eSuccess) {
+    if (commandBuffers[imageIndex].begin(vk::CommandBufferBeginInfo()) != vk::Result::eSuccess) {
       error_log("Failed to begin command buffer!");
       glfwDestroyWindow(window);
       glfwTerminate();
@@ -558,8 +578,7 @@ fn main() -> i32 {
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffers[imageIndex]);
     commandBuffers[imageIndex].endRendering();
 
-    vk::Result endResult = commandBuffers[imageIndex].end();
-    if (endResult != vk::Result::eSuccess) {
+    if (commandBuffers[imageIndex].end() != vk::Result::eSuccess) {
       error_log("Failed to end command buffer!");
       glfwDestroyWindow(window);
       glfwTerminate();
@@ -567,8 +586,7 @@ fn main() -> i32 {
     }
 
     vk::SubmitInfo submitInfo(0, nullptr, nullptr, 1, &commandBuffers[imageIndex]);
-    vk::Result     submitResult = graphicsQueue.submit(submitInfo, nullptr);
-    if (submitResult != vk::Result::eSuccess) {
+    if (vk::Result submitResult = graphicsQueue.submit(submitInfo, nullptr); submitResult != vk::Result::eSuccess) {
       error_log("Failed to submit draw command buffer!");
       glfwDestroyWindow(window);
       glfwTerminate();
@@ -581,11 +599,22 @@ fn main() -> i32 {
     presentInfo.pSwapchains    = &swapChain;
     presentInfo.pImageIndices  = &imageIndex;
 
-    vk::Result presentResult = graphicsQueue.presentKHR(presentInfo);
-
-    if (presentResult == vk::Result::eErrorOutOfDateKHR || presentResult == vk::Result::eSuboptimalKHR) {
-      Result<> result = recreateSwapChain(window, device, physicalDevice, surface, swapChain, swapChainImages, surfaceFormat, swapChainExtent, swapChainImageViews, commandPool, commandBuffers, presentMode);
-      if (!result) {
+    if (vk::Result presentResult = graphicsQueue.presentKHR(presentInfo); presentResult == vk::Result::eErrorOutOfDateKHR || presentResult == vk::Result::eSuboptimalKHR) {
+      if (Result<> result = recreateSwapChain(
+            window,
+            device,
+            physicalDevice,
+            surface,
+            swapChain,
+            swapChainImages,
+            surfaceFormat,
+            swapChainExtent,
+            swapChainImageViews,
+            commandPool,
+            commandBuffers,
+            presentMode
+          );
+          !result) {
         error_log("Failed to recreate swap chain! {}", result.error().message);
         glfwDestroyWindow(window);
         glfwTerminate();
@@ -598,8 +627,7 @@ fn main() -> i32 {
       return EXIT_FAILURE;
     }
 
-    vk::Result waitResult = graphicsQueue.waitIdle();
-    if (waitResult != vk::Result::eSuccess) {
+    if (graphicsQueue.waitIdle() != vk::Result::eSuccess) {
       error_log("Failed to wait for graphics queue idle!");
       glfwDestroyWindow(window);
       glfwTerminate();

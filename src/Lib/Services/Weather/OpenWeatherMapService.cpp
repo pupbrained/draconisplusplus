@@ -12,17 +12,17 @@
   #include "Utils/Caching.hpp"
   #include "Wrappers/Curl.hpp"
 
-using namespace util::types;
-using util::error::DracError;
-using enum util::error::DracErrorCode;
+using namespace drac::types;
+using drac::error::DracError;
+using enum drac::error::DracErrorCode;
 using weather::OpenWeatherMapService;
 using weather::Report;
 using weather::Unit;
 
 namespace {
   fn MakeApiRequest(const String& url) -> Result<Report> {
+    using drac::types::None, drac::types::Option;
     using glz::error_ctx, glz::read, glz::error_code;
-    using util::types::None, util::types::Option;
 
     String responseBuffer;
 
@@ -69,11 +69,11 @@ namespace {
   }
 } // namespace
 
-OpenWeatherMapService::OpenWeatherMapService(Location location, String apiKey, Unit units)
+OpenWeatherMapService::OpenWeatherMapService(Location location, String apiKey, const Unit units)
   : m_location(std::move(location)), m_apiKey(std::move(apiKey)), m_units(units) {}
 
 fn OpenWeatherMapService::getWeatherInfo() const -> Result<Report> {
-  using util::cache::GetValidCache, util::cache::WriteCache;
+  using drac::cache::GetValidCache, drac::cache::WriteCache;
 
   if (Result<Report> cachedDataResult = GetValidCache<Report>("weather"))
     return *cachedDataResult;

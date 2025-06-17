@@ -9,12 +9,12 @@
 namespace weather {
   class MetNoService final : public IWeatherService {
    public:
-    MetNoService(util::types::f64 lat, util::types::f64 lon, Unit units);
-    [[nodiscard]] fn getWeatherInfo() const -> util::types::Result<Report> override;
+    MetNoService(drac::types::f64 lat, drac::types::f64 lon, Unit units);
+    [[nodiscard]] fn getWeatherInfo() const -> drac::types::Result<Report> override;
 
    private:
-    util::types::f64 m_lat;
-    util::types::f64 m_lon;
+    drac::types::f64 m_lat;
+    drac::types::f64 m_lon;
     Unit             m_units;
   };
 } // namespace weather

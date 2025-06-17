@@ -7,7 +7,7 @@
 #include "Services/Weather/OpenWeatherMapService.hpp"
 
 namespace weather {
-  fn CreateWeatherService(Provider provider, const Location& location, const util::types::String& apiKey, Unit units) -> util::types::UniquePointer<IWeatherService> {
+  fn CreateWeatherService(const Provider provider, const Location& location, const drac::types::String& apiKey, Unit units) -> drac::types::UniquePointer<IWeatherService> {
     switch (provider) {
       case Provider::OPENWEATHERMAP:
         return std::make_unique<OpenWeatherMapService>(location, apiKey, units);
@@ -16,7 +16,7 @@ namespace weather {
     }
   }
 
-  fn CreateWeatherService(Provider provider, const Coords& coords, Unit units) -> util::types::UniquePointer<IWeatherService> {
+  fn CreateWeatherService(const Provider provider, const Coords& coords, Unit units) -> drac::types::UniquePointer<IWeatherService> {
     switch (provider) {
       case Provider::OPENMETEO:
         return std::make_unique<OpenMeteoService>(coords.lat, coords.lon, units);

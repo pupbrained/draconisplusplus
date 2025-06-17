@@ -21,9 +21,9 @@
 #include "Config/Config.hpp"
 #include "UI/UI.hpp"
 
-using namespace util::types;
-using util::error::DracError;
-using enum util::error::DracErrorCode;
+using namespace drac::types;
+using drac::error::DracError;
+using enum drac::error::DracErrorCode;
 
 namespace {
   fn getOrdinalSuffix(const i32 day) -> CStr {
@@ -117,7 +117,7 @@ namespace {
       failures.emplace_back("Weather", data.weather.error());
 #endif
 
-    const util::types::String summary = std::format(
+    const drac::types::String summary = std::format(
       "We've collected a total of {} readouts including {} failed read{}.\n\n",
       totalPossibleReadouts,
       failures.size(),
@@ -131,7 +131,7 @@ namespace {
 #endif
 
     for (const auto& [readout, err] : failures) {
-      const util::types::String failureLine = std::format(
+      const drac::types::String failureLine = std::format(
         "Readout \"{}\" failed: {} (code: {})\n",
         readout,
         err.message,
@@ -152,7 +152,7 @@ namespace {
 
   fn InitializeSystem(const Config& config) -> os::System {
     using enum std::launch;
-    using enum util::error::DracErrorCode;
+    using enum drac::error::DracErrorCode;
 
     os::System system;
 
@@ -249,8 +249,8 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
 
     {
       using matchit::match, matchit::is, matchit::_;
-      using util::logging::LogLevel;
-      using enum util::logging::LogLevel;
+      using drac::logging::LogLevel;
+      using enum drac::logging::LogLevel;
 
       const bool     verbose     = parser.get<bool>("-V").value_or(false) || parser.get<bool>("--verbose").value_or(false);
       Result<String> logLevelStr = verbose ? "debug" : parser.get<String>("--log-level");

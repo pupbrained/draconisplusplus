@@ -1,3 +1,21 @@
+/**
+ * @file System.hpp
+ * @brief Defines the System class for querying operating system and hardware information.
+ *
+ * This header declares the `os::System` class, which provides a cross-platform
+ * interface to retrieve a wide range of system-level data. This includes details
+ * about the operating system, hardware components like CPU and GPU, resource usage
+ * such as memory and disk space, and environment information like the desktop
+ * environment and shell.
+ *
+ * The file also includes the `BytesToGiB` struct and a corresponding `std::formatter`
+ * specialization to facilitate the conversion and display of byte values in gibibytes (GiB).
+ *
+ * Platform-specific implementations for the static methods in `os::System` are
+ * defined elsewhere, allowing client code to use a single, consistent API across
+ * different operating systems.
+ */
+
 #pragma once
 
 #if DRAC_ENABLE_WEATHER
@@ -8,88 +26,44 @@
 #include "DracUtils/Error.hpp"
 #include "DracUtils/Types.hpp"
 
-/// @brief Conversion factor from bytes to GiB
-constexpr util::types::u64 GIB = 1'073'741'824;
+constexpr drac::types::u64 GIB = 1'073'741'824;
 
-/**
- * @struct BytesToGiB
- * @brief Helper struct to format a byte value to GiB (Gibibytes).
- *
- * Encapsulates a byte value and provides a custom formatter
- * to convert it to GiB for display purposes.
- */
 struct BytesToGiB {
-  util::types::u64 value; ///< The byte value to be converted.
+  drac::types::u64 value;
 
-  /**
-   * @brief Constructor for BytesToGiB.
-   * @param value The byte value to be converted.
-   */
-  explicit constexpr BytesToGiB(const util::types::u64 value) : value(value) {}
+  explicit constexpr BytesToGiB(const drac::types::u64 value)
+    : value(value) {}
 };
 
-/**
- * @brief Custom formatter for BytesToGiB.
- *
- * Allows formatting BytesToGiB values using std::format.
- * Outputs the value in GiB with two decimal places.
- *
- * @code{.cpp}
- * #include <format>
- * #include "system_data.h"
- *
- * int main() {
- *   BytesToGiB data_size{2'147'483'648}; // 2 GiB
- *   std::string formatted = std::format("Size: {}", data_size);
- *   std::println("{}", formatted); // formatted will be "Size: 2.00GiB"
- *   return 0;
- * }
- * @endcode
- */
 template <>
 struct std::formatter<BytesToGiB> : std::formatter<double> {
-  /**
-   * @brief Formats the BytesToGiB value.
-   * @param BTG The BytesToGiB instance to format.
-   * @param ctx The formatting context.
-   * @return An iterator to the end of the formatted output.
-   */
   fn format(const BytesToGiB& BTG, auto& ctx) const {
-    return std::format_to(ctx.out(), "{:.2f}GiB", static_cast<util::types::f64>(BTG.value) / GIB);
+    return std::format_to(ctx.out(), "{:.2f}GiB", static_cast<drac::types::f64>(BTG.value) / GIB);
   }
 };
 
 namespace os {
-  /**
-   * @class System
-   * @brief Holds various pieces of system information collected from the OS,
-   *        and provides methods to fetch this information.
-   *
-   * This class aggregates information about the system,
-   * in order to display it at all at once during runtime.
-   * The actual implementation for each fetch function is platform-specific.
-   */
   class System {
    public:
-    util::types::Result<util::types::String>        date;          ///< Current date (e.g., "April 26th").
-    util::types::Result<util::types::String>        host;          ///< Host/product family (e.g., "MacBook Air").
-    util::types::Result<util::types::String>        kernelVersion; ///< OS kernel version (e.g., "6.14.4").
-    util::types::Result<util::types::String>        osVersion;     ///< OS pretty name (e.g., "Ubuntu 24.04.2 LTS").
-    util::types::Result<util::types::ResourceUsage> memInfo;       ///< Total physical RAM in bytes.
-    util::types::Result<util::types::String>        desktopEnv;    ///< Desktop environment (e.g., "KDE").
-    util::types::Result<util::types::String>        windowMgr;     ///< Window manager (e.g., "KWin").
-    util::types::Result<util::types::ResourceUsage> diskUsage;     ///< Used/Total disk space for root filesystem.
-    util::types::Result<util::types::String>        shell;         ///< Name of the current user shell (e.g., "zsh").
-    util::types::Result<util::types::String>        cpuModel;      ///< CPU model name.
-    util::types::Result<util::types::String>        gpuModel;      ///< GPU model name.
+    drac::types::Result<drac::types::String>        date;
+    drac::types::Result<drac::types::String>        host;
+    drac::types::Result<drac::types::String>        kernelVersion;
+    drac::types::Result<drac::types::String>        osVersion;
+    drac::types::Result<drac::types::ResourceUsage> memInfo;
+    drac::types::Result<drac::types::String>        desktopEnv;
+    drac::types::Result<drac::types::String>        windowMgr;
+    drac::types::Result<drac::types::ResourceUsage> diskUsage;
+    drac::types::Result<drac::types::String>        shell;
+    drac::types::Result<drac::types::String>        cpuModel;
+    drac::types::Result<drac::types::String>        gpuModel;
 #if DRAC_ENABLE_PACKAGECOUNT
-    util::types::Result<util::types::u64> packageCount; ///< Total number of packages installed.
+    drac::types::Result<drac::types::u64> packageCount;
 #endif
 #if DRAC_ENABLE_NOWPLAYING
-    util::types::Result<util::types::MediaInfo> nowPlaying; ///< Result of fetching media info.
+    drac::types::Result<drac::types::MediaInfo> nowPlaying;
 #endif
 #if DRAC_ENABLE_WEATHER
-    util::types::Result<weather::Report> weather; ///< Result of fetching weather info.
+    drac::types::Result<weather::Report> weather;
 #endif
 
     /**
@@ -132,7 +106,7 @@ namespace os {
      * }
      * @endcode
      */
-    static fn getMemInfo() -> util::types::Result<util::types::ResourceUsage>;
+    static fn getMemInfo() -> drac::types::Result<drac::types::ResourceUsage>;
 
 #if DRAC_ENABLE_NOWPLAYING
     /**
@@ -168,7 +142,7 @@ namespace os {
      * }
      * @endcode
      */
-    static fn getNowPlaying() -> util::types::Result<util::types::MediaInfo>;
+    static fn getNowPlaying() -> drac::types::Result<drac::types::MediaInfo>;
 #endif
 
     /**
@@ -208,7 +182,7 @@ namespace os {
      * }
      * @endcode
      */
-    static fn getOSVersion() -> util::types::Result<util::types::String>;
+    static fn getOSVersion() -> drac::types::Result<drac::types::String>;
 
     /**
      * @brief Fetches the desktop environment.
@@ -243,7 +217,7 @@ namespace os {
      * }
      * @endcode
      */
-    static fn getDesktopEnvironment() -> util::types::Result<util::types::String>;
+    static fn getDesktopEnvironment() -> drac::types::Result<drac::types::String>;
 
     /**
      * @brief Fetches the window manager.
@@ -279,7 +253,7 @@ namespace os {
      * }
      * @endcode
      */
-    static fn getWindowManager() -> util::types::Result<util::types::String>;
+    static fn getWindowManager() -> drac::types::Result<drac::types::String>;
 
     /**
      * @brief Fetches the shell.
@@ -312,7 +286,7 @@ namespace os {
      * }
      * @endcode
      */
-    static fn getShell() -> util::types::Result<util::types::String>;
+    static fn getShell() -> drac::types::Result<drac::types::String>;
 
     /**
      * @brief Fetches the host.
@@ -353,7 +327,7 @@ namespace os {
      * }
      * @endcode
      */
-    static fn getHost() -> util::types::Result<util::types::String>;
+    static fn getHost() -> drac::types::Result<drac::types::String>;
 
     /**
      * @brief Fetches the CPU model.
@@ -388,7 +362,7 @@ namespace os {
      * }
      * @endcode
      */
-    static fn getCPUModel() -> util::types::Result<util::types::String>;
+    static fn getCPUModel() -> drac::types::Result<drac::types::String>;
 
     /**
      * @brief Fetches the GPU model.
@@ -421,7 +395,7 @@ namespace os {
      * }
      * @endcode
      */
-    static fn getGPUModel() -> util::types::Result<util::types::String>;
+    static fn getGPUModel() -> drac::types::Result<drac::types::String>;
 
     /**
      * @brief Fetches the kernel version.
@@ -456,7 +430,7 @@ namespace os {
      * }
      * @endcode
      */
-    static fn getKernelVersion() -> util::types::Result<util::types::String>;
+    static fn getKernelVersion() -> drac::types::Result<drac::types::String>;
 
     /**
      * @brief Fetches the disk usage.
@@ -488,6 +462,6 @@ namespace os {
      * }
      * @endcode
      */
-    static fn getDiskUsage() -> util::types::Result<util::types::ResourceUsage>;
+    static fn getDiskUsage() -> drac::types::Result<drac::types::ResourceUsage>;
   };
 } // namespace os
