@@ -101,12 +101,13 @@
         meson
         ninja
         pkg-config
+        xxd
       ];
 
       mesonFlags = [
         "-Dbuild_for_musl=true"
         "-Dbuild_examples=false"
-        "-Dbuild_tests=false"
+        "-Duse_linked_pci_ids=true"
       ];
 
       buildInputs = deps;
@@ -116,6 +117,13 @@
       '';
 
       buildPhase = ''
+        cp ${pkgs.pciutils}/share/pci.ids pci.ids
+        chmod +w pci.ids
+        objcopy -I binary -O default pci.ids pci_ids.o
+        rm pci.ids
+
+        export LDFLAGS="$LDFLAGS $PWD/pci_ids.o"
+
         meson compile -C build
       '';
 

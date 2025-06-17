@@ -10,6 +10,11 @@
 # Note: This is primarily intended for use with Nix.
 option('build_for_musl', type: 'boolean', value: false)
 
+# Option: use_linked_pci_ids
+# Description: Use a linked object file for PCI IDs.
+# Note: This is required for PCI device detection on Linux and BSD systems.
+option('use_linked_pci_ids', type: 'boolean', value: false)
+
 # Option: build_tests
 # Description: Build the test suite.
 option('build_tests', type: 'boolean', value: true)

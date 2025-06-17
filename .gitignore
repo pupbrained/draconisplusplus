@@ -30,3 +30,4 @@ subprojects/*
 subprojects/sqlite3.wrap
 
 /config.hpp
+pci_ids.o

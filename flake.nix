@@ -102,7 +102,7 @@
               unzip
 
               (writeScriptBin "build" "meson compile -C build")
-              (writeScriptBin "clean" "meson setup build --wipe")
+              (writeScriptBin "clean" "meson setup build --wipe -Dprecompiled_config=true -Duse_linked_pci_ids=true")
               (writeScriptBin "run" "meson compile -C build && build/draconis++")
             ])
             ++ devShellDeps;
@@ -123,14 +123,21 @@
               then "${pkgs.linuxPackages_latest.nvidia_x11_beta}/share/vulkan/icd.d/nvidia_icd.x86_64.json:${vulkanPaths}"
               else vulkanPaths;
 
-          shellHook = pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
-            export SDKROOT=${pkgs.pkgsStatic.apple-sdk_15}/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
-            export DEVELOPER_DIR=${pkgs.pkgsStatic.apple-sdk_15}
-            export NIX_CFLAGS_COMPILE="-isysroot $SDKROOT"
-            export NIX_CXXFLAGS_COMPILE="-isysroot $SDKROOT"
-            export NIX_OBJCFLAGS_COMPILE="-isysroot $SDKROOT"
-            export NIX_OBJCXXFLAGS_COMPILE="-isysroot $SDKROOT"
-          '';
+          shellHook =
+            pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
+              export SDKROOT=${pkgs.pkgsStatic.apple-sdk_15}/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+              export DEVELOPER_DIR=${pkgs.pkgsStatic.apple-sdk_15}
+              export NIX_CFLAGS_COMPILE="-isysroot $SDKROOT"
+              export NIX_CXXFLAGS_COMPILE="-isysroot $SDKROOT"
+              export NIX_OBJCFLAGS_COMPILE="-isysroot $SDKROOT"
+              export NIX_OBJCXXFLAGS_COMPILE="-isysroot $SDKROOT"
+            ''
+            + pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isLinux ''
+              cp ${pkgs.pciutils}/share/pci.ids pci.ids
+              chmod +w pci.ids
+              objcopy -I binary -O default pci.ids pci_ids.o
+              rm pci.ids
+            '';
         };
 
         formatter = treefmt-nix.lib.mkWrapper pkgs {

@@ -1,5 +1,6 @@
 #ifdef __linux__
 
+  #include <algorithm>
   #include <climits>              // PATH_MAX
   #include <cpuid.h>              // __get_cpuid
   #include <cstring>              // std::strlen
@@ -44,6 +45,125 @@ extern "C" fn issetugid() -> usize { return 0; } // NOLINT(readability-identifie
 // clang-format on
 
 namespace {
+  fn LookupPciNamesFromStream(std::istream& pciStream, const StringView vendor_id_in, const StringView device_id_in) -> Pair<String, String> {
+    const String vendorId = vendor_id_in.starts_with("0x") ? String(vendor_id_in.substr(2)) : String(vendor_id_in);
+    const String deviceId = device_id_in.starts_with("0x") ? String(device_id_in.substr(2)) : String(device_id_in);
+
+    String line;
+    String currentVendorName;
+    bool   vendorFound = false;
+
+    while (std::getline(pciStream, line)) {
+      if (line.empty() || line[0] == '#')
+        continue;
+
+      if (line[0] != '\t') {
+        vendorFound = false;
+        if (line.starts_with(vendorId)) {
+          vendorFound = true;
+          if (const usize namePos = line.find("  "); namePos != String::npos)
+            currentVendorName = line.substr(namePos + 2);
+        }
+      } else if (vendorFound && line.starts_with('\t') && line[1] != '\t')
+        if (line.starts_with(std::format("\t{}", deviceId)))
+          if (const usize namePos = line.find("  "); namePos != String::npos)
+            return { currentVendorName, line.substr(namePos + 2) };
+    }
+
+    return { "", "" };
+  }
+
+  fn ReadSysFile(const std::filesystem::path& path) -> Result<String> {
+    std::ifstream file(path);
+    if (!file.is_open())
+      return Err(DracError(NotFound, std::format("Failed to open sysfs file: {}", path.string())));
+
+    String line;
+
+    if (std::getline(file, line)) {
+      if (const usize pos = line.find_last_not_of(" \t\n\r"); pos != String::npos)
+        line.erase(pos + 1);
+
+      return line;
+    }
+
+    return Err(DracError(ParseError, std::format("Failed to read from sysfs file: {}", path.string())));
+  }
+
+  #ifdef USE_LINKED_PCI_IDS
+  extern "C" {
+    extern const char _binary_pci_ids_start[];
+    extern const char _binary_pci_ids_end[];
+  }
+
+  fn LookupPciNamesFromMemory(const StringView vendor_id_in, const StringView device_id_in) -> Pair<String, String> {
+    const size_t       pciIdsLen = _binary_pci_ids_end - _binary_pci_ids_start;
+    std::istringstream pciStream(String(_binary_pci_ids_start, pciIdsLen));
+    return LookupPciNamesFromStream(pciStream, vendor_id_in, device_id_in);
+  }
+  #else
+  fn FindPciIDsPath() -> const fs::path& {
+    const Array<fs::path, 3> known_paths = {
+      "/usr/share/hwdata/pci.ids",
+      "/usr/share/misc/pci.ids",
+      "/usr/share/pci.ids"
+    };
+
+    for (const auto& path : known_paths)
+      if (fs::exists(path)) {
+        return path;
+        break;
+      }
+
+    return {};
+  }
+
+  fn LookupPciNamesFromFile(const StringView VendorIDIn, const StringView DeviceIDIn) -> Pair<String, String> {
+    const fs::path& pci_ids_path = FindPciIDsPath();
+
+    if (pci_ids_path.empty())
+      return { "", "" };
+
+    std::ifstream file(pci_ids_path);
+
+    if (!file)
+      return { "", "" };
+
+    return LookupPciNamesFromStream(file, VendorIDIn, DeviceIDIn);
+  }
+  #endif
+
+  fn LookupPciNames(const StringView vendorId, const StringView deviceId) -> Pair<String, String> {
+  #ifdef USE_LINKED_PCI_IDS
+    return LookupPciNamesFromMemory(vendorId, deviceId);
+  #else
+    return LookupPciNamesFromFile(vendorId, deviceId);
+  #endif
+  }
+
+  fn CleanGpuModelName(String vendor, String device) -> String {
+    if (vendor.find("[AMD/ATI]") != String::npos)
+      vendor = "AMD";
+    else if (const usize pos = vendor.find(' '); pos != String::npos)
+      vendor = vendor.substr(0, pos);
+
+    if (const usize openPos = device.find('['); openPos != String::npos)
+      if (const usize closePos = device.find(']', openPos); closePos != String::npos)
+        device = device.substr(openPos + 1, closePos - openPos - 1);
+
+    fn trim = [](String& str) {
+      if (const usize pos = str.find_last_not_of(" \t\n\r"); pos != String::npos)
+        str.erase(pos + 1);
+      if (const usize pos = str.find_first_not_of(" \t\n\r"); pos != String::npos)
+        str.erase(0, pos);
+    };
+
+    trim(vendor);
+    trim(device);
+
+    return std::format("{} {}", vendor, device);
+  }
+
   #ifdef HAVE_XCB
   fn GetX11WindowManager() -> Result<String> {
     using namespace XCB;
@@ -511,7 +631,55 @@ namespace os {
   }
 
   fn System::getGPUModel() -> Result<String> {
-    return Err(DracError(NotSupported, "GPU model retrieval is not supported on Linux"));
+    using util::cache::GetValidCache, util::cache::WriteCache;
+
+    const String cacheKey = "gpu_model";
+
+    if (Result<String> cachedDataResult = GetValidCache<String>(cacheKey))
+      return *cachedDataResult;
+
+    const fs::path pciPath = "/sys/bus/pci/devices";
+
+    if (!fs::exists(pciPath))
+      return Err(DracError(NotFound, "PCI device path '/sys/bus/pci/devices' not found."));
+
+    // clang-format off
+    const Array<Pair<StringView, StringView>, 3> fallbackVendorMap = {{
+      { "0x1002",    "AMD" },
+      { "0x10de", "NVIDIA" },
+      { "0x8086",  "Intel" }
+    }};
+    // clang-format on
+
+    for (const fs::directory_entry& entry : fs::directory_iterator(pciPath)) {
+      if (Result<String> classIdRes = ReadSysFile(entry.path() / "class"); !classIdRes || !classIdRes->starts_with("0x03"))
+        continue;
+
+      Result<String> vendorIdRes = ReadSysFile(entry.path() / "vendor");
+      Result<String> deviceIdRes = ReadSysFile(entry.path() / "device");
+
+      if (vendorIdRes && deviceIdRes) {
+        auto [vendor, device] = LookupPciNames(*vendorIdRes, *deviceIdRes);
+
+        if (!vendor.empty() && !device.empty())
+          return CleanGpuModelName(std::move(vendor), std::move(device));
+      }
+
+      if (vendorIdRes) {
+        const auto* iter = std::ranges::find_if(fallbackVendorMap, [&](const auto& pair) {
+          return pair.first == *vendorIdRes;
+        });
+
+        if (iter != fallbackVendorMap.end()) {
+          if (Result writeResult = WriteCache(cacheKey, iter->second); !writeResult)
+            debug_at(writeResult.error());
+
+          return String(iter->second);
+        }
+      }
+    }
+
+    return Err(DracError(NotFound, "No compatible GPU found in /sys/bus/pci/devices."));
   }
 
   fn System::getKernelVersion() -> Result<String> {
@@ -544,9 +712,9 @@ namespace package {
   fn CountApk() -> Result<u64> {
     using namespace util::cache;
 
-    const String   pmId      = "apk";
+    const String   pmID      = "apk";
     const fs::path apkDbPath = "/lib/apk/db/installed";
-    const String   cacheKey  = "pkg_count_" + pmId;
+    const String   cacheKey  = "pkg_count_" + pmID;
 
     if (Result<u64> cachedCountResult = GetValidCache<u64>(cacheKey))
       return *cachedCountResult;

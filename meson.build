@@ -110,6 +110,10 @@ includes_dep = declare_dependency(include_directories: [project_public_includes,
 lib_deps = [includes_dep]
 fs = import('fs')
 
+if get_option('use_linked_pci_ids') == true
+  add_project_arguments('-DUSE_LINKED_PCI_IDS', language: ['cpp'])
+endif
+
 if get_option('precompiled_config') == true
   add_project_arguments('-DDRAC_PRECOMPILED_CONFIG', language: ['cpp'])
   config_hpp_path = meson.project_source_root() / 'config.hpp'
