@@ -203,11 +203,11 @@ namespace draconis::ui {
     ] = ui::ICON_TYPE;
     // clang-format on
 
-    std::vector<RowInfo> initialRows;    // Date, Weather
-    std::vector<RowInfo> systemInfoRows; // Host, OS, Kernel
-    std::vector<RowInfo> hardwareRows;   // RAM, Disk, CPU, GPU
-    std::vector<RowInfo> softwareRows;   // Shell, Packages
-    std::vector<RowInfo> envInfoRows;    // DE, WM
+    Vec<RowInfo> initialRows;    // Date, Weather
+    Vec<RowInfo> systemInfoRows; // Host, OS, Kernel
+    Vec<RowInfo> hardwareRows;   // RAM, Disk, CPU, GPU
+    Vec<RowInfo> softwareRows;   // Shell, Packages
+    Vec<RowInfo> envInfoRows;    // DE, WM
 
     if (data.date)
       initialRows.push_back({ .icon = calendarIcon, .label = "Date", .value = *data.date });
@@ -253,7 +253,7 @@ namespace draconis::ui {
         {
           .icon  = memoryIcon,
           .label = "RAM",
-          .value = std::format("{}/{}", utils::logging::BytesToGiB(data.memInfo->usedBytes), utils::logging::BytesToGiB(data.memInfo->totalBytes)),
+          .value = std::format("{}/{}", BytesToGiB(data.memInfo->usedBytes), BytesToGiB(data.memInfo->totalBytes)),
         }
       );
 
@@ -262,7 +262,7 @@ namespace draconis::ui {
         {
           .icon  = diskIcon,
           .label = "Disk",
-          .value = std::format("{}/{}", utils::logging::BytesToGiB(data.diskUsage->usedBytes), utils::logging::BytesToGiB(data.diskUsage->totalBytes)),
+          .value = std::format("{}/{}", BytesToGiB(data.diskUsage->usedBytes), BytesToGiB(data.diskUsage->totalBytes)),
         }
       );
 
@@ -381,9 +381,9 @@ namespace draconis::ui {
 
     Elements content;
 
-    content.push_back(text(String(userIcon) + "Hello " + name + "! ") | bold | color(Color::Cyan));
-    content.push_back(separator() | color(ui::DEFAULT_THEME.border));
-    content.push_back(hbox({ text(String(paletteIcon)) | color(ui::DEFAULT_THEME.icon), CreateColorCircles() }));
+    content.push_back(text(String(userIcon) + "Hello " + name + "! ") | bold | color(DEFAULT_THEME.icon));
+    content.push_back(separator() | color(DEFAULT_THEME.border));
+    content.push_back(hbox({ text(String(paletteIcon)) | color(DEFAULT_THEME.icon), CreateColorCircles() }));
 
     const bool section1Present = !initialRows.empty();
     const bool section2Present = !systemInfoRows.empty();
@@ -392,38 +392,38 @@ namespace draconis::ui {
     const bool section5Present = !envInfoRows.empty();
 
     if (section1Present)
-      content.push_back(separator() | color(ui::DEFAULT_THEME.border));
+      content.push_back(separator() | color(DEFAULT_THEME.border));
 
     for (const RowInfo& row : initialRows) content.push_back(createStandardRow(row, requiredWidthInitialW));
 
     if ((section1Present && (section2Present || section3Present || section4Present || section5Present)) || (!section1Present && section2Present))
-      content.push_back(separator() | color(ui::DEFAULT_THEME.border));
+      content.push_back(separator() | color(DEFAULT_THEME.border));
 
     for (const RowInfo& row : systemInfoRows) content.push_back(createStandardRow(row, requiredWidthSystemW));
 
     if (section2Present && (section3Present || section4Present || section5Present))
-      content.push_back(separator() | color(ui::DEFAULT_THEME.border));
+      content.push_back(separator() | color(DEFAULT_THEME.border));
 
     for (const RowInfo& row : hardwareRows) content.push_back(createStandardRow(row, requiredWidthHardwareW));
 
     if (section3Present && (section4Present || section5Present))
-      content.push_back(separator() | color(ui::DEFAULT_THEME.border));
+      content.push_back(separator() | color(DEFAULT_THEME.border));
 
     for (const RowInfo& row : softwareRows) content.push_back(createStandardRow(row, requiredWidthSoftwareW));
 
     if (section4Present && section5Present)
-      content.push_back(separator() | color(ui::DEFAULT_THEME.border));
+      content.push_back(separator() | color(DEFAULT_THEME.border));
 
     for (const RowInfo& row : envInfoRows) content.push_back(createStandardRow(row, requiredWidthEnvW));
 
 #if DRAC_ENABLE_NOWPLAYING
     if ((section1Present || section2Present || section3Present || section4Present || section5Present) && nowPlayingActive)
-      content.push_back(separator() | color(ui::DEFAULT_THEME.border));
+      content.push_back(separator() | color(DEFAULT_THEME.border));
 
     if (nowPlayingActive) {
       content.push_back(hbox({
-        text(String(musicIcon)) | color(ui::DEFAULT_THEME.icon),
-        text("Playing") | color(ui::DEFAULT_THEME.label),
+        text(String(musicIcon)) | color(DEFAULT_THEME.icon),
+        text("Playing") | color(DEFAULT_THEME.label),
         text(" "),
         filler(),
         paragraphAlignRight(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, paragraphLimit),

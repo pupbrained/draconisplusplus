@@ -18,11 +18,18 @@
 
 namespace draconis::utils {
   namespace error {
+    namespace {
+      using types::Exception;
+      using types::String;
+      using types::u32;
+      using types::u8;
+    } // namespace
+
     /**
      * @enum DracErrorCode
      * @brief Error codes for general OS-level operations.
      */
-    enum class DracErrorCode : types::u8 {
+    enum class DracErrorCode : u8 {
       ApiUnavailable,   ///< A required OS service/API is unavailable or failed unexpectedly at runtime.
       InternalError,    ///< An error occurred within the application's OS abstraction code logic.
       InvalidArgument,  ///< An invalid argument was passed to a function or method.
@@ -45,14 +52,14 @@ namespace draconis::utils {
      * Used as the error type in Result for many os:: functions.
      */
     struct DracError {
-      types::String        message;  ///< A descriptive error message, potentially including platform details.
+      String               message;  ///< A descriptive error message, potentially including platform details.
       std::source_location location; ///< The source location where the error occurred (file, line, function).
       DracErrorCode        code;     ///< The general category of the error.
 
-      DracError(const DracErrorCode errc, types::String msg, const std::source_location& loc = std::source_location::current())
+      DracError(const DracErrorCode errc, String msg, const std::source_location& loc = std::source_location::current())
         : message(std::move(msg)), location(loc), code(errc) {}
 
-      explicit DracError(const types::Exception& exc, const std::source_location& loc = std::source_location::current())
+      explicit DracError(const Exception& exc, const std::source_location& loc = std::source_location::current())
         : message(exc.what()), location(loc), code(DracErrorCode::InternalError) {}
 
       explicit DracError(const std::error_code& errc, const std::source_location& loc = std::source_location::current())
@@ -80,7 +87,7 @@ namespace draconis::utils {
         using matchit::match, matchit::is, matchit::or_, matchit::_;
         using enum DracErrorCode;
 
-        fn fromWin32 = [](const types::u32 win32) -> HRESULT { return HRESULT_FROM_WIN32(win32); };
+        fn fromWin32 = [](const u32 win32) -> HRESULT { return HRESULT_FROM_WIN32(win32); };
 
         code = match(err.code())(
           is | or_(E_ACCESSDENIED, fromWin32(ERROR_ACCESS_DENIED)) = PermissionDenied,
@@ -94,7 +101,7 @@ namespace draconis::utils {
         );
       }
 #else
-      DracError(const types::String& context, const std::source_location& loc = std::source_location::current())
+      DracError(const String& context, const std::source_location& loc = std::source_location::current())
         : message(std::format("{}: {}", context, std::system_category().message(errno))), location(loc) {
         using matchit::match, matchit::is, matchit::or_, matchit::_;
         using enum DracErrorCode;
@@ -134,30 +141,32 @@ namespace draconis::utils {
   } // namespace types
 } // namespace draconis::utils
 
-template <>
-struct std::formatter<::draconis::utils::error::DracErrorCode> : std::formatter<::draconis::utils::types::StringView> {
-  template <typename FormatContext>
-  fn format(draconis::utils::error::DracErrorCode code, FormatContext& ctx) const {
-    using enum draconis::utils::error::DracErrorCode;
-    using matchit::match, matchit::is, matchit::or_, matchit::_;
+namespace std {
+  template <>
+  struct formatter<::draconis::utils::error::DracErrorCode> : formatter<::draconis::utils::types::StringView> {
+    template <typename FormatContext>
+    fn format(draconis::utils::error::DracErrorCode code, FormatContext& ctx) const {
+      using enum draconis::utils::error::DracErrorCode;
+      using matchit::match, matchit::is, matchit::or_, matchit::_;
 
-    draconis::utils::types::StringView name = match(code)(
-      is | ApiUnavailable   = "ApiUnavailable",
-      is | InternalError    = "InternalError",
-      is | InvalidArgument  = "InvalidArgument",
-      is | IoError          = "IoError",
-      is | NetworkError     = "NetworkError",
-      is | NotFound         = "NotFound",
-      is | NotSupported     = "NotSupported",
-      is | Other            = "Other",
-      is | OutOfMemory      = "OutOfMemory",
-      is | ParseError       = "ParseError",
-      is | PermissionDenied = "PermissionDenied",
-      is | PlatformSpecific = "PlatformSpecific",
-      is | Timeout          = "Timeout",
-      is | _                = "Unknown"
-    );
+      draconis::utils::types::StringView name = match(code)(
+        is | ApiUnavailable   = "ApiUnavailable",
+        is | InternalError    = "InternalError",
+        is | InvalidArgument  = "InvalidArgument",
+        is | IoError          = "IoError",
+        is | NetworkError     = "NetworkError",
+        is | NotFound         = "NotFound",
+        is | NotSupported     = "NotSupported",
+        is | Other            = "Other",
+        is | OutOfMemory      = "OutOfMemory",
+        is | ParseError       = "ParseError",
+        is | PermissionDenied = "PermissionDenied",
+        is | PlatformSpecific = "PlatformSpecific",
+        is | Timeout          = "Timeout",
+        is | _                = "Unknown"
+      );
 
-    return formatter<draconis::utils::types::StringView>::format(name, ctx);
-  }
-};
+      return formatter<draconis::utils::types::StringView>::format(name, ctx);
+    }
+  };
+} // namespace std

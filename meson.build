@@ -27,10 +27,11 @@ host_system = host_machine.system()
 #  Compiler Configuration  #
 # ------------------------ #
 common_warning_flags = [
+  '-Wno-c++17-extensions',
   '-Wno-c++20-compat',
   '-Wno-c++20-extensions',
-  '-Wno-c++98-compat',
   '-Wno-c++98-compat-pedantic',
+  '-Wno-c++98-compat',
   '-Wno-disabled-macro-expansion',
   '-Wno-gnu-conditional-omitted-operand',
   '-Wno-missing-prototypes',

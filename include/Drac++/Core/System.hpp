@@ -9,27 +9,39 @@
 #include "DracUtils/Types.hpp"
 
 namespace draconis::core::system {
+  namespace {
+    using utils::types::f64;
+    using utils::types::i64;
+    using utils::types::MediaInfo;
+    using utils::types::ResourceUsage;
+    using utils::types::Result;
+    using utils::types::String;
+    using utils::types::u64;
+
+    using services::weather::Report;
+  } // namespace
+
   class System {
    public:
-    utils::types::Result<utils::types::String>        date;
-    utils::types::Result<utils::types::String>        host;
-    utils::types::Result<utils::types::String>        kernelVersion;
-    utils::types::Result<utils::types::String>        osVersion;
-    utils::types::Result<utils::types::ResourceUsage> memInfo;
-    utils::types::Result<utils::types::String>        desktopEnv;
-    utils::types::Result<utils::types::String>        windowMgr;
-    utils::types::Result<utils::types::ResourceUsage> diskUsage;
-    utils::types::Result<utils::types::String>        shell;
-    utils::types::Result<utils::types::String>        cpuModel;
-    utils::types::Result<utils::types::String>        gpuModel;
+    Result<String>        date;
+    Result<String>        host;
+    Result<String>        kernelVersion;
+    Result<String>        osVersion;
+    Result<ResourceUsage> memInfo;
+    Result<String>        desktopEnv;
+    Result<String>        windowMgr;
+    Result<ResourceUsage> diskUsage;
+    Result<String>        shell;
+    Result<String>        cpuModel;
+    Result<String>        gpuModel;
 #if DRAC_ENABLE_PACKAGECOUNT
-    utils::types::Result<utils::types::u64> packageCount;
+    Result<u64> packageCount;
 #endif
 #if DRAC_ENABLE_NOWPLAYING
-    utils::types::Result<utils::types::MediaInfo> nowPlaying;
+    Result<MediaInfo> nowPlaying;
 #endif
 #if DRAC_ENABLE_WEATHER
-    utils::types::Result<draconis::services::weather::Report> weather;
+    Result<Report> weather;
 #endif
 
     /**
@@ -72,7 +84,7 @@ namespace draconis::core::system {
      * }
      * @endcode
      */
-    static fn getMemInfo() -> utils::types::Result<utils::types::ResourceUsage>;
+    static fn getMemInfo() -> Result<ResourceUsage>;
 
 #if DRAC_ENABLE_NOWPLAYING
     /**
@@ -108,7 +120,7 @@ namespace draconis::core::system {
      * }
      * @endcode
      */
-    static fn getNowPlaying() -> utils::types::Result<utils::types::MediaInfo>;
+    static fn getNowPlaying() -> Result<MediaInfo>;
 #endif
 
     /**
@@ -148,7 +160,7 @@ namespace draconis::core::system {
      * }
      * @endcode
      */
-    static fn getOSVersion() -> utils::types::Result<utils::types::String>;
+    static fn getOSVersion() -> Result<String>;
 
     /**
      * @brief Fetches the desktop environment.
@@ -183,7 +195,7 @@ namespace draconis::core::system {
      * }
      * @endcode
      */
-    static fn getDesktopEnvironment() -> utils::types::Result<utils::types::String>;
+    static fn getDesktopEnvironment() -> Result<String>;
 
     /**
      * @brief Fetches the window manager.
@@ -219,7 +231,7 @@ namespace draconis::core::system {
      * }
      * @endcode
      */
-    static fn getWindowManager() -> utils::types::Result<utils::types::String>;
+    static fn getWindowManager() -> Result<String>;
 
     /**
      * @brief Fetches the shell.
@@ -252,7 +264,7 @@ namespace draconis::core::system {
      * }
      * @endcode
      */
-    static fn getShell() -> utils::types::Result<utils::types::String>;
+    static fn getShell() -> Result<String>;
 
     /**
      * @brief Fetches the host.
@@ -293,7 +305,7 @@ namespace draconis::core::system {
      * }
      * @endcode
      */
-    static fn getHost() -> utils::types::Result<utils::types::String>;
+    static fn getHost() -> Result<String>;
 
     /**
      * @brief Fetches the CPU model.
@@ -328,7 +340,7 @@ namespace draconis::core::system {
      * }
      * @endcode
      */
-    static fn getCPUModel() -> utils::types::Result<utils::types::String>;
+    static fn getCPUModel() -> Result<String>;
 
     /**
      * @brief Fetches the GPU model.
@@ -361,7 +373,7 @@ namespace draconis::core::system {
      * }
      * @endcode
      */
-    static fn getGPUModel() -> utils::types::Result<utils::types::String>;
+    static fn getGPUModel() -> Result<String>;
 
     /**
      * @brief Fetches the kernel version.
@@ -396,7 +408,7 @@ namespace draconis::core::system {
      * }
      * @endcode
      */
-    static fn getKernelVersion() -> utils::types::Result<utils::types::String>;
+    static fn getKernelVersion() -> Result<String>;
 
     /**
      * @brief Fetches the disk usage.
@@ -428,6 +440,6 @@ namespace draconis::core::system {
      * }
      * @endcode
      */
-    static fn getDiskUsage() -> utils::types::Result<utils::types::ResourceUsage>;
+    static fn getDiskUsage() -> Result<ResourceUsage>;
   };
 } // namespace draconis::core::system

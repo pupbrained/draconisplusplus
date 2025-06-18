@@ -36,7 +36,9 @@ using enum draconis::utils::error::DracErrorCode;
 namespace fs = std::filesystem;
 
 namespace {
-  constexpr i16 port = 3722;
+  constexpr i16  port    = 3722;
+  constexpr CStr index   = "examples/glaze_http/web/index.mustache";
+  constexpr CStr styling = "examples/glaze_http/web/style.css";
 
   struct State {
 #if DRAC_ENABLE_WEATHER
@@ -62,9 +64,6 @@ namespace {
   }
 
   fn get_latest_web_files_write_time() -> std::filesystem::file_time_type {
-    const char* const index   = "examples/glaze_http/web/index.mustache";
-    const char* const styling = "examples/glaze_http/web/style.css";
-
     fs::file_time_type tp1 = fs::exists(index) ? fs::last_write_time(index) : fs::file_time_type::min();
     fs::file_time_type tp2 = fs::exists(styling) ? fs::last_write_time(styling) : fs::file_time_type::min();
 
@@ -159,7 +158,7 @@ fn main() -> i32 {
   server.get("/style.css", [](const glz::request& req, glz::response& res) {
     info_log("Handling request for style.css from {}", req.remote_ip);
 
-    Result<String> result = readFile("examples/glaze_http/web/style.css");
+    Result<String> result = readFile(styling);
 
     if (result)
       res.header("Content-Type", "text/css; charset=utf-8")
@@ -273,7 +272,7 @@ fn main() -> i32 {
 #endif
     }
 
-    Result<String> htmlTemplate = readFile("examples/glaze_http/web/index.html");
+    Result<String> htmlTemplate = readFile(index);
 
     if (!htmlTemplate) {
       error_log("Failed to read HTML template: {}", htmlTemplate.error().message);

@@ -274,4 +274,22 @@ namespace draconis::utils::types {
     MediaInfo(Option<String> title, Option<String> artist)
       : title(std::move(title)), artist(std::move(artist)) {}
   };
+
+  constexpr u64 GIB = 1'073'741'824;
+
+  struct BytesToGiB {
+    u64 value;
+
+    explicit constexpr BytesToGiB(const u64 value)
+      : value(value) {}
+  };
 } // namespace draconis::utils::types
+
+namespace std {
+  template <>
+  struct formatter<draconis::utils::types::BytesToGiB> : formatter<draconis::utils::types::f64> {
+    auto format(const draconis::utils::types::BytesToGiB& BTG, auto& ctx) const {
+      return format_to(ctx.out(), "{:.2f}GiB", static_cast<draconis::utils::types::f64>(BTG.value) / draconis::utils::types::GIB);
+    }
+  };
+} // namespace std
