@@ -4,6 +4,9 @@
 #include <chrono>         // std::chrono::{minutes, steady_clock, time_point}
 #include <csignal>        // SIGINT, SIGTERM, SIG_ERR, std::signal
 #include <cstdlib>        // EXIT_FAILURE, EXIT_SUCCESS
+#include <filesystem>     // std::filesystem::{path, weakly_canonical}
+#include <fstream>        // std::ifstream
+#include <thread>         // std::jthread
 
 #ifdef DELETE
   #undef DELETE
@@ -30,6 +33,8 @@ using namespace draconis::services::weather;
 using draconis::utils::error::DracError;
 using enum draconis::utils::error::DracErrorCode;
 
+namespace fs = std::filesystem;
+
 namespace {
   constexpr i16 port = 3722;
 
@@ -43,6 +48,11 @@ namespace {
 
     mutable UniquePointer<IWeatherService> weatherService;
 #endif
+
+    mutable struct HotReloading {
+      std::filesystem::file_time_type lastWriteTime;
+      mutable std::mutex              mtx;
+    } hotReloading;
   };
 
   fn GetState() -> const State& {
@@ -50,6 +60,34 @@ namespace {
 
     return STATE;
   }
+
+  fn get_latest_web_files_write_time() -> std::filesystem::file_time_type {
+    const char* const index   = "examples/glaze_http/web/index.mustache";
+    const char* const styling = "examples/glaze_http/web/style.css";
+
+    fs::file_time_type tp1 = fs::exists(index) ? fs::last_write_time(index) : fs::file_time_type::min();
+    fs::file_time_type tp2 = fs::exists(styling) ? fs::last_write_time(styling) : fs::file_time_type::min();
+
+    return std::max(tp1, tp2);
+  }
+
+  fn readFile(const std::filesystem::path& path) -> Result<String> {
+    if (!std::filesystem::exists(path))
+      return Err(DracError(NotFound, std::format("File not found: {}", path.string())));
+
+    std::ifstream file(path, std::ios::in | std::ios::binary);
+    if (!file)
+      return Err(DracError(IoError, std::format("Failed to open file: {}", path.string())));
+
+    const usize size = std::filesystem::file_size(path);
+
+    String result(size, '\0');
+
+    file.read(result.data(), static_cast<std::streamsize>(size));
+
+    return result;
+  }
+
 } // namespace
 
 struct SystemProperty {
@@ -67,6 +105,7 @@ struct SystemProperty {
 
 struct SystemInfo {
   Vec<SystemProperty> properties;
+  String              version = DRAC_VERSION;
 };
 
 namespace glz {
@@ -88,67 +127,9 @@ namespace glz {
   struct meta<SystemInfo> {
     using T = SystemInfo;
 
-    static constexpr glz::detail::Object value = glz::object("properties", &T::properties);
+    static constexpr glz::detail::Object value = glz::object("properties", &T::properties, "version", &T::version);
   };
 } // namespace glz
-
-constexpr StringView HTML_LAYOUT = R"html(
-  <!DOCTYPE html>
-  <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>System Information</title>
-      <style>
-        .container { max-width: 800px; margin: 20px auto; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1), 0 8px 16px rgba(0,0,0,0.1); }
-        .error { color: #fa383e; font-style: italic; }
-        .property-name { font-weight: 500; color: #333; }
-
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 20px; background-color: #f0f2f5; color: #1c1e21; }
-        footer { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid #dddfe2; font-size: 0.9em; color: #606770; }
-        h1 { color: #1877f2; border-bottom: 2px solid #1877f2; padding-bottom: 10px; margin-bottom: 20px; text-align: center; }
-
-        table { border-collapse: collapse; width: 100%; }
-        th { background-color: #e9ebee; color: #4b4f56; font-weight: 600; }
-        th, td { border: 1px solid #dddfe2; padding: 12px 15px; text-align: left; }
-        tr:nth-child(even) { background-color: #f7f8fa; }
-
-        @media (max-width: 600px) {
-            .container { margin: 0; padding: 10px; width: 100%; box-shadow: none; border-radius: 0; }
-
-            body { padding: 0; }
-            h1 { font-size: 1.75em; }
-
-            tr:first-of-type { display: none; }
-            table thead tr { position: absolute; top: -9999px; left: -9999px; }
-            table, thead, tbody, th, td, tr { display: block; }
-            td { border: none; border-bottom: 1px solid #eee; position: relative; padding-left: 5px; }
-            td.property-name { background-color: #f7f8fa; font-weight: 600; }
-            tr { border: 1px solid #dddfe2; margin-bottom: 10px; }
-            tr:nth-child(even) { background-color: #fff; }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <h1>Draconis++ System Information</h1>
-        <table>
-        <tr><th>Property</th><th>Value</th></tr>
-        {{#properties}}
-        <tr>
-          <td class="property-name">{{name}}</td>
-          <td>
-            {{^hasError}}{{value}}{{/hasError}}
-            {{#hasError}}<span class="error">{{error}}</span>{{/hasError}}
-          </td>
-        </tr>
-        {{/properties}}
-        </table>
-        <footer>Generated by Draconis++ v)html" DRAC_VERSION R"html(</footer>
-      </div>
-    </body>
-  </html>
-)html";
 
 fn main() -> i32 {
   glz::http_server server;
@@ -165,6 +146,31 @@ fn main() -> i32 {
   server.on_error([](const std::error_code errc, const std::source_location& loc) {
     if (errc != asio::error::operation_aborted)
       error_log("Server error at {}:{} -> {}", loc.file_name(), loc.line(), errc.message());
+  });
+
+  server.get("/hot_reload_check", [](const glz::request&, glz::response& res) {
+    std::unique_lock lock(GetState().hotReloading.mtx);
+
+    fs::file_time_type timePoint = GetState().hotReloading.lastWriteTime;
+
+    res.body(std::to_string(timePoint.time_since_epoch().count()));
+  });
+
+  server.get("/style.css", [](const glz::request& req, glz::response& res) {
+    info_log("Handling request for style.css from {}", req.remote_ip);
+
+    Result<String> result = readFile("examples/glaze_http/web/style.css");
+
+    if (result)
+      res.header("Content-Type", "text/css; charset=utf-8")
+        .header("Cache-Control", "no-cache, no-store, must-revalidate")
+        .header("Pragma", "no-cache")
+        .header("Expires", "0")
+        .body(*result);
+    else {
+      error_log("Failed to serve style.css: {}", result.error().message);
+      res.status(500).body("Internal Server Error: Could not load stylesheet.");
+    }
   });
 
   server.get("/", [](const glz::request& req, glz::response& res) {
@@ -267,13 +273,41 @@ fn main() -> i32 {
 #endif
     }
 
-    if (Result<String, glz::error_ctx> result = glz::stencil(HTML_LAYOUT, sysInfo))
-      res.header("Content-Type", "text/html; charset=utf-8").body(*result);
+    Result<String> htmlTemplate = readFile("examples/glaze_http/web/index.html");
+
+    if (!htmlTemplate) {
+      error_log("Failed to read HTML template: {}", htmlTemplate.error().message);
+      res.status(500).body("Internal Server Error: Template file not found.");
+      return;
+    }
+
+    if (Result<String, glz::error_ctx> result = glz::stencil(*htmlTemplate, sysInfo))
+      res.header("Content-Type", "text/html; charset=utf-8")
+        .header("Cache-Control", "no-cache, no-store, must-revalidate")
+        .header("Pragma", "no-cache")
+        .header("Expires", "0")
+        .body(*result);
     else {
-      String errorString = glz::format_error(result.error(), HTML_LAYOUT);
+      String errorString = glz::format_error(result.error(), *htmlTemplate);
       error_log("Failed to render stencil template:\n{}", errorString);
       res.status(500).body("Internal Server Error: Template rendering failed.");
     }
+  });
+
+  GetState().hotReloading.lastWriteTime = get_latest_web_files_write_time();
+
+  std::jthread fileWatcherThread([](const std::stop_token& stopToken) {
+    while (!stopToken.stop_requested()) {
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+      auto latestTime = get_latest_web_files_write_time();
+
+      std::unique_lock lock(GetState().hotReloading.mtx);
+      if (latestTime > GetState().hotReloading.lastWriteTime) {
+        info_log("Web file change detected, updating timestamp.");
+        GetState().hotReloading.lastWriteTime = latestTime;
+      }
+    }
+    info_log("File watcher thread stopped.");
   });
 
   server.bind(port);
