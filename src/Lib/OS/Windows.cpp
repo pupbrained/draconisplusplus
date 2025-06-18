@@ -13,7 +13,7 @@
   #include <winrt/Windows.System.Profile.h>
 
   #if DRAC_ENABLE_PACKAGECOUNT
-    #include "Drac++/Services/PackageCounting.hpp"
+    #include "Drac++/Services/Packages.hpp"
   #endif
 
   #include "Drac++/Core/System.hpp"
@@ -25,9 +25,9 @@
 using RtlGetVersionPtr = NTSTATUS(WINAPI*)(PRTL_OSVERSIONINFOW);
 
 namespace {
-  using drac::error::DracError;
-  using enum drac::error::DracErrorCode;
-  using namespace drac::types;
+  using draconis::utils::error::DracError;
+  using enum draconis::utils::error::DracErrorCode;
+  using namespace draconis::utils::types;
 
   constexpr const wchar_t* WINDOWS_10      = L"Windows 10";
   constexpr const wchar_t* WINDOWS_11      = L"Windows 11";
@@ -140,7 +140,7 @@ namespace {
       if (m_initialized)
         return;
 
-      const HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+      HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
       if (hSnap == INVALID_HANDLE_VALUE)
         return;
 
@@ -207,7 +207,7 @@ namespace {
     searchPath.append(L"\\*");
 
     WIN32_FIND_DATAW findData;
-    const HANDLE     hFind = FindFirstFileW(searchPath.c_str(), &findData);
+    HANDLE           hFind = FindFirstFileW(searchPath.c_str(), &findData);
 
     if (hFind == INVALID_HANDLE_VALUE) {
       if (GetLastError() == ERROR_FILE_NOT_FOUND)
@@ -299,7 +299,7 @@ namespace {
   }
 } // namespace
 
-namespace os {
+namespace draconis::core::system {
   fn System::getMemInfo() -> Result<ResourceUsage> {
     static MEMORYSTATUSEX MemInfo;
     MemInfo.dwLength = sizeof(MEMORYSTATUSEX);
@@ -476,7 +476,7 @@ namespace os {
   }
 
   fn System::getShell() -> Result<String> {
-    using drac::env::GetEnv;
+    using draconis::utils::env::GetEnv;
 
     if (const Result<String> msystemResult = GetEnv("MSYSTEM"); msystemResult && !msystemResult->empty()) {
       String shellPath;
@@ -602,12 +602,12 @@ namespace os {
 
     return gpuName.data();
   }
-} // namespace os
+} // namespace draconis::core::system
 
   #if DRAC_ENABLE_PACKAGECOUNT
-namespace package {
-  using drac::cache::GetValidCache, drac::cache::WriteCache;
-  using drac::env::GetEnvW;
+namespace draconis::services::packages {
+  using draconis::utils::cache::GetValidCache, draconis::utils::cache::WriteCache;
+  using draconis::utils::env::GetEnvW;
 
   fn CountChocolatey() -> Result<u64> {
     const String cacheKey = "chocolatey_";
@@ -680,7 +680,7 @@ namespace package {
       return count;
     } catch (const winrt::hresult_error& e) { return Err(DracError(e)); }
   }
-} // namespace package
+} // namespace draconis::services::packages
   #endif // DRAC_ENABLE_PACKAGECOUNT
 
 #endif // _WIN32

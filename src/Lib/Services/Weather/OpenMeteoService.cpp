@@ -10,18 +10,18 @@
   #include "WeatherUtils.hpp"
   #include "Wrappers/Curl.hpp"
 
-using namespace drac::types;
-using drac::error::DracError;
-using enum drac::error::DracErrorCode;
-using weather::OpenMeteoService;
-using weather::Report;
-using weather::Unit;
+using namespace draconis::utils::types;
+using draconis::utils::error::DracError;
+using enum draconis::utils::error::DracErrorCode;
+using draconis::services::weather::OpenMeteoService;
+using draconis::services::weather::Report;
+using draconis::services::weather::Unit;
 
 OpenMeteoService::OpenMeteoService(const f64 lat, const f64 lon, const Unit units)
   : m_lat(lat), m_lon(lon), m_units(units) {}
 
 fn OpenMeteoService::getWeatherInfo() const -> Result<Report> {
-  using drac::cache::GetValidCache, drac::cache::WriteCache;
+  using draconis::utils::cache::GetValidCache, draconis::utils::cache::WriteCache;
   using glz::error_ctx, glz::read, glz::error_code;
 
   if (Result<Report> cachedDataResult = GetValidCache<Report>("weather"))
@@ -55,18 +55,18 @@ fn OpenMeteoService::getWeatherInfo() const -> Result<Report> {
   if (Result res = curl.perform(); !res)
     return Err(res.error());
 
-  weather::dto::openmeteo::Response apiResp {};
+  draconis::services::weather::dto::openmeteo::Response apiResp {};
 
   if (error_ctx errc = read<glz::opts { .error_on_unknown_keys = false }>(apiResp, responseBuffer.data()); errc.ec != error_code::none)
     return Err(DracError(ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer.data()))));
 
-  if (Result<usize> timestamp = weather::utils::ParseIso8601ToEpoch(apiResp.currentWeather.time); !timestamp)
+  if (Result<usize> timestamp = draconis::services::weather::utils::ParseIso8601ToEpoch(apiResp.currentWeather.time); !timestamp)
     return Err(timestamp.error());
 
   Report out = {
     .temperature = apiResp.currentWeather.temperature,
     .name        = None,
-    .description = weather::utils::GetOpenmeteoWeatherDescription(apiResp.currentWeather.weathercode),
+    .description = draconis::services::weather::utils::GetOpenmeteoWeatherDescription(apiResp.currentWeather.weathercode),
   };
 
   if (Result writeResult = WriteCache("weather", out); !writeResult)

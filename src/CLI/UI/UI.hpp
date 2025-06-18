@@ -9,7 +9,7 @@
 
 #include "Config/Config.hpp"
 
-namespace ui {
+namespace draconis::ui {
   struct Theme {
     ftxui::Color::Palette16 icon;
     ftxui::Color::Palette16 label;
@@ -20,28 +20,28 @@ namespace ui {
   extern const Theme DEFAULT_THEME;
 
   struct Icons {
-    drac::types::StringView calendar;
-    drac::types::StringView desktopEnvironment;
-    drac::types::StringView disk;
-    drac::types::StringView host;
-    drac::types::StringView kernel;
-    drac::types::StringView memory;
-    drac::types::StringView cpu;
-    drac::types::StringView gpu;
+    draconis::utils::types::StringView calendar;
+    draconis::utils::types::StringView desktopEnvironment;
+    draconis::utils::types::StringView disk;
+    draconis::utils::types::StringView host;
+    draconis::utils::types::StringView kernel;
+    draconis::utils::types::StringView memory;
+    draconis::utils::types::StringView cpu;
+    draconis::utils::types::StringView gpu;
 #if DRAC_ENABLE_NOWPLAYING
-    drac::types::StringView music;
+    draconis::utils::types::StringView music;
 #endif
-    drac::types::StringView os;
+    draconis::utils::types::StringView os;
 #if DRAC_ENABLE_PACKAGECOUNT
-    drac::types::StringView package;
+    draconis::utils::types::StringView package;
 #endif
-    drac::types::StringView palette;
-    drac::types::StringView shell;
-    drac::types::StringView user;
+    draconis::utils::types::StringView palette;
+    draconis::utils::types::StringView shell;
+    draconis::utils::types::StringView user;
 #if DRAC_ENABLE_WEATHER
-    drac::types::StringView weather;
+    draconis::utils::types::StringView weather;
 #endif
-    drac::types::StringView windowManager;
+    draconis::utils::types::StringView windowManager;
   };
 
   extern const Icons ICON_TYPE;
@@ -51,5 +51,5 @@ namespace ui {
    * @param config The application configuration.
    * @param data The collected system data. @return The root ftxui::Element for rendering.
    */
-  fn CreateUI(const Config& config, const os::System& data) -> ftxui::Element;
-} // namespace ui
+  fn CreateUI(const config::Config& config, const draconis::core::system::System& data) -> ftxui::Element;
+} // namespace draconis::ui

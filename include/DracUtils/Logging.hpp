@@ -21,7 +21,16 @@
 #include "Error.hpp"
 #include "Types.hpp"
 
-namespace drac::logging {
+namespace draconis::utils::logging {
+  constexpr types::u64 GIB = 1'073'741'824;
+
+  struct BytesToGiB {
+    types::u64 value;
+
+    explicit constexpr BytesToGiB(const types::u64 value)
+      : value(value) {}
+  };
+
   inline fn GetLogMutex() -> types::Mutex& {
     static types::Mutex LogMutexInstance;
     return LogMutexInstance;
@@ -279,24 +288,31 @@ namespace drac::logging {
 #endif
   }
 
-#define debug_at(error_obj) ::drac::logging::LogError(::drac::logging::LogLevel::Debug, error_obj)
-#define info_at(error_obj)  ::drac::logging::LogError(::drac::logging::LogLevel::Info, error_obj)
-#define warn_at(error_obj)  ::drac::logging::LogError(::drac::logging::LogLevel::Warn, error_obj)
-#define error_at(error_obj) ::drac::logging::LogError(::drac::logging::LogLevel::Error, error_obj)
+#define debug_at(error_obj) ::draconis::utils::logging::LogError(::draconis::utils::logging::LogLevel::Debug, error_obj)
+#define info_at(error_obj)  ::draconis::utils::logging::LogError(::draconis::utils::logging::LogLevel::Info, error_obj)
+#define warn_at(error_obj)  ::draconis::utils::logging::LogError(::draconis::utils::logging::LogLevel::Warn, error_obj)
+#define error_at(error_obj) ::draconis::utils::logging::LogError(::draconis::utils::logging::LogLevel::Error, error_obj)
 
 #ifdef NDEBUG
-  #define debug_log(fmt, ...) ::drac::logging::LogImpl(::drac::logging::LogLevel::Debug, fmt __VA_OPT__(, ) __VA_ARGS__)
-  #define info_log(fmt, ...)  ::drac::logging::LogImpl(::drac::logging::LogLevel::Info, fmt __VA_OPT__(, ) __VA_ARGS__)
-  #define warn_log(fmt, ...)  ::drac::logging::LogImpl(::drac::logging::LogLevel::Warn, fmt __VA_OPT__(, ) __VA_ARGS__)
-  #define error_log(fmt, ...) ::drac::logging::LogImpl(::drac::logging::LogLevel::Error, fmt __VA_OPT__(, ) __VA_ARGS__)
+  #define debug_log(fmt, ...) ::draconis::utils::logging::LogImpl(::draconis::utils::logging::LogLevel::Debug, fmt __VA_OPT__(, ) __VA_ARGS__)
+  #define info_log(fmt, ...)  ::draconis::utils::logging::LogImpl(::draconis::utils::logging::LogLevel::Info, fmt __VA_OPT__(, ) __VA_ARGS__)
+  #define warn_log(fmt, ...)  ::draconis::utils::logging::LogImpl(::draconis::utils::logging::LogLevel::Warn, fmt __VA_OPT__(, ) __VA_ARGS__)
+  #define error_log(fmt, ...) ::draconis::utils::logging::LogImpl(::draconis::utils::logging::LogLevel::Error, fmt __VA_OPT__(, ) __VA_ARGS__)
 #else
   #define debug_log(fmt, ...) \
-    ::drac::logging::LogImpl(::drac::logging::LogLevel::Debug, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
+    ::draconis::utils::logging::LogImpl(::draconis::utils::logging::LogLevel::Debug, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
   #define info_log(fmt, ...) \
-    ::drac::logging::LogImpl(::drac::logging::LogLevel::Info, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
+    ::draconis::utils::logging::LogImpl(::draconis::utils::logging::LogLevel::Info, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
   #define warn_log(fmt, ...) \
-    ::drac::logging::LogImpl(::drac::logging::LogLevel::Warn, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
+    ::draconis::utils::logging::LogImpl(::draconis::utils::logging::LogLevel::Warn, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
   #define error_log(fmt, ...) \
-    ::drac::logging::LogImpl(::drac::logging::LogLevel::Error, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
+    ::draconis::utils::logging::LogImpl(::draconis::utils::logging::LogLevel::Error, std::source_location::current(), fmt __VA_OPT__(, ) __VA_ARGS__)
 #endif
-} // namespace drac::logging
+} // namespace draconis::utils::logging
+
+template <>
+struct std::formatter<draconis::utils::logging::BytesToGiB> : std::formatter<double> {
+  fn format(const draconis::utils::logging::BytesToGiB& BTG, auto& ctx) const {
+    return std::format_to(ctx.out(), "{:.2f}GiB", static_cast<draconis::utils::types::f64>(BTG.value) / draconis::utils::logging::GIB);
+  }
+};

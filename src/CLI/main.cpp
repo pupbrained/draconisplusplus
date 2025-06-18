@@ -12,6 +12,7 @@
 #endif
 
 #include <Drac++/Core/System.hpp>
+#include <Drac++/Services/Packages.hpp>
 
 #include <DracUtils/Definitions.hpp>
 #include <DracUtils/Error.hpp>
@@ -21,9 +22,10 @@
 #include "Config/Config.hpp"
 #include "UI/UI.hpp"
 
-using namespace drac::types;
-using drac::error::DracError;
-using enum drac::error::DracErrorCode;
+using namespace draconis::utils::types;
+using draconis::utils::error::DracError;
+using enum draconis::utils::error::DracErrorCode;
+using namespace draconis::core::system;
 
 namespace {
   fn getOrdinalSuffix(const i32 day) -> CStr {
@@ -69,7 +71,7 @@ namespace {
     return Err(DracError(ParseError, "Failed to get local time"));
   }
 
-  fn PrintDoctorReport(const os::System& data) -> void {
+  fn PrintDoctorReport(const System& data) -> void {
     Vec<Pair<String, DracError>> failures;
 
     constexpr u8 totalPossibleReadouts = 9
@@ -117,7 +119,7 @@ namespace {
       failures.emplace_back("Weather", data.weather.error());
 #endif
 
-    const drac::types::String summary = std::format(
+    const String summary = std::format(
       "We've collected a total of {} readouts including {} failed read{}.\n\n",
       totalPossibleReadouts,
       failures.size(),
@@ -131,7 +133,7 @@ namespace {
 #endif
 
     for (const auto& [readout, err] : failures) {
-      const drac::types::String failureLine = std::format(
+      const String failureLine = std::format(
         "Readout \"{}\" failed: {} (code: {})\n",
         readout,
         err.message,
@@ -150,35 +152,34 @@ namespace {
 #endif
   }
 
-  fn InitializeSystem(const Config& config) -> os::System {
+  fn InitializeSystem(const draconis::config::Config& config) -> System {
     using enum std::launch;
-    using enum drac::error::DracErrorCode;
 
-    os::System system;
+    System system;
 
     // Use batch operations for related information
-    Future<Result<String>>        osFut     = std::async(async, &os::System::getOSVersion);
-    Future<Result<String>>        kernelFut = std::async(async, &os::System::getKernelVersion);
-    Future<Result<String>>        hostFut   = std::async(async, &os::System::getHost);
-    Future<Result<String>>        cpuFut    = std::async(async, &os::System::getCPUModel);
-    Future<Result<String>>        gpuFut    = std::async(async, &os::System::getGPUModel);
-    Future<Result<String>>        deFut     = std::async(async, &os::System::getDesktopEnvironment);
-    Future<Result<String>>        wmFut     = std::async(async, &os::System::getWindowManager);
-    Future<Result<String>>        shellFut  = std::async(async, &os::System::getShell);
-    Future<Result<ResourceUsage>> memFut    = std::async(async, &os::System::getMemInfo);
-    Future<Result<ResourceUsage>> diskFut   = std::async(async, &os::System::getDiskUsage);
+    Future<Result<String>>        osFut     = std::async(async, &System::getOSVersion);
+    Future<Result<String>>        kernelFut = std::async(async, &System::getKernelVersion);
+    Future<Result<String>>        hostFut   = std::async(async, &System::getHost);
+    Future<Result<String>>        cpuFut    = std::async(async, &System::getCPUModel);
+    Future<Result<String>>        gpuFut    = std::async(async, &System::getGPUModel);
+    Future<Result<String>>        deFut     = std::async(async, &System::getDesktopEnvironment);
+    Future<Result<String>>        wmFut     = std::async(async, &System::getWindowManager);
+    Future<Result<String>>        shellFut  = std::async(async, &System::getShell);
+    Future<Result<ResourceUsage>> memFut    = std::async(async, &System::getMemInfo);
+    Future<Result<ResourceUsage>> diskFut   = std::async(async, &System::getDiskUsage);
     Future<Result<String>>        dateFut   = std::async(async, &getDate);
 
 #if DRAC_ENABLE_PACKAGECOUNT
-    Future<Result<u64>> pkgFut = std::async(async, package::GetTotalCount, config.enabledPackageManagers);
+    Future<Result<u64>> pkgFut = std::async(async, draconis::services::packages::GetTotalCount, config.enabledPackageManagers);
 #endif
 
 #if DRAC_ENABLE_NOWPLAYING
-    Future<Result<MediaInfo>> npFut = std::async(config.nowPlaying.enabled ? async : deferred, &os::System::getNowPlaying);
+    Future<Result<MediaInfo>> npFut = std::async(config.nowPlaying.enabled ? async : deferred, &System::getNowPlaying);
 #endif
 
 #if DRAC_ENABLE_WEATHER
-    Future<Result<weather::Report>> wthrFut = std::async(
+    Future<Result<draconis::services::weather::Report>> wthrFut = std::async(
       config.weather.enabled ? std::launch::async : std::launch::deferred,
       [&service = config.weather.service]() { return service->getWeatherInfo(); }
     );
@@ -248,9 +249,9 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
     doctorMode = parser.get<bool>("-d").value_or(false) || parser.get<bool>("--doctor").value_or(false);
 
     {
+      using draconis::utils::logging::LogLevel;
       using matchit::match, matchit::is, matchit::_;
-      using drac::logging::LogLevel;
-      using enum drac::logging::LogLevel;
+      using enum draconis::utils::logging::LogLevel;
 
       const bool     verbose     = parser.get<bool>("-V").value_or(false) || parser.get<bool>("--verbose").value_or(false);
       Result<String> logLevelStr = verbose ? "debug" : parser.get<String>("--log-level");
@@ -269,11 +270,11 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
   {
     using namespace ftxui;
     using namespace ftxui::Dimension;
-    using os::System;
-    using ui::CreateUI;
+    using draconis::core::system::System;
+    using draconis::ui::CreateUI;
 
-    const Config& config = Config::getInstance();
-    const System  data   = InitializeSystem(config);
+    const draconis::config::Config& config = draconis::config::Config::getInstance();
+    const System                    data   = InitializeSystem(config);
 
     if (doctorMode) {
       PrintDoctorReport(data);

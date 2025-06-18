@@ -7,10 +7,12 @@
   #include "Services/Weather/WeatherUtils.hpp"
   #include "gtest/gtest.h"
 
-using namespace drac::types;
-using namespace weather::utils;
+using namespace testing;
+using namespace draconis::utils::types;
+using namespace draconis::services::weather::utils;
+using namespace draconis::services::weather::dto;
 using glz::read, glz::error_code, glz::error_ctx;
-using enum drac::error::DracErrorCode;
+using enum draconis::utils::error::DracErrorCode;
 
 class WeatherServiceTest : public testing::Test {};
 
@@ -190,8 +192,8 @@ TEST_F(WeatherServiceTest, MetNoJsonParsing_ValidCompleteResponse) {
     }
   })";
 
-  weather::dto::metno::Response response;
-  const error_ctx               result = read<glz::opts { .error_on_unknown_keys = false }>(response, validJson);
+  metno::Response response;
+  const error_ctx result = read<glz::opts { .error_on_unknown_keys = false }>(response, validJson);
 
   ASSERT_EQ(result.ec, error_code::none);
   ASSERT_FALSE(response.properties.timeseries.empty());
@@ -221,8 +223,8 @@ TEST_F(WeatherServiceTest, MetNoJsonParsing_ValidMinimalResponse) {
     }
   })";
 
-  weather::dto::metno::Response response;
-  const error_ctx               result = read<glz::opts { .error_on_unknown_keys = false }>(response, minimalJson);
+  metno::Response response;
+  const error_ctx result = read<glz::opts { .error_on_unknown_keys = false }>(response, minimalJson);
 
   ASSERT_EQ(result.ec, error_code::none);
   ASSERT_FALSE(response.properties.timeseries.empty());
@@ -249,8 +251,8 @@ TEST_F(WeatherServiceTest, MetNoJsonParsing_InvalidJson) {
     }
   })";
 
-  weather::dto::metno::Response response;
-  const error_ctx               result = read<glz::opts { .error_on_unknown_keys = false }>(response, invalidJson);
+  metno::Response response;
+  const error_ctx result = read<glz::opts { .error_on_unknown_keys = false }>(response, invalidJson);
 
   EXPECT_NE(result.ec, error_code::none);
 }
@@ -262,8 +264,8 @@ TEST_F(WeatherServiceTest, MetNoJsonParsing_EmptyTimeseries) {
     }
   })";
 
-  weather::dto::metno::Response response;
-  const error_ctx               result = read<glz::opts { .error_on_unknown_keys = false }>(response, emptyTimeseriesJson);
+  metno::Response response;
+  const error_ctx result = read<glz::opts { .error_on_unknown_keys = false }>(response, emptyTimeseriesJson);
 
   ASSERT_EQ(result.ec, error_code::none);
   EXPECT_TRUE(response.properties.timeseries.empty());
@@ -278,8 +280,8 @@ TEST_F(WeatherServiceTest, OpenMeteoJsonParsing_ValidResponse) {
     }
   })";
 
-  weather::dto::openmeteo::Response response;
-  const error_ctx                   result = read<glz::opts { .error_on_unknown_keys = false }>(response, validJson);
+  openmeteo::Response response;
+  const error_ctx     result = read<glz::opts { .error_on_unknown_keys = false }>(response, validJson);
 
   ASSERT_EQ(result.ec, error_code::none);
   EXPECT_DOUBLE_EQ(response.currentWeather.temperature, 22.5);
@@ -296,8 +298,8 @@ TEST_F(WeatherServiceTest, OpenMeteoJsonParsing_NegativeTemperature) {
     }
   })";
 
-  weather::dto::openmeteo::Response response;
-  const error_ctx                   result = read<glz::opts { .error_on_unknown_keys = false }>(response, coldWeatherJson);
+  openmeteo::Response response;
+  const error_ctx     result = read<glz::opts { .error_on_unknown_keys = false }>(response, coldWeatherJson);
 
   ASSERT_EQ(result.ec, error_code::none);
   EXPECT_DOUBLE_EQ(response.currentWeather.temperature, -15.8);
@@ -314,8 +316,8 @@ TEST_F(WeatherServiceTest, OpenMeteoJsonParsing_InvalidJson) {
     }
   })";
 
-  weather::dto::openmeteo::Response response;
-  const error_ctx                   result = read<glz::opts { .error_on_unknown_keys = false }>(response, invalidJson);
+  openmeteo::Response response;
+  const error_ctx     result = read<glz::opts { .error_on_unknown_keys = false }>(response, invalidJson);
 
   EXPECT_NE(result.ec, error_code::none);
 }
@@ -327,8 +329,8 @@ TEST_F(WeatherServiceTest, OpenMeteoJsonParsing_MissingFields) {
     }
   })";
 
-  weather::dto::openmeteo::Response response = {};
-  const error_ctx                   result   = read<glz::opts { .error_on_unknown_keys = false }>(response, incompleteJson);
+  openmeteo::Response response = {};
+  const error_ctx     result   = read<glz::opts { .error_on_unknown_keys = false }>(response, incompleteJson);
 
   // Note: Glaze doesn't fail on missing fields by default, it just leaves them uninitialized
   // This test verifies that parsing succeeds and only specified fields are updated
@@ -352,8 +354,8 @@ TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_ValidResponse) {
     "dt": 1698316200
   })";
 
-  weather::dto::owm::OWMResponse response;
-  const error_ctx                result = read<glz::opts { .error_on_unknown_keys = false }>(response, validJson);
+  owm::OWMResponse response;
+  const error_ctx  result = read<glz::opts { .error_on_unknown_keys = false }>(response, validJson);
 
   ASSERT_EQ(result.ec, error_code::none);
   EXPECT_DOUBLE_EQ(response.main.temp, 18.7);
@@ -373,8 +375,8 @@ TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_EmptyWeatherArray) {
     "dt": 1698316200
   })";
 
-  weather::dto::owm::OWMResponse response;
-  const error_ctx                result = read<glz::opts { .error_on_unknown_keys = false }>(response, emptyWeatherJson);
+  owm::OWMResponse response;
+  const error_ctx  result = read<glz::opts { .error_on_unknown_keys = false }>(response, emptyWeatherJson);
 
   ASSERT_EQ(result.ec, error_code::none);
   EXPECT_DOUBLE_EQ(response.main.temp, 25.0);
@@ -400,8 +402,8 @@ TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_MultipleWeatherEntries) {
     "dt": 1698316200
   })";
 
-  weather::dto::owm::OWMResponse response;
-  const error_ctx                result = read<glz::opts { .error_on_unknown_keys = false }>(response, multiWeatherJson);
+  owm::OWMResponse response;
+  const error_ctx  result = read<glz::opts { .error_on_unknown_keys = false }>(response, multiWeatherJson);
 
   ASSERT_EQ(result.ec, error_code::none);
   EXPECT_DOUBLE_EQ(response.main.temp, 12.3);
@@ -425,8 +427,8 @@ TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_InvalidJson) {
     "dt": "not_a_number"
   })";
 
-  weather::dto::owm::OWMResponse response;
-  const error_ctx                result = read<glz::opts { .error_on_unknown_keys = false }>(response, invalidJson);
+  owm::OWMResponse response;
+  const error_ctx  result = read<glz::opts { .error_on_unknown_keys = false }>(response, invalidJson);
 
   EXPECT_NE(result.ec, error_code::none);
 }
@@ -445,8 +447,8 @@ TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_EmptyName) {
     "dt": 1698316200
   })";
 
-  weather::dto::owm::OWMResponse response;
-  const error_ctx                result = read<glz::opts { .error_on_unknown_keys = false }>(response, emptyNameJson);
+  owm::OWMResponse response;
+  const error_ctx  result = read<glz::opts { .error_on_unknown_keys = false }>(response, emptyNameJson);
 
   ASSERT_EQ(result.ec, error_code::none);
   EXPECT_DOUBLE_EQ(response.main.temp, 8.9);
@@ -454,8 +456,8 @@ TEST_F(WeatherServiceTest, OpenWeatherMapJsonParsing_EmptyName) {
   EXPECT_EQ(response.weather[0].description, "overcast clouds");
 }
 
-fn main(int argc, char** argv) -> int {
-  testing::InitGoogleTest(&argc, argv);
+fn main(i32 argc, char** argv) -> i32 {
+  InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
 

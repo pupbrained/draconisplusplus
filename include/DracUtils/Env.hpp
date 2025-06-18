@@ -8,7 +8,7 @@
 #include "Error.hpp"
 #include "Types.hpp"
 
-namespace drac::env {
+namespace draconis::utils::env {
   /**
    * @brief Safely retrieves an environment variable.
    * @param name  The name of the environment variable to retrieve.
@@ -65,4 +65,4 @@ namespace drac::env {
     return ptrManager.get();
   }
 #endif
-} // namespace drac::env
+} // namespace draconis::utils::env

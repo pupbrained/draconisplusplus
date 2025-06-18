@@ -1,6 +1,6 @@
 #include <filesystem> // std::filesystem::{path, temp_directory_path}
 
-#include <Drac++/Services/PackageCounting.hpp>
+#include <Drac++/Services/Packages.hpp>
 
 #include <DracUtils/Error.hpp>
 #include <DracUtils/Types.hpp>
@@ -9,19 +9,19 @@
 #include "gtest/gtest.h"
 
 using namespace testing;
-using namespace package;
-using drac::error::DracError;
-using drac::error::DracErrorCode;
-using drac::types::Err;
-using drac::types::Result;
-using drac::types::u64;
+using namespace draconis::utils::types;
+using draconis::services::packages::Manager;
+using draconis::utils::error::DracError;
+using enum draconis::utils::error::DracErrorCode;
 
+// NOLINTBEGIN(readability-identifier-naming)
 class PackageCountingMock {
  public:
-  MOCK_METHOD(Result<u64>, GetCountFromDirectory, (const drac::types::String&, const std::filesystem::path&, const drac::types::String&, bool), ());
-  MOCK_METHOD(Result<u64>, GetCountFromDb, (const drac::types::String&, const std::filesystem::path&, const drac::types::String&), ());
-  MOCK_METHOD(Result<u64>, GetTotalCount, (Manager), ());
+  MOCK_METHOD(Result<u64>, GetCountFromDirectory, (const String&, const std::filesystem::path&, const String&, bool), ());
+  MOCK_METHOD(Result<u64>, GetCountFromDb, (const String&, const std::filesystem::path&, const String&), ());
+  MOCK_METHOD(Result<u64>, GetTotalCount, (const Manager), ());
 };
+// NOLINTEND(readability-identifier-naming)
 
 class PackageCountingTest : public Test {
  protected:
@@ -29,9 +29,9 @@ class PackageCountingTest : public Test {
 };
 
 TEST_F(PackageCountingTest, GetCountFromDirectoryReturnsExpectedValue) {
-  const drac::types::String   pmId        = "test";
+  const String                pmId        = "test";
   const std::filesystem::path dirPath     = "/test/path";
-  const drac::types::String   filter      = ".pkg";
+  const String                filter      = ".pkg";
   constexpr bool              subtractOne = false;
 
   EXPECT_CALL(m_mockCounter, GetCountFromDirectory(pmId, dirPath, filter, subtractOne))
@@ -44,9 +44,9 @@ TEST_F(PackageCountingTest, GetCountFromDirectoryReturnsExpectedValue) {
 }
 
 TEST_F(PackageCountingTest, GetCountFromDbReturnsExpectedValue) {
-  const drac::types::String   pmId   = "test";
+  const String                pmId   = "test";
   const std::filesystem::path dbPath = "/test/db.sqlite";
-  const drac::types::String   query  = "SELECT COUNT(*) FROM packages";
+  const String                query  = "SELECT COUNT(*) FROM packages";
 
   EXPECT_CALL(m_mockCounter, GetCountFromDb(pmId, dbPath, query))
     .WillOnce(Return(Result<u64>(100)));
@@ -74,44 +74,44 @@ TEST_F(PackageCountingTest, GetTotalCountReturnsExpectedValue) {
 }
 
 TEST_F(PackageCountingTest, GetCountFromDirectoryReturnsErrorWhenDirectoryNotFound) {
-  const drac::types::String   pmId        = "test";
+  const String                pmId        = "test";
   const std::filesystem::path dirPath     = "/nonexistent/path";
-  const drac::types::String   filter      = ".pkg";
+  const String                filter      = ".pkg";
   constexpr bool              subtractOne = false;
 
   EXPECT_CALL(m_mockCounter, GetCountFromDirectory(pmId, dirPath, filter, subtractOne))
-    .WillOnce(Return(Err(DracError(DracErrorCode::NotFound, "Directory not found"))));
+    .WillOnce(Return(Err(DracError(NotFound, "Directory not found"))));
 
   Result<u64> result = m_mockCounter.GetCountFromDirectory(pmId, dirPath, filter, subtractOne);
 
   EXPECT_FALSE(result);
-  EXPECT_EQ(result.error().code, DracErrorCode::NotFound);
+  EXPECT_EQ(result.error().code, NotFound);
 }
 
 TEST_F(PackageCountingTest, GetCountFromDbReturnsErrorWhenDatabaseCorrupt) {
-  const drac::types::String   pmId   = "test";
+  const String                pmId   = "test";
   const std::filesystem::path dbPath = "/test/corrupt.sqlite";
-  const drac::types::String   query  = "SELECT COUNT(*) FROM packages";
+  const String                query  = "SELECT COUNT(*) FROM packages";
 
   EXPECT_CALL(m_mockCounter, GetCountFromDb(pmId, dbPath, query))
-    .WillOnce(Return(Err(DracError(DracErrorCode::ParseError, "Database is corrupt"))));
+    .WillOnce(Return(Err(DracError(ParseError, "Database is corrupt"))));
 
   Result<u64> result = m_mockCounter.GetCountFromDb(pmId, dbPath, query);
 
   EXPECT_FALSE(result);
-  EXPECT_EQ(result.error().code, DracErrorCode::ParseError);
+  EXPECT_EQ(result.error().code, ParseError);
 }
 
 TEST_F(PackageCountingTest, GetTotalCountReturnsErrorWhenNoManagersEnabled) {
   constexpr Manager enabledManagers = Manager::NONE;
 
   EXPECT_CALL(m_mockCounter, GetTotalCount(enabledManagers))
-    .WillOnce(Return(Err(DracError(DracErrorCode::InvalidArgument, "No package managers enabled"))));
+    .WillOnce(Return(Err(DracError(InvalidArgument, "No package managers enabled"))));
 
   Result<u64> result = m_mockCounter.GetTotalCount(enabledManagers);
 
   EXPECT_FALSE(result);
-  EXPECT_EQ(result.error().code, DracErrorCode::InvalidArgument);
+  EXPECT_EQ(result.error().code, InvalidArgument);
 }
 
 #ifdef __linux__
@@ -156,7 +156,7 @@ TEST_F(PackageCountingTest, WindowsPackageManagersAreAvailable) {
 }
 #endif
 
-int main(int argc, char** argv) {
-  testing::InitGoogleTest(&argc, argv);
+fn main(i32 argc, char** argv) -> i32 {
+  InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

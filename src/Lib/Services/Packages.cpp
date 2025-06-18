@@ -1,6 +1,6 @@
 #if DRAC_ENABLE_PACKAGECOUNT
 
-  #include "Drac++/Services/PackageCounting.hpp"
+  #include "Drac++/Services/Packages.hpp"
 
   #if !defined(__serenity__) && !defined(_WIN32)
     #include <SQLiteCpp/Database.h>  // SQLite::{Database, OPEN_READONLY}
@@ -26,10 +26,10 @@
 
 namespace fs = std::filesystem;
 
-using namespace drac::types;
-using drac::error::DracError;
-using enum drac::error::DracErrorCode;
-using drac::cache::GetValidCache, drac::cache::WriteCache;
+using namespace draconis::utils::types;
+using draconis::utils::error::DracError;
+using enum draconis::utils::error::DracErrorCode;
+using draconis::utils::cache::GetValidCache, draconis::utils::cache::WriteCache;
 
 namespace {
   constexpr const char* CACHE_KEY_PREFIX = "pkg_count_";
@@ -115,7 +115,7 @@ namespace {
   }
 } // namespace
 
-namespace package {
+namespace draconis::services::packages {
   fn GetCountFromDirectory(
     const String&   pmId,
     const fs::path& dirPath,
@@ -252,7 +252,7 @@ namespace package {
   #endif // __linux__ || __APPLE__
 
   fn CountCargo() -> Result<u64> {
-    using drac::env::GetEnv;
+    using draconis::utils::env::GetEnv;
 
     fs::path cargoPath {};
 
@@ -413,6 +413,6 @@ namespace package {
 
     return totalCount;
   }
-} // namespace package
+} // namespace draconis::services::packages
 
 #endif // DRAC_ENABLE_PACKAGECOUNT

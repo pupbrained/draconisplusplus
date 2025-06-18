@@ -1,21 +1,3 @@
-/**
- * @file System.hpp
- * @brief Defines the System class for querying operating system and hardware information.
- *
- * This header declares the `os::System` class, which provides a cross-platform
- * interface to retrieve a wide range of system-level data. This includes details
- * about the operating system, hardware components like CPU and GPU, resource usage
- * such as memory and disk space, and environment information like the desktop
- * environment and shell.
- *
- * The file also includes the `BytesToGiB` struct and a corresponding `std::formatter`
- * specialization to facilitate the conversion and display of byte values in gibibytes (GiB).
- *
- * Platform-specific implementations for the static methods in `os::System` are
- * defined elsewhere, allowing client code to use a single, consistent API across
- * different operating systems.
- */
-
 #pragma once
 
 #if DRAC_ENABLE_WEATHER
@@ -26,44 +8,28 @@
 #include "DracUtils/Error.hpp"
 #include "DracUtils/Types.hpp"
 
-constexpr drac::types::u64 GIB = 1'073'741'824;
-
-struct BytesToGiB {
-  drac::types::u64 value;
-
-  explicit constexpr BytesToGiB(const drac::types::u64 value)
-    : value(value) {}
-};
-
-template <>
-struct std::formatter<BytesToGiB> : std::formatter<double> {
-  fn format(const BytesToGiB& BTG, auto& ctx) const {
-    return std::format_to(ctx.out(), "{:.2f}GiB", static_cast<drac::types::f64>(BTG.value) / GIB);
-  }
-};
-
-namespace os {
+namespace draconis::core::system {
   class System {
    public:
-    drac::types::Result<drac::types::String>        date;
-    drac::types::Result<drac::types::String>        host;
-    drac::types::Result<drac::types::String>        kernelVersion;
-    drac::types::Result<drac::types::String>        osVersion;
-    drac::types::Result<drac::types::ResourceUsage> memInfo;
-    drac::types::Result<drac::types::String>        desktopEnv;
-    drac::types::Result<drac::types::String>        windowMgr;
-    drac::types::Result<drac::types::ResourceUsage> diskUsage;
-    drac::types::Result<drac::types::String>        shell;
-    drac::types::Result<drac::types::String>        cpuModel;
-    drac::types::Result<drac::types::String>        gpuModel;
+    utils::types::Result<utils::types::String>        date;
+    utils::types::Result<utils::types::String>        host;
+    utils::types::Result<utils::types::String>        kernelVersion;
+    utils::types::Result<utils::types::String>        osVersion;
+    utils::types::Result<utils::types::ResourceUsage> memInfo;
+    utils::types::Result<utils::types::String>        desktopEnv;
+    utils::types::Result<utils::types::String>        windowMgr;
+    utils::types::Result<utils::types::ResourceUsage> diskUsage;
+    utils::types::Result<utils::types::String>        shell;
+    utils::types::Result<utils::types::String>        cpuModel;
+    utils::types::Result<utils::types::String>        gpuModel;
 #if DRAC_ENABLE_PACKAGECOUNT
-    drac::types::Result<drac::types::u64> packageCount;
+    utils::types::Result<utils::types::u64> packageCount;
 #endif
 #if DRAC_ENABLE_NOWPLAYING
-    drac::types::Result<drac::types::MediaInfo> nowPlaying;
+    utils::types::Result<utils::types::MediaInfo> nowPlaying;
 #endif
 #if DRAC_ENABLE_WEATHER
-    drac::types::Result<weather::Report> weather;
+    utils::types::Result<draconis::services::weather::Report> weather;
 #endif
 
     /**
@@ -106,7 +72,7 @@ namespace os {
      * }
      * @endcode
      */
-    static fn getMemInfo() -> drac::types::Result<drac::types::ResourceUsage>;
+    static fn getMemInfo() -> utils::types::Result<utils::types::ResourceUsage>;
 
 #if DRAC_ENABLE_NOWPLAYING
     /**
@@ -142,7 +108,7 @@ namespace os {
      * }
      * @endcode
      */
-    static fn getNowPlaying() -> drac::types::Result<drac::types::MediaInfo>;
+    static fn getNowPlaying() -> utils::types::Result<utils::types::MediaInfo>;
 #endif
 
     /**
@@ -182,7 +148,7 @@ namespace os {
      * }
      * @endcode
      */
-    static fn getOSVersion() -> drac::types::Result<drac::types::String>;
+    static fn getOSVersion() -> utils::types::Result<utils::types::String>;
 
     /**
      * @brief Fetches the desktop environment.
@@ -217,7 +183,7 @@ namespace os {
      * }
      * @endcode
      */
-    static fn getDesktopEnvironment() -> drac::types::Result<drac::types::String>;
+    static fn getDesktopEnvironment() -> utils::types::Result<utils::types::String>;
 
     /**
      * @brief Fetches the window manager.
@@ -253,7 +219,7 @@ namespace os {
      * }
      * @endcode
      */
-    static fn getWindowManager() -> drac::types::Result<drac::types::String>;
+    static fn getWindowManager() -> utils::types::Result<utils::types::String>;
 
     /**
      * @brief Fetches the shell.
@@ -286,7 +252,7 @@ namespace os {
      * }
      * @endcode
      */
-    static fn getShell() -> drac::types::Result<drac::types::String>;
+    static fn getShell() -> utils::types::Result<utils::types::String>;
 
     /**
      * @brief Fetches the host.
@@ -327,7 +293,7 @@ namespace os {
      * }
      * @endcode
      */
-    static fn getHost() -> drac::types::Result<drac::types::String>;
+    static fn getHost() -> utils::types::Result<utils::types::String>;
 
     /**
      * @brief Fetches the CPU model.
@@ -362,7 +328,7 @@ namespace os {
      * }
      * @endcode
      */
-    static fn getCPUModel() -> drac::types::Result<drac::types::String>;
+    static fn getCPUModel() -> utils::types::Result<utils::types::String>;
 
     /**
      * @brief Fetches the GPU model.
@@ -395,7 +361,7 @@ namespace os {
      * }
      * @endcode
      */
-    static fn getGPUModel() -> drac::types::Result<drac::types::String>;
+    static fn getGPUModel() -> utils::types::Result<utils::types::String>;
 
     /**
      * @brief Fetches the kernel version.
@@ -430,7 +396,7 @@ namespace os {
      * }
      * @endcode
      */
-    static fn getKernelVersion() -> drac::types::Result<drac::types::String>;
+    static fn getKernelVersion() -> utils::types::Result<utils::types::String>;
 
     /**
      * @brief Fetches the disk usage.
@@ -462,6 +428,6 @@ namespace os {
      * }
      * @endcode
      */
-    static fn getDiskUsage() -> drac::types::Result<drac::types::ResourceUsage>;
+    static fn getDiskUsage() -> utils::types::Result<utils::types::ResourceUsage>;
   };
-} // namespace os
+} // namespace draconis::core::system

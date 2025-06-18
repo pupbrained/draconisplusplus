@@ -12,16 +12,16 @@
   #include "Utils/Caching.hpp"
   #include "Wrappers/Curl.hpp"
 
-using namespace drac::types;
-using drac::error::DracError;
-using enum drac::error::DracErrorCode;
-using weather::OpenWeatherMapService;
-using weather::Report;
-using weather::Unit;
+using namespace draconis::utils::types;
+using draconis::utils::error::DracError;
+using enum draconis::utils::error::DracErrorCode;
+using draconis::services::weather::OpenWeatherMapService;
+using draconis::services::weather::Report;
+using draconis::services::weather::Unit;
 
 namespace {
   fn MakeApiRequest(const String& url) -> Result<Report> {
-    using drac::types::None, drac::types::Option;
+    using draconis::utils::types::None, draconis::utils::types::Option;
     using glz::error_ctx, glz::read, glz::error_code;
 
     String responseBuffer;
@@ -42,7 +42,7 @@ namespace {
     if (Result res = curl.perform(); !res)
       return Err(res.error());
 
-    weather::dto::owm::OWMResponse owmResponse;
+    draconis::services::weather::dto::owm::OWMResponse owmResponse;
 
     if (const error_ctx errc = read<glz::opts { .error_on_unknown_keys = false }>(owmResponse, responseBuffer); errc.ec != error_code::none)
       return Err(DracError(ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer.data()))));
@@ -73,7 +73,7 @@ OpenWeatherMapService::OpenWeatherMapService(Location location, String apiKey, c
   : m_location(std::move(location)), m_apiKey(std::move(apiKey)), m_units(units) {}
 
 fn OpenWeatherMapService::getWeatherInfo() const -> Result<Report> {
-  using drac::cache::GetValidCache, drac::cache::WriteCache;
+  using draconis::utils::cache::GetValidCache, draconis::utils::cache::WriteCache;
 
   if (Result<Report> cachedDataResult = GetValidCache<Report>("weather"))
     return *cachedDataResult;

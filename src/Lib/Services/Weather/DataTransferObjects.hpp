@@ -12,15 +12,15 @@
   #include "DracUtils/Types.hpp"
 // clang-format on
 
-namespace weather::dto {
+namespace draconis::services::weather::dto {
   // MetNo Data Transfer Objects
   namespace metno {
     struct Details {
-      drac::types::f64 airTemperature;
+      draconis::utils::types::f64 airTemperature;
     };
 
     struct Next1hSummary {
-      drac::types::String symbolCode;
+      draconis::utils::types::String symbolCode;
     };
 
     struct Next1h {
@@ -32,17 +32,17 @@ namespace weather::dto {
     };
 
     struct Data {
-      Instant                     instant;
-      drac::types::Option<Next1h> next1Hours;
+      Instant                                instant;
+      draconis::utils::types::Option<Next1h> next1Hours;
     };
 
     struct Timeseries {
-      drac::types::String time;
-      Data                data;
+      draconis::utils::types::String time;
+      Data                           data;
     };
 
     struct Properties {
-      drac::types::Vec<Timeseries> timeseries;
+      draconis::utils::types::Vec<Timeseries> timeseries;
     };
 
     struct Response {
@@ -54,9 +54,9 @@ namespace weather::dto {
   namespace openmeteo {
     struct Response {
       struct Current {
-        drac::types::f64    temperature;
-        drac::types::i32    weathercode;
-        drac::types::String time;
+        draconis::utils::types::f64    temperature;
+        draconis::utils::types::i32    weathercode;
+        draconis::utils::types::String time;
       } currentWeather;
     };
   } // namespace openmeteo
@@ -65,90 +65,90 @@ namespace weather::dto {
   namespace owm {
     struct OWMResponse {
       struct Main {
-        drac::types::f64 temp;
+        draconis::utils::types::f64 temp;
       };
 
       struct Weather {
-        drac::types::String description;
+        draconis::utils::types::String description;
       };
 
-      Main                                     main;
-      drac::types::Vec<Weather>                weather;
-      drac::types::String                      name;
-      drac::types::i64                         dt;
-      drac::types::Option<drac::types::i32>    cod;
-      drac::types::Option<drac::types::String> message;
+      Main                                                           main;
+      draconis::utils::types::Vec<Weather>                           weather;
+      draconis::utils::types::String                                 name;
+      draconis::utils::types::i64                                    dt;
+      draconis::utils::types::Option<draconis::utils::types::i32>    cod;
+      draconis::utils::types::Option<draconis::utils::types::String> message;
     };
   } // namespace owm
-} // namespace weather::dto
+} // namespace draconis::services::weather::dto
 
 namespace glz {
   // MetNo Glaze meta definitions
   template <>
-  struct meta<weather::dto::metno::Details> {
-    static constexpr detail::Object value = object("air_temperature", &weather::dto::metno::Details::airTemperature);
+  struct meta<draconis::services::weather::dto::metno::Details> {
+    static constexpr detail::Object value = object("air_temperature", &draconis::services::weather::dto::metno::Details::airTemperature);
   };
 
   template <>
-  struct meta<weather::dto::metno::Next1hSummary> {
-    static constexpr detail::Object value = object("symbol_code", &weather::dto::metno::Next1hSummary::symbolCode);
+  struct meta<draconis::services::weather::dto::metno::Next1hSummary> {
+    static constexpr detail::Object value = object("symbol_code", &draconis::services::weather::dto::metno::Next1hSummary::symbolCode);
   };
 
   template <>
-  struct meta<weather::dto::metno::Next1h> {
-    static constexpr detail::Object value = object("summary", &weather::dto::metno::Next1h::summary);
+  struct meta<draconis::services::weather::dto::metno::Next1h> {
+    static constexpr detail::Object value = object("summary", &draconis::services::weather::dto::metno::Next1h::summary);
   };
 
   template <>
-  struct meta<weather::dto::metno::Instant> {
-    static constexpr detail::Object value = object("details", &weather::dto::metno::Instant::details);
+  struct meta<draconis::services::weather::dto::metno::Instant> {
+    static constexpr detail::Object value = object("details", &draconis::services::weather::dto::metno::Instant::details);
   };
 
   template <>
-  struct meta<weather::dto::metno::Data> {
-    static constexpr detail::Object value = object("instant", &weather::dto::metno::Data::instant, "next_1_hours", &weather::dto::metno::Data::next1Hours);
+  struct meta<draconis::services::weather::dto::metno::Data> {
+    static constexpr detail::Object value = object("instant", &draconis::services::weather::dto::metno::Data::instant, "next_1_hours", &draconis::services::weather::dto::metno::Data::next1Hours);
   };
 
   template <>
-  struct meta<weather::dto::metno::Timeseries> {
-    static constexpr detail::Object value = object("time", &weather::dto::metno::Timeseries::time, "data", &weather::dto::metno::Timeseries::data);
+  struct meta<draconis::services::weather::dto::metno::Timeseries> {
+    static constexpr detail::Object value = object("time", &draconis::services::weather::dto::metno::Timeseries::time, "data", &draconis::services::weather::dto::metno::Timeseries::data);
   };
 
   template <>
-  struct meta<weather::dto::metno::Properties> {
-    static constexpr detail::Object value = object("timeseries", &weather::dto::metno::Properties::timeseries);
+  struct meta<draconis::services::weather::dto::metno::Properties> {
+    static constexpr detail::Object value = object("timeseries", &draconis::services::weather::dto::metno::Properties::timeseries);
   };
 
   template <>
-  struct meta<weather::dto::metno::Response> {
-    static constexpr detail::Object value = object("properties", &weather::dto::metno::Response::properties);
+  struct meta<draconis::services::weather::dto::metno::Response> {
+    static constexpr detail::Object value = object("properties", &draconis::services::weather::dto::metno::Response::properties);
   };
 
   // OpenMeteo Glaze meta definitions
   template <>
-  struct meta<weather::dto::openmeteo::Response::Current> {
-    static constexpr detail::Object value = object("temperature", &weather::dto::openmeteo::Response::Current::temperature, "weathercode", &weather::dto::openmeteo::Response::Current::weathercode, "time", &weather::dto::openmeteo::Response::Current::time);
+  struct meta<draconis::services::weather::dto::openmeteo::Response::Current> {
+    static constexpr detail::Object value = object("temperature", &draconis::services::weather::dto::openmeteo::Response::Current::temperature, "weathercode", &draconis::services::weather::dto::openmeteo::Response::Current::weathercode, "time", &draconis::services::weather::dto::openmeteo::Response::Current::time);
   };
 
   template <>
-  struct meta<weather::dto::openmeteo::Response> {
-    static constexpr detail::Object value = object("current_weather", &weather::dto::openmeteo::Response::currentWeather);
+  struct meta<draconis::services::weather::dto::openmeteo::Response> {
+    static constexpr detail::Object value = object("current_weather", &draconis::services::weather::dto::openmeteo::Response::currentWeather);
   };
 
   // OpenWeatherMap Glaze meta definitions
   template <>
-  struct meta<weather::dto::owm::OWMResponse::Main> {
-    static constexpr detail::Object value = object("temp", &weather::dto::owm::OWMResponse::Main::temp);
+  struct meta<draconis::services::weather::dto::owm::OWMResponse::Main> {
+    static constexpr detail::Object value = object("temp", &draconis::services::weather::dto::owm::OWMResponse::Main::temp);
   };
 
   template <>
-  struct meta<weather::dto::owm::OWMResponse::Weather> {
-    static constexpr detail::Object value = object("description", &weather::dto::owm::OWMResponse::Weather::description);
+  struct meta<draconis::services::weather::dto::owm::OWMResponse::Weather> {
+    static constexpr detail::Object value = object("description", &draconis::services::weather::dto::owm::OWMResponse::Weather::description);
   };
 
   template <>
-  struct meta<weather::dto::owm::OWMResponse> {
-    static constexpr detail::Object value = object("main", &weather::dto::owm::OWMResponse::main, "weather", &weather::dto::owm::OWMResponse::weather, "name", &weather::dto::owm::OWMResponse::name, "dt", &weather::dto::owm::OWMResponse::dt, "cod", &weather::dto::owm::OWMResponse::cod, "message", &weather::dto::owm::OWMResponse::message);
+  struct meta<draconis::services::weather::dto::owm::OWMResponse> {
+    static constexpr detail::Object value = object("main", &draconis::services::weather::dto::owm::OWMResponse::main, "weather", &draconis::services::weather::dto::owm::OWMResponse::weather, "name", &draconis::services::weather::dto::owm::OWMResponse::name, "dt", &draconis::services::weather::dto::owm::OWMResponse::dt, "cod", &draconis::services::weather::dto::owm::OWMResponse::cod, "message", &draconis::services::weather::dto::owm::OWMResponse::message);
   };
 } // namespace glz
 

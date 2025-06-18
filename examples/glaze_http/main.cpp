@@ -25,8 +25,10 @@
 #include <DracUtils/Logging.hpp>
 #include <DracUtils/Types.hpp>
 
-using namespace drac::types;
-using drac::error::DracError;
+using namespace draconis::utils::types;
+using namespace draconis::services::weather;
+using draconis::utils::error::DracError;
+using enum draconis::utils::error::DracErrorCode;
 
 namespace {
   constexpr i16 port = 3722;
@@ -34,12 +36,12 @@ namespace {
   struct State {
 #if DRAC_ENABLE_WEATHER
     mutable struct WeatherCache {
-      std::optional<Result<weather::Report>> report;
-      std::chrono::steady_clock::time_point  lastChecked;
-      mutable std::mutex                     mtx;
+      std::optional<Result<Report>>         report;
+      std::chrono::steady_clock::time_point lastChecked;
+      mutable std::mutex                    mtx;
     } weatherCache;
 
-    mutable UniquePointer<weather::IWeatherService> weatherService;
+    mutable UniquePointer<IWeatherService> weatherService;
 #endif
   };
 
@@ -153,8 +155,6 @@ fn main() -> i32 {
 
 #if DRAC_ENABLE_WEATHER
   {
-    using namespace weather;
-
     GetState().weatherService = CreateWeatherService(Provider::METNO, Coords(40.71427, -74.00597), Unit::IMPERIAL);
 
     if (!GetState().weatherService)
@@ -173,9 +173,10 @@ fn main() -> i32 {
     SystemInfo sysInfo;
 
     {
-      using os::System;
+      using draconis::core::system::System;
       using matchit::impl::Overload;
-      using enum drac::error::DracErrorCode;
+      using draconis::utils::logging::BytesToGiB;
+      using enum draconis::utils::error::DracErrorCode;
 
       fn addProperty = Overload {
         [&](const String& name, const Result<String>& result) -> void {
@@ -201,7 +202,7 @@ fn main() -> i32 {
         },
 #endif
 #if DRAC_ENABLE_WEATHER
-        [&](const String& name, const Result<weather::Report>& result) -> void {
+        [&](const String& name, const Result<Report>& result) -> void {
           if (result)
             sysInfo.properties.emplace_back(name, std::format("{}°F, {}", std::lround(result->temperature), result->description));
           else if (result.error().code == NotFound)
@@ -227,7 +228,6 @@ fn main() -> i32 {
 #endif
 #if DRAC_ENABLE_WEATHER
       {
-        using namespace weather;
         using namespace std::chrono;
 
         Result<Report> weatherResultToAdd;

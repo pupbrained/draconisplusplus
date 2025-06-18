@@ -152,109 +152,111 @@ Config::Config(const toml::table& tbl) {
 }
 #endif // DRAC_PRECOMPILED_CONFIG
 
-fn Config::getInstance() -> Config {
+namespace draconis::config {
+  fn Config::getInstance() -> Config {
 #if DRAC_PRECOMPILED_CONFIG
-  using namespace config;
+    using namespace draconis::config;
 
-  Config cfg;
-  cfg.general.name = DRAC_USERNAME;
+    Config cfg;
+    cfg.general.name = DRAC_USERNAME;
 
   #if DRAC_ENABLE_WEATHER
-  using namespace weather;
-  using enum weather::Provider;
+    using namespace draconis::services::weather;
+    using enum draconis::services::weather::Provider;
 
-  cfg.weather.enabled      = true;
-  cfg.weather.apiKey       = DRAC_API_KEY;
-  cfg.weather.showTownName = DRAC_SHOW_TOWN_NAME;
-  cfg.weather.units        = DRAC_WEATHER_UNIT;
-  cfg.weather.location     = DRAC_LOCATION;
+    cfg.weather.enabled      = true;
+    cfg.weather.apiKey       = DRAC_API_KEY;
+    cfg.weather.showTownName = DRAC_SHOW_TOWN_NAME;
+    cfg.weather.units        = DRAC_WEATHER_UNIT;
+    cfg.weather.location     = DRAC_LOCATION;
 
-  if constexpr (DRAC_WEATHER_PROVIDER == OPENWEATHERMAP) {
-    if (!cfg.weather.apiKey) {
-      error_log("OpenWeatherMap requires an API key.");
-      cfg.weather.enabled = false;
-    }
-
-    cfg.weather.service = CreateWeatherService(
-      OPENWEATHERMAP,
-      config::DRAC_LOCATION,
-      *cfg.weather.apiKey,
-      cfg.weather.units
-    );
-  } else if constexpr (DRAC_WEATHER_PROVIDER == OPENMETEO) {
-    if (std::holds_alternative<Coords>(DRAC_LOCATION)) {
-      const auto& coords = std::get<Coords>(DRAC_LOCATION);
+    if constexpr (DRAC_WEATHER_PROVIDER == OPENWEATHERMAP) {
+      if (!cfg.weather.apiKey) {
+        error_log("OpenWeatherMap requires an API key.");
+        cfg.weather.enabled = false;
+      }
 
       cfg.weather.service = CreateWeatherService(
-        OPENMETEO,
-        coords,
-        cfg.weather.units
+        OPENWEATHERMAP,
+        DRAC_LOCATION,
+        cfg.weather.units,
+        cfg.weather.apiKey
       );
+    } else if constexpr (DRAC_WEATHER_PROVIDER == OPENMETEO) {
+      if (std::holds_alternative<Coords>(DRAC_LOCATION)) {
+        const auto& coords = std::get<Coords>(DRAC_LOCATION);
+
+        cfg.weather.service = CreateWeatherService(
+          OPENMETEO,
+          coords,
+          cfg.weather.units
+        );
+      } else {
+        error_log("Precompiled OpenMeteo requires coordinates, but DRAC_LOCATION is not Coords.");
+        cfg.weather.enabled = false;
+      }
+    } else if constexpr (DRAC_WEATHER_PROVIDER == METNO) {
+      if (std::holds_alternative<Coords>(DRAC_LOCATION)) {
+        const auto& coords = std::get<Coords>(DRAC_LOCATION);
+
+        cfg.weather.service = CreateWeatherService(
+          METNO,
+          coords,
+          cfg.weather.units
+        );
+      } else {
+        error_log("Precompiled MetNo requires coordinates, but DRAC_LOCATION is not Coords.");
+        cfg.weather.enabled = false;
+      }
     } else {
-      error_log("Precompiled OpenMeteo requires coordinates, but DRAC_LOCATION is not Coords.");
+      error_log("Unknown precompiled weather provider specified in DRAC_WEATHER_PROVIDER.");
       cfg.weather.enabled = false;
     }
-  } else if constexpr (DRAC_WEATHER_PROVIDER == METNO) {
-    if (std::holds_alternative<Coords>(DRAC_LOCATION)) {
-      const auto& coords = std::get<Coords>(DRAC_LOCATION);
 
-      cfg.weather.service = CreateWeatherService(
-        METNO,
-        coords,
-        cfg.weather.units
-      );
-    } else {
-      error_log("Precompiled MetNo requires coordinates, but DRAC_LOCATION is not Coords.");
+    if (cfg.weather.enabled && !cfg.weather.service) {
+      error_log("Failed to initialize precompiled weather service for the configured provider.");
       cfg.weather.enabled = false;
     }
-  } else {
-    error_log("Unknown precompiled weather provider specified in DRAC_WEATHER_PROVIDER.");
-    cfg.weather.enabled = false;
-  }
-
-  if (cfg.weather.enabled && !cfg.weather.service) {
-    error_log("Failed to initialize precompiled weather service for the configured provider.");
-    cfg.weather.enabled = false;
-  }
   #endif // DRAC_ENABLE_WEATHER
 
   #if DRAC_ENABLE_PACKAGECOUNT
-  cfg.enabledPackageManagers = config::DRAC_ENABLED_PACKAGE_MANAGERS;
+    cfg.enabledPackageManagers = config::DRAC_ENABLED_PACKAGE_MANAGERS;
   #endif
 
   #if DRAC_ENABLE_NOWPLAYING
-  cfg.nowPlaying.enabled = true;
+    cfg.nowPlaying.enabled = true;
   #endif
 
-  debug_log("Using precompiled configuration.");
-  return cfg;
+    debug_log("Using precompiled configuration.");
+    return cfg;
 #else
-  try {
-    const fs::path configPath = GetConfigPath();
+    try {
+      const fs::path configPath = GetConfigPath();
 
-    std::error_code errc;
+      std::error_code errc;
 
-    const bool exists = fs::exists(configPath, errc);
+      const bool exists = fs::exists(configPath, errc);
 
-    if (!exists) {
-      info_log("Config file not found at {}, creating defaults.", configPath.string());
+      if (!exists) {
+        info_log("Config file not found at {}, creating defaults.", configPath.string());
 
-      if (!CreateDefaultConfig(configPath)) {
-        return {};
+        if (!CreateDefaultConfig(configPath)) {
+          return {};
+        }
       }
+
+      const toml::table parsedConfig = toml::parse_file(configPath.string());
+
+      debug_log("Config loaded from {}", configPath.string());
+
+      return Config(parsedConfig);
+    } catch (const Exception& e) {
+      debug_log("Config loading failed: {}, using defaults", e.what());
+      return {};
+    } catch (...) {
+      error_log("An unexpected error occurred during config loading. Using in-memory defaults.");
+      return {};
     }
-
-    const toml::table parsedConfig = toml::parse_file(configPath.string());
-
-    debug_log("Config loaded from {}", configPath.string());
-
-    return Config(parsedConfig);
-  } catch (const Exception& e) {
-    debug_log("Config loading failed: {}, using defaults", e.what());
-    return {};
-  } catch (...) {
-    error_log("An unexpected error occurred during config loading. Using in-memory defaults.");
-    return {};
-  }
 #endif // DRAC_PRECOMPILED_CONFIG
-}
+  }
+} // namespace draconis::config

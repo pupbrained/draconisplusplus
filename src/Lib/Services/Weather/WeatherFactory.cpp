@@ -1,3 +1,5 @@
+#include <utility>
+
 #include "Drac++/Services/Weather.hpp"
 
 #include "DracUtils/Types.hpp"
@@ -6,24 +8,22 @@
 #include "Services/Weather/OpenMeteoService.hpp"
 #include "Services/Weather/OpenWeatherMapService.hpp"
 
-namespace weather {
-  fn CreateWeatherService(const Provider provider, const Location& location, const drac::types::String& apiKey, Unit units) -> drac::types::UniquePointer<IWeatherService> {
+using namespace draconis::utils::types;
+
+namespace draconis::services::weather {
+  fn CreateWeatherService(const Provider provider, const Location& location, Unit units, const Option<String>& apiKey) -> UniquePointer<IWeatherService> {
+    assert(provider == Provider::OPENWEATHERMAP || provider == Provider::OPENMETEO || provider == Provider::METNO);
+    assert(apiKey.has_value() || provider != Provider::OPENWEATHERMAP);
+
     switch (provider) {
       case Provider::OPENWEATHERMAP:
-        return std::make_unique<OpenWeatherMapService>(location, apiKey, units);
-      default:
-        return nullptr;
-    }
-  }
-
-  fn CreateWeatherService(const Provider provider, const Coords& coords, Unit units) -> drac::types::UniquePointer<IWeatherService> {
-    switch (provider) {
+        return std::make_unique<OpenWeatherMapService>(std::get<String>(location), *apiKey, units);
       case Provider::OPENMETEO:
-        return std::make_unique<OpenMeteoService>(coords.lat, coords.lon, units);
+        return std::make_unique<OpenMeteoService>(std::get<Coords>(location).lat, std::get<Coords>(location).lon, units);
       case Provider::METNO:
-        return std::make_unique<MetNoService>(coords.lat, coords.lon, units);
+        return std::make_unique<MetNoService>(std::get<Coords>(location).lat, std::get<Coords>(location).lon, units);
       default:
-        return nullptr;
+        std::unreachable();
     }
   }
-} // namespace weather
+} // namespace draconis::services::weather

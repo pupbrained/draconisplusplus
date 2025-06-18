@@ -7,33 +7,33 @@
   #include "DracUtils/Error.hpp"
   #include "DracUtils/Types.hpp"
 
-namespace weather::utils {
+namespace draconis::services::weather::utils {
   /**
    * @brief Strips time-of-day suffixes (_day, _night, _polartwilight) from a weather symbol code.
    * @param symbol The weather symbol code.
    * @return The symbol code without the time-of-day suffix.
    */
-  fn StripTimeOfDayFromSymbol(drac::types::StringView symbol) -> drac::types::String;
+  fn StripTimeOfDayFromSymbol(draconis::utils::types::StringView symbol) -> draconis::utils::types::String;
 
   /**
    * @brief Parses an ISO8601 timestamp string (YYYY-MM-DDTHH:MM:SSZ) to a Unix epoch timestamp.
    * @param iso8601 The ISO8601 timestamp string (must be UTC, ending in 'Z').
    * @return A Result containing the epoch timestamp (usize) on success, or a DracError on failure.
    */
-  fn ParseIso8601ToEpoch(drac::types::StringView iso8601) -> drac::types::Result<time_t>;
+  fn ParseIso8601ToEpoch(draconis::utils::types::StringView iso8601) -> draconis::utils::types::Result<time_t>;
 
   /**
    * @brief Provides a mapping from MetNo weather symbol codes (after time-of-day stripping) to human-readable descriptions.
    * @return A const reference to an unordered_map of symbol codes to descriptions.
    */
-  fn GetMetnoSymbolDescriptions() -> const std::unordered_map<drac::types::StringView, drac::types::StringView>&;
+  fn GetMetnoSymbolDescriptions() -> const std::unordered_map<draconis::utils::types::StringView, draconis::utils::types::StringView>&;
 
   /**
    * @brief Provides a human-readable description for an OpenMeteo weather code.
    * @param code The OpenMeteo weather code (integer).
    * @return A StringView containing the description. Returns "unknown" if the code is not recognized.
    */
-  fn GetOpenmeteoWeatherDescription(drac::types::i32 code) -> drac::types::String;
-} // namespace weather::utils
+  fn GetOpenmeteoWeatherDescription(draconis::utils::types::i32 code) -> draconis::utils::types::String;
+} // namespace draconis::services::weather::utils
 
 #endif // DRAC_ENABLE_WEATHER

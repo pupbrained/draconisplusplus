@@ -2,7 +2,7 @@
 #include <chrono>    // std::chrono::{duration_cast, seconds, steady_clock, time_point}
 
 #include <Drac++/Core/System.hpp>
-#include <Drac++/Services/PackageCounting.hpp>
+#include <Drac++/Services/Packages.hpp>
 
 #include <DracUtils/Error.hpp>
 #include <DracUtils/Logging.hpp>
@@ -22,9 +22,9 @@
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
-using namespace drac::types;
-using drac::error::DracError;
-using enum drac::error::DracErrorCode;
+using namespace draconis::utils::types;
+using draconis::utils::error::DracError;
+using enum draconis::utils::error::DracErrorCode;
 
 namespace {
   fn cleanupSwapChain(const vk::Device device, Vec<vk::ImageView>& swapChainImageViews, const vk::CommandPool commandPool, Vec<vk::CommandBuffer>& commandBuffers) -> void {
@@ -413,21 +413,24 @@ fn main() -> i32 {
 
     if (const std::chrono::time_point now = std::chrono::steady_clock::now();
         std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdateTime).count() >= 1) {
-      host          = os::System::getHost();
-      kernelVersion = os::System::getKernelVersion();
-      osVersion     = os::System::getOSVersion();
-      cpuModel      = os::System::getCPUModel();
-      gpuModel      = os::System::getGPUModel();
-      memInfo       = os::System::getMemInfo();
-      desktopEnv    = os::System::getDesktopEnvironment();
-      windowMgr     = os::System::getWindowManager();
-      diskUsage     = os::System::getDiskUsage();
-      shell         = os::System::getShell();
+      using draconis::core::system::System;
+      using namespace draconis::services::packages;
+
+      host          = System::getHost();
+      kernelVersion = System::getKernelVersion();
+      osVersion     = System::getOSVersion();
+      cpuModel      = System::getCPUModel();
+      gpuModel      = System::getGPUModel();
+      memInfo       = System::getMemInfo();
+      desktopEnv    = System::getDesktopEnvironment();
+      windowMgr     = System::getWindowManager();
+      diskUsage     = System::getDiskUsage();
+      shell         = System::getShell();
 #if DRAC_ENABLE_PACKAGECOUNT
-      packageCount = package::GetTotalCount(package::Manager::CARGO);
+      packageCount = GetTotalCount(Manager::CARGO);
 #endif
 #if DRAC_ENABLE_NOWPLAYING
-      nowPlaying = os::System::getNowPlaying();
+      nowPlaying = System::getNowPlaying();
 #endif
       lastUpdateTime = now;
     }
@@ -461,6 +464,8 @@ fn main() -> i32 {
     ImGui::NewFrame();
     ImGui::Begin("Draconis++");
     {
+      using draconis::utils::logging::BytesToGiB;
+
       ImGui::TextUnformatted(std::format("Host: {}", host.value_or("N/A")).c_str());
       ImGui::TextUnformatted(std::format("Kernel: {}", kernelVersion.value_or("N/A")).c_str());
       ImGui::TextUnformatted(std::format("OS: {}", osVersion.value_or("N/A")).c_str());
@@ -488,7 +493,7 @@ fn main() -> i32 {
 
 #if DRAC_ENABLE_NOWPLAYING
       if (nowPlaying) {
-        const drac::types::MediaInfo& nowPlayingInfo = *nowPlaying;
+        const MediaInfo& nowPlayingInfo = *nowPlaying;
         ImGui::TextUnformatted(std::format("Now Playing: {} - {}", nowPlayingInfo.artist.value_or("N/A"), nowPlayingInfo.title.value_or("N/A")).c_str());
       } else
         ImGui::TextUnformatted("Now Playing: N/A");
@@ -517,7 +522,7 @@ fn main() -> i32 {
 
     ImGui::Render();
 
-    vk::ResultValue<u32> acquireResult = device.acquireNextImageKHR(swapChain, std::numeric_limits<drac::types::u64>::max(), VK_NULL_HANDLE, VK_NULL_HANDLE);
+    vk::ResultValue<u32> acquireResult = device.acquireNextImageKHR(swapChain, std::numeric_limits<u64>::max(), VK_NULL_HANDLE, VK_NULL_HANDLE);
 
     if (acquireResult.result == vk::Result::eErrorOutOfDateKHR) {
       if (Result<> result = recreateSwapChain(

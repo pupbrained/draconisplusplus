@@ -5,10 +5,11 @@
 
 #include "gtest/gtest.h"
 
-using namespace drac::logging;
-using namespace drac::types;
+using namespace testing;
+using draconis::utils::logging::LogLevelConst, draconis::utils::logging::Colorize, draconis::utils::logging::Bold, draconis::utils::logging::Italic;
+using draconis::utils::types::String, draconis::utils::types::StringView, draconis::utils::types::i32;
 
-class LoggingUtilsTest : public testing::Test {};
+class LoggingUtilsTest : public Test {};
 
 TEST_F(LoggingUtilsTest, Colorize_RedText) {
   constexpr StringView              textToColorize = "Hello, Red World!";
@@ -112,6 +113,6 @@ TEST_F(LoggingUtilsTest, Combined_BoldItalicRedText) {
 }
 
 fn main(i32 argc, char** argv) -> i32 {
-  testing::InitGoogleTest(&argc, argv);
+  InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

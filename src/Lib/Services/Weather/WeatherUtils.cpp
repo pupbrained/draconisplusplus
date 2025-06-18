@@ -10,11 +10,11 @@
     #define _DEFAULT_SOURCE // exposes timegm
   #endif
 
-using namespace drac::types;
-using drac::error::DracError;
-using enum drac::error::DracErrorCode;
+using namespace draconis::utils::types;
+using draconis::utils::error::DracError;
+using enum draconis::utils::error::DracErrorCode;
 
-namespace weather::utils {
+namespace draconis::services::weather::utils {
   fn StripTimeOfDayFromSymbol(const StringView symbol) -> String {
     static constexpr Array<StringView, 3> SUFFIXES = { "_day", "_night", "_polartwilight" };
 
@@ -168,6 +168,6 @@ namespace weather::utils {
     return "unknown";
   }
 
-} // namespace weather::utils
+} // namespace draconis::services::weather::utils
 
 #endif // DRAC_ENABLE_WEATHER

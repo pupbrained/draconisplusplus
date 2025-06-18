@@ -1,12 +1,12 @@
-#include <Drac++/Core/System.hpp>
-
+#include <DracUtils/Logging.hpp>
 #include <DracUtils/Types.hpp>
 
 #include "gtest/gtest.h"
 
-using drac::types::String, drac::types::i32;
+using namespace testing;
+using draconis::utils::types::String, draconis::utils::types::i32, draconis::utils::logging::BytesToGiB;
 
-class CoreTypesTest : public testing::Test {};
+class CoreTypesTest : public Test {};
 
 TEST_F(CoreTypesTest, BytesToGiB_ZeroBytes) {
   BytesToGiB   dataSize(0);
@@ -61,6 +61,6 @@ TEST_F(CoreTypesTest, BytesToGiB_RoundingNearBoundary) {
 }
 
 fn main(i32 argc, char** argv) -> i32 {
-  testing::InitGoogleTest(&argc, argv);
+  InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

@@ -4,7 +4,7 @@
 lib_base_sources = []
 
 if get_option('enable_packagecount') == true
-  lib_base_sources += files('Services/PackageCounting.cpp')
+  lib_base_sources += files('Services/Packages.cpp')
 endif
 
 if get_option('enable_weather') == true

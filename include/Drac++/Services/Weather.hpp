@@ -10,12 +10,12 @@
   #include "DracUtils/Error.hpp"
   #include "DracUtils/Types.hpp"
 
-namespace weather {
+namespace draconis::services::weather {
   /**
    * @brief Specifies the weather service provider.
    * @see config::DRAC_WEATHER_PROVIDER in `config(.example).hpp`.
    */
-  enum class Provider : drac::types::u8 {
+  enum class Provider : utils::types::u8 {
     OPENWEATHERMAP, ///< OpenWeatherMap API. Requires an API key. @see config::DRAC_API_KEY
     OPENMETEO,      ///< OpenMeteo API. Does not require an API key.
     METNO,          ///< Met.no API. Does not require an API key.
@@ -25,7 +25,7 @@ namespace weather {
    * @brief Specifies the unit system for weather information.
    * @see config::DRAC_WEATHER_UNIT in `config(.example).hpp`.
    */
-  enum class Unit : drac::types::u8 {
+  enum class Unit : utils::types::u8 {
     METRIC,   ///< Metric units (Celsius, kph, etc.).
     IMPERIAL, ///< Imperial units (Fahrenheit, mph, etc.).
   };
@@ -37,17 +37,17 @@ namespace weather {
    * Contains temperature, conditions, and timestamp.
    */
   struct Report {
-    drac::types::f64                         temperature; ///< Degrees (C/F)
-    drac::types::Option<drac::types::String> name;        ///< Optional town/city name (may be missing for some providers)
-    drac::types::String                      description; ///< Weather description (e.g., "clear sky", "rain")
+    utils::types::f64                          temperature; ///< Degrees (C/F)
+    utils::types::Option<utils::types::String> name;        ///< Optional town/city name (may be missing for some providers)
+    utils::types::String                       description; ///< Weather description (e.g., "clear sky", "rain")
   };
 
   struct Coords {
-    drac::types::f64 lat;
-    drac::types::f64 lon;
+    utils::types::f64 lat;
+    utils::types::f64 lon;
   };
 
-  using Location = std::variant<drac::types::String, Coords>;
+  using Location = std::variant<utils::types::String, Coords>;
 
   class IWeatherService {
    public:
@@ -59,19 +59,18 @@ namespace weather {
 
     virtual ~IWeatherService() = default;
 
-    [[nodiscard]] virtual fn getWeatherInfo() const -> drac::types::Result<Report> = 0;
+    [[nodiscard]] virtual fn getWeatherInfo() const -> utils::types::Result<Report> = 0;
 
    protected:
     IWeatherService() = default;
   };
 
-  fn CreateWeatherService(Provider provider, const Location& location, const drac::types::String& apiKey, Unit units) -> drac::types::UniquePointer<IWeatherService>;
-  fn CreateWeatherService(Provider provider, const Coords& coords, Unit units) -> drac::types::UniquePointer<IWeatherService>;
-} // namespace weather
+  fn CreateWeatherService(Provider provider, const Location& location, Unit units, const utils::types::Option<utils::types::String>& apiKey = utils::types::None) -> utils::types::UniquePointer<IWeatherService>;
+} // namespace draconis::services::weather
 
 template <>
-struct glz::meta<weather::Report> {
-  using T = weather::Report;
+struct glz::meta<draconis::services::weather::Report> {
+  using T = draconis::services::weather::Report;
 
   // clang-format off
   static constexpr detail::Object value = object(
@@ -83,15 +82,15 @@ struct glz::meta<weather::Report> {
 }; // namespace glz
 
 template <>
-struct std::formatter<weather::Unit> {
+struct std::formatter<draconis::services::weather::Unit> {
   static constexpr auto parse(std::format_parse_context& ctx) {
     return ctx.begin();
   }
 
-  static fn format(weather::Unit unit, std::format_context& ctx) {
+  static fn format(draconis::services::weather::Unit unit, std::format_context& ctx) {
     using matchit::match, matchit::is, matchit::_;
 
-    return std::format_to(ctx.out(), "{}", match(unit)(is | weather::Unit::METRIC = "metric", is | weather::Unit::IMPERIAL = "imperial"));
+    return std::format_to(ctx.out(), "{}", match(unit)(is | draconis::services::weather::Unit::METRIC = "metric", is | draconis::services::weather::Unit::IMPERIAL = "imperial"));
   }
 };
 

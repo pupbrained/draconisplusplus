@@ -21,7 +21,7 @@
 #include <utility>     // std::pair (Pair)
 #include <vector>      // std::vector (Vec)
 
-namespace drac::types {
+namespace draconis::utils::types {
   /**
    * @brief Alias for std::uint8_t.
    *
@@ -274,4 +274,4 @@ namespace drac::types {
     MediaInfo(Option<String> title, Option<String> artist)
       : title(std::move(title)), artist(std::move(artist)) {}
   };
-} // namespace drac::types
+} // namespace draconis::utils::types

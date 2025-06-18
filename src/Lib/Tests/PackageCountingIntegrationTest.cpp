@@ -1,7 +1,7 @@
 #include <filesystem> // std::filesystem::{create_directories, path, remove_all, temp_directory_path}
 #include <fstream>    // std::ofstream
 
-#include <Drac++/Services/PackageCounting.hpp>
+#include <Drac++/Services/Packages.hpp>
 
 #include <DracUtils/Error.hpp>
 #include <DracUtils/Types.hpp>
@@ -9,9 +9,9 @@
 #include "gtest/gtest.h"
 
 using namespace testing;
-using namespace package;
-using drac::error::DracErrorCode;
-using drac::types::Result, drac::types::String, drac::types::u64;
+using namespace draconis::services::packages;
+using draconis::utils::error::DracErrorCode;
+using draconis::utils::types::Result, draconis::utils::types::String, draconis::utils::types::u64, draconis::utils::types::i32;
 
 namespace fs = std::filesystem;
 
@@ -40,7 +40,7 @@ class PackageCountingIntegrationTest : public Test {
 };
 
 TEST_F(PackageCountingIntegrationTest, GetCountFromDirectory_EmptyDirectory) {
-  const auto result = package::GetCountFromDirectory("test", mTestDir);
+  const auto result = GetCountFromDirectory("test", mTestDir);
   EXPECT_TRUE(result);
   EXPECT_EQ(*result, 0);
 }
@@ -50,7 +50,7 @@ TEST_F(PackageCountingIntegrationTest, GetCountFromDirectory_WithFiles) {
   CreateTestFile(mTestDir / "file2.txt");
   CreateTestFile(mTestDir / "file3.txt");
 
-  const auto result = package::GetCountFromDirectory("test_files", mTestDir);
+  const auto result = GetCountFromDirectory("test_files", mTestDir);
   EXPECT_TRUE(result);
   EXPECT_EQ(*result, 3);
 }
@@ -62,7 +62,7 @@ TEST_F(PackageCountingIntegrationTest, GetCountFromDirectory_WithFilter) {
   CreateTestFile(mTestDir / "file1.dat");
   CreateTestFile(mTestDir / "file2.dat");
 
-  const auto result = package::GetCountFromDirectory("test_filter", mTestDir, String(".txt"));
+  const auto result = GetCountFromDirectory("test_filter", mTestDir, String(".txt"));
   EXPECT_TRUE(result);
   EXPECT_EQ(*result, 3);
 }
@@ -72,19 +72,19 @@ TEST_F(PackageCountingIntegrationTest, GetCountFromDirectory_WithSubtractOne) {
   CreateTestFile(mTestDir / "file2.txt");
   CreateTestFile(mTestDir / "file3.txt");
 
-  const auto result = package::GetCountFromDirectory("test_subtract", mTestDir, true);
+  const auto result = GetCountFromDirectory("test_subtract", mTestDir, true);
   EXPECT_TRUE(result);
   EXPECT_EQ(*result, 2);
 }
 
 TEST_F(PackageCountingIntegrationTest, GetCountFromDirectory_NonexistentDirectory) {
-  const auto result = package::GetCountFromDirectory("test_nonexistent", mTestDir / "nonexistent");
+  const auto result = GetCountFromDirectory("test_nonexistent", mTestDir / "nonexistent");
   EXPECT_FALSE(result);
   EXPECT_EQ(result.error().code, DracErrorCode::NotFound);
 }
 
 TEST_F(PackageCountingIntegrationTest, GetTotalCount_NoManagers) {
-  const auto result = package::GetTotalCount(static_cast<package::Manager>(0));
+  const auto result = GetTotalCount(static_cast<Manager>(0));
   EXPECT_FALSE(result);
   EXPECT_EQ(result.error().code, DracErrorCode::NotFound);
 }
@@ -140,7 +140,7 @@ TEST_F(PackageCountingIntegrationTest, GetTotalCount_WindowsManagers) {
 }
 #endif
 
-int main(int argc, char** argv) {
-  testing::InitGoogleTest(&argc, argv);
+fn main(i32 argc, char** argv) -> i32 {
+  InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }

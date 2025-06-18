@@ -7,9 +7,9 @@
 #include <DracUtils/Types.hpp>
 
 using namespace ftxui;
-using namespace drac::types;
+using namespace draconis::utils::types;
 
-namespace ui {
+namespace draconis::ui {
   constexpr Theme DEFAULT_THEME = {
     .icon   = Color::Cyan,
     .label  = Color::Yellow,
@@ -173,7 +173,7 @@ namespace ui {
     }
   } // namespace
 
-  fn CreateUI(const Config& config, const os::System& data) -> Element {
+  fn CreateUI(const config::Config& config, const core::system::System& data) -> Element {
     const String& name = config.general.name;
 
     // clang-format off
@@ -216,7 +216,7 @@ namespace ui {
     if (config.weather.enabled && data.weather) {
       const auto& [temperature, name, description] = *data.weather;
 
-      CStr tempUnit = config.weather.units == weather::Unit::METRIC ? "C" : "F";
+      CStr tempUnit = config.weather.units == services::weather::Unit::METRIC ? "C" : "F";
 
       initialRows.push_back(
         {
@@ -253,7 +253,7 @@ namespace ui {
         {
           .icon  = memoryIcon,
           .label = "RAM",
-          .value = std::format("{}/{}", BytesToGiB(data.memInfo->usedBytes), BytesToGiB(data.memInfo->totalBytes)),
+          .value = std::format("{}/{}", utils::logging::BytesToGiB(data.memInfo->usedBytes), utils::logging::BytesToGiB(data.memInfo->totalBytes)),
         }
       );
 
@@ -262,7 +262,7 @@ namespace ui {
         {
           .icon  = diskIcon,
           .label = "Disk",
-          .value = std::format("{}/{}", BytesToGiB(data.diskUsage->usedBytes), BytesToGiB(data.diskUsage->totalBytes)),
+          .value = std::format("{}/{}", utils::logging::BytesToGiB(data.diskUsage->usedBytes), utils::logging::BytesToGiB(data.diskUsage->totalBytes)),
         }
       );
 
@@ -434,4 +434,4 @@ namespace ui {
 
     return hbox({ vbox(content) | borderRounded | color(Color::White), filler() });
   }
-} // namespace ui
+} // namespace draconis::ui

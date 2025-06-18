@@ -6,17 +6,17 @@
 
   #include "DracUtils/Types.hpp"
 
-namespace weather {
+namespace draconis::services::weather {
   class OpenWeatherMapService final : public IWeatherService {
    public:
-    OpenWeatherMapService(Location location, drac::types::String apiKey, Unit units);
-    fn getWeatherInfo() const -> drac::types::Result<Report> override;
+    OpenWeatherMapService(Location location, utils::types::String apiKey, Unit units);
+    fn getWeatherInfo() const -> utils::types::Result<Report> override;
 
    private:
-    Location            m_location;
-    drac::types::String m_apiKey;
-    Unit                m_units;
+    Location             m_location;
+    utils::types::String m_apiKey;
+    Unit                 m_units;
   };
-} // namespace weather
+} // namespace draconis::services::weather
 
 #endif // DRAC_ENABLE_WEATHER
