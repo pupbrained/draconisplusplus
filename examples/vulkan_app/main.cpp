@@ -464,8 +464,6 @@ fn main() -> i32 {
     ImGui::NewFrame();
     ImGui::Begin("Draconis++");
     {
-      using draconis::utils::logging::BytesToGiB;
-
       ImGui::TextUnformatted(std::format("Host: {}", host.value_or("N/A")).c_str());
       ImGui::TextUnformatted(std::format("Kernel: {}", kernelVersion.value_or("N/A")).c_str());
       ImGui::TextUnformatted(std::format("OS: {}", osVersion.value_or("N/A")).c_str());

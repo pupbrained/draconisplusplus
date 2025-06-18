@@ -56,7 +56,7 @@ namespace draconis::config {
 
       return GetUserNameA(username.data(), &size) ? username.data() : "User";
 #else
-      using draconis::env::GetEnv;
+      using draconis::utils::env::GetEnv;
       using draconis::utils::types::CStr, draconis::utils::types::String, draconis::utils::types::Result;
 
       const passwd*        pwd        = getpwuid(getuid());

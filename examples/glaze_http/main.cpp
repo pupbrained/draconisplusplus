@@ -36,9 +36,9 @@ using enum draconis::utils::error::DracErrorCode;
 namespace fs = std::filesystem;
 
 namespace {
-  constexpr i16  port    = 3722;
-  constexpr CStr index   = "examples/glaze_http/web/index.mustache";
-  constexpr CStr styling = "examples/glaze_http/web/style.css";
+  constexpr i16  port        = 3722;
+  constexpr CStr indexFile   = "examples/glaze_http/web/index.mustache";
+  constexpr CStr stylingFile = "examples/glaze_http/web/style.css";
 
   struct State {
 #if DRAC_ENABLE_WEATHER
@@ -64,8 +64,8 @@ namespace {
   }
 
   fn get_latest_web_files_write_time() -> std::filesystem::file_time_type {
-    fs::file_time_type tp1 = fs::exists(index) ? fs::last_write_time(index) : fs::file_time_type::min();
-    fs::file_time_type tp2 = fs::exists(styling) ? fs::last_write_time(styling) : fs::file_time_type::min();
+    fs::file_time_type tp1 = fs::exists(indexFile) ? fs::last_write_time(indexFile) : fs::file_time_type::min();
+    fs::file_time_type tp2 = fs::exists(stylingFile) ? fs::last_write_time(stylingFile) : fs::file_time_type::min();
 
     return std::max(tp1, tp2);
   }
@@ -86,7 +86,6 @@ namespace {
 
     return result;
   }
-
 } // namespace
 
 struct SystemProperty {
@@ -152,13 +151,13 @@ fn main() -> i32 {
 
     fs::file_time_type timePoint = GetState().hotReloading.lastWriteTime;
 
-    res.body(std::to_string(timePoint.time_since_epoch().count()));
+    res.body(std::format("{}", timePoint.time_since_epoch().count()));
   });
 
   server.get("/style.css", [](const glz::request& req, glz::response& res) {
     info_log("Handling request for style.css from {}", req.remote_ip);
 
-    Result<String> result = readFile(styling);
+    Result<String> result = readFile(stylingFile);
 
     if (result)
       res.header("Content-Type", "text/css; charset=utf-8")
@@ -180,7 +179,6 @@ fn main() -> i32 {
     {
       using draconis::core::system::System;
       using matchit::impl::Overload;
-      using draconis::utils::logging::BytesToGiB;
       using enum draconis::utils::error::DracErrorCode;
 
       fn addProperty = Overload {
@@ -272,7 +270,7 @@ fn main() -> i32 {
 #endif
     }
 
-    Result<String> htmlTemplate = readFile(index);
+    Result<String> htmlTemplate = readFile(indexFile);
 
     if (!htmlTemplate) {
       error_log("Failed to read HTML template: {}", htmlTemplate.error().message);

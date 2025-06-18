@@ -4,7 +4,7 @@
 #include "gtest/gtest.h"
 
 using namespace testing;
-using draconis::utils::types::String, draconis::utils::types::i32, draconis::utils::logging::BytesToGiB;
+using draconis::utils::types::String, draconis::utils::types::i32, draconis::utils::types::BytesToGiB;
 
 class CoreTypesTest : public Test {};
 

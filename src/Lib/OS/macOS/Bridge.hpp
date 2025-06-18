@@ -6,9 +6,15 @@
   #include <DracUtils/Error.hpp>
   #include <DracUtils/Types.hpp>
 
-namespace os::bridge {
-  fn GetNowPlayingInfo() -> drac::types::Result<drac::types::MediaInfo>;
-  fn GetGPUModel() -> drac::types::Result<drac::types::String>;
-} // namespace os::bridge
+namespace draconis::core::system::macOS::bridge {
+  namespace {
+    using draconis::utils::types::MediaInfo;
+    using draconis::utils::types::Result;
+    using draconis::utils::types::String;
+  } // namespace
+
+  fn GetNowPlayingInfo() -> Result<MediaInfo>;
+  fn GetGPUModel() -> Result<String>;
+} // namespace draconis::core::system::macOS::bridge
 
 #endif

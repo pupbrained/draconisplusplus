@@ -8,14 +8,14 @@
 
   #include <DracUtils/Error.hpp>
 
-using namespace drac::types;
-using drac::error::DracError;
-using enum drac::error::DracErrorCode;
+using namespace draconis::utils::types;
+using draconis::utils::error::DracError;
+using enum draconis::utils::error::DracErrorCode;
 
 using MRMediaRemoteGetNowPlayingInfoFunction =
   void (*)(dispatch_queue_t queue, void (^handler)(NSDictionary* information));
 
-namespace os::bridge {
+namespace draconis::core::system::macOS::bridge {
   fn GetNowPlayingInfo() -> Result<MediaInfo> {
     @autoreleasepool {
       CFURLRef urlRef = CFURLCreateWithFileSystemPath(
@@ -86,6 +86,6 @@ namespace os::bridge {
       return [gpuName UTF8String];
     }
   }
-} // namespace os::bridge
+} // namespace draconis::core::system::macOS::bridge
 
 #endif

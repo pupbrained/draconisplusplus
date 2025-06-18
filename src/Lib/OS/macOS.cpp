@@ -11,7 +11,7 @@
   #include <sys/sysctl.h>                    // {CTL_KERN, KERN_PROC, KERN_PROC_ALL, kinfo_proc, sysctl, sysctlbyname}
 
   #include <Drac++/Core/System.hpp>
-  #include <Drac++/Services/PackageCounting.hpp>
+  #include <Drac++/Services/Packages.hpp>
 
   #include <DracUtils/Definitions.hpp>
   #include <DracUtils/Env.hpp>
@@ -21,10 +21,10 @@
   #include "OS/macOS/Bridge.hpp"
   #include "Utils/Caching.hpp"
 
-using namespace drac::types;
-using drac::cache::GetValidCache, drac::cache::WriteCache;
-using drac::env::GetEnv;
-using drac::error::DracError, drac::error::DracErrorCode;
+using namespace draconis::utils::types;
+using draconis::utils::cache::GetValidCache, draconis::utils::cache::WriteCache;
+using draconis::utils::env::GetEnv;
+using draconis::utils::error::DracError, draconis::utils::error::DracErrorCode;
 
 namespace {
   fn StrEqualsIgnoreCase(StringView strA, StringView strB) -> bool {
@@ -44,7 +44,7 @@ namespace {
   }
 } // namespace
 
-namespace os {
+namespace draconis::core::system {
   fn System::getMemInfo() -> Result<ResourceUsage> {
     static mach_port_t HostPort = mach_host_self();
     static vm_size_t   PageSize = 0;
@@ -75,7 +75,7 @@ namespace os {
   }
 
   fn System::getNowPlaying() -> Result<MediaInfo> {
-    return bridge::GetNowPlayingInfo();
+    return macOS::bridge::GetNowPlayingInfo();
   }
 
   fn System::getOSVersion() -> Result<String> {
@@ -463,7 +463,7 @@ namespace os {
     if (Result<String> cachedGPU = GetValidCache<String>(cacheKey))
       return *cachedGPU;
 
-    const Result<String> gpuModel = bridge::GetGPUModel();
+    const Result<String> gpuModel = macOS::bridge::GetGPUModel();
 
     if (!gpuModel)
       return Err(DracError("Failed to get GPU model"));
@@ -510,10 +510,10 @@ namespace os {
 
     return Err(DracError(DracErrorCode::NotFound, "Could not find SHELL environment variable"));
   }
-} // namespace os
+} // namespace draconis::core::system
 
   #if DRAC_ENABLE_PACKAGECOUNT
-namespace package {
+namespace draconis::services::packages {
   namespace fs = std::filesystem;
 
   fn GetHomebrewCount() -> Result<u64> {
@@ -564,7 +564,7 @@ namespace package {
   fn GetMacPortsCount() -> Result<u64> {
     return GetCountFromDb("macports", "/opt/local/var/macports/registry/registry.db", "SELECT COUNT(*) FROM ports WHERE state='installed';");
   }
-} // namespace package
+} // namespace draconis::services::packages
   #endif
 
 #endif
