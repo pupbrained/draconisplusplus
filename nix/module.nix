@@ -36,7 +36,7 @@ with lib; let
       #endif
 
       #if DRAC_ENABLE_PACKAGECOUNT
-        #include <Drac++/Services/PackageCounting.hpp>
+        #include <Drac++/Services/Packages.hpp>
       #endif
 
       namespace config {
