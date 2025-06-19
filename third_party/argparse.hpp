@@ -10,8 +10,6 @@
  * Supports both positional and optional arguments, subcommands, and more.
  */
 
-#pragma once
-
 /*
  *   __ _ _ __ __ _ _ __   __ _ _ __ ___  ___
  *  / _` | '__/ _` | '_ \ / _` | '__/ __|/ _ \ Argument Parser for Modern C++
@@ -41,6 +39,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE  OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+
+#pragma once
 
 #include <cassert>
 #include <cerrno>
