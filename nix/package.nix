@@ -66,35 +66,41 @@
       version = "0.1.0";
       src = self;
 
-      nativeBuildInputs = with pkgs; [
-        cmake
-        meson
-        ninja
-        pkg-config
-        xxd
-      ];
+      nativeBuildInputs = with pkgs;
+        [
+          cmake
+          meson
+          ninja
+          pkg-config
+        ]
+        ++ (pkgs.lib.optionals stdenv.isLinux [
+          objcopy
+          xxd
+        ]);
 
       buildInputs = deps;
 
       mesonFlags = [
         "-Dbuild_examples=false"
-        "-Duse_linked_pci_ids=true"
+        (pkgs.lib.optionalString stdenv.isLinux "-Duse_linked_pci_ids=true")
       ];
 
       configurePhase = ''
         meson setup build --buildtype=release $mesonFlags
       '';
 
-      buildPhase = ''
-        cp ${pkgs.pciutils}/share/pci.ids pci.ids
-        chmod +w pci.ids
-        objcopy -I binary -O default pci.ids pci_ids.o
-        rm pci.ids
+      buildPhase =
+        pkgs.lib.optionalString stdenv.isLinux ''
+          cp ${pkgs.pciutils}/share/pci.ids pci.ids
+          chmod +w pci.ids
+          objcopy -I binary -O default pci.ids pci_ids.o
+          rm pci.ids
 
-        export LDFLAGS="$LDFLAGS $PWD/pci_ids.o"
-
-        meson compile -C build
-      '';
+          export LDFLAGS="$LDFLAGS $PWD/pci_ids.o"
+        ''
+        + ''
+          meson compile -C build
+        '';
 
       checkPhase = ''
         meson test -C build --print-errorlogs
