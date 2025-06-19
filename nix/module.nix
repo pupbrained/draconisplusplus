@@ -43,15 +43,15 @@ with lib; let
         constexpr const char* DRAC_USERNAME = "${cfg.username}";
 
         #if DRAC_ENABLE_WEATHER
-        constexpr weather::Provider DRAC_WEATHER_PROVIDER = weather::Provider::${lib.toUpper cfg.weatherProvider};
-        constexpr weather::Unit DRAC_WEATHER_UNIT = weather::Unit::${lib.toUpper cfg.weatherUnit};
+        constexpr services::weather::Provider DRAC_WEATHER_PROVIDER = services::weather::Provider::${lib.toUpper cfg.weatherProvider};
+        constexpr services::weather::Unit DRAC_WEATHER_UNIT = services::weather::Unit::${lib.toUpper cfg.weatherUnit};
         constexpr bool DRAC_SHOW_TOWN_NAME = ${toString cfg.showTownName};
         constexpr std::optional<std::string> DRAC_API_KEY = ${apiKey};
-        constexpr weather::Location DRAC_LOCATION = ${location};
+        constexpr services::weather::Location DRAC_LOCATION = ${location};
         #endif
 
         #if DRAC_ENABLE_PACKAGECOUNT
-        constexpr package::Manager DRAC_ENABLED_PACKAGE_MANAGERS = ${builtins.concatStringsSep " | " (map (pkg: "package::Manager::" + lib.toUpper pkg) cfg.packageManagers)};
+        constexpr services::packages::Manager DRAC_ENABLED_PACKAGE_MANAGERS = ${builtins.concatStringsSep " | " (map (pkg: "services::package::Manager::" + lib.toUpper pkg) cfg.packageManagers)};
         #endif
       }
 
