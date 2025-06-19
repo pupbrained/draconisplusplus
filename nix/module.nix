@@ -20,7 +20,7 @@ with lib; let
     if isAttrs cfg.location
     then
       # cpp
-      "weather::Coords { .lat = ${toString cfg.location.lat}, .lon = ${toString cfg.location.lon} }"
+      "services::weather::Coords { .lat = ${toString cfg.location.lat}, .lon = ${toString cfg.location.lon} }"
     else "${cfg.location}";
 
   configHpp =
