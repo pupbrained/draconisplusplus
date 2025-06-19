@@ -51,7 +51,7 @@ with lib; let
         #endif
 
         #if DRAC_ENABLE_PACKAGECOUNT
-        constexpr services::packages::Manager DRAC_ENABLED_PACKAGE_MANAGERS = ${builtins.concatStringsSep " | " (map (pkg: "services::package::Manager::" + lib.toUpper pkg) cfg.packageManagers)};
+        constexpr services::packages::Manager DRAC_ENABLED_PACKAGE_MANAGERS = ${builtins.concatStringsSep " | " (map (pkg: "services::packages::Manager::" + lib.toUpper pkg) cfg.packageManagers)};
         #endif
       }
 
