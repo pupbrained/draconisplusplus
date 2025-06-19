@@ -39,7 +39,7 @@ with lib; let
         #include <Drac++/Services/Packages.hpp>
       #endif
 
-      namespace config {
+      namespace draconis::config {
         constexpr const char* DRAC_USERNAME = "${cfg.username}";
 
         #if DRAC_ENABLE_WEATHER
