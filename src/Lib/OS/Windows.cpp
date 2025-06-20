@@ -1,7 +1,7 @@
 /**
- * @file      Windows.cpp
- * @author    pupbrained (mars@pupbrained.dev)
- * @brief     Provides the Windows-specific implementation of the System class for system information retrieval.
+ * @file   Windows.cpp
+ * @author pupbrained (mars@pupbrained.dev)
+ * @brief  Provides the Windows-specific implementation of the System class for system information retrieval.
  *
  * @details This file contains the concrete implementation of the System class interface for the
  * Microsoft Windows platform. It retrieves a wide range of system information by
@@ -12,7 +12,8 @@
  * - Windows Runtime (WinRT) for modern OS details, media controls, and WinGet packages.
  *
  * To optimize performance, the implementation caches process snapshots and registry
- * handles.
+ * handles. We use wide strings for all string operations to avoid the overhead of
+ * converting between UTF-8 and UTF-16 until the final result is needed.
  *
  * @see draconis::core::system::System
  */
@@ -22,6 +23,7 @@
   #include <dwmapi.h>                               // DwmIsCompositionEnabled
   #include <dxgi.h>                                 // IDXGIFactory, IDXGIAdapter, DXGI_ADAPTER_DESC
   #include <tlhelp32.h>                             // CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS
+  #include <winerror.h>                             // DXGI_ERROR_NOT_FOUND, ERROR_FILE_NOT_FOUND, ERROR_SUCCESS, FAILED, SUCCEEDED
   #include <winrt/Windows.Foundation.Collections.h> // winrt::Windows::Foundation::Collections::Map
   #include <winrt/Windows.Management.Deployment.h>  // winrt::Windows::Management::Deployment::PackageManager
   #include <winrt/Windows.Media.Control.h>          // winrt::Windows::Media::Control::MediaProperties
@@ -34,6 +36,8 @@
   #include "Drac++/Core/System.hpp"
 
   #include "DracUtils/Env.hpp"
+  #include "DracUtils/Error.hpp"
+  #include "DracUtils/Logging.hpp"
 
   #include "Utils/Caching.hpp"
 
@@ -42,358 +46,374 @@ namespace {
   using enum draconis::utils::error::DracErrorCode;
   using namespace draconis::utils::types;
 
-  // Display names for Windows 10 and 11
-  constexpr const wchar_t* WINDOWS_10 = L"Windows 10";
-  constexpr const wchar_t* WINDOWS_11 = L"Windows 11";
+  namespace constants {
+    // Registry keys for Windows version information
+    constexpr const wchar_t* PRODUCT_NAME    = L"ProductName";
+    constexpr const wchar_t* DISPLAY_VERSION = L"DisplayVersion";
+    constexpr const wchar_t* SYSTEM_FAMILY   = L"SystemFamily";
 
-  // Registry keys for Windows version information
-  constexpr const wchar_t* PRODUCT_NAME    = L"ProductName";
-  constexpr const wchar_t* DISPLAY_VERSION = L"DisplayVersion";
-  constexpr const wchar_t* SYSTEM_FAMILY   = L"SystemFamily";
+    // clang-format off
+    constexpr Array<Pair<StringView, StringView>, 5> windowsShellMap = {{
+      {       "cmd",      "Command Prompt" },
+      {  "powershell",        "PowerShell" },
+      {        "pwsh",   "PowerShell Core" },
+      {          "wt",  "Windows Terminal" },
+      {    "explorer",  "Windows Explorer" },
+    }};
 
-  // clang-format off
-  // Shell map for Windows
-  constexpr Array<Pair<StringView, StringView>, 5> windowsShellMap = {{
-    {        "cmd",   "Command Prompt" },
-    { "powershell",       "PowerShell" },
-    {       "pwsh",  "PowerShell Core" },
-    {         "wt", "Windows Terminal" },
-    {   "explorer", "Windows Explorer" },
-  }};
+    constexpr Array<Pair<StringView, StringView>, 7> msysShellMap = {{
+      {  "bash",        "Bash" },
+      {   "zsh",         "Zsh" },
+      {  "fish",        "Fish" },
+      {    "sh",          "sh" },
+      {   "ksh",   "KornShell" },
+      {  "tcsh",        "tcsh" },
+      {  "dash",        "dash" },
+    }};
+    // clang-format on
 
-  // Shell map for MSYS2
-  constexpr Array<Pair<StringView, StringView>, 7> msysShellMap = {{
-    { "bash",      "Bash" },
-    {  "zsh",       "Zsh" },
-    { "fish",      "Fish" },
-    {   "sh",        "sh" },
-    {  "ksh", "KornShell" },
-    { "tcsh",      "tcsh" },
-    { "dash",      "dash" },
-  }};
-  // clang-format on
+  } // namespace constants
 
-  // Convert a wide string to a UTF-8 string
-  [[nodiscard]] fn ConvertWStringToUTF8(const std::wstring& wstr) -> String {
-    if (wstr.empty())
-      return {};
+  namespace helpers {
+    fn ConvertWStringToUTF8(const std::wstring& wstr) -> Result<String> {
+      // Likely best to just return an empty string if we get an empty wide string.
+      if (wstr.empty())
+        return String {};
 
-    const int requiredSize = WideCharToMultiByte(
-      CP_UTF8,
-      0,
-      wstr.c_str(),
-      static_cast<int>(wstr.length()),
-      nullptr,
-      0,
-      nullptr,
-      nullptr
-    );
+      // We first need to call WideCharToMultiByte to get the buffer size.
+      const i32 sizeNeeded = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), static_cast<int>(wstr.length()), nullptr, 0, nullptr, nullptr);
+      if (sizeNeeded == 0)
+        return Err(DracError(PlatformSpecific, std::format("Failed to get buffer size for UTF-8 conversion. Error code: {}", GetLastError())));
 
-    if (requiredSize == 0)
-      return {};
+      // Then make the buffer using that size...
+      String result(sizeNeeded, 0);
 
-    String result(requiredSize, '\0');
+      // ...and finally call WideCharToMultiByte again to convert the wide string to UTF-8.
+      const i32 bytesConverted = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), static_cast<int>(wstr.length()), result.data(), sizeNeeded, nullptr, nullptr);
+      if (bytesConverted == 0)
+        return Err(DracError(PlatformSpecific, std::format("Failed to convert wide string to UTF-8. Error code: {}", GetLastError())));
 
-    const int bytesConverted = WideCharToMultiByte(
-      CP_UTF8,
-      0,
-      wstr.c_str(),
-      static_cast<int>(wstr.length()),
-      result.data(),
-      requiredSize,
-      nullptr,
-      nullptr
-    );
-
-    if (bytesConverted == 0)
-      return {};
-
-    return result;
-  }
-
-  /**
-   * @brief A thread-local buffer for Windows Registry API calls.
-   * @details This avoids repeated heap allocations within functions that query the
-   * registry, such as `GetRegistryValue`. It is defined as `thread_local` to ensure
-   * thread safety without requiring mutexes.
-   */
-  constexpr thread_local struct RegistryBuffer {
-    mutable Array<wchar_t, 1024> data {};
-  } registryBuffer;
-
-  /**
-   * @brief Holds essential data for a single process in the process tree.
-   * @details Used by the `ProcessTreeCache` to store a simplified view of each
-   * process, containing only the information needed for shell detection.
-   */
-  struct ProcessData {
-    DWORD  parentPid = 0;    ///< The process ID of the parent process.
-    String baseExeNameLower; ///< The lowercase executable name without path or extension.
-  };
-
-  /**
-   * @brief A singleton cache for frequently used Windows Registry keys.
-   * @details This class opens handles to common registry keys upon first use and
-   * keeps them open for the lifetime of the application. This avoids the overhead
-   * of repeatedly calling `RegOpenKeyEx` and `RegCloseKey`. The destructor ensures
-   * that the handles are properly closed on exit (RAII).
-   */
-  class RegistryCache {
-   private:
-    HKEY m_currentVersionKey = nullptr; ///< The handle to the current version key.
-    HKEY m_hardwareConfigKey = nullptr; ///< The handle to the hardware config key.
-
-    /**
-     * @brief Opens the current version and hardware config keys.
-     * @details This constructor opens the current version and hardware config keys,
-     * and stores the handles in the class.
-     */
-    RegistryCache() {
-      if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", 0, KEY_READ, &m_currentVersionKey) != ERROR_SUCCESS)
-        m_currentVersionKey = nullptr;
-      if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, R"(SYSTEM\HardwareConfig\Current)", 0, KEY_READ, &m_hardwareConfigKey) != ERROR_SUCCESS)
-        m_hardwareConfigKey = nullptr;
+      return result;
     }
 
-    /**
-     * @brief Closes the current version and hardware config keys.
-     * @details This destructor closes the current version and hardware config keys,
-     * and stores the handles in the class.
-     */
-    ~RegistryCache() {
-      if (m_currentVersionKey)
-        RegCloseKey(m_currentVersionKey);
-      if (m_hardwareConfigKey)
-        RegCloseKey(m_hardwareConfigKey);
+    fn GetDirCount(const std::wstring_view path) -> Result<u64> {
+      // Create mutable copy and append wildcard.
+      std::wstring searchPath(path);
+      searchPath.append(L"\\*");
+
+      // Used to receive information about the found file or directory.
+      WIN32_FIND_DATAW findData;
+
+      // Begin searching for files and directories.
+      HANDLE hFind = FindFirstFileW(searchPath.c_str(), &findData);
+
+      if (hFind == INVALID_HANDLE_VALUE) {
+        if (GetLastError() == ERROR_FILE_NOT_FOUND)
+          return 0;
+
+        return Err(DracError(PlatformSpecific, "FindFirstFileW failed"));
+      }
+
+      u64 count = 0;
+
+      while (hFind != INVALID_HANDLE_VALUE) {
+        // Only increment if the found item is:
+        // 1. a directory
+        // 2. not a special directory (".", "..")
+        if ((findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && (wcscmp(findData.cFileName, L".") != 0 && wcscmp(findData.cFileName, L"..") != 0))
+          count++;
+
+        // Continue searching for more files and directories.
+        if (!FindNextFileW(hFind, &findData))
+          break;
+      }
+
+      // Ensure that the handle is closed to avoid leaks.
+      FindClose(hFind);
+
+      return count;
     }
 
-   public:
-    /**
-     * @brief Gets the instance of the RegistryCache class.
-     * @details This function returns the instance of the RegistryCache class.
-     */
-    static fn getInstance() -> RegistryCache& {
-      static RegistryCache Instance;
-      return Instance;
+    // Reads a registry value into a wstring.
+    fn GetRegistryValue(const HKEY& hKey, const std::wstring& valueName) -> Result<std::wstring> {
+      // Buffer for storing the registry value. Should be large enough to hold most values.
+      Array<wchar_t, 1024> registryBuffer {};
+
+      // Size of the buffer in bytes.
+      DWORD dataSizeInBytes = registryBuffer.size() * sizeof(wchar_t);
+
+      // Stores the type of the registry value.
+      DWORD type = 0;
+
+      // Query the registry value.
+      // NOLINTNEXTLINE(*-pro-type-reinterpret-cast) - reinterpret_cast is required to convert the buffer to a byte array.
+      const LSTATUS status = RegQueryValueExW(hKey, valueName.c_str(), nullptr, &type, reinterpret_cast<LPBYTE>(registryBuffer.data()), &dataSizeInBytes);
+
+      if (status != ERROR_SUCCESS) {
+        if (status == ERROR_FILE_NOT_FOUND)
+          return Err(DracError(NotFound, "Registry value not found"));
+
+        return Err(DracError(PlatformSpecific, "RegQueryValueExW failed with error code: " + std::to_string(status)));
+      }
+
+      // Ensure the retrieved value is a string.
+      if (type == REG_SZ || type == REG_EXPAND_SZ)
+        return std::wstring(registryBuffer.data());
+
+      return Err(DracError(ParseError, "Registry value exists but is not a string type. Type is: " + std::to_string(type)));
     }
 
-    /**
-     * @brief Gets the handle to the current version key.
-     * @details This function returns the handle to the current version key.
-     */
-    fn getCurrentVersionKey() const -> HKEY {
-      return m_currentVersionKey;
-    }
+  } // namespace helpers
 
-    /**
-     * @brief Gets the handle to the hardware config key.
-     * @details This function returns the handle to the hardware config key.
-     */
-    fn getHardwareConfigKey() const -> HKEY {
-      return m_hardwareConfigKey;
-    }
+  namespace cache {
+    class RegistryCache {
+     private:
+      HKEY m_currentVersionKey = nullptr;
+      HKEY m_hardwareConfigKey = nullptr;
 
-    RegistryCache(const RegistryCache&)                = delete;
-    RegistryCache(RegistryCache&&)                     = delete;
-    fn operator=(const RegistryCache&)->RegistryCache& = delete;
-    fn operator=(RegistryCache&&)->RegistryCache&      = delete;
-  };
+      RegistryCache() {
+        if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", 0, KEY_READ, &m_currentVersionKey) != ERROR_SUCCESS)
+          m_currentVersionKey = nullptr;
 
-  /**
-   * @brief A singleton cache for a snapshot of the system's process tree.
-   * @details This class creates a complete snapshot of all running processes on
-   * its first use (`initialize()`). It stores a simplified map of process data,
-   * allowing for efficient and repeated lookups of parent processes without needing
-   * to re-query the OS each time. This is primarily used for finding the user's shell.
-   */
-  class ProcessTreeCache {
-   private:
-    std::unordered_map<DWORD, ProcessData> m_processMap;          ///< The map of processes.
-    bool                                   m_initialized = false; ///< Whether the process tree cache has been initialized.
+        if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, R"(SYSTEM\HardwareConfig\Current)", 0, KEY_READ, &m_hardwareConfigKey) != ERROR_SUCCESS)
+          m_hardwareConfigKey = nullptr;
+      }
 
-    ProcessTreeCache() = default;
+      ~RegistryCache() {
+        if (m_currentVersionKey)
+          RegCloseKey(m_currentVersionKey);
 
-   public:
-    ~ProcessTreeCache() = default;
+        if (m_hardwareConfigKey)
+          RegCloseKey(m_hardwareConfigKey);
+      }
 
-    /**
-     * @brief Gets the instance of the ProcessTreeCache class.
-     * @details This function returns the instance of the ProcessTreeCache class.
-     */
-    static fn getInstance() -> ProcessTreeCache& {
-      static ProcessTreeCache Instance;
-      return Instance;
-    }
+     public:
+      static fn getInstance() -> RegistryCache& {
+        static RegistryCache Instance;
+        return Instance;
+      }
 
-    /**
-     * @brief Initializes the process tree cache.
-     * @details This function initializes the process tree cache,
-     * and stores the handles in the class.
-     */
-    fn initialize() -> void {
-      if (m_initialized)
-        return;
+      fn getCurrentVersionKey() const -> HKEY {
+        return m_currentVersionKey;
+      }
 
-      HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-      if (hSnap == INVALID_HANDLE_VALUE)
-        return;
+      fn getHardwareConfigKey() const -> HKEY {
+        return m_hardwareConfigKey;
+      }
 
-      PROCESSENTRY32W pe32;
-      pe32.dwSize = sizeof(PROCESSENTRY32W);
+      RegistryCache(const RegistryCache&)                = delete;
+      RegistryCache(RegistryCache&&)                     = delete;
+      fn operator=(const RegistryCache&)->RegistryCache& = delete;
+      fn operator=(RegistryCache&&)->RegistryCache&      = delete;
+    };
 
-      for (BOOL ok = Process32FirstW(hSnap, &pe32); ok; ok = Process32NextW(hSnap, &pe32)) {
-        const wchar_t* const baseNamePtr = wcsrchr(pe32.szExeFile, L'\\');
+    class OsVersionCache {
+     private:
+      struct VersionData {
+        u32 majorVersion;
+        u32 minorVersion;
+        u32 buildNumber;
+      };
 
-        const std::wstring_view exeName = (baseNamePtr == nullptr)
-          ? std::wstring_view(pe32.szExeFile)
-          : std::wstring_view(baseNamePtr).substr(1);
+      Result<VersionData> m_versionData;
 
-        Array<wchar_t, MAX_PATH> tempBaseName {};
-        wcsncpy_s(tempBaseName.data(), tempBaseName.size(), exeName.data(), exeName.size());
+      // Fetching version data from KUSER_SHARED_DATA is the fastest way to get the version information.
+      // It also avoids the need for a system call or registry access. The biggest downside, though, is
+      // that it's inherently risky/unsafe, and could break in future updates. To mitigate this risk,
+      // this constructor uses SEH (__try/__except) to handle potential exceptions and safely error out.
+      OsVersionCache() {
+        // KUSER_SHARED_DATA is a block of memory shared between the kernel and user-mode
+        // processes. This address has not changed since its inception. It SHOULD always
+        // contain data for the running Windows version.
+        constexpr ULONG_PTR kuserSharedData = 0x7FFE0000;
 
-        _wcslwr_s(tempBaseName.data(), tempBaseName.size());
+        // These offsets should also be static/consistent across different versions of Windows.
+        constexpr u32 kuserSharedNtMajorVersion = kuserSharedData + 0x26C;
+        constexpr u32 kuserSharedNtMinorVersion = kuserSharedData + 0x270;
+        constexpr u32 kuserSharedNtBuildNumber  = kuserSharedData + 0x260;
 
-        if (std::wstring_view view(tempBaseName.data()); view.ends_with(L".exe")) {
-          Span<wchar_t, MAX_PATH> bufferSpan(tempBaseName.data(), tempBaseName.size());
-          bufferSpan[view.length() - 4] = L'\0';
+        // Considering this file is windows-specific, it's fine to use windows-specific extensions.
+  #pragma clang diagnostic push
+  #pragma clang diagnostic ignored "-Wlanguage-extension-token"
+        // Use Structured Exception Handling (SEH) to safely read the version data. In case of invalid
+        // pointers, this will catch the access violation and return an Error, instead of crashing.
+        __try {
+          // Read the version data directly from the calculated memory addresses.
+          // - reinterpret_cast is required to cast the memory addresses to volatile pointers.
+          // - `volatile` tells the compiler that these memory reads should not be optimized away.
+          m_versionData = VersionData {
+            // NOLINTBEGIN(*-pro-type-reinterpret-cast, *-no-int-to-ptr)
+            .majorVersion = *reinterpret_cast<const volatile u32*>(kuserSharedNtMajorVersion),
+            .minorVersion = *reinterpret_cast<const volatile u32*>(kuserSharedNtMinorVersion),
+            .buildNumber  = *reinterpret_cast<const volatile u32*>(kuserSharedNtBuildNumber)
+            // NOLINTEND(*-pro-type-reinterpret-cast, *-no-int-to-ptr)
+          };
+        } __except (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
+          // If an access violation occurs, then the shared memory couldn't be properly read.
+          // Set the version data to an error instead of crashing.
+          m_versionData = Err(DracError(PlatformSpecific, "Failed to read kernel version from KUSER_SHARED_DATA"));
+        }
+  #pragma clang diagnostic pop
+      }
+
+      ~OsVersionCache() = default;
+
+     public:
+      static fn getInstance() -> const OsVersionCache& {
+        static OsVersionCache Instance;
+        return Instance;
+      }
+
+      fn getVersionData() const -> const Result<VersionData>& {
+        return m_versionData;
+      }
+
+      fn getBuildNumber() const -> Result<u64> {
+        if (!m_versionData)
+          return Err(m_versionData.error());
+        return static_cast<u64>(m_versionData->buildNumber);
+      }
+
+      OsVersionCache(const OsVersionCache&)                = delete;
+      OsVersionCache(OsVersionCache&&)                     = delete;
+      fn operator=(const OsVersionCache&)->OsVersionCache& = delete;
+      fn operator=(OsVersionCache&&)->OsVersionCache&      = delete;
+    };
+
+    class ProcessTreeCache {
+     public:
+      struct Data {
+        DWORD  parentPid = 0;
+        String baseExeNameLower;
+      };
+
+      static fn getInstance() -> ProcessTreeCache& {
+        static ProcessTreeCache Instance;
+        return Instance;
+      }
+
+      fn initialize() -> Result<> {
+        // Prevent wasteful re-initialization if the cache is already populated.
+        if (m_initialized)
+          return {};
+
+        // Use the Toolhelp32Snapshot API to get a snapshot of all running processes.
+        HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+        if (hSnap == INVALID_HANDLE_VALUE)
+          return Err(DracError(PlatformSpecific, "Failed to create snapshot of processes"));
+
+        // This structure must be initialized with its own size before use; it's a WinAPI requirement.
+        PROCESSENTRY32W pe32;
+        pe32.dwSize = sizeof(PROCESSENTRY32W);
+
+        // Iterate through all processes captured in the snapshot.
+        for (BOOL ok = Process32FirstW(hSnap, &pe32); ok; ok = Process32NextW(hSnap, &pe32)) {
+          std::filesystem::path exePath(pe32.szExeFile);
+          std::wstring          baseName = exePath.stem().wstring();
+
+          // Normalize for case-insensitive comparison.
+          std::ranges::transform(baseName, baseName.begin(), [](const wchar_t character) { return towlower(character); });
+
+          const Result<String> baseNameUTF8 = helpers::ConvertWStringToUTF8(baseName);
+
+          if (!baseNameUTF8)
+            continue;
+
+          m_processMap[pe32.th32ProcessID] = Data {
+            .parentPid        = pe32.th32ParentProcessID,
+            .baseExeNameLower = *baseNameUTF8
+          };
         }
 
-        const String finalBaseName = ConvertWStringToUTF8(tempBaseName.data());
+        // Ensure that the handle is closed to avoid leaks.
+        CloseHandle(hSnap);
+        m_initialized = true;
 
-        m_processMap[pe32.th32ProcessID] = ProcessData {
-          .parentPid        = pe32.th32ParentProcessID,
-          .baseExeNameLower = finalBaseName
-        };
+        return {};
       }
 
-      CloseHandle(hSnap);
-      m_initialized = true;
-    }
-
-    /**
-     * @brief Gets the process map.
-     * @details This function returns the process map.
-     */
-    [[nodiscard]] fn getProcessMap() const -> const std::unordered_map<DWORD, ProcessData>& {
-      return m_processMap;
-    }
-
-    ProcessTreeCache(const ProcessTreeCache&)                = delete;
-    ProcessTreeCache(ProcessTreeCache&&)                     = delete;
-    fn operator=(const ProcessTreeCache&)->ProcessTreeCache& = delete;
-    fn operator=(ProcessTreeCache&&)->ProcessTreeCache&      = delete;
-  };
-
-  fn GetDirCount(const std::wstring_view path) -> Result<u64> {
-    std::wstring searchPath(path);
-    searchPath.append(L"\\*");
-
-    WIN32_FIND_DATAW findData;
-    HANDLE           hFind = FindFirstFileW(searchPath.c_str(), &findData);
-
-    if (hFind == INVALID_HANDLE_VALUE) {
-      if (GetLastError() == ERROR_FILE_NOT_FOUND)
-        return 0;
-
-      return Err(DracError(PlatformSpecific, "FindFirstFileW failed"));
-    }
-
-    u64 count = 0;
-
-    while (hFind != INVALID_HANDLE_VALUE) {
-      if ((findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && (wcscmp(findData.cFileName, L".") != 0 && wcscmp(findData.cFileName, L"..") != 0))
-        count++;
-
-      if (!FindNextFileW(hFind, &findData))
-        break;
-    }
-
-    FindClose(hFind);
-    return count;
-  }
-
-  fn GetRegistryValue(const HKEY& hKey, const std::wstring& valueName) -> std::wstring {
-    DWORD dataSizeInBytes = registryBuffer.data.size() * sizeof(wchar_t);
-    DWORD type            = 0;
-
-    if (RegQueryValueExW(
-          hKey,
-          valueName.c_str(),
-          nullptr,
-          &type,
-          reinterpret_cast<LPBYTE>(registryBuffer.data.data()), // NOLINT(*-pro-type-reinterpret-cast)
-          &dataSizeInBytes
-        ) != ERROR_SUCCESS)
-      return {};
-
-    if (type == REG_SZ || type == REG_EXPAND_SZ)
-      return registryBuffer.data.data();
-
-    return {};
-  }
-
-  template <usize sz>
-  fn FindShellInProcessTree(const DWORD startPid, const Array<Pair<StringView, StringView>, sz>& shellMap) -> Result<String> {
-    if (startPid == 0)
-      return Err(DracError(PlatformSpecific, "Start PID is 0"));
-
-    ProcessTreeCache::getInstance().initialize();
-    const std::unordered_map<DWORD, ProcessData>& processMap = ProcessTreeCache::getInstance().getProcessMap();
-
-    DWORD         currentPid = startPid;
-    constexpr int maxDepth   = 16;
-    int           depth      = 0;
-
-    while (currentPid != 0 && depth < maxDepth) {
-      auto procIt = processMap.find(currentPid);
-
-      if (procIt == processMap.end())
-        break;
-
-      const String& processName = procIt->second.baseExeNameLower;
-
-      if (const auto mapIter = std::ranges::find_if(shellMap, [&](const Pair<StringView, StringView>& pair) { return StringView { processName } == pair.first; });
-          mapIter != std::ranges::end(shellMap))
-        return String(mapIter->second);
-
-      currentPid = procIt->second.parentPid;
-      depth++;
-    }
-
-    return Err(DracError(NotFound, "Shell not found"));
-  }
-
-  fn GetBuildNumber() -> Result<u64> {
-    try {
-      using namespace winrt::Windows::System::Profile;
-      const AnalyticsVersionInfo versionInfo   = AnalyticsInfo::VersionInfo();
-      const winrt::hstring       familyVersion = versionInfo.DeviceFamilyVersion();
-
-      if (!familyVersion.empty()) {
-        const u64 versionUl = std::stoull(winrt::to_string(familyVersion));
-        return (versionUl >> 16) & 0xFFFF;
+      fn getProcessMap() const -> const std::unordered_map<DWORD, Data>& {
+        return m_processMap;
       }
-    } catch (const winrt::hresult_error& e) {
-      return Err(DracError(e));
-    } catch (const Exception& e) { return Err(DracError(e)); }
 
-    return Err(DracError(NotFound, "Failed to get build number"));
-  }
+      ProcessTreeCache(const ProcessTreeCache&)                = delete;
+      ProcessTreeCache(ProcessTreeCache&&)                     = delete;
+      fn operator=(const ProcessTreeCache&)->ProcessTreeCache& = delete;
+      fn operator=(ProcessTreeCache&&)->ProcessTreeCache&      = delete;
+
+     private:
+      std::unordered_map<DWORD, Data> m_processMap;
+      bool                            m_initialized = false;
+
+      ProcessTreeCache()  = default;
+      ~ProcessTreeCache() = default;
+    };
+  } // namespace cache
+
+  namespace shell {
+    template <usize sz>
+    fn FindShellInProcessTree(const DWORD startPid, const Array<Pair<StringView, StringView>, sz>& shellMap) -> Result<String> {
+      // PID 0 (System Idle Process) is always the root process, and cannot have a parent.
+      if (startPid == 0)
+        return Err(DracError(PlatformSpecific, "Start PID is 0"));
+
+      if (!cache::ProcessTreeCache::getInstance().initialize())
+        return Err(DracError(PlatformSpecific, "Failed to initialize process tree cache"));
+
+      const std::unordered_map<DWORD, cache::ProcessTreeCache::Data>& processMap = cache::ProcessTreeCache::getInstance().getProcessMap();
+
+      DWORD currentPid = startPid;
+
+      // This is a pretty reasonable depth and should cover most cases without excessive recursion.
+      constexpr i32 maxDepth = 16;
+
+      i32 depth = 0;
+
+      while (currentPid != 0 && depth < maxDepth) {
+        auto procIt = processMap.find(currentPid);
+        if (procIt == processMap.end())
+          break;
+
+        // Get the lowercase name of the process.
+        const String& processName = procIt->second.baseExeNameLower;
+
+        // Check if the process name matches any shell in the map,
+        // and return its friendly-name counterpart if it is.
+        if (const auto mapIter = std::ranges::find_if(shellMap, [&](const Pair<StringView, StringView>& pair) { return StringView { processName } == pair.first; });
+            mapIter != std::ranges::end(shellMap))
+          return String(mapIter->second);
+
+        // Move up the tree to the parent process.
+        currentPid = procIt->second.parentPid;
+        depth++;
+      }
+
+      return Err(DracError(NotFound, "Shell not found"));
+    }
+  } // namespace shell
 } // namespace
 
 namespace draconis::core::system {
-  fn System::getMemInfo() -> Result<ResourceUsage> {
-    static MEMORYSTATUSEX MemInfo;
-    MemInfo.dwLength = sizeof(MEMORYSTATUSEX);
+  using namespace cache;
+  using namespace constants;
+  using namespace helpers;
 
-    if (GlobalMemoryStatusEx(&MemInfo))
-      return ResourceUsage { .usedBytes = MemInfo.ullTotalPhys - MemInfo.ullAvailPhys, .totalBytes = MemInfo.ullTotalPhys };
+  fn System::getMemInfo() -> Result<ResourceUsage> {
+    // Passed to GlobalMemoryStatusEx to retrieve memory information.
+    // dwLength is required to be set as per WinAPI.
+    MEMORYSTATUSEX memInfo;
+    memInfo.dwLength = sizeof(MEMORYSTATUSEX);
+
+    if (GlobalMemoryStatusEx(&memInfo))
+      return ResourceUsage { .usedBytes = memInfo.ullTotalPhys - memInfo.ullAvailPhys, .totalBytes = memInfo.ullTotalPhys };
 
     return Err(DracError(PlatformSpecific, std::format("GlobalMemoryStatusEx failed with error code {}", GetLastError())));
   }
 
   #if DRAC_ENABLE_NOWPLAYING
   fn System::getNowPlaying() -> Result<MediaInfo> {
+    // WinRT makes HEAVY use of namespaces and has very long names for
+    // structs and classes, so its easier to alias most things.
     using namespace winrt::Windows::Media::Control;
     using namespace winrt::Windows::Foundation;
 
@@ -417,6 +437,12 @@ namespace draconis::core::system {
   #endif // DRAC_ENABLE_NOWPLAYING
 
   fn System::getOSVersion() -> Result<String> {
+    // Windows is weird about its versioning scheme, and Windows 11 is still
+    // considered Windows 10 in the registry. We have to manually check if
+    // the actual version is Windows 11 by checking the build number.
+    constexpr const wchar_t* windows10 = L"Windows 10";
+    constexpr const wchar_t* windows11 = L"Windows 11";
+
     const RegistryCache& registry = RegistryCache::getInstance();
 
     HKEY currentVersionKey = registry.getCurrentVersionKey();
@@ -424,78 +450,75 @@ namespace draconis::core::system {
     if (!currentVersionKey)
       return Err(DracError(NotFound, "Failed to open registry key"));
 
-    std::wstring productName = GetRegistryValue(currentVersionKey, PRODUCT_NAME);
+    Result<std::wstring> productName = GetRegistryValue(currentVersionKey, PRODUCT_NAME);
 
-    if (productName.empty())
+    if (!productName)
+      return Err(productName.error());
+
+    if (productName->empty())
       return Err(DracError(NotFound, "ProductName not found in registry"));
 
-    if (const Result<u64> buildNumberOpt = GetBuildNumber())
+    // Build 22000+ of Windows are all considered Windows 11, so we can safely replace the product name
+    // if it's currently "Windows 10" and the build number is greater than or equal to 22000.
+    if (const Result<u64> buildNumberOpt = OsVersionCache::getInstance().getBuildNumber())
       if (const u64 buildNumber = *buildNumberOpt; buildNumber >= 22000)
-        if (const size_t pos = productName.find(WINDOWS_10); pos != std::wstring::npos) {
-          const bool startBoundary = (pos == 0 || !iswalnum(productName[pos - 1]));
-          // ReSharper disable once CppTooWideScopeInitStatement
-          const bool endBoundary = (pos + std::wcslen(WINDOWS_10) == productName.length() || !iswalnum(productName[pos + std::wcslen(WINDOWS_10)]));
+        if (const size_t pos = productName->find(windows10); pos != std::wstring::npos) {
+          // Make sure we're not replacing a substring of a larger string. Should never happen,
+          // but if it ever does, we'll just leave the product name unchanged.
+          const bool startBoundary = (pos == 0 || !iswalnum(productName->at(pos - 1)));
+          const bool endBoundary   = (pos + std::wcslen(windows10) == productName->length() || !iswalnum(productName->at(pos + std::wcslen(windows10))));
 
           if (startBoundary && endBoundary)
-            productName.replace(pos, std::wcslen(WINDOWS_10), WINDOWS_11);
+            productName->replace(pos, std::wcslen(windows10), windows11);
         }
 
-    const std::wstring displayVersion = GetRegistryValue(currentVersionKey, DISPLAY_VERSION);
+    // Append the display version if it exists.
+    const Result<std::wstring> displayVersion = GetRegistryValue(currentVersionKey, DISPLAY_VERSION);
 
-    String productNameUTF8 = ConvertWStringToUTF8(productName);
+    if (!displayVersion)
+      return Err(displayVersion.error());
 
-    if (displayVersion.empty())
-      return productNameUTF8;
+    const Result<String> productNameUTF8 = ConvertWStringToUTF8(*productName);
 
-    const String displayVersionUTF8 = ConvertWStringToUTF8(displayVersion);
+    if (!productNameUTF8)
+      return Err(productNameUTF8.error());
 
-    return productNameUTF8 + " " + displayVersionUTF8;
+    if (displayVersion->empty())
+      return *productNameUTF8;
+
+    const Result<String> displayVersionUTF8 = ConvertWStringToUTF8(*displayVersion);
+
+    if (!displayVersionUTF8)
+      return Err(displayVersionUTF8.error());
+
+    return *productNameUTF8 + " " + *displayVersionUTF8;
   }
 
   fn System::getHost() -> Result<String> {
-    const RegistryCache& registry          = RegistryCache::getInstance();
-    HKEY                 hardwareConfigKey = registry.getHardwareConfigKey();
+    const RegistryCache& registry = RegistryCache::getInstance();
+
+    HKEY hardwareConfigKey = registry.getHardwareConfigKey();
 
     if (!hardwareConfigKey)
       return Err(DracError(NotFound, "Failed to open registry key"));
 
-    const std::wstring systemFamily = GetRegistryValue(hardwareConfigKey, SYSTEM_FAMILY);
+    const Result<std::wstring> systemFamily = GetRegistryValue(hardwareConfigKey, SYSTEM_FAMILY);
 
-    return ConvertWStringToUTF8(systemFamily);
+    if (!systemFamily)
+      return Err(DracError(NotFound, "SystemFamily not found in registry"));
+
+    return ConvertWStringToUTF8(*systemFamily);
   }
 
   fn System::getKernelVersion() -> Result<String> {
-    fn filter = [](const u32 code) -> i32 {
-      if (code == EXCEPTION_ACCESS_VIOLATION)
-        return EXCEPTION_EXECUTE_HANDLER;
+    const auto& versionDataResult = OsVersionCache::getInstance().getVersionData();
 
-      return EXCEPTION_CONTINUE_SEARCH;
-    };
+    if (!versionDataResult)
+      return Err(versionDataResult.error());
 
-    constexpr ULONG_PTR kuserSharedData = 0x7FFE0000; ///< Base address of the shared kernel-user data page
+    const auto& versionData = *versionDataResult;
 
-    constexpr u32 kuserSharedNtMajorVersion = kuserSharedData + 0x26C; ///< Offset to the NtMajorVersion field
-    constexpr u32 kuserSharedNtMinorVersion = kuserSharedData + 0x270; ///< Offset to the NtMinorVersion field
-    constexpr u32 kuserSharedNtBuildNumber  = kuserSharedData + 0x260; ///< Offset to the NtBuildNumber field
-
-    u32 majorVersion = 0;
-    u32 minorVersion = 0;
-    u32 buildNumber  = 0;
-
-  #pragma clang diagnostic push
-  #pragma clang diagnostic ignored "-Wlanguage-extension-token"
-    // NOLINTBEGIN(*-pro-type-reinterpret-cast, *-no-int-to-ptr)
-    __try {
-      majorVersion = *reinterpret_cast<const volatile u32*>(kuserSharedNtMajorVersion);
-      minorVersion = *reinterpret_cast<const volatile u32*>(kuserSharedNtMinorVersion);
-      buildNumber  = *reinterpret_cast<const volatile u32*>(kuserSharedNtBuildNumber);
-    } __except (filter(GetExceptionCode())) {
-      return Err(DracError(PlatformSpecific, "Failed to read kernel version from KUSER_SHARED_DATA"));
-    }
-    // NOLINTEND(*-pro-type-reinterpret-cast, *-no-int-to-ptr)
-  #pragma clang diagnostic pop
-
-    return std::format("{}.{}.{}", majorVersion, minorVersion, buildNumber);
+    return std::format("{}.{}.{}", versionData.majorVersion, versionData.minorVersion, versionData.buildNumber);
   }
 
   fn System::getWindowManager() -> Result<String> {
@@ -508,7 +531,8 @@ namespace draconis::core::system {
   }
 
   fn System::getDesktopEnvironment() -> Result<String> {
-    const Result<u64> buildResult = GetBuildNumber();
+    const Result<u64> buildResult = OsVersionCache::getInstance().getBuildNumber();
+
     if (!buildResult)
       return Err(buildResult.error());
 
@@ -518,14 +542,15 @@ namespace draconis::core::system {
     if (build >= 22000)
       return "Fluent (Windows 11)";
 
-    // Windows 10 Fluent Era
+    // Windows 10 Fluent
     if (build >= 15063)
       return "Fluent (Windows 10)";
 
-    // Windows 8.1/10 Metro Era
-    if (build >= 9200) { // Windows 8+
-      // Distinguish between Windows 8 and 10
-      if (GetRegistryValue(RegistryCache::getInstance().getCurrentVersionKey(), PRODUCT_NAME).find(L"Windows 10") != std::wstring::npos)
+    // Windows 8.1/10 Metro
+    if (build >= 9200) {
+      const Result<std::wstring> productName = GetRegistryValue(RegistryCache::getInstance().getCurrentVersionKey(), PRODUCT_NAME);
+
+      if (productName && productName->find(L"Windows 10") != std::wstring::npos)
         return "Metro (Windows 10)";
 
       if (build >= 9600)
@@ -544,6 +569,7 @@ namespace draconis::core::system {
 
   fn System::getShell() -> Result<String> {
     using draconis::utils::env::GetEnv;
+    using shell::FindShellInProcessTree;
 
     if (const Result<String> msystemResult = GetEnv("MSYSTEM"); msystemResult && !msystemResult->empty()) {
       String shellPath;
@@ -556,7 +582,9 @@ namespace draconis::core::system {
       if (!shellPath.empty()) {
         const usize lastSlash = shellPath.find_last_of("\\/");
         String      shellExe  = (lastSlash != String::npos) ? shellPath.substr(lastSlash + 1) : shellPath;
+
         std::ranges::transform(shellExe, shellExe.begin(), [](const u8 character) { return std::tolower(character); });
+
         if (shellExe.ends_with(".exe"))
           shellExe.resize(shellExe.length() - 4);
 
@@ -566,8 +594,7 @@ namespace draconis::core::system {
         return Err(DracError(NotFound, "Shell not found"));
       }
 
-      const DWORD          currentPid = GetCurrentProcessId();
-      const Result<String> msysShell  = FindShellInProcessTree(currentPid, msysShellMap);
+      const Result<String> msysShell = FindShellInProcessTree(GetCurrentProcessId(), msysShellMap);
 
       if (msysShell)
         return *msysShell;
@@ -575,12 +602,12 @@ namespace draconis::core::system {
       return Err(msysShell.error());
     }
 
-    const DWORD currentPid = GetCurrentProcessId();
+    const Result<String> windowsShell = FindShellInProcessTree(GetCurrentProcessId(), windowsShellMap);
 
-    if (const Result<String> windowsShell = FindShellInProcessTree(currentPid, windowsShellMap))
+    if (windowsShell)
       return *windowsShell;
 
-    return Err(DracError(NotFound, "Shell not found"));
+    return Err(windowsShell.error());
   }
 
   fn System::getDiskUsage() -> Result<ResourceUsage> {
@@ -625,7 +652,8 @@ namespace draconis::core::system {
       // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
       if (RegQueryValueExW(hKey, L"ProcessorNameString", nullptr, nullptr, reinterpret_cast<LPBYTE>(szBuffer.data()), &szBuffer.size()) == ERROR_SUCCESS) {
         RegCloseKey(hKey);
-        return ConvertWStringToUTF8(szBuffer);
+
+        return ConvertWStringToUTF8(szBuffer.data());
       }
 
       RegCloseKey(hKey);
@@ -675,6 +703,7 @@ namespace draconis::core::system {
 namespace draconis::services::packages {
   using draconis::utils::cache::GetValidCache, draconis::utils::cache::WriteCache;
   using draconis::utils::env::GetEnvW;
+  using helpers::GetDirCount;
 
   fn CountChocolatey() -> Result<u64> {
     const String cacheKey = "chocolatey_";

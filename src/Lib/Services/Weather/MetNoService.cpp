@@ -3,6 +3,7 @@
   #include "MetNoService.hpp"
 
   #include "DracUtils/Error.hpp"
+  #include "DracUtils/Logging.hpp"
   #include "DracUtils/Types.hpp"
 
   #include "DataTransferObjects.hpp"

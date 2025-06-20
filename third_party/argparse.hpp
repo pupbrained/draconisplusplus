@@ -285,18 +285,6 @@ namespace argparse {
     }
 
     /**
-     * @brief Check if a string view starts with a given prefix
-     * @tparam CharT Character type
-     * @tparam Traits Character traits type
-     * @param prefix The prefix to check for
-     * @param s The string to check
-     * @return true if s starts with prefix, false otherwise
-     */
-    constexpr fn starts_with(draconis::utils::types::StringView prefix, draconis::utils::types::StringView s) noexcept -> bool {
-      return s.substr(0, prefix.size()) == prefix;
-    }
-
-    /**
      * @brief Format flags for number parsing
      */
     enum class chars_format : draconis::utils::types::u8 {
@@ -323,7 +311,7 @@ namespace argparse {
     constexpr fn consume_binary_prefix(draconis::utils::types::StringView s) -> ConsumeBinaryPrefixResult {
       using namespace std::literals;
 
-      if (starts_with("0b"sv, s) || starts_with("0B"sv, s)) {
+      if (s.starts_with("0b"sv) || s.starts_with("0B"sv)) {
         s.remove_prefix(2);
         return { .is_binary = true, .rest = s };
       }
@@ -347,7 +335,7 @@ namespace argparse {
     constexpr fn consume_hex_prefix(draconis::utils::types::StringView s) -> ConsumeHexPrefixResult {
       using namespace std::literals;
 
-      if (starts_with("0x"sv, s) || starts_with("0X"sv, s)) {
+      if (s.starts_with("0x"sv) || s.starts_with("0X"sv)) {
         s.remove_prefix(2);
         return { .is_hexadecimal = true, .rest = s };
       }

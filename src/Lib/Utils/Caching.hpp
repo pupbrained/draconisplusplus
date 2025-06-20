@@ -8,16 +8,29 @@
 #include <glaze/core/context.hpp> // glz::{context, error_code, error_ctx}
 #include <system_error>           // std::error_code
 #include <type_traits>            // std::decay_t
+#include <utility>
 
 #include <DracUtils/Definitions.hpp>
 #include <DracUtils/Error.hpp>
-#include <DracUtils/Logging.hpp>
 #include <DracUtils/Types.hpp>
 
 namespace draconis::utils::cache {
-  namespace fs = std::filesystem;
+  namespace {
+    using error::DracError;
+    using enum error::DracErrorCode;
 
-  constexpr std::chrono::hours CACHE_EXPIRY_DURATION = std::chrono::hours(1);
+    using types::Err;
+    using types::Exception;
+    using types::i32;
+    using types::isize;
+    using types::Result;
+    using types::String;
+    using types::StringView;
+
+    namespace fs = std::filesystem;
+
+    constexpr std::chrono::hours CACHE_EXPIRY_DURATION = std::chrono::hours(1);
+  } // namespace
 
   /**
    * @brief Gets the full path for a cache file based on a unique key.
@@ -25,35 +38,29 @@ namespace draconis::utils::cache {
    * Should ideally only contain filesystem-safe characters.
    * @return Result containing the filesystem path on success, or a DracError on failure.
    */
-  inline fn GetCachePath(const types::String& cache_key) -> types::Result<fs::path> {
+  inline fn GetCachePath(const String& cache_key) -> Result<fs::path> {
     if (cache_key.empty())
-      return types::Err(error::DracError(error::DracErrorCode::InvalidArgument, "Cache key cannot be empty."));
+      return Err(DracError(InvalidArgument, "Cache key cannot be empty."));
 
-    if (cache_key.find_first_of("/\\:*?\"<>|") != types::String::npos)
-      return types::Err(
-        error::DracError(error::DracErrorCode::InvalidArgument, std::format("Cache key '{}' contains invalid characters.", cache_key))
-      );
+    if (cache_key.find_first_of("/\\:*?\"<>|") != String::npos)
+      return Err(DracError(InvalidArgument, std::format("Cache key '{}' contains invalid characters.", cache_key)));
 
     std::error_code errc;
 
-    const fs::path cacheDir = fs::temp_directory_path(errc) / "draconis++";
-
-    if (!fs::exists(cacheDir, errc)) {
-      if (errc)
-        return types::Err(error::DracError(error::DracErrorCode::IoError, "Failed to check existence of cache directory: " + errc.message()));
-
-      debug_log("Creating cache directory: {}", cacheDir.string());
-      fs::create_directories(cacheDir, errc);
-
-      if (errc)
-        return types::Err(error::DracError(error::DracErrorCode::IoError, "Failed to create cache directory: " + errc.message()));
-    }
+    const fs::path tempDir = fs::temp_directory_path(errc);
 
     if (errc)
-      return types::Err(error::DracError(error::DracErrorCode::IoError, "Failed to get system temporary directory: " + errc.message()));
+      return Err(DracError(IoError, "Failed to get system temporary directory: " + errc.message()));
 
-    const std::string filename = std::string(cache_key) + "_cache.beve";
-    debug_log("Cache path for key '{}': {}", cache_key, (cacheDir / filename).string());
+    const fs::path cacheDir = tempDir / "draconis++";
+
+    fs::create_directories(cacheDir, errc);
+
+    if (errc)
+      return Err(DracError(IoError, "Failed to create cache directory: " + errc.message()));
+
+    const String filename = String(cache_key) + "_cache.beve";
+
     return cacheDir / filename;
   }
 
@@ -64,67 +71,36 @@ namespace draconis::utils::cache {
    * @return Result containing the deserialized object of type T on success, or a DracError on failure.
    */
   template <typename T>
-  fn ReadCache(const types::String& cache_key) -> types::Result<T> {
-    types::Result<fs::path> cachePathResult = GetCachePath(cache_key);
+  fn ReadCache(const String& cache_key) -> Result<T> {
+    Result<fs::path> cachePathResult = GetCachePath(cache_key);
     if (!cachePathResult)
-      return types::Err(cachePathResult.error());
+      return Err(cachePathResult.error());
 
     const fs::path& cachePath = *cachePathResult;
 
-    if (std::error_code existsEc; !fs::exists(cachePath, existsEc) || existsEc) {
-      if (existsEc)
-        debug_log("Error checking existence of cache file '{}': {}", cachePath.string(), existsEc.message());
-
-      debug_log("Cache file not found: {}", cachePath.string());
-      return types::Err(error::DracError(error::DracErrorCode::NotFound, "Cache file not found: " + cachePath.string()));
-    }
-
     std::ifstream ifs(cachePath, std::ios::binary);
-    if (!ifs.is_open()) {
-      debug_log("Failed to open cache file for reading: {}", cachePath.string());
-      return types::Err(error::DracError(error::DracErrorCode::IoError, "Failed to open cache file for reading: " + cachePath.string()));
-    }
+    if (!ifs.is_open())
+      return Err(DracError(IoError, "Failed to open cache file for reading: " + cachePath.string()));
 
     try {
-      ifs.seekg(0, std::ios::end);
-      const std::streamsize size = ifs.tellg();
-      ifs.seekg(0, std::ios::beg);
+      const String content(std::istreambuf_iterator<char>(ifs), {});
 
-      if (size <= 0) {
-        debug_log("Cache file is empty or unreadable: {}", cachePath.string());
-        return types::Err(error::DracError(error::DracErrorCode::IoError, "Cache file is empty or cannot be read."));
-      }
-
-      types::String content;
-      content.resize(size);
-
-      if (!ifs.read(content.data(), size)) {
-        debug_log("Failed to read the full contents of cache file: {}", cachePath.string());
-        return types::Err(error::DracError(error::DracErrorCode::IoError, "Failed to read cache file content."));
-      }
-
-      ifs.close();
+      if (content.empty())
+        return Err(DracError(IoError, "Cache file is empty."));
 
       static_assert(std::is_default_constructible_v<T>, "Cache type T must be default constructible for Glaze.");
       T result {};
 
       if (glz::error_ctx glazeErr = glz::read_beve(result, content); glazeErr.ec != glz::error_code::none) {
-        const std::string errorString = glz::format_error(glazeErr, std::string_view(content));
-        debug_log("BEVE parse error reading cache '{}' (code {}): {}", cachePath.string(), static_cast<types::i32>(glazeErr.ec), errorString);
-        return types::Err(error::DracError(error::DracErrorCode::ParseError, std::format("BEVE parse error reading cache '{}' (code {}): {}", cachePath.string(), static_cast<types::i32>(glazeErr.ec), errorString)));
+        const String errorString = glz::format_error(glazeErr, StringView(content));
+        return Err(DracError(IoError, std::format("BEVE parse error reading cache '{}' (code {}): {}", cachePath.string(), static_cast<i32>(glazeErr.ec), errorString)));
       }
 
-      debug_log("Successfully read cache file: {}", cachePath.string());
       return result;
-    } catch (const std::ios_base::failure& e) {
-      debug_log("Filesystem error reading cache file {}: {}", cachePath.string(), e.what());
-      return types::Err(error::DracError(error::DracErrorCode::IoError, std::format("Filesystem error reading cache file {}: {}", cachePath.string(), e.what())));
-    } catch (const types::Exception& e) {
-      debug_log("Standard exception reading cache file {}: {}", cachePath.string(), e.what());
-      return types::Err(error::DracError(error::DracErrorCode::InternalError, std::format("Standard exception reading cache file {}: {}", cachePath.string(), e.what())));
+    } catch (const Exception& e) {
+      return Err(DracError(InternalError, std::format("Standard exception reading cache file {}: {}", cachePath.string(), e.what())));
     } catch (...) {
-      debug_log("Unknown error reading cache file: {}", cachePath.string());
-      return types::Err(error::DracError(error::DracErrorCode::Other, "Unknown error reading cache file: " + cachePath.string()));
+      return Err(DracError(Other, "Unknown error reading cache file: " + cachePath.string()));
     }
   }
 
@@ -136,70 +112,68 @@ namespace draconis::utils::cache {
    * @return Result containing void on success, or a DracError on failure.
    */
   template <typename T>
-  fn WriteCache(const types::String& cache_key, const T& data) -> types::Result<> {
-    types::Result<fs::path> cachePathResult = GetCachePath(cache_key);
+  fn WriteCache(const String& cache_key, const T& data) -> Result<> {
+    Result<fs::path> cachePathResult = GetCachePath(cache_key);
     if (!cachePathResult)
-      return types::Err(cachePathResult.error());
+      return Err(cachePathResult.error());
 
     const fs::path& cachePath = *cachePathResult;
     fs::path        tempPath  = cachePath;
     tempPath += ".tmp";
 
+    struct TempFileGuard {
+      fs::path path;
+      bool     committed = false;
+
+      explicit TempFileGuard(fs::path _path) : path(std::move(_path)) {}
+
+      ~TempFileGuard() {
+        if (!committed) {
+          std::error_code errc;
+          fs::remove(path, errc);
+        }
+      }
+
+      TempFileGuard(const TempFileGuard&)                = delete;
+      TempFileGuard(TempFileGuard&&)                     = delete;
+      fn operator=(const TempFileGuard&)->TempFileGuard& = delete;
+      fn operator=(TempFileGuard&&)->TempFileGuard&      = delete;
+    };
+
+    TempFileGuard guard { tempPath };
+
     try {
-      types::String binaryBuffer;
+      String binaryBuffer;
 
-      using DecayedT           = std::decay_t<T>;
-      DecayedT dataToSerialize = data;
-
-      if (glz::error_ctx glazeErr = glz::write_beve(dataToSerialize, binaryBuffer); glazeErr) {
-        const std::string errorString = glz::format_error(glazeErr, std::string_view(binaryBuffer));
-        debug_log("BEVE serialization error writing cache for key '{}' (code {}): {}", cache_key, static_cast<types::i32>(glazeErr.ec), errorString);
-        return types::Err(error::DracError(error::DracErrorCode::ParseError, std::format("BEVE serialization error writing cache for key '{}' (code {}): {}", cache_key, static_cast<types::i32>(glazeErr.ec), errorString)));
+      if (glz::error_ctx glazeErr = glz::write_beve(data, binaryBuffer); glazeErr) {
+        const String errorString = glz::format_error(glazeErr, StringView(binaryBuffer));
+        return Err(DracError(ParseError, std::format("BEVE serialization error for key '{}': {}", cache_key, errorString)));
       }
 
-      {
-        std::ofstream ofs(tempPath, std::ios::binary | std::ios::trunc);
-        if (!ofs.is_open()) {
-          debug_log("Failed to open temporary cache file: {}", tempPath.string());
-          return types::Err(error::DracError(error::DracErrorCode::IoError, "Failed to open temporary cache file: " + tempPath.string()));
-        }
+      std::ofstream ofs(tempPath, std::ios::binary | std::ios::trunc);
+      if (!ofs)
+        return Err(DracError(IoError, "Failed to open temporary cache file: " + tempPath.string()));
 
-        ofs.write(binaryBuffer.data(), static_cast<types::isize>(binaryBuffer.size()));
+      ofs.write(binaryBuffer.data(), static_cast<isize>(binaryBuffer.size()));
+      if (!ofs)
+        return Err(DracError(IoError, "Failed to write to temporary cache file: " + tempPath.string()));
 
-        if (!ofs) {
-          debug_log("Failed to write to temporary cache file: {}", tempPath.string());
-          std::error_code removeEc;
-          fs::remove(tempPath, removeEc);
-          return types::Err(error::DracError(error::DracErrorCode::IoError, "Failed to write to temporary cache file: " + tempPath.string()));
-        }
-      }
+      ofs.close();
 
       std::error_code renameEc;
-      fs::rename(tempPath, cachePath, renameEc);
-      if (renameEc) {
-        debug_log("Failed to replace cache file '{}' with temporary file '{}': {}", cachePath.string(), tempPath.string(), renameEc.message());
-        std::error_code removeEc;
-        fs::remove(tempPath, removeEc);
-        return types::Err(error::DracError(error::DracErrorCode::IoError, std::format("Failed to replace cache file '{}' with temporary file '{}': {}", cachePath.string(), tempPath.string(), renameEc.message())));
-      }
 
-      debug_log("Successfully wrote cache file: {}", cachePath.string());
+      fs::rename(tempPath, cachePath, renameEc);
+
+      if (renameEc)
+        return Err(DracError(IoError, std::format("Failed to replace cache file '{}': {}", cachePath.string(), renameEc.message())));
+
+      guard.committed = true;
+
       return {};
-    } catch (const std::ios_base::failure& e) {
-      debug_log("Filesystem error writing cache file {}: {}", tempPath.string(), e.what());
-      std::error_code removeEc;
-      fs::remove(tempPath, removeEc);
-      return types::Err(error::DracError(error::DracErrorCode::IoError, std::format("Filesystem error writing cache file {}: {}", tempPath.string(), e.what())));
-    } catch (const types::Exception& e) {
-      debug_log("Standard exception writing cache file {}: {}", tempPath.string(), e.what());
-      std::error_code removeEc;
-      fs::remove(tempPath, removeEc);
-      return types::Err(error::DracError(error::DracErrorCode::InternalError, std::format("Standard exception writing cache file {}: {}", tempPath.string(), e.what())));
+    } catch (const Exception& e) {
+      return Err(DracError(InternalError, std::format("Standard exception writing cache file {}: {}", tempPath.string(), e.what())));
     } catch (...) {
-      debug_log("Unknown error writing cache file: {}", tempPath.string());
-      std::error_code removeEc;
-      fs::remove(tempPath, removeEc);
-      return types::Err(error::DracError(error::DracErrorCode::Other, "Unknown error writing cache file: " + tempPath.string()));
+      return Err(DracError(Other, "Unknown error writing cache file: " + tempPath.string()));
     }
   }
 
@@ -210,37 +184,23 @@ namespace draconis::utils::cache {
    * @return Result containing the deserialized object of type T on success, or a DracError on failure (e.g., not found, expired, parse error).
    */
   template <typename T>
-  fn GetValidCache(const types::String& cache_key) -> types::Result<T> {
-    using std::chrono::system_clock;
-
-    types::Result<fs::path> cachePathResult = GetCachePath(cache_key);
-
+  fn GetValidCache(const String& cache_key) -> Result<T> {
+    Result<fs::path> cachePathResult = GetCachePath(cache_key);
     if (!cachePathResult)
-      return types::Err(cachePathResult.error());
+      return Err(cachePathResult.error());
 
     const fs::path& cachePath = *cachePathResult;
 
     std::error_code errc;
 
-    if (!fs::exists(cachePath, errc) || errc) {
-      if (errc)
-        debug_log("Error checking existence of cache file '{}': {}", cachePath.string(), errc.message());
-
-      return types::Err(error::DracError(error::DracErrorCode::NotFound, "Cache file not found: " + cachePath.string()));
-    }
-
-    fs::file_time_type lastWriteTime = fs::last_write_time(cachePath, errc);
+    const auto lastWriteTime = fs::last_write_time(cachePath, errc);
 
     if (errc)
-      return types::Err(error::DracError(error::DracErrorCode::IoError, std::format("Failed to get last write time for cache file '{}': {}", cachePath.string(), errc.message())));
+      return Err(DracError(NotFound, "Cache not found or is inaccessible: " + cachePath.string()));
 
-// for some reason clock_cast is only available on Windows...?
-#ifdef _WIN32
-    if ((system_clock::now() - std::chrono::clock_cast<system_clock>(lastWriteTime)) > CACHE_EXPIRY_DURATION)
-#else
-    if ((system_clock::now() - system_clock::from_time_t(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::file_clock::to_sys(lastWriteTime).time_since_epoch()).count())) > CACHE_EXPIRY_DURATION)
-#endif
-      return types::Err(error::DracError(error::DracErrorCode::NotFound, std::format("Cache expired: {}", cache_key)));
+    const auto now = std::chrono::file_clock::now();
+    if ((now - lastWriteTime) > CACHE_EXPIRY_DURATION)
+      return Err(DracError(NotFound, std::format("Cache expired: {}", cache_key)));
 
     return ReadCache<T>(cache_key);
   }
