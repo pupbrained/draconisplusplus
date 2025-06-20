@@ -1,16 +1,31 @@
+/**
+ * @file      Windows.cpp
+ * @author    pupbrained (mars@pupbrained.dev)
+ * @brief     Provides the Windows-specific implementation of the System class for system information retrieval.
+ *
+ * @details This file contains the concrete implementation of the System class interface for the
+ * Microsoft Windows platform. It retrieves a wide range of system information by
+ * leveraging various Windows APIs, including:
+ * - Standard Win32 API for memory, disk, and process information.
+ * - Windows Registry for OS version, host model, and CPU details.
+ * - DirectX Graphics Infrastructure (DXGI) for enumerating graphics adapters.
+ * - Windows Runtime (WinRT) for modern OS details, media controls, and WinGet packages.
+ *
+ * To optimize performance, the implementation caches process snapshots and registry
+ * handles.
+ *
+ * @see draconis::core::system::System
+ */
+
 #ifdef _WIN32
 
-  #include <algorithm>
-  #include <dwmapi.h>
-  #include <dxgi.h>
-  #include <ranges>
-  #include <tlhelp32.h>
-  #include <wincrypt.h>
-  #include <windows.h>
-  #include <winrt/Windows.Foundation.Collections.h>
-  #include <winrt/Windows.Management.Deployment.h>
-  #include <winrt/Windows.Media.Control.h>
-  #include <winrt/Windows.System.Profile.h>
+  #include <dwmapi.h>                               // DwmIsCompositionEnabled
+  #include <dxgi.h>                                 // IDXGIFactory, IDXGIAdapter, DXGI_ADAPTER_DESC
+  #include <tlhelp32.h>                             // CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS
+  #include <winrt/Windows.Foundation.Collections.h> // winrt::Windows::Foundation::Collections::Map
+  #include <winrt/Windows.Management.Deployment.h>  // winrt::Windows::Management::Deployment::PackageManager
+  #include <winrt/Windows.Media.Control.h>          // winrt::Windows::Media::Control::MediaProperties
+  #include <winrt/Windows.System.Profile.h>         // winrt::Windows::System::Profile::AnalyticsInfo
 
   #if DRAC_ENABLE_PACKAGECOUNT
     #include "Drac++/Services/Packages.hpp"
@@ -22,20 +37,43 @@
 
   #include "Utils/Caching.hpp"
 
-using RtlGetVersionPtr = NTSTATUS(WINAPI*)(PRTL_OSVERSIONINFOW);
-
 namespace {
   using draconis::utils::error::DracError;
   using enum draconis::utils::error::DracErrorCode;
   using namespace draconis::utils::types;
 
-  constexpr const wchar_t* WINDOWS_10      = L"Windows 10";
-  constexpr const wchar_t* WINDOWS_11      = L"Windows 11";
+  // Display names for Windows 10 and 11
+  constexpr const wchar_t* WINDOWS_10 = L"Windows 10";
+  constexpr const wchar_t* WINDOWS_11 = L"Windows 11";
+
+  // Registry keys for Windows version information
   constexpr const wchar_t* PRODUCT_NAME    = L"ProductName";
   constexpr const wchar_t* DISPLAY_VERSION = L"DisplayVersion";
-  constexpr const wchar_t* CURRENT_BUILD   = L"CurrentBuildNumber";
   constexpr const wchar_t* SYSTEM_FAMILY   = L"SystemFamily";
 
+  // clang-format off
+  // Shell map for Windows
+  constexpr Array<Pair<StringView, StringView>, 5> windowsShellMap = {{
+    {        "cmd",   "Command Prompt" },
+    { "powershell",       "PowerShell" },
+    {       "pwsh",  "PowerShell Core" },
+    {         "wt", "Windows Terminal" },
+    {   "explorer", "Windows Explorer" },
+  }};
+
+  // Shell map for MSYS2
+  constexpr Array<Pair<StringView, StringView>, 7> msysShellMap = {{
+    { "bash",      "Bash" },
+    {  "zsh",       "Zsh" },
+    { "fish",      "Fish" },
+    {   "sh",        "sh" },
+    {  "ksh", "KornShell" },
+    { "tcsh",      "tcsh" },
+    { "dash",      "dash" },
+  }};
+  // clang-format on
+
+  // Convert a wide string to a UTF-8 string
   [[nodiscard]] fn ConvertWStringToUTF8(const std::wstring& wstr) -> String {
     if (wstr.empty())
       return {};
@@ -73,20 +111,43 @@ namespace {
     return result;
   }
 
+  /**
+   * @brief A thread-local buffer for Windows Registry API calls.
+   * @details This avoids repeated heap allocations within functions that query the
+   * registry, such as `GetRegistryValue`. It is defined as `thread_local` to ensure
+   * thread safety without requiring mutexes.
+   */
   constexpr thread_local struct RegistryBuffer {
     mutable Array<wchar_t, 1024> data {};
   } registryBuffer;
 
+  /**
+   * @brief Holds essential data for a single process in the process tree.
+   * @details Used by the `ProcessTreeCache` to store a simplified view of each
+   * process, containing only the information needed for shell detection.
+   */
   struct ProcessData {
-    DWORD  parentPid = 0;
-    String baseExeNameLower;
+    DWORD  parentPid = 0;    ///< The process ID of the parent process.
+    String baseExeNameLower; ///< The lowercase executable name without path or extension.
   };
 
+  /**
+   * @brief A singleton cache for frequently used Windows Registry keys.
+   * @details This class opens handles to common registry keys upon first use and
+   * keeps them open for the lifetime of the application. This avoids the overhead
+   * of repeatedly calling `RegOpenKeyEx` and `RegCloseKey`. The destructor ensures
+   * that the handles are properly closed on exit (RAII).
+   */
   class RegistryCache {
    private:
-    HKEY m_currentVersionKey = nullptr;
-    HKEY m_hardwareConfigKey = nullptr;
+    HKEY m_currentVersionKey = nullptr; ///< The handle to the current version key.
+    HKEY m_hardwareConfigKey = nullptr; ///< The handle to the hardware config key.
 
+    /**
+     * @brief Opens the current version and hardware config keys.
+     * @details This constructor opens the current version and hardware config keys,
+     * and stores the handles in the class.
+     */
     RegistryCache() {
       if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", 0, KEY_READ, &m_currentVersionKey) != ERROR_SUCCESS)
         m_currentVersionKey = nullptr;
@@ -94,6 +155,11 @@ namespace {
         m_hardwareConfigKey = nullptr;
     }
 
+    /**
+     * @brief Closes the current version and hardware config keys.
+     * @details This destructor closes the current version and hardware config keys,
+     * and stores the handles in the class.
+     */
     ~RegistryCache() {
       if (m_currentVersionKey)
         RegCloseKey(m_currentVersionKey);
@@ -102,15 +168,27 @@ namespace {
     }
 
    public:
+    /**
+     * @brief Gets the instance of the RegistryCache class.
+     * @details This function returns the instance of the RegistryCache class.
+     */
     static fn getInstance() -> RegistryCache& {
       static RegistryCache Instance;
       return Instance;
     }
 
+    /**
+     * @brief Gets the handle to the current version key.
+     * @details This function returns the handle to the current version key.
+     */
     fn getCurrentVersionKey() const -> HKEY {
       return m_currentVersionKey;
     }
 
+    /**
+     * @brief Gets the handle to the hardware config key.
+     * @details This function returns the handle to the hardware config key.
+     */
     fn getHardwareConfigKey() const -> HKEY {
       return m_hardwareConfigKey;
     }
@@ -121,21 +199,37 @@ namespace {
     fn operator=(RegistryCache&&)->RegistryCache&      = delete;
   };
 
+  /**
+   * @brief A singleton cache for a snapshot of the system's process tree.
+   * @details This class creates a complete snapshot of all running processes on
+   * its first use (`initialize()`). It stores a simplified map of process data,
+   * allowing for efficient and repeated lookups of parent processes without needing
+   * to re-query the OS each time. This is primarily used for finding the user's shell.
+   */
   class ProcessTreeCache {
    private:
-    std::unordered_map<DWORD, ProcessData> m_processMap;
-    bool                                   m_initialized = false;
+    std::unordered_map<DWORD, ProcessData> m_processMap;          ///< The map of processes.
+    bool                                   m_initialized = false; ///< Whether the process tree cache has been initialized.
 
     ProcessTreeCache() = default;
 
    public:
     ~ProcessTreeCache() = default;
 
+    /**
+     * @brief Gets the instance of the ProcessTreeCache class.
+     * @details This function returns the instance of the ProcessTreeCache class.
+     */
     static fn getInstance() -> ProcessTreeCache& {
       static ProcessTreeCache Instance;
       return Instance;
     }
 
+    /**
+     * @brief Initializes the process tree cache.
+     * @details This function initializes the process tree cache,
+     * and stores the handles in the class.
+     */
     fn initialize() -> void {
       if (m_initialized)
         return;
@@ -176,31 +270,19 @@ namespace {
       m_initialized = true;
     }
 
+    /**
+     * @brief Gets the process map.
+     * @details This function returns the process map.
+     */
     [[nodiscard]] fn getProcessMap() const -> const std::unordered_map<DWORD, ProcessData>& {
       return m_processMap;
     }
 
-    explicit ProcessTreeCache(std::unordered_map<DWORD, ProcessData> processMap)
-      : m_processMap(std::move(processMap)) {}
     ProcessTreeCache(const ProcessTreeCache&)                = delete;
     ProcessTreeCache(ProcessTreeCache&&)                     = delete;
     fn operator=(const ProcessTreeCache&)->ProcessTreeCache& = delete;
     fn operator=(ProcessTreeCache&&)->ProcessTreeCache&      = delete;
   };
-
-  // clang-format off
-  constexpr Array<Pair<StringView, StringView>, 3> windowsShellMap = {{
-    {        "cmd",  "Command Prompt" },
-    { "powershell",      "PowerShell" },
-    {       "pwsh", "PowerShell Core" },
-  }};
-
-  constexpr Array<Pair<StringView, StringView>, 3> msysShellMap = {{
-    { "bash", "Bash" },
-    {  "zsh",  "Zsh" },
-    { "fish", "Fish" },
-  }};
-  // clang-format on
 
   fn GetDirCount(const std::wstring_view path) -> Result<u64> {
     std::wstring searchPath(path);
@@ -340,8 +422,7 @@ namespace draconis::core::system {
     HKEY currentVersionKey = registry.getCurrentVersionKey();
 
     if (!currentVersionKey)
-      if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_READ, &currentVersionKey) != ERROR_SUCCESS)
-        return Err(DracError(NotFound, "Failed to open registry key"));
+      return Err(DracError(NotFound, "Failed to open registry key"));
 
     std::wstring productName = GetRegistryValue(currentVersionKey, PRODUCT_NAME);
 
@@ -376,8 +457,7 @@ namespace draconis::core::system {
     HKEY                 hardwareConfigKey = registry.getHardwareConfigKey();
 
     if (!hardwareConfigKey)
-      if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SYSTEM\\HardwareConfig\\Current", 0, KEY_READ, &hardwareConfigKey) != ERROR_SUCCESS)
-        return Err(DracError(NotFound, "Failed to open registry key"));
+      return Err(DracError(NotFound, "Failed to open registry key"));
 
     const std::wstring systemFamily = GetRegistryValue(hardwareConfigKey, SYSTEM_FAMILY);
 
@@ -385,8 +465,7 @@ namespace draconis::core::system {
   }
 
   fn System::getKernelVersion() -> Result<String> {
-    // ReSharper disable once CppDFAUnusedValue
-    fn filter = [](const u32 code, struct _EXCEPTION_POINTERS* /*ep*/) -> i32 {
+    fn filter = [](const u32 code) -> i32 {
       if (code == EXCEPTION_ACCESS_VIOLATION)
         return EXCEPTION_EXECUTE_HANDLER;
 
@@ -410,8 +489,7 @@ namespace draconis::core::system {
       majorVersion = *reinterpret_cast<const volatile u32*>(kuserSharedNtMajorVersion);
       minorVersion = *reinterpret_cast<const volatile u32*>(kuserSharedNtMinorVersion);
       buildNumber  = *reinterpret_cast<const volatile u32*>(kuserSharedNtBuildNumber);
-      // ReSharper disable once CppDFAUnreachableCode
-    } __except (filter(GetExceptionCode(), GetExceptionInformation())) {
+    } __except (filter(GetExceptionCode())) {
       return Err(DracError(PlatformSpecific, "Failed to read kernel version from KUSER_SHARED_DATA"));
     }
     // NOLINTEND(*-pro-type-reinterpret-cast, *-no-int-to-ptr)
@@ -430,49 +508,38 @@ namespace draconis::core::system {
   }
 
   fn System::getDesktopEnvironment() -> Result<String> {
-    const RegistryCache& registry = RegistryCache::getInstance();
+    const Result<u64> buildResult = GetBuildNumber();
+    if (!buildResult)
+      return Err(buildResult.error());
 
-    HKEY currentVersionKey = registry.getCurrentVersionKey();
+    const u64 build = *buildResult;
 
-    if (!currentVersionKey)
-      if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_READ, &currentVersionKey) != ERROR_SUCCESS)
-        return Err(DracError(NotFound, "Failed to open registry key"));
+    // Windows 11+ (Fluent)
+    if (build >= 22000)
+      return "Fluent (Windows 11)";
 
-    const std::wstring buildStr = GetRegistryValue(currentVersionKey, CURRENT_BUILD);
+    // Windows 10 Fluent Era
+    if (build >= 15063)
+      return "Fluent (Windows 10)";
 
-    if (buildStr.empty())
-      return Err(DracError(InternalError, "Failed to get CurrentBuildNumber from registry"));
+    // Windows 8.1/10 Metro Era
+    if (build >= 9200) { // Windows 8+
+      // Distinguish between Windows 8 and 10
+      if (GetRegistryValue(RegistryCache::getInstance().getCurrentVersionKey(), PRODUCT_NAME).find(L"Windows 10") != std::wstring::npos)
+        return "Metro (Windows 10)";
 
-    try {
-      const i32 build = stoi(buildStr);
+      if (build >= 9600)
+        return "Metro (Windows 8.1)";
 
-      // Windows 11+ (Fluent)
-      if (build >= 22000)
-        return "Fluent (Windows 11)";
+      return "Metro (Windows 8)";
+    }
 
-      // Windows 10 Fluent Era
-      if (build >= 15063)
-        return "Fluent (Windows 10)";
+    // Windows 7 Aero
+    if (build >= 7600)
+      return "Aero (Windows 7)";
 
-      // Windows 8.1/10 Metro Era
-      if (build >= 9200) { // Windows 8+
-        // Distinguish between Windows 8 and 10
-        if (GetRegistryValue(currentVersionKey, PRODUCT_NAME).find(L"Windows 10") != std::wstring::npos)
-          return "Metro (Windows 10)";
-
-        if (build >= 9600)
-          return "Metro (Windows 8.1)";
-
-        return "Metro (Windows 8)";
-      }
-
-      // Windows 7 Aero
-      if (build >= 7600)
-        return "Aero (Windows 7)";
-
-      // Pre-Win7
-      return "Classic";
-    } catch (...) { return Err(DracError(ParseError, "Failed to parse CurrentBuildNumber")); }
+    // Pre-Win7
+    return "Classic";
   }
 
   fn System::getShell() -> Result<String> {
