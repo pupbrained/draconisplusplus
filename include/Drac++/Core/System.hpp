@@ -1,3 +1,10 @@
+/**
+ * @file System.hpp
+ * @brief Defines the os::System class, a cross-platform interface for querying system information.
+ * @author pupbrained/Draconis
+ * @version DRACONISPLUSPLUS_VERSION
+ */
+
 #pragma once
 
 #if DRAC_ENABLE_WEATHER

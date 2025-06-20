@@ -3,12 +3,13 @@
   #include <CoreFoundation/CFPropertyList.h> // CFPropertyListCreateWithData, kCFPropertyListImmutable
   #include <CoreFoundation/CFStream.h>       // CFReadStreamClose, CFReadStreamCreateWithFile, CFReadStreamOpen, CFReadStreamRead, CFReadStreamRef
   #include <IOKit/IOKitLib.h>                // IOKit types and functions
-  #include <flat_map>                        // std::flat_map
-  #include <mach/mach_host.h>                // host_statistics64
-  #include <mach/mach_init.h>                // host_page_size, mach_host_self
-  #include <mach/vm_statistics.h>            // vm_statistics64_data_t
-  #include <sys/statvfs.h>                   // statvfs
-  #include <sys/sysctl.h>                    // {CTL_KERN, KERN_PROC, KERN_PROC_ALL, kinfo_proc, sysctl, sysctlbyname}
+  #include <algorithm>
+  #include <flat_map>             // std::flat_map
+  #include <mach/mach_host.h>     // host_statistics64
+  #include <mach/mach_init.h>     // host_page_size, mach_host_self
+  #include <mach/vm_statistics.h> // vm_statistics64_data_t
+  #include <sys/statvfs.h>        // statvfs
+  #include <sys/sysctl.h>         // {CTL_KERN, KERN_PROC, KERN_PROC_ALL, kinfo_proc, sysctl, sysctlbyname}
 
   #include <Drac++/Core/System.hpp>
   #include <Drac++/Services/Packages.hpp>
@@ -16,6 +17,7 @@
   #include <DracUtils/Definitions.hpp>
   #include <DracUtils/Env.hpp>
   #include <DracUtils/Error.hpp>
+  #include <DracUtils/Logging.hpp>
   #include <DracUtils/Types.hpp>
 
   #include "OS/macOS/Bridge.hpp"
@@ -27,21 +29,7 @@ using draconis::utils::env::GetEnv;
 using draconis::utils::error::DracError, draconis::utils::error::DracErrorCode;
 
 namespace {
-  fn StrEqualsIgnoreCase(StringView strA, StringView strB) -> bool {
-    return std::ranges::equal(strA, strB, [](char aChar, char bChar) {
-      return std::tolower(static_cast<u8>(aChar)) == std::tolower(static_cast<u8>(bChar));
-    });
-  }
-
-  fn Capitalize(StringView sview) -> Option<String> {
-    if (sview.empty())
-      return None;
-
-    String result(sview);
-    result.front() = static_cast<char>(std::toupper(static_cast<u8>(result.front())));
-
-    return result;
-  }
+  // Checks if two strings are equal, ignoring case by converting both to lowercase.
 } // namespace
 
 namespace draconis::core::system {
@@ -75,7 +63,7 @@ namespace draconis::core::system {
   }
 
   fn System::getNowPlaying() -> Result<MediaInfo> {
-    return macOS::bridge::GetNowPlayingInfo();
+    return macOS::GetNowPlayingInfo();
   }
 
   fn System::getOSVersion() -> Result<String> {
@@ -116,7 +104,7 @@ namespace draconis::core::system {
     }
 
     static constexpr usize    BUFFER_SIZE = 4096;
-    Array<UInt8, BUFFER_SIZE> buffer;
+    Array<UInt8, BUFFER_SIZE> buffer {};
     CFMutableDataRef          data      = CFDataCreateMutable(kCFAllocatorDefault, 0);
     CFIndex                   bytesRead = 0;
 
@@ -154,7 +142,7 @@ namespace draconis::core::system {
 
     static constexpr usize VERSION_BUFFER_SIZE = 256;
 
-    Array<char, VERSION_BUFFER_SIZE> versionBuffer;
+    Array<char, VERSION_BUFFER_SIZE> versionBuffer {};
 
     if (!CFStringGetCString(versionString, versionBuffer.data(), versionBuffer.size(), kCFStringEncodingUTF8)) {
       CFRelease(plist);
@@ -197,13 +185,12 @@ namespace draconis::core::system {
     if (Result<String> cachedWm = GetValidCache<String>(cacheKey))
       return *cachedWm;
 
-    constexpr Array<StringView, 6> knownWms = {
-      "yabai",
-      "kwm",
-      "chunkwm",
-      "amethyst",
-      "spectacle",
-      "rectangle",
+    constexpr Array<StringView, 5> knownWms = {
+      "Yabai",
+      "ChunkWM",
+      "Amethyst",
+      "Spectacle",
+      "Rectangle",
     };
 
     Array<i32, 3> request = { CTL_KERN, KERN_PROC, KERN_PROC_ALL };
@@ -232,20 +219,16 @@ namespace draconis::core::system {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     Span<const kinfo_proc> processes(reinterpret_cast<const kinfo_proc*>(buf.data()), count);
 
-    for (const kinfo_proc& procInfo : processes) {
-      StringView comm(procInfo.kp_proc.p_comm);
-
+    for (const kinfo_proc& procInfo : processes)
       for (const StringView& wmName : knownWms)
-        if (StrEqualsIgnoreCase(comm, wmName)) {
-          if (const Option<String> capitalized = Capitalize(comm)) {
-            if (Result writeResult = WriteCache(cacheKey, *capitalized); !writeResult)
-              debug_at(writeResult.error());
-            return *capitalized;
-          }
+        if (std::ranges::equal(StringView(procInfo.kp_proc.p_comm), wmName, [](char chrA, char chrB) {
+              return std::tolower(static_cast<unsigned char>(chrA)) == std::tolower(static_cast<unsigned char>(chrB));
+            })) {
+          if (Result writeResult = WriteCache(cacheKey, wmName); !writeResult)
+            debug_at(writeResult.error());
 
-          return Err(DracError(DracErrorCode::ParseError, "Failed to capitalize window manager name"));
+          return String(wmName);
         }
-    }
 
     String manager = "Quartz";
 
@@ -262,7 +245,8 @@ namespace draconis::core::system {
       return *cachedKernel;
 
     Array<char, 256> kernelVersion {};
-    usize            kernelVersionLen = sizeof(kernelVersion);
+
+    usize kernelVersionLen = kernelVersion.size();
 
     if (sysctlbyname("kern.osrelease", kernelVersion.data(), &kernelVersionLen, nullptr, 0) == -1)
       return Err(DracError("Failed to get kernel version"));
@@ -280,7 +264,8 @@ namespace draconis::core::system {
       return *cachedHost;
 
     Array<char, 256> hwModel {};
-    usize            hwModelLen = sizeof(hwModel);
+
+    usize hwModelLen = hwModel.size();
 
     if (sysctlbyname("hw.model", hwModel.data(), &hwModelLen, nullptr, 0) == -1)
       return Err(DracError("Failed to get host info"));
@@ -449,7 +434,8 @@ namespace draconis::core::system {
 
   fn System::getCPUModel() -> Result<String> {
     Array<char, 256> cpuModel {};
-    usize            cpuModelLen = sizeof(cpuModel);
+
+    usize cpuModelLen = cpuModel.size();
 
     if (sysctlbyname("machdep.cpu.brand_string", cpuModel.data(), &cpuModelLen, nullptr, 0) == -1)
       return Err(DracError("Failed to get CPU model"));
@@ -463,7 +449,7 @@ namespace draconis::core::system {
     if (Result<String> cachedGPU = GetValidCache<String>(cacheKey))
       return *cachedGPU;
 
-    const Result<String> gpuModel = macOS::bridge::GetGPUModel();
+    const Result<String> gpuModel = macOS::GetGPUModel();
 
     if (!gpuModel)
       return Err(DracError("Failed to get GPU model"));

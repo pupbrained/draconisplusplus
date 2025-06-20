@@ -50,7 +50,7 @@ namespace draconis::config {
 #ifdef _WIN32
       using draconis::utils::types::Array;
 
-      Array<char, 256> username;
+      Array<char, 256> username {};
 
       DWORD size = username.size();
 

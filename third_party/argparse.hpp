@@ -435,7 +435,7 @@ namespace argparse {
 
         Result<T> result;
 
-        if (starts_with("0x"sv, s) || starts_with("0X"sv, s)) {
+        if (s.starts_with('0') && (s[1] == 'x' || s[1] == 'X')) {
           if (auto [ok, rest] = consume_hex_prefix(s); ok)
             result = do_from_chars<T, radix_16>(rest);
           else
@@ -491,7 +491,7 @@ namespace argparse {
           return result;
         }
 
-        if (starts_with("0"sv, s)) {
+        if (s.starts_with('0')) {
           Result<T> result = do_from_chars<T, radix_8>(s);
 
           if (!result)

@@ -34,9 +34,9 @@ using drac::error::DracError, drac::error::DracErrorCode;
 namespace {
   #ifdef __FreeBSD__
   fn GetPathByPid(pid_t pid) -> Result<String> {
-    Array<char, PATH_MAX> exePathBuf;
+    Array<char, PATH_MAX> exePathBuf {};
     usize                 size = exePathBuf.size();
-    Array<i32, 4>         mib;
+    Array<i32, 4>         mib {};
 
     mib.at(0) = CTL_KERN;
     mib.at(1) = KERN_PROC_ARGS;
