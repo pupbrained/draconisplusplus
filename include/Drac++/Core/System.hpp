@@ -7,10 +7,6 @@
 
 #pragma once
 
-#if DRAC_ENABLE_WEATHER
-  #include "Drac++/Services/Weather.hpp"
-#endif
-
 #include "DracUtils/Definitions.hpp"
 #include "DracUtils/Error.hpp"
 #include "DracUtils/Types.hpp"
@@ -24,8 +20,6 @@ namespace draconis::core::system {
     using utils::types::Result;
     using utils::types::String;
     using utils::types::u64;
-
-    using services::weather::Report;
   } // namespace
 
   class System {
@@ -46,9 +40,6 @@ namespace draconis::core::system {
 #endif
 #if DRAC_ENABLE_NOWPLAYING
     Result<MediaInfo> nowPlaying;
-#endif
-#if DRAC_ENABLE_WEATHER
-    Result<Report> weather;
 #endif
 
     /**

@@ -13,6 +13,7 @@
 
 #include <Drac++/Core/System.hpp>
 #include <Drac++/Services/Packages.hpp>
+#include <Drac++/Services/Weather.hpp>
 
 #include <DracUtils/Definitions.hpp>
 #include <DracUtils/Error.hpp>
@@ -23,9 +24,14 @@
 #include "UI/UI.hpp"
 
 using namespace draconis::utils::types;
+using namespace draconis::core::system;
+using namespace draconis::config;
+using namespace draconis::ui;
+
 using draconis::utils::error::DracError;
 using enum draconis::utils::error::DracErrorCode;
-using namespace draconis::core::system;
+
+using draconis::services::weather::Report;
 
 namespace {
   fn getOrdinalSuffix(const i32 day) -> CStr {
@@ -71,7 +77,11 @@ namespace {
     return Err(DracError(ParseError, "Failed to get local time"));
   }
 
+#if DRAC_ENABLE_WEATHER
+  fn PrintDoctorReport(const System& data, const Result<Report>& weather) -> void {
+#else
   fn PrintDoctorReport(const System& data) -> void {
+#endif
     Vec<Pair<String, DracError>> failures;
 
     constexpr u8 totalPossibleReadouts = 9
@@ -115,8 +125,8 @@ namespace {
       failures.emplace_back("NowPlaying", data.nowPlaying.error());
 #endif
 #if DRAC_ENABLE_WEATHER
-    if (!data.weather.has_value())
-      failures.emplace_back("Weather", data.weather.error());
+    if (!weather.has_value())
+      failures.emplace_back("Weather", weather.error());
 #endif
 
     const String summary = std::format(
@@ -178,13 +188,6 @@ namespace {
     Future<Result<MediaInfo>> npFut = std::async(config.nowPlaying.enabled ? async : deferred, &System::getNowPlaying);
 #endif
 
-#if DRAC_ENABLE_WEATHER
-    Future<Result<draconis::services::weather::Report>> wthrFut = std::async(
-      config.weather.enabled ? std::launch::async : std::launch::deferred,
-      [&service = config.weather.service]() { return service->getWeatherInfo(); }
-    );
-#endif
-
     system.osVersion     = osFut.get();
     system.kernelVersion = kernelFut.get();
     system.host          = hostFut.get();
@@ -199,10 +202,6 @@ namespace {
 
 #if DRAC_ENABLE_PACKAGECOUNT
     system.packageCount = pkgFut.get();
-#endif
-
-#if DRAC_ENABLE_WEATHER
-    system.weather = config.weather.enabled ? wthrFut.get() : Err(DracError(ApiUnavailable, "Weather API disabled"));
 #endif
 
 #if DRAC_ENABLE_NOWPLAYING
@@ -270,18 +269,29 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
   {
     using namespace ftxui;
     using namespace ftxui::Dimension;
-    using draconis::core::system::System;
-    using draconis::ui::CreateUI;
+    using matchit::match, matchit::is, matchit::_;
 
-    const draconis::config::Config& config = draconis::config::Config::getInstance();
-    const System                    data   = InitializeSystem(config);
+    const Config&  config        = Config::getInstance();
+    const System   data          = InitializeSystem(config);
+    Result<Report> weatherReport = config.weather.service->getWeatherInfo();
 
     if (doctorMode) {
+#if DRAC_ENABLE_WEATHER
+      PrintDoctorReport(data, weatherReport);
+#else
       PrintDoctorReport(data);
+#endif
       return EXIT_SUCCESS;
     }
 
-    Element document = CreateUI(config, data);
+    Element document;
+
+    if (weatherReport) {
+      document = CreateUI(config, data, *weatherReport);
+    } else {
+      error_at(weatherReport.error());
+      document = CreateUI(config, data, None);
+    }
 
     Screen screen = Screen::Create(Full(), Fit(document));
     Render(screen, document);
@@ -295,10 +305,8 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
 #else
   std::cout << '\n';
 #endif
+
   return EXIT_SUCCESS;
-} catch (const DracError& e) {
-  error_at(e);
-  return EXIT_FAILURE;
 } catch (const Exception& e) {
   error_at(e);
   return EXIT_FAILURE;

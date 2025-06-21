@@ -10,6 +10,10 @@ using namespace ftxui;
 using namespace draconis::utils::types;
 
 namespace draconis::ui {
+  using config::Config;
+  using core::system::System;
+  using services::weather::Report;
+
   constexpr Theme DEFAULT_THEME = {
     .icon   = Color::Cyan,
     .label  = Color::Yellow,
@@ -173,7 +177,11 @@ namespace draconis::ui {
     }
   } // namespace
 
-  fn CreateUI(const config::Config& config, const core::system::System& data) -> Element {
+#if DRAC_ENABLE_WEATHER
+  fn CreateUI(const Config& config, const System& data, Option<Report> weather) -> Element {
+#else
+  fn CreateUI(const Config& config, const System& data) -> Element {
+#endif
     const String& name = config.general.name;
 
     // clang-format off
@@ -213,8 +221,8 @@ namespace draconis::ui {
       initialRows.push_back({ .icon = calendarIcon, .label = "Date", .value = *data.date });
 
 #if DRAC_ENABLE_WEATHER
-    if (config.weather.enabled && data.weather) {
-      const auto& [temperature, name, description] = *data.weather;
+    if (weather) {
+      const auto& [temperature, name, description] = *weather;
 
       CStr tempUnit = config.weather.units == services::weather::Unit::METRIC ? "C" : "F";
 
@@ -227,8 +235,7 @@ namespace draconis::ui {
             : std::format("{}°{}, {}", std::lround(temperature), tempUnit, description),
         }
       );
-    } else if (config.weather.enabled && !data.weather.has_value())
-      error_at(data.weather.error());
+    }
 #endif
 
     if (data.host && !data.host->empty())

@@ -4,6 +4,7 @@
 #include <ftxui/screen/color.hpp> // ftxui::Color
 
 #include <Drac++/Core/System.hpp>
+#include <Drac++/Services/Weather.hpp>
 
 #include <DracUtils/Types.hpp>
 
@@ -14,6 +15,8 @@ namespace draconis::ui {
     using config::Config;
     using core::system::System;
     using ftxui::Element;
+    using services::weather::Report;
+    using utils::types::Option;
     using utils::types::StringView;
 
     using Palette16 = ftxui::Color::Palette16;
@@ -55,10 +58,21 @@ namespace draconis::ui {
 
   extern const Icons ICON_TYPE;
 
+#if DRAC_ENABLE_WEATHER
+  /**
+   * @brief Creates the main UI element based on system data and configuration.
+   * @param config The application configuration.
+   * @param data The collected system data.
+   * @param weather The weather report, if enabled/available.
+   * @return The root ftxui::Element for rendering.
+   */
+  fn CreateUI(const Config& config, const System& data, Option<Report> weather) -> Element;
+#else
   /**
    * @brief Creates the main UI element based on system data and configuration.
    * @param config The application configuration.
    * @param data The collected system data. @return The root ftxui::Element for rendering.
    */
   fn CreateUI(const Config& config, const System& data) -> Element;
+#endif
 } // namespace draconis::ui

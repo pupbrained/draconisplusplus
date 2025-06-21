@@ -12,12 +12,13 @@
  * - Windows Runtime (WinRT) for modern OS details, media controls, and WinGet packages.
  *
  * To optimize performance, the implementation caches process snapshots and registry
- * handles. We use wide strings for all string operations to avoid the overhead of
+ * handles. Wide strings are used for all string operations to avoid the overhead of
  * converting between UTF-8 and UTF-16 until the final result is needed.
  *
  * @see draconis::core::system::System
  */
 
+#include <DracUtils/Types.hpp>
 #ifdef _WIN32
 
   #include <dwmapi.h>                               // DwmIsCompositionEnabled
@@ -76,11 +77,11 @@ namespace {
 
   namespace helpers {
     fn ConvertWStringToUTF8(const std::wstring& wstr) -> Result<String> {
-      // Likely best to just return an empty string if we get an empty wide string.
+      // Likely best to just return an empty string if an empty wide string is provided.
       if (wstr.empty())
         return String {};
 
-      // We first need to call WideCharToMultiByte to get the buffer size.
+      // First call WideCharToMultiByte to get the buffer size...
       const i32 sizeNeeded = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), static_cast<int>(wstr.length()), nullptr, 0, nullptr, nullptr);
       if (sizeNeeded == 0)
         return Err(DracError(PlatformSpecific, std::format("Failed to get buffer size for UTF-8 conversion. Error code: {}", GetLastError())));
@@ -166,16 +167,17 @@ namespace {
   } // namespace helpers
 
   namespace cache {
+    // Caches registry values, allowing them to only be retrieved once.
     class RegistryCache {
      private:
       HKEY m_currentVersionKey = nullptr;
       HKEY m_hardwareConfigKey = nullptr;
 
       RegistryCache() {
-        if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, R"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", 0, KEY_READ, &m_currentVersionKey) != ERROR_SUCCESS)
+        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, LR"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", 0, KEY_READ, &m_currentVersionKey) != ERROR_SUCCESS)
           m_currentVersionKey = nullptr;
 
-        if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, R"(SYSTEM\HardwareConfig\Current)", 0, KEY_READ, &m_hardwareConfigKey) != ERROR_SUCCESS)
+        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, LR"(SYSTEM\HardwareConfig\Current)", 0, KEY_READ, &m_hardwareConfigKey) != ERROR_SUCCESS)
           m_hardwareConfigKey = nullptr;
       }
 
@@ -207,14 +209,9 @@ namespace {
       fn operator=(RegistryCache&&)->RegistryCache&      = delete;
     };
 
+    // Caches OS version data for use in other functions.
     class OsVersionCache {
      private:
-      struct VersionData {
-        u32 majorVersion;
-        u32 minorVersion;
-        u32 buildNumber;
-      };
-
       Result<VersionData> m_versionData;
 
       // Fetching version data from KUSER_SHARED_DATA is the fastest way to get the version information.
@@ -259,6 +256,12 @@ namespace {
       ~OsVersionCache() = default;
 
      public:
+      struct VersionData {
+        u32 majorVersion;
+        u32 minorVersion;
+        u32 buildNumber;
+      };
+
       static fn getInstance() -> const OsVersionCache& {
         static OsVersionCache Instance;
         return Instance;
@@ -271,6 +274,7 @@ namespace {
       fn getBuildNumber() const -> Result<u64> {
         if (!m_versionData)
           return Err(m_versionData.error());
+
         return static_cast<u64>(m_versionData->buildNumber);
       }
 
@@ -280,6 +284,7 @@ namespace {
       fn operator=(OsVersionCache&&)->OsVersionCache&      = delete;
     };
 
+    // Captures a process tree and stores it for later reuse.
     class ProcessTreeCache {
      public:
       struct Data {
@@ -293,6 +298,9 @@ namespace {
       }
 
       fn initialize() -> Result<> {
+        // Ensure exclusive access to the initialization process.
+        LockGuard lock(m_initMutex);
+
         // Prevent wasteful re-initialization if the cache is already populated.
         if (m_initialized)
           return {};
@@ -344,6 +352,7 @@ namespace {
      private:
       std::unordered_map<DWORD, Data> m_processMap;
       bool                            m_initialized = false;
+      Mutex                           m_initMutex;
 
       ProcessTreeCache()  = default;
       ~ProcessTreeCache() = default;
@@ -353,14 +362,15 @@ namespace {
   namespace shell {
     template <usize sz>
     fn FindShellInProcessTree(const DWORD startPid, const Array<Pair<StringView, StringView>, sz>& shellMap) -> Result<String> {
+      using cache::ProcessTreeCache;
       // PID 0 (System Idle Process) is always the root process, and cannot have a parent.
       if (startPid == 0)
         return Err(DracError(PlatformSpecific, "Start PID is 0"));
 
-      if (!cache::ProcessTreeCache::getInstance().initialize())
+      if (!ProcessTreeCache::getInstance().initialize())
         return Err(DracError(PlatformSpecific, "Failed to initialize process tree cache"));
 
-      const std::unordered_map<DWORD, cache::ProcessTreeCache::Data>& processMap = cache::ProcessTreeCache::getInstance().getProcessMap();
+      const UnorderedMap<DWORD, ProcessTreeCache::Data>& processMap = ProcessTreeCache::getInstance().getProcessMap();
 
       DWORD currentPid = startPid;
 
@@ -443,6 +453,8 @@ namespace draconis::core::system {
     constexpr const wchar_t* windows10 = L"Windows 10";
     constexpr const wchar_t* windows11 = L"Windows 11";
 
+    constexpr usize windowsLen = std::char_traits<wchar_t>::length(windows10);
+
     const RegistryCache& registry = RegistryCache::getInstance();
 
     HKEY currentVersionKey = registry.getCurrentVersionKey();
@@ -466,10 +478,10 @@ namespace draconis::core::system {
           // Make sure we're not replacing a substring of a larger string. Should never happen,
           // but if it ever does, we'll just leave the product name unchanged.
           const bool startBoundary = (pos == 0 || !iswalnum(productName->at(pos - 1)));
-          const bool endBoundary   = (pos + std::wcslen(windows10) == productName->length() || !iswalnum(productName->at(pos + std::wcslen(windows10))));
+          const bool endBoundary   = (pos + windowsLen == productName->length() || !iswalnum(productName->at(pos + windowsLen)));
 
           if (startBoundary && endBoundary)
-            productName->replace(pos, std::wcslen(windows10), windows11);
+            productName->replace(pos, windowsLen, windows11);
         }
 
     // Append the display version if it exists.
@@ -511,12 +523,12 @@ namespace draconis::core::system {
   }
 
   fn System::getKernelVersion() -> Result<String> {
-    const auto& versionDataResult = OsVersionCache::getInstance().getVersionData();
+    const Result<OsVersionCache::VersionData>& versionDataResult = OsVersionCache::getInstance().getVersionData();
 
     if (!versionDataResult)
       return Err(versionDataResult.error());
 
-    const auto& versionData = *versionDataResult;
+    const OsVersionCache::VersionData& versionData = *versionDataResult;
 
     return std::format("{}.{}.{}", versionData.majorVersion, versionData.minorVersion, versionData.buildNumber);
   }
@@ -527,7 +539,7 @@ namespace draconis::core::system {
     if (SUCCEEDED(DwmIsCompositionEnabled(&compositionEnabled)))
       return compositionEnabled ? "DWM" : "Windows Manager (Basic)";
 
-    return Err(DracError(NotFound, "Failed to get window manager (DwmIsCompositionEnabled failed"));
+    return Err(DracError(PlatformSpecific, "DwmIsCompositionEnabled failed"));
   }
 
   fn System::getDesktopEnvironment() -> Result<String> {
@@ -620,78 +632,129 @@ namespace draconis::core::system {
   }
 
   fn System::getCPUModel() -> Result<String> {
+    /*
+     * This function attempts to get the CPU model name on Windows in two ways:
+     * 1. Using __cpuid on x86/x86_64 platforms (much more direct and efficient).
+     * 2. Reading from the registry on all platforms (slower, but more reliable).
+     */
   #if DRAC_ARCH_X86_64 || DRAC_ARCH_I686
-    Array<i32, 4>   cpuInfo     = { -1 };
-    Array<char, 49> brandString = {};
+    {
+      /*
+       * The CPUID instruction is used to get the CPU model name on x86/x86_64 platforms.
+       * 1. First, we call CPUID with leaf 0x80000000 to ask the CPU if it supports the
+       *    extended functions needed to retrieve the brand string.
+       * 2. If it does, we then make three more calls to retrieve the 48-byte brand
+       *    string, which the CPU provides in three 16-byte chunks.
+       *
+       * (In this context, a "leaf" is basically just an action we ask the CPU to perform.)
+       */
 
-    __cpuid(0x80000000, cpuInfo[0], cpuInfo[1], cpuInfo[2], cpuInfo[3]);
+      // Array to hold the raw 32-bit values from the EAX, EBX, ECX, and EDX registers.
+      Array<i32, 4> cpuInfo = {};
 
-    if (const u32 maxFunction = cpuInfo[0]; maxFunction < 0x80000004)
-      return Err(DracError(PlatformSpecific, "CPU does not support brand string"));
+      // Buffer to hold the raw 48-byte brand string + null terminator.
+      Array<char, 49> brandString = {};
 
-    for (u32 i = 0; i < 3; i++) {
-      __cpuid(0x80000002 + i, cpuInfo[0], cpuInfo[1], cpuInfo[2], cpuInfo[3]);
-      std::memcpy(&brandString.at(i * 16), cpuInfo.data(), sizeof(cpuInfo));
+      // Step 1: Check for brand string support. The result is returned in EAX (cpuInfo[0]).
+      __cpuid(0x80000000, cpuInfo[0], cpuInfo[1], cpuInfo[2], cpuInfo[3]);
+
+      // We must have extended functions support (functions up to 0x80000004).
+      if (const u32 maxFunction = cpuInfo[0]; maxFunction >= 0x80000004) {
+        // Retrieve the brand string in three 16-byte parts.
+        for (u32 i = 0; i < 3; i++) {
+          // Call leaves 0x80000002, 0x80000003, and 0x80000004. Each call
+          // returns a 16-byte chunk of the brand string.
+          __cpuid(0x80000002 + i, cpuInfo[0], cpuInfo[1], cpuInfo[2], cpuInfo[3]);
+
+          // Copy the chunk into the brand string buffer.
+          std::memcpy(&brandString.at(i * 16), cpuInfo.data(), sizeof(cpuInfo));
+        }
+
+        String result(brandString.data());
+
+        // Clean up any possible trailing whitespace.
+        while (!result.empty() && std::isspace(result.back()))
+          result.pop_back();
+
+        // We're done if we got a valid, non-empty string.
+        // Otherwise, fallback to querying the registry.
+        if (!result.empty())
+          return result;
+      }
     }
+  #endif
 
-    String result(brandString.data());
+    {
+      /*
+       * If the CPUID instruction fails/is unsupported on the target architecture,
+       * we fallback to querying the registry. This is a lot more reliable than
+       * querying the CPU itself and supports all architectures, but it's also slower.
+       */
 
-    while (!result.empty() && std::isspace(result.back()))
-      result.pop_back();
+      HKEY hKey = nullptr;
 
-    if (result.empty())
-      return Err(DracError(NotFound, "Failed to get CPU model"));
+      // This key contains information about the processor.
+      if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        // Get the processor name value from the registry key.
+        Result<std::wstring> processorNameW = GetRegistryValue(hKey, L"ProcessorNameString");
 
-    return result;
-  #else
-    HKEY hKey = nullptr;
-
-    if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
-      Array<wchar_t, 256> szBuffer = {};
-
-      // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
-      if (RegQueryValueExW(hKey, L"ProcessorNameString", nullptr, nullptr, reinterpret_cast<LPBYTE>(szBuffer.data()), &szBuffer.size()) == ERROR_SUCCESS) {
+        // Ensure the key is closed to prevent leaks.
         RegCloseKey(hKey);
 
-        return ConvertWStringToUTF8(szBuffer.data());
+        // The registry returns wide strings so we have to convert to UTF-8 before returning.
+        if (processorNameW)
+          return ConvertWStringToUTF8(*processorNameW);
       }
-
-      RegCloseKey(hKey);
     }
 
-    return Err(DracError(NotFound, "Failed to get CPU model from registry"));
-  #endif
+    // At this point, there's no other good method to get the CPU model on Windows.
+    // Using WMI is useless because it just calls the same registry key we're already using.
+    return Err(DracError(NotFound, "All methods to get CPU model failed on this platform"));
   }
 
   fn System::getGPUModel() -> Result<String> {
+    // Used to create and enumerate DirectX graphics interfaces.
     IDXGIFactory* pFactory = nullptr;
 
+    // The __uuidof operator is a Microsoft-specific extension that gets the GUID of a COM interface.
+    // It's required by CreateDXGIFactory. The pragma below disables the compiler warning about this
+    // non-standard extension, as its use is necessary here.
   #pragma clang diagnostic push
   #pragma clang diagnostic ignored "-Wlanguage-extension-token"
-    // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+    // NOLINTNEXTLINE(*-pro-type-reinterpret-cast) - CreateDXGIFactory needs a void** parameter, not an IDXGIFactory**.
     if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), reinterpret_cast<void**>(&pFactory))))
       return Err(DracError(PlatformSpecific, "Failed to create DXGI Factory"));
   #pragma clang diagnostic pop
 
+    // Attempt to get the first adapter.
     IDXGIAdapter* pAdapter = nullptr;
 
+    // 0 = primary adapter/GPU
     if (pFactory->EnumAdapters(0, &pAdapter) == DXGI_ERROR_NOT_FOUND) {
+      // Clean up factory.
       pFactory->Release();
+
       return Err(DracError(NotFound, "No DXGI adapters found"));
     }
 
+    // Get the adapter description.
     DXGI_ADAPTER_DESC desc {};
 
     if (FAILED(pAdapter->GetDesc(&desc))) {
+      // Make sure to release the adapter and factory if GetDesc fails.
       pAdapter->Release();
       pFactory->Release();
+
       return Err(DracError(PlatformSpecific, "Failed to get adapter description"));
     }
 
+    // The DirectX description is a wide string.
+    // We have to convert it to a UTF-8 string.
     Array<char, 128> gpuName {};
 
     WideCharToMultiByte(CP_UTF8, 0, desc.Description, -1, gpuName.data(), gpuName.size(), nullptr, nullptr);
 
+    // Clean up resources.
     pAdapter->Release();
     pFactory->Release();
 

@@ -221,6 +221,16 @@ namespace draconis::utils::types {
   using Map = std::map<Key, Val>;
 
   /**
+   * @brief Alias for std::unordered_map<Key, Val>.
+   *
+   * Represents an unordered map (dictionary).
+   * @tparam Key The key type.
+   * @tparam Val The value type.
+   */
+  template <typename Key, typename Val>
+  using UnorderedMap = std::unordered_map<Key, Val>;
+
+  /**
    * @brief Alias for std::shared_ptr<Tp>.
    *
    * Manages shared ownership of a dynamically allocated object.
