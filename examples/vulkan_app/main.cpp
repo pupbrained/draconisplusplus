@@ -413,24 +413,24 @@ fn main() -> i32 {
 
     if (const std::chrono::time_point now = std::chrono::steady_clock::now();
         std::chrono::duration_cast<std::chrono::seconds>(now - lastUpdateTime).count() >= 1) {
-      using draconis::core::system::System;
+      using namespace draconis::core::system;
       using namespace draconis::services::packages;
 
-      host          = System::getHost();
-      kernelVersion = System::getKernelVersion();
-      osVersion     = System::getOSVersion();
-      cpuModel      = System::getCPUModel();
-      gpuModel      = System::getGPUModel();
-      memInfo       = System::getMemInfo();
-      desktopEnv    = System::getDesktopEnvironment();
-      windowMgr     = System::getWindowManager();
-      diskUsage     = System::getDiskUsage();
-      shell         = System::getShell();
+      host          = GetHost();
+      kernelVersion = GetKernelVersion();
+      osVersion     = GetOSVersion();
+      cpuModel      = GetCpuModel();
+      gpuModel      = GetGpuModel();
+      memInfo       = GetMemInfo();
+      desktopEnv    = GetDesktopEnvironment();
+      windowMgr     = GetWindowManager();
+      diskUsage     = GetDiskUsage();
+      shell         = GetShell();
 #if DRAC_ENABLE_PACKAGECOUNT
       packageCount = GetTotalCount(Manager::CARGO);
 #endif
 #if DRAC_ENABLE_NOWPLAYING
-      nowPlaying = System::getNowPlaying();
+      nowPlaying = GetNowPlaying();
 #endif
       lastUpdateTime = now;
     }

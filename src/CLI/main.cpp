@@ -21,6 +21,7 @@
 #include <DracUtils/Types.hpp>
 
 #include "Config/Config.hpp"
+#include "Core/SystemInfo.hpp"
 #include "UI/UI.hpp"
 
 using namespace draconis::utils::types;
@@ -34,53 +35,10 @@ using enum draconis::utils::error::DracErrorCode;
 using draconis::services::weather::Report;
 
 namespace {
-  fn getOrdinalSuffix(const i32 day) -> CStr {
-    using matchit::match, matchit::is, matchit::_, matchit::in;
-
-    return match(day)(
-      is | in(11, 13)    = "th",
-      is | (_ % 10 == 1) = "st",
-      is | (_ % 10 == 2) = "nd",
-      is | (_ % 10 == 3) = "rd",
-      is | _             = "th"
-    );
-  }
-
-  fn getDate() -> Result<String> {
-    using std::chrono::system_clock;
-
-    const system_clock::time_point nowTp = system_clock::now();
-    const std::time_t              nowTt = system_clock::to_time_t(nowTp);
-
-    std::tm nowTm;
-
-#ifdef _WIN32
-    if (localtime_s(&nowTm, &nowTt) == 0) {
-#else
-    if (localtime_r(&nowTt, &nowTm) != nullptr) {
-#endif
-      i32 day = nowTm.tm_mday;
-
-      String monthBuffer(32, '\0');
-
-      if (const usize monthLen = std::strftime(monthBuffer.data(), monthBuffer.size(), "%B", &nowTm); monthLen > 0) {
-        monthBuffer.resize(monthLen);
-
-        CStr suffix = getOrdinalSuffix(day);
-
-        return std::format("{} {}{}", monthBuffer, day, suffix);
-      }
-
-      return Err(DracError(ParseError, "Failed to format date"));
-    }
-
-    return Err(DracError(ParseError, "Failed to get local time"));
-  }
-
 #if DRAC_ENABLE_WEATHER
-  fn PrintDoctorReport(const System& data, const Result<Report>& weather) -> void {
+  fn PrintDoctorReport(const SystemInfo& data, const Result<Report>& weather) -> void {
 #else
-  fn PrintDoctorReport(const System& data) -> void {
+  fn PrintDoctorReport(const SystemInfo& data) -> void {
 #endif
     Vec<Pair<String, DracError>> failures;
 
@@ -162,71 +120,6 @@ namespace {
 #endif
   }
 
-  fn InitializeSystem(const draconis::config::Config& config) -> System {
-    using enum std::launch;
-
-    // I'm not sure if AMD uses trademark symbols in their CPU models, but I know
-    // Intel does. Might as well replace them with their unicode counterparts.
-    fn replaceTrademarkSymbols = [](Result<String> str) -> Result<String> {
-      if (!str)
-        return Err(str.error());
-
-      usize pos = 0;
-
-      while ((pos = str->find("(TM)")) != String::npos)
-        str->replace(pos, 4, "™");
-
-      while ((pos = str->find("(R)")) != String::npos)
-        str->replace(pos, 3, "®");
-
-      return str;
-    };
-
-    System system;
-
-    // Use batch operations for related information
-    Future<Result<String>>        osFut     = std::async(async, &System::getOSVersion);
-    Future<Result<String>>        kernelFut = std::async(async, &System::getKernelVersion);
-    Future<Result<String>>        hostFut   = std::async(async, &System::getHost);
-    Future<Result<String>>        cpuFut    = std::async(async, &System::getCPUModel);
-    Future<Result<String>>        gpuFut    = std::async(async, &System::getGPUModel);
-    Future<Result<String>>        deFut     = std::async(async, &System::getDesktopEnvironment);
-    Future<Result<String>>        wmFut     = std::async(async, &System::getWindowManager);
-    Future<Result<String>>        shellFut  = std::async(async, &System::getShell);
-    Future<Result<ResourceUsage>> memFut    = std::async(async, &System::getMemInfo);
-    Future<Result<ResourceUsage>> diskFut   = std::async(async, &System::getDiskUsage);
-    Future<Result<String>>        dateFut   = std::async(async, &getDate);
-
-#if DRAC_ENABLE_PACKAGECOUNT
-    Future<Result<u64>> pkgFut = std::async(async, draconis::services::packages::GetTotalCount, config.enabledPackageManagers);
-#endif
-
-#if DRAC_ENABLE_NOWPLAYING
-    Future<Result<MediaInfo>> npFut = std::async(config.nowPlaying.enabled ? async : deferred, &System::getNowPlaying);
-#endif
-
-    system.osVersion     = osFut.get();
-    system.kernelVersion = kernelFut.get();
-    system.host          = hostFut.get();
-    system.cpuModel      = replaceTrademarkSymbols(cpuFut.get());
-    system.gpuModel      = gpuFut.get();
-    system.desktopEnv    = deFut.get();
-    system.windowMgr     = wmFut.get();
-    system.shell         = shellFut.get();
-    system.memInfo       = memFut.get();
-    system.diskUsage     = diskFut.get();
-    system.date          = dateFut.get();
-
-#if DRAC_ENABLE_PACKAGECOUNT
-    system.packageCount = pkgFut.get();
-#endif
-
-#if DRAC_ENABLE_NOWPLAYING
-    system.nowPlaying = config.nowPlaying.enabled ? npFut.get() : Err(DracError(ApiUnavailable, "Now Playing API disabled"));
-#endif
-
-    return system;
-  }
 } // namespace
 
 fn main(const i32 argc, char* argv[]) -> i32 try {
@@ -288,8 +181,9 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
     using namespace ftxui::Dimension;
     using matchit::match, matchit::is, matchit::_;
 
-    const Config&  config        = Config::getInstance();
-    const System   data          = InitializeSystem(config);
+    const Config&    config = Config::getInstance();
+    const SystemInfo data(config);
+
     Result<Report> weatherReport = config.weather.service->getWeatherInfo();
 
     if (doctorMode) {

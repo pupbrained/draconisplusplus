@@ -9,11 +9,12 @@
 #include <DracUtils/Types.hpp>
 
 #include "Config/Config.hpp"
+#include "Core/SystemInfo.hpp"
 
 namespace draconis::ui {
   namespace {
     using config::Config;
-    using core::system::System;
+    using core::system::SystemInfo;
     using ftxui::Element;
     using services::weather::Report;
     using utils::types::Option;
@@ -66,13 +67,13 @@ namespace draconis::ui {
    * @param weather The weather report, if enabled/available.
    * @return The root ftxui::Element for rendering.
    */
-  fn CreateUI(const Config& config, const System& data, Option<Report> weather) -> Element;
+  fn CreateUI(const Config& config, const SystemInfo& data, Option<Report> weather) -> Element;
 #else
   /**
    * @brief Creates the main UI element based on system data and configuration.
    * @param config The application configuration.
    * @param data The collected system data. @return The root ftxui::Element for rendering.
    */
-  fn CreateUI(const Config& config, const System& data) -> Element;
+  fn CreateUI(const Config& config, const SystemInfo& data) -> Element;
 #endif // DRAC_ENABLE_WEATHER
 } // namespace draconis::ui

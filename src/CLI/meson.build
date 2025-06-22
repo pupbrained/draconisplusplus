@@ -1,7 +1,7 @@
 # ------- #
 #  Files  #
 # ------- #
-main_app_sources = files('Config/Config.cpp', 'UI/UI.cpp', 'main.cpp')
+main_app_sources = files('Config/Config.cpp', 'Core/SystemInfo.cpp', 'UI/UI.cpp', 'main.cpp')
 
 # ------------------------- #
 #  Link/ObjC Configuration  #

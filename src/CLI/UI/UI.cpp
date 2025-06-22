@@ -11,7 +11,7 @@ using namespace draconis::utils::types;
 
 namespace draconis::ui {
   using config::Config;
-  using core::system::System;
+  using core::system::SystemInfo;
   using services::weather::Report;
 
   constexpr Theme DEFAULT_THEME = {
@@ -178,9 +178,9 @@ namespace draconis::ui {
   } // namespace
 
 #if DRAC_ENABLE_WEATHER
-  fn CreateUI(const Config& config, const System& data, Option<Report> weather) -> Element {
+  fn CreateUI(const Config& config, const SystemInfo& data, Option<Report> weather) -> Element {
 #else
-  fn CreateUI(const Config& config, const System& data) -> Element {
+  fn CreateUI(const Config& config, const SystemInfo& data) -> Element {
 #endif
     const String& name = config.general.name;
 

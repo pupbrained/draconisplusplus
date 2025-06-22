@@ -177,7 +177,7 @@ fn main() -> i32 {
     SystemInfo sysInfo;
 
     {
-      using draconis::core::system::System;
+      using namespace draconis::core::system;
       using matchit::impl::Overload;
       using enum draconis::utils::error::DracErrorCode;
 
@@ -216,18 +216,18 @@ fn main() -> i32 {
 #endif
       };
 
-      addProperty("OS Version", System::getOSVersion());
-      addProperty("Kernel Version", System::getKernelVersion());
-      addProperty("Host", System::getHost());
-      addProperty("Shell", System::getShell());
-      addProperty("Desktop Environment", System::getDesktopEnvironment());
-      addProperty("Window Manager", System::getWindowManager());
-      addProperty("CPU Model", System::getCPUModel());
-      addProperty("GPU Model", System::getGPUModel());
-      addProperty("Memory", System::getMemInfo());
-      addProperty("Disk Usage", System::getDiskUsage());
+      addProperty("OS Version", GetOSVersion());
+      addProperty("Kernel Version", GetKernelVersion());
+      addProperty("Host", GetHost());
+      addProperty("Shell", GetShell());
+      addProperty("Desktop Environment", GetDesktopEnvironment());
+      addProperty("Window Manager", GetWindowManager());
+      addProperty("CPU Model", GetCpuModel());
+      addProperty("GPU Model", GetGpuModel());
+      addProperty("Memory", GetMemInfo());
+      addProperty("Disk Usage", GetDiskUsage());
 #if DRAC_ENABLE_NOWPLAYING
-      addProperty("Now Playing", System::getNowPlaying());
+      addProperty("Now Playing", GetNowPlaying());
 #endif
 #if DRAC_ENABLE_WEATHER
       {

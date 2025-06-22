@@ -15,7 +15,7 @@
  * handles. Wide strings are used for all string operations to avoid the overhead of
  * converting between UTF-8 and UTF-16 until the final result is needed.
  *
- * @see draconis::core::system::System
+ * @see draconis::core::system
  */
 
 #ifdef _WIN32
@@ -414,7 +414,7 @@ namespace draconis::core::system {
   using namespace constants;
   using namespace helpers;
 
-  fn System::getMemInfo() -> Result<ResourceUsage> {
+  fn GetMemInfo() -> Result<ResourceUsage> {
     // Passed to GlobalMemoryStatusEx to retrieve memory information.
     // dwLength is required to be set as per WinAPI.
     MEMORYSTATUSEX memInfo;
@@ -427,7 +427,7 @@ namespace draconis::core::system {
   }
 
   #if DRAC_ENABLE_NOWPLAYING
-  fn System::getNowPlaying() -> Result<MediaInfo> {
+  fn GetNowPlaying() -> Result<MediaInfo> {
     // WinRT makes HEAVY use of namespaces and has very long names for
     // structs and classes, so its easier to alias most things.
     using namespace winrt::Windows::Media::Control;
@@ -459,7 +459,7 @@ namespace draconis::core::system {
   }
   #endif // DRAC_ENABLE_NOWPLAYING
 
-  fn System::getOSVersion() -> Result<String> {
+  fn GetOSVersion() -> Result<String> {
     // Windows is weird about its versioning scheme, and Windows 11 is still
     // considered Windows 10 in the registry. We have to manually check if
     // the actual version is Windows 11 by checking the build number.
@@ -519,7 +519,7 @@ namespace draconis::core::system {
     return *productNameUTF8 + " " + *displayVersionUTF8;
   }
 
-  fn System::getHost() -> Result<String> {
+  fn GetHost() -> Result<String> {
     // See the RegistryCache class for how the registry keys are retrieved.
 
     const RegistryCache& registry = RegistryCache::getInstance();
@@ -537,7 +537,7 @@ namespace draconis::core::system {
     return ConvertWStringToUTF8(*systemFamily);
   }
 
-  fn System::getKernelVersion() -> Result<String> {
+  fn GetKernelVersion() -> Result<String> {
     // See the OsVersionCache class for how the version data is retrieved.
 
     const Result<OsVersionCache::VersionData>& versionDataResult = OsVersionCache::getInstance().getVersionData();
@@ -550,7 +550,7 @@ namespace draconis::core::system {
     return std::format("{}.{}.{}", versionData.majorVersion, versionData.minorVersion, versionData.buildNumber);
   }
 
-  fn System::getWindowManager() -> Result<String> {
+  fn GetWindowManager() -> Result<String> {
     if (!cache::ProcessTreeCache::getInstance().initialize())
       return Err(DracError(PlatformSpecific, "Failed to initialize process tree cache"));
 
@@ -566,7 +566,7 @@ namespace draconis::core::system {
     return "DWM";
   }
 
-  fn System::getDesktopEnvironment() -> Result<String> {
+  fn GetDesktopEnvironment() -> Result<String> {
     // Windows doesn't really have the concept of a desktop environment,
     // so our next best bet is just displaying the UI design based on the build number.
 
@@ -589,7 +589,7 @@ namespace draconis::core::system {
     return "Classic";
   }
 
-  fn System::getShell() -> Result<String> {
+  fn GetShell() -> Result<String> {
     using draconis::utils::env::GetEnv;
     using shell::FindShellInProcessTree;
 
@@ -640,7 +640,7 @@ namespace draconis::core::system {
     return Err(windowsShell.error());
   }
 
-  fn System::getDiskUsage() -> Result<ResourceUsage> {
+  fn GetDiskUsage() -> Result<ResourceUsage> {
     // GetDiskFreeSpaceExW is a pretty old function and doesn't use native 64-bit integers,
     // so we have to use ULARGE_INTEGER instead. It's basically a union that holds either a
     // 64-bit integer or two 32-bit integers.
@@ -655,7 +655,7 @@ namespace draconis::core::system {
     return ResourceUsage { .usedBytes = totalBytes.QuadPart - freeBytes.QuadPart, .totalBytes = totalBytes.QuadPart };
   }
 
-  fn System::getCPUModel() -> Result<String> {
+  fn GetCpuModel() -> Result<String> {
     /*
      * This function attempts to get the CPU model name on Windows in two ways:
      * 1. Using __cpuid on x86/x86_64 platforms (much more direct and efficient).
@@ -736,7 +736,7 @@ namespace draconis::core::system {
     return Err(DracError(NotFound, "All methods to get CPU model failed on this platform"));
   }
 
-  fn System::getGPUModel() -> Result<String> {
+  fn GetGpuModel() -> Result<String> {
     // Used to create and enumerate DirectX graphics interfaces.
     IDXGIFactory* pFactory = nullptr;
 
