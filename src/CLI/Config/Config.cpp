@@ -1,5 +1,3 @@
-// ReSharper disable CppDFAUnreachableCode
-
 #include "Config.hpp"
 
 #include <DracUtils/Definitions.hpp>
@@ -240,9 +238,8 @@ namespace draconis::config {
       if (!exists) {
         info_log("Config file not found at {}, creating defaults.", configPath.string());
 
-        if (!CreateDefaultConfig(configPath)) {
+        if (!CreateDefaultConfig(configPath))
           return {};
-        }
       }
 
       const toml::table parsedConfig = toml::parse_file(configPath.string());

@@ -165,6 +165,23 @@ namespace {
   fn InitializeSystem(const draconis::config::Config& config) -> System {
     using enum std::launch;
 
+    // I'm not sure if AMD uses trademark symbols in their CPU models, but I know
+    // Intel does. Might as well replace them with their unicode counterparts.
+    fn replaceTrademarkSymbols = [](Result<String> str) -> Result<String> {
+      if (!str)
+        return Err(str.error());
+
+      usize pos = 0;
+
+      while ((pos = str->find("(TM)")) != String::npos)
+        str->replace(pos, 4, "™");
+
+      while ((pos = str->find("(R)")) != String::npos)
+        str->replace(pos, 3, "®");
+
+      return str;
+    };
+
     System system;
 
     // Use batch operations for related information
@@ -191,7 +208,7 @@ namespace {
     system.osVersion     = osFut.get();
     system.kernelVersion = kernelFut.get();
     system.host          = hostFut.get();
-    system.cpuModel      = cpuFut.get();
+    system.cpuModel      = replaceTrademarkSymbols(cpuFut.get());
     system.gpuModel      = gpuFut.get();
     system.desktopEnv    = deFut.get();
     system.windowMgr     = wmFut.get();

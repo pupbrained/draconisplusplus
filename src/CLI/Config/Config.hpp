@@ -1,7 +1,7 @@
 #pragma once
 
 #ifdef _WIN32
-  #include <windows.h> // GetUserNameA
+  #include <windows.h> // GetUserNameA, DWORD
 #else
   #include <pwd.h>    // getpwuid, passwd
   #include <unistd.h> // getuid

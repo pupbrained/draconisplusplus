@@ -18,10 +18,8 @@
  * @see draconis::core::system::System
  */
 
-#include <DracUtils/Types.hpp>
 #ifdef _WIN32
 
-  #include <dwmapi.h>                               // DwmIsCompositionEnabled
   #include <dxgi.h>                                 // IDXGIFactory, IDXGIAdapter, DXGI_ADAPTER_DESC
   #include <tlhelp32.h>                             // CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS
   #include <winerror.h>                             // DXGI_ERROR_NOT_FOUND, ERROR_FILE_NOT_FOUND, ERROR_SUCCESS, FAILED, SUCCEEDED
@@ -39,6 +37,7 @@
   #include "DracUtils/Env.hpp"
   #include "DracUtils/Error.hpp"
   #include "DracUtils/Logging.hpp"
+  #include "DracUtils/Types.hpp"
 
   #include "Utils/Caching.hpp"
 
@@ -55,21 +54,28 @@ namespace {
 
     // clang-format off
     constexpr Array<Pair<StringView, StringView>, 5> windowsShellMap = {{
-      {       "cmd",      "Command Prompt" },
-      {  "powershell",        "PowerShell" },
-      {        "pwsh",   "PowerShell Core" },
-      {          "wt",  "Windows Terminal" },
-      {    "explorer",  "Windows Explorer" },
+      {      "cmd",     "Command Prompt" },
+      { "powershell",       "PowerShell" },
+      {       "pwsh",  "PowerShell Core" },
+      {         "wt", "Windows Terminal" },
+      {   "explorer", "Windows Explorer" },
     }};
 
     constexpr Array<Pair<StringView, StringView>, 7> msysShellMap = {{
-      {  "bash",        "Bash" },
-      {   "zsh",         "Zsh" },
-      {  "fish",        "Fish" },
-      {    "sh",          "sh" },
-      {   "ksh",   "KornShell" },
-      {  "tcsh",        "tcsh" },
-      {  "dash",        "dash" },
+      { "bash",      "Bash" },
+      {  "zsh",       "Zsh" },
+      { "fish",      "Fish" },
+      {   "sh",        "sh" },
+      {  "ksh", "KornShell" },
+      { "tcsh",      "tcsh" },
+      { "dash",      "dash" },
+    }};
+
+    constexpr Array<Pair<StringView, StringView>, 4> windowManagerMap = {{
+      {     "glazewm",   "GlazeWM" },
+      {    "komorebi",  "Komorebi" },
+      {   "seelen-ui", "Seelen UI" },
+      { "slu-service", "Seelen UI" },
     }};
     // clang-format on
 
@@ -211,6 +217,34 @@ namespace {
 
     // Caches OS version data for use in other functions.
     class OsVersionCache {
+     public:
+      struct VersionData {
+        u32 majorVersion;
+        u32 minorVersion;
+        u32 buildNumber;
+      };
+
+      static fn getInstance() -> const OsVersionCache& {
+        static OsVersionCache Instance;
+        return Instance;
+      }
+
+      fn getVersionData() const -> const Result<VersionData>& {
+        return m_versionData;
+      }
+
+      fn getBuildNumber() const -> Result<u64> {
+        if (!m_versionData)
+          return Err(m_versionData.error());
+
+        return static_cast<u64>(m_versionData->buildNumber);
+      }
+
+      OsVersionCache(const OsVersionCache&)                = delete;
+      OsVersionCache(OsVersionCache&&)                     = delete;
+      fn operator=(const OsVersionCache&)->OsVersionCache& = delete;
+      fn operator=(OsVersionCache&&)->OsVersionCache&      = delete;
+
      private:
       Result<VersionData> m_versionData;
 
@@ -254,34 +288,6 @@ namespace {
       }
 
       ~OsVersionCache() = default;
-
-     public:
-      struct VersionData {
-        u32 majorVersion;
-        u32 minorVersion;
-        u32 buildNumber;
-      };
-
-      static fn getInstance() -> const OsVersionCache& {
-        static OsVersionCache Instance;
-        return Instance;
-      }
-
-      fn getVersionData() const -> const Result<VersionData>& {
-        return m_versionData;
-      }
-
-      fn getBuildNumber() const -> Result<u64> {
-        if (!m_versionData)
-          return Err(m_versionData.error());
-
-        return static_cast<u64>(m_versionData->buildNumber);
-      }
-
-      OsVersionCache(const OsVersionCache&)                = delete;
-      OsVersionCache(OsVersionCache&&)                     = delete;
-      fn operator=(const OsVersionCache&)->OsVersionCache& = delete;
-      fn operator=(OsVersionCache&&)->OsVersionCache&      = delete;
     };
 
     // Captures a process tree and stores it for later reuse.
@@ -432,17 +438,24 @@ namespace draconis::core::system {
     using MediaProperties = GlobalSystemMediaTransportControlsSessionMediaProperties;
 
     try {
-      const IAsyncOperation<SessionManager> sessionManagerOp = SessionManager::RequestAsync();
-      const SessionManager                  sessionManager   = sessionManagerOp.get();
+      // WinRT provides a nice easy way to get the current media session.
+      // AFAIK, there's no other way to easily get the current media session on Windows.
+
+      // getNowPlaying() isn't async, so we just RequestAsync() and immediately get() the result.
+      const SessionManager sessionManager = SessionManager::RequestAsync().get();
 
       if (const Session currentSession = sessionManager.GetCurrentSession()) {
+        // TryGetMediaPropertiesAsync() is also async, so we have to get() the result.
         const MediaProperties mediaProperties = currentSession.TryGetMediaPropertiesAsync().get();
 
         return MediaInfo(winrt::to_string(mediaProperties.Title()), winrt::to_string(mediaProperties.Artist()));
       }
 
       return Err(DracError(NotFound, "No media session found"));
-    } catch (const winrt::hresult_error& e) { return Err(DracError(e)); }
+    } catch (const winrt::hresult_error& e) {
+      // Make sure to catch any errors that WinRT might throw.
+      return Err(DracError(e));
+    }
   }
   #endif // DRAC_ENABLE_NOWPLAYING
 
@@ -507,6 +520,8 @@ namespace draconis::core::system {
   }
 
   fn System::getHost() -> Result<String> {
+    // See the RegistryCache class for how the registry keys are retrieved.
+
     const RegistryCache& registry = RegistryCache::getInstance();
 
     HKEY hardwareConfigKey = registry.getHardwareConfigKey();
@@ -523,6 +538,8 @@ namespace draconis::core::system {
   }
 
   fn System::getKernelVersion() -> Result<String> {
+    // See the OsVersionCache class for how the version data is retrieved.
+
     const Result<OsVersionCache::VersionData>& versionDataResult = OsVersionCache::getInstance().getVersionData();
 
     if (!versionDataResult)
@@ -534,15 +551,25 @@ namespace draconis::core::system {
   }
 
   fn System::getWindowManager() -> Result<String> {
-    BOOL compositionEnabled = FALSE;
+    if (!cache::ProcessTreeCache::getInstance().initialize())
+      return Err(DracError(PlatformSpecific, "Failed to initialize process tree cache"));
 
-    if (SUCCEEDED(DwmIsCompositionEnabled(&compositionEnabled)))
-      return compositionEnabled ? "DWM" : "Windows Manager (Basic)";
+    const UnorderedMap<DWORD, cache::ProcessTreeCache::Data>& processMap = cache::ProcessTreeCache::getInstance().getProcessMap();
 
-    return Err(DracError(PlatformSpecific, "DwmIsCompositionEnabled failed"));
+    for (const auto& [pid, processData] : processMap) {
+      const StringView processName = processData.baseExeNameLower;
+
+      if (const auto mapIter = std::ranges::find_if(windowManagerMap, [&](const Pair<StringView, StringView>& pair) { return processName == pair.first; }); mapIter != std::ranges::end(windowManagerMap))
+        return String(mapIter->second);
+    }
+
+    return "DWM";
   }
 
   fn System::getDesktopEnvironment() -> Result<String> {
+    // Windows doesn't really have the concept of a desktop environment,
+    // so our next best bet is just displaying the UI design based on the build number.
+
     const Result<u64> buildResult = OsVersionCache::getInstance().getBuildNumber();
 
     if (!buildResult)
@@ -550,32 +577,15 @@ namespace draconis::core::system {
 
     const u64 build = *buildResult;
 
-    // Windows 11+ (Fluent)
-    if (build >= 22000)
-      return "Fluent (Windows 11)";
-
-    // Windows 10 Fluent
     if (build >= 15063)
-      return "Fluent (Windows 10)";
+      return "Fluent";
 
-    // Windows 8.1/10 Metro
-    if (build >= 9200) {
-      const Result<std::wstring> productName = GetRegistryValue(RegistryCache::getInstance().getCurrentVersionKey(), PRODUCT_NAME);
+    if (build >= 9200)
+      return "Metro";
 
-      if (productName && productName->find(L"Windows 10") != std::wstring::npos)
-        return "Metro (Windows 10)";
+    if (build >= 6000)
+      return "Aero";
 
-      if (build >= 9600)
-        return "Metro (Windows 8.1)";
-
-      return "Metro (Windows 8)";
-    }
-
-    // Windows 7 Aero
-    if (build >= 7600)
-      return "Aero (Windows 7)";
-
-    // Pre-Win7
     return "Classic";
   }
 
@@ -583,29 +593,35 @@ namespace draconis::core::system {
     using draconis::utils::env::GetEnv;
     using shell::FindShellInProcessTree;
 
+    // MSYS2 environments automatically set the MSYSTEM environment variable.
     if (const Result<String> msystemResult = GetEnv("MSYSTEM"); msystemResult && !msystemResult->empty()) {
       String shellPath;
 
+      // The SHELL environment variable should basically always be set.
       if (const Result<String> shellResult = GetEnv("SHELL"); shellResult && !shellResult->empty())
         shellPath = *shellResult;
-      else if (const Result<String> loginShellResult = GetEnv("LOGINSHELL"); loginShellResult && !loginShellResult->empty())
-        shellPath = *loginShellResult;
 
       if (!shellPath.empty()) {
+        // Get the executable name from the path.
         const usize lastSlash = shellPath.find_last_of("\\/");
         String      shellExe  = (lastSlash != String::npos) ? shellPath.substr(lastSlash + 1) : shellPath;
 
         std::ranges::transform(shellExe, shellExe.begin(), [](const u8 character) { return std::tolower(character); });
 
+        // Remove the .exe extension if it exists.
         if (shellExe.ends_with(".exe"))
           shellExe.resize(shellExe.length() - 4);
 
+        // Check if the executable name matches any shell in the map.
         if (const auto iter = std::ranges::find_if(msysShellMap, [&](const Pair<StringView, StringView>& pair) { return StringView { shellExe } == pair.first; }); iter != std::ranges::end(msysShellMap))
           return String(iter->second);
 
-        return Err(DracError(NotFound, "Shell not found"));
+        // If the executable name doesn't match any shell in the map, we might as well just return it as is.
+        return shellExe;
       }
 
+      // If the SHELL environment variable is not set, we can fall back to checking the process tree.
+      // This is slower, but if we don't have the SHELL variable there's not much else we can do.
       const Result<String> msysShell = FindShellInProcessTree(GetCurrentProcessId(), msysShellMap);
 
       if (msysShell)
@@ -614,6 +630,8 @@ namespace draconis::core::system {
       return Err(msysShell.error());
     }
 
+    // Normal windows shell environments don't set any environment variables we can check,
+    // so we have to check the process tree instead.
     const Result<String> windowsShell = FindShellInProcessTree(GetCurrentProcessId(), windowsShellMap);
 
     if (windowsShell)
@@ -623,11 +641,17 @@ namespace draconis::core::system {
   }
 
   fn System::getDiskUsage() -> Result<ResourceUsage> {
+    // GetDiskFreeSpaceExW is a pretty old function and doesn't use native 64-bit integers,
+    // so we have to use ULARGE_INTEGER instead. It's basically a union that holds either a
+    // 64-bit integer or two 32-bit integers.
     ULARGE_INTEGER freeBytes, totalBytes;
 
+    // Get the disk usage for the C: drive.
     if (FAILED(GetDiskFreeSpaceExW(L"C:\\\\", nullptr, &totalBytes, &freeBytes)))
       return Err(DracError(PlatformSpecific, "Failed to get disk usage"));
 
+    // Calculate the used bytes by subtracting the free bytes from the total bytes.
+    // QuadPart corresponds to the 64-bit integer in the union. (LowPart/HighPart are for the 32-bit integers.)
     return ResourceUsage { .usedBytes = totalBytes.QuadPart - freeBytes.QuadPart, .totalBytes = totalBytes.QuadPart };
   }
 
@@ -682,7 +706,7 @@ namespace draconis::core::system {
           return result;
       }
     }
-  #endif
+  #endif // DRAC_ARCH_X86_64 || DRAC_ARCH_I686
 
     {
       /*
@@ -776,13 +800,19 @@ namespace draconis::services::packages {
     else
       debug_at(cachedCount.error());
 
+    // C:\ProgramData\chocolatey is the default installation directory.
     std::wstring chocoPath = L"C:\\ProgramData\\chocolatey";
 
-    if (auto chocoEnv = GetEnvW(L"ChocolateyInstall"); chocoEnv)
+    // If the ChocolateyInstall environment variable is set, use that instead.
+    // Most of the time it's set to C:\ProgramData\chocolatey, but it can be overridden.
+    if (Result<wchar_t*> chocoEnv = GetEnvW(L"ChocolateyInstall"); chocoEnv)
       chocoPath = *chocoEnv;
 
+    // The lib directory contains the package metadata.
     chocoPath.append(L"\\lib");
 
+    // Get the number of directories in the lib directory.
+    // This corresponds to the number of packages installed.
     if (Result<u64> dirCount = GetDirCount(chocoPath)) {
       if (Result writeResult = WriteCache(cacheKey, *dirCount); !writeResult)
         debug_at(writeResult.error());
@@ -803,15 +833,21 @@ namespace draconis::services::packages {
 
     std::wstring scoopAppsPath;
 
-    if (auto scoopEnv = GetEnvW(L"SCOOP"); scoopEnv) {
+    // The SCOOP environment variable should be used first if it's set.
+    if (Result<wchar_t*> scoopEnv = GetEnvW(L"SCOOP"); scoopEnv) {
       scoopAppsPath = *scoopEnv;
       scoopAppsPath.append(L"\\apps");
-    } else if (auto userProfile = GetEnvW(L"USERPROFILE"); userProfile) {
+    } else if (Result<wchar_t*> userProfile = GetEnvW(L"USERPROFILE"); userProfile) {
+      // Otherwise, we can try finding the scoop folder in the user's home directory.
       scoopAppsPath = *userProfile;
       scoopAppsPath.append(L"\\scoop\\apps");
-    } else
+    } else {
+      // The user likely doesn't have scoop installed if neither of those other methods work.
       return Err(DracError(NotFound, "Could not determine Scoop installation directory (SCOOP and USERPROFILE environment variables not found)"));
+    }
 
+    // Get the number of directories in the apps directory.
+    // This corresponds to the number of packages installed.
     if (Result<u64> dirCount = GetDirCount(scoopAppsPath)) {
       if (Result writeResult = WriteCache(cacheKey, *dirCount); !writeResult)
         debug_at(writeResult.error());
@@ -831,13 +867,21 @@ namespace draconis::services::packages {
       debug_at(cachedCount.error());
 
     try {
-      const u64 count = std::ranges::distance(winrt::Windows::Management::Deployment::PackageManager().FindPackagesForUser(L""));
+      using winrt::Windows::Management::Deployment::PackageManager;
+
+      // The only good way to get the number of packages installed via winget is using WinRT.
+      // It's a bit slow, but it's still faster than shelling out to the command line.
+      // FindPackagesForUser returns an iterator to the first package, so we can use std::ranges::distance to get the number of packages.
+      const u64 count = std::ranges::distance(PackageManager().FindPackagesForUser(L""));
 
       if (Result writeResult = WriteCache(cacheKey, count); !writeResult)
         debug_at(writeResult.error());
 
       return count;
-    } catch (const winrt::hresult_error& e) { return Err(DracError(e)); }
+    } catch (const winrt::hresult_error& e) {
+      // Make sure to catch any errors that WinRT might throw.
+      return Err(DracError(e));
+    }
   }
 } // namespace draconis::services::packages
   #endif // DRAC_ENABLE_PACKAGECOUNT
