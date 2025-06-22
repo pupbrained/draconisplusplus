@@ -21,6 +21,7 @@
 #ifdef _WIN32
 
   #include <dxgi.h>                                 // IDXGIFactory, IDXGIAdapter, DXGI_ADAPTER_DESC
+  #include <ranges>                                 // std::ranges::find_if, std::ranges::views::transform
   #include <tlhelp32.h>                             // CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS
   #include <winerror.h>                             // DXGI_ERROR_NOT_FOUND, ERROR_FILE_NOT_FOUND, ERROR_SUCCESS, FAILED, SUCCEEDED
   #include <winrt/Windows.Foundation.Collections.h> // winrt::Windows::Foundation::Collections::Map
@@ -34,10 +35,8 @@
 
   #include "Drac++/Core/System.hpp"
 
-  #include "Drac++/Utils/Caching.hpp"
   #include "Drac++/Utils/Env.hpp"
   #include "Drac++/Utils/Error.hpp"
-  #include "Drac++/Utils/Logging.hpp"
   #include "Drac++/Utils/Types.hpp"
 
 namespace {
@@ -172,15 +171,13 @@ namespace {
       DWORD type = 0;
 
       // Query the registry value.
-      // NOLINTNEXTLINE(*-pro-type-reinterpret-cast) - reinterpret_cast is required to convert the buffer to a byte array.
-
       if (
         const LSTATUS status = RegQueryValueExW(
           hKey,
           valueName.c_str(),
           nullptr,
           &type,
-          reinterpret_cast<LPBYTE>(registryBuffer.data()),
+          reinterpret_cast<LPBYTE>(registryBuffer.data()), // NOLINT(*-pro-type-reinterpret-cast) - reinterpret_cast is required to convert the buffer to a byte array.
           &dataSizeInBytes
         );
         status != ERROR_SUCCESS
@@ -679,7 +676,7 @@ namespace draconis::core::system {
     return ResourceUsage { .usedBytes = totalBytes.QuadPart - freeBytes.QuadPart, .totalBytes = totalBytes.QuadPart };
   }
 
-  fn GetCpuModel() -> Result<String> {
+  fn GetCPUModel() -> Result<String> {
     /*
      * This function attempts to get the CPU model name on Windows in two ways:
      * 1. Using __cpuid on x86/x86_64 platforms (much more direct and efficient).
@@ -760,7 +757,7 @@ namespace draconis::core::system {
     return Err(DracError(NotFound, "All methods to get CPU model failed on this platform"));
   }
 
-  fn GetGpuModel() -> Result<String> {
+  fn GetGPUModel() -> Result<String> {
     // Used to create and enumerate DirectX graphics interfaces.
     IDXGIFactory* pFactory = nullptr;
 
@@ -812,24 +809,16 @@ namespace draconis::core::system {
 
   #if DRAC_ENABLE_PACKAGECOUNT
 namespace draconis::services::packages {
-  using draconis::utils::cache::GetValidCache, draconis::utils::cache::WriteCache;
   using draconis::utils::env::GetEnvW;
   using helpers::GetDirCount;
 
   fn CountChocolatey() -> Result<u64> {
-    const String cacheKey = "chocolatey_";
-
-    if (Result<u64> cachedCount = GetValidCache<u64>(cacheKey))
-      return *cachedCount;
-    else
-      debug_at(cachedCount.error());
-
     // C:\ProgramData\chocolatey is the default installation directory.
     std::wstring chocoPath = L"C:\\ProgramData\\chocolatey";
 
     // If the ChocolateyInstall environment variable is set, use that instead.
     // Most of the time it's set to C:\ProgramData\chocolatey, but it can be overridden.
-    if (Result<wchar_t*> chocoEnv = GetEnvW(L"ChocolateyInstall"); chocoEnv)
+    if (const Result<wchar_t*> chocoEnv = GetEnvW(L"ChocolateyInstall"); chocoEnv)
       chocoPath = *chocoEnv;
 
     // The lib directory contains the package metadata.
@@ -837,31 +826,20 @@ namespace draconis::services::packages {
 
     // Get the number of directories in the lib directory.
     // This corresponds to the number of packages installed.
-    if (Result<u64> dirCount = GetDirCount(chocoPath)) {
-      if (Result writeResult = WriteCache(cacheKey, *dirCount); !writeResult)
-        debug_at(writeResult.error());
-
+    if (Result<u64> dirCount = GetDirCount(chocoPath))
       return *dirCount;
-    }
 
     return Err(DracError(NotFound, "Failed to get Chocolatey package count"));
   }
 
   fn CountScoop() -> Result<u64> {
-    const String cacheKey = "scoop_";
-
-    if (Result<u64> cachedCount = GetValidCache<u64>(cacheKey))
-      return *cachedCount;
-    else
-      debug_at(cachedCount.error());
-
     std::wstring scoopAppsPath;
 
     // The SCOOP environment variable should be used first if it's set.
-    if (Result<wchar_t*> scoopEnv = GetEnvW(L"SCOOP"); scoopEnv) {
+    if (const Result<wchar_t*> scoopEnv = GetEnvW(L"SCOOP"); scoopEnv) {
       scoopAppsPath = *scoopEnv;
       scoopAppsPath.append(L"\\apps");
-    } else if (Result<wchar_t*> userProfile = GetEnvW(L"USERPROFILE"); userProfile) {
+    } else if (const Result<wchar_t*> userProfile = GetEnvW(L"USERPROFILE"); userProfile) {
       // Otherwise, we can try finding the scoop folder in the user's home directory.
       scoopAppsPath = *userProfile;
       scoopAppsPath.append(L"\\scoop\\apps");
@@ -872,36 +850,20 @@ namespace draconis::services::packages {
 
     // Get the number of directories in the apps directory.
     // This corresponds to the number of packages installed.
-    if (Result<u64> dirCount = GetDirCount(scoopAppsPath)) {
-      if (Result writeResult = WriteCache(cacheKey, *dirCount); !writeResult)
-        debug_at(writeResult.error());
-
+    if (Result<u64> dirCount = GetDirCount(scoopAppsPath))
       return *dirCount;
-    }
 
     return Err(DracError(NotFound, "Failed to get Scoop package count"));
   }
 
   fn CountWinGet() -> Result<u64> {
-    const String cacheKey = "winget_";
-
-    if (Result<u64> cachedCount = GetValidCache<u64>(cacheKey))
-      return *cachedCount;
-    else
-      debug_at(cachedCount.error());
-
     try {
       using winrt::Windows::Management::Deployment::PackageManager;
 
       // The only good way to get the number of packages installed via winget is using WinRT.
       // It's a bit slow, but it's still faster than shelling out to the command line.
       // FindPackagesForUser returns an iterator to the first package, so we can use std::ranges::distance to get the number of packages.
-      const u64 count = std::ranges::distance(PackageManager().FindPackagesForUser(L""));
-
-      if (Result writeResult = WriteCache(cacheKey, count); !writeResult)
-        debug_at(writeResult.error());
-
-      return count;
+      return std::ranges::distance(PackageManager().FindPackagesForUser(L""));
     } catch (const winrt::hresult_error& e) {
       // Make sure to catch any errors that WinRT might throw.
       return Err(DracError(e));

@@ -80,8 +80,8 @@ namespace draconis::core::system {
     Future<Result<String>>        osFut     = std::async(async, &GetOSVersion);
     Future<Result<String>>        kernelFut = std::async(async, &GetKernelVersion);
     Future<Result<String>>        hostFut   = std::async(async, &GetHost);
-    Future<Result<String>>        cpuFut    = std::async(async, &GetCpuModel);
-    Future<Result<String>>        gpuFut    = std::async(async, &GetGpuModel);
+    Future<Result<String>>        cpuFut    = std::async(async, &GetCPUModel);
+    Future<Result<String>>        gpuFut    = std::async(async, &GetGPUModel);
     Future<Result<String>>        deFut     = std::async(async, &GetDesktopEnvironment);
     Future<Result<String>>        wmFut     = std::async(async, &GetWindowManager);
     Future<Result<String>>        shellFut  = std::async(async, &GetShell);

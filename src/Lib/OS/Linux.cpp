@@ -229,7 +229,17 @@ namespace {
     const Window wmRootWindow = *static_cast<Window*>(GetPropertyValue(wmWindowReply.get()));
 
     const ReplyGuard<GetPropReply> wmNameReply(GetPropertyReply(
-      conn.get(), GetProperty(conn.get(), 0, wmRootWindow, *wmNameAtom, *utf8StringAtom, 0, 1024), nullptr
+      conn.get(),
+      GetProperty(
+        conn.get(),
+        0,
+        wmRootWindow,
+        *wmNameAtom,
+        *utf8StringAtom,
+        0,
+        1024
+      ),
+      nullptr
     ));
 
     if (!wmNameReply || wmNameReply->type != *utf8StringAtom || GetPropertyValueLength(wmNameReply.get()) == 0)

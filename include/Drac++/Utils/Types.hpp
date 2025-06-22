@@ -294,6 +294,20 @@ namespace draconis::utils::types {
     explicit constexpr BytesToGiB(const u64 value)
       : value(value) {}
   };
+
+  enum class CPUArch {
+    I686,    ///< x86 32-bit architecture.
+    X86_64,  ///< x86_64 64-bit architecture.
+    ARM,     ///< 32-bit ARM architecture.
+    AARCH64, ///< 64-bit ARM architecture (ARMv8-A).
+    UNKNOWN  ///< Unknown or unsupported architecture.
+  };
+
+  struct Frequencies {
+    f64 base;    ///< Base (rated) frequency in MHz.
+    f64 max;     ///< Maximum (turbo) frequency in MHz.
+    f64 current; ///< Current operating frequency in MHz (can fluctuate).
+  };
 } // namespace draconis::utils::types
 
 namespace std {

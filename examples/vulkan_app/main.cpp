@@ -419,8 +419,8 @@ fn main() -> i32 {
       host          = GetHost();
       kernelVersion = GetKernelVersion();
       osVersion     = GetOSVersion();
-      cpuModel      = GetCpuModel();
-      gpuModel      = GetGpuModel();
+      cpuModel      = GetCPUModel();
+      gpuModel      = GetGPUModel();
       memInfo       = GetMemInfo();
       desktopEnv    = GetDesktopEnvironment();
       windowMgr     = GetWindowManager();

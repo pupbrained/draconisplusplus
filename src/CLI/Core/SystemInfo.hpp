@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Drac++/Core/System.hpp>
+
 #include <Drac++/Utils/Error.hpp>
 #include <Drac++/Utils/Types.hpp>
 
@@ -9,11 +11,14 @@ namespace draconis::core::system {
   namespace {
     using config::Config;
 
+    using utils::types::CPUArch;
+    using utils::types::Frequencies;
     using utils::types::MediaInfo;
     using utils::types::ResourceUsage;
     using utils::types::Result;
     using utils::types::String;
     using utils::types::u64;
+    using utils::types::usize;
   } // namespace
 
   /**

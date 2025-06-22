@@ -222,8 +222,8 @@ fn main() -> i32 {
       addProperty("Shell", GetShell());
       addProperty("Desktop Environment", GetDesktopEnvironment());
       addProperty("Window Manager", GetWindowManager());
-      addProperty("CPU Model", GetCpuModel());
-      addProperty("GPU Model", GetGpuModel());
+      addProperty("CPU Model", GetCPUModel());
+      addProperty("GPU Model", GetGPUModel());
       addProperty("Memory", GetMemInfo());
       addProperty("Disk Usage", GetDiskUsage());
 #if DRAC_ENABLE_NOWPLAYING

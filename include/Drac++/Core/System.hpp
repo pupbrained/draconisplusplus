@@ -13,13 +13,16 @@
 
 namespace draconis::core::system {
   namespace {
+    using utils::types::CPUArch;
     using utils::types::f64;
+    using utils::types::Frequencies;
     using utils::types::i64;
     using utils::types::MediaInfo;
     using utils::types::ResourceUsage;
     using utils::types::Result;
     using utils::types::String;
     using utils::types::u64;
+    using utils::types::usize;
   } // namespace
 
   /**
@@ -318,7 +321,7 @@ namespace draconis::core::system {
    * }
    * @endcode
    */
-  fn GetCpuModel() -> Result<String>;
+  fn GetCPUModel() -> Result<String>;
 
   /**
    * @brief Fetches the GPU model.
@@ -351,7 +354,7 @@ namespace draconis::core::system {
    * }
    * @endcode
    */
-  fn GetGpuModel() -> Result<String>;
+  fn GetGPUModel() -> Result<String>;
 
   /**
    * @brief Fetches the kernel version.
