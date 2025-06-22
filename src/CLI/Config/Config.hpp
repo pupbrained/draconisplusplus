@@ -16,11 +16,11 @@
   #include <toml++/impl/table.hpp>     // toml::table
 
   #include "DracUtils/Logging.hpp"
-#endif // DRAC_PRECOMPILED_CONFIG
+#endif
 
 #if DRAC_ENABLE_WEATHER
   #include <Drac++/Services/Weather.hpp>
-#endif // DRAC_ENABLE_WEATHER
+#endif
 
 #if DRAC_ENABLE_PACKAGECOUNT
   #include <Drac++/Services/Packages.hpp>
@@ -68,7 +68,7 @@ namespace draconis::config {
         : envUser    ? *envUser
         : envLogname ? *envLogname
                      : "User";
-#endif
+#endif // _WIN32
     }
 
 #if !DRAC_PRECOMPILED_CONFIG
@@ -108,7 +108,7 @@ namespace draconis::config {
     static fn fromToml(const toml::table& tbl) -> NowPlaying {
       return { .enabled = tbl["enabled"].value_or(false) };
     }
-  #endif // DRAC_PRECOMPILED_CONFIG
+  #endif
   };
 #endif // DRAC_ENABLE_NOWPLAYING
 
@@ -241,7 +241,7 @@ namespace draconis::config {
      * @param tbl The TOML table to parse, containing [general], [weather], and [now_playing].
      */
     explicit Config(const toml::table& tbl);
-#endif // !DRAC_PRECOMPILED_CONFIG
+#endif
 
     /**
      * @brief Retrieves the path to the configuration file.

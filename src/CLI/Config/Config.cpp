@@ -131,9 +131,7 @@ location = "London"    # Your city name
     }
   }
 } // namespace
-#endif
 
-#if !DRAC_PRECOMPILED_CONFIG
 Config::Config(const toml::table& tbl) {
   const toml::node_view genTbl = tbl["general"];
   this->general                = genTbl.is_table() ? General::fromToml(*genTbl.as_table()) : General {};
@@ -141,14 +139,14 @@ Config::Config(const toml::table& tbl) {
   #if DRAC_ENABLE_NOWPLAYING
   const toml::node_view npTbl = tbl["now_playing"];
   this->nowPlaying            = npTbl.is_table() ? NowPlaying::fromToml(*npTbl.as_table()) : NowPlaying {};
-  #endif // DRAC_ENABLE_NOWPLAYING
+  #endif
 
   #if DRAC_ENABLE_WEATHER
   const toml::node_view wthTbl = tbl["weather"];
   this->weather                = wthTbl.is_table() ? Weather::fromToml(*wthTbl.as_table()) : Weather {};
-  #endif // DRAC_ENABLE_WEATHER
+  #endif
 }
-#endif // DRAC_PRECOMPILED_CONFIG
+#endif // !DRAC_PRECOMPILED_CONFIG
 
 namespace draconis::config {
   fn Config::getInstance() -> Config {

@@ -74,5 +74,5 @@ namespace draconis::ui {
    * @param data The collected system data. @return The root ftxui::Element for rendering.
    */
   fn CreateUI(const Config& config, const System& data) -> Element;
-#endif
+#endif // DRAC_ENABLE_WEATHER
 } // namespace draconis::ui

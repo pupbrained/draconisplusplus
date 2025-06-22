@@ -144,7 +144,7 @@ namespace draconis::ui {
 
       return None;
     }
-#endif
+#endif // __linux__
 
     fn CreateColorCircles() -> Element {
       using std::ranges::begin, std::ranges::end;
@@ -236,7 +236,7 @@ namespace draconis::ui {
         }
       );
     }
-#endif
+#endif // DRAC_ENABLE_WEATHER
 
     if (data.host && !data.host->empty())
       systemInfoRows.push_back({ .icon = hostIcon, .label = "Host", .value = *data.host });
@@ -370,7 +370,7 @@ namespace draconis::ui {
 
       paragraphLimit = std::max(1, availableForParagraph);
     }
-#endif
+#endif // DRAC_ENABLE_NOWPLAYING
 
     fn createStandardRow = [&](const RowInfo& row, const usize sectionRequiredVisualWidth) {
       return hbox({
@@ -437,7 +437,7 @@ namespace draconis::ui {
         text(" "),
       }));
     }
-#endif
+#endif // DRAC_ENABLE_NOWPLAYING
 
     return hbox({ vbox(content) | borderRounded | color(Color::White), filler() });
   }
