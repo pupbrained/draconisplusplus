@@ -103,7 +103,7 @@
               unzip
 
               (writeScriptBin "build" "meson compile -C build")
-              (writeScriptBin "clean" ("meson setup build --wipe -Dprecompiled_config=true" + lib.optionalString pkgs.stdenv.hostPlatform.isLinux " -Duse_linked_pci_ids=true"))
+              (writeScriptBin "clean" ("meson setup build --wipe -Dprecompiled_config=true" + lib.optionalString pkgs.stdenv.isLinux " -Duse_linked_pci_ids=true"))
               (writeScriptBin "run" "meson compile -C build && build/draconis++")
             ])
             ++ devShellDeps;

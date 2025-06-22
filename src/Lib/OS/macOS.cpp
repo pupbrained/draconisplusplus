@@ -3,13 +3,13 @@
   #include <CoreFoundation/CFPropertyList.h> // CFPropertyListCreateWithData, kCFPropertyListImmutable
   #include <CoreFoundation/CFStream.h>       // CFReadStreamClose, CFReadStreamCreateWithFile, CFReadStreamOpen, CFReadStreamRead, CFReadStreamRef
   #include <IOKit/IOKitLib.h>                // IOKit types and functions
-  #include <algorithm>
-  #include <flat_map>             // std::flat_map
-  #include <mach/mach_host.h>     // host_statistics64
-  #include <mach/mach_init.h>     // host_page_size, mach_host_self
-  #include <mach/vm_statistics.h> // vm_statistics64_data_t
-  #include <sys/statvfs.h>        // statvfs
-  #include <sys/sysctl.h>         // {CTL_KERN, KERN_PROC, KERN_PROC_ALL, kinfo_proc, sysctl, sysctlbyname}
+  #include <algorithm>                       // std::ranges::equal
+  #include <flat_map>                        // std::flat_map
+  #include <mach/mach_host.h>                // host_statistics64
+  #include <mach/mach_init.h>                // host_page_size, mach_host_self
+  #include <mach/vm_statistics.h>            // vm_statistics64_data_t
+  #include <sys/statvfs.h>                   // statvfs
+  #include <sys/sysctl.h>                    // {CTL_KERN, KERN_PROC, KERN_PROC_ALL, kinfo_proc, sysctl, sysctlbyname}
 
   #include <Drac++/Core/System.hpp>
   #include <Drac++/Services/Packages.hpp>
@@ -28,15 +28,16 @@ using draconis::utils::cache::GetValidCache, draconis::utils::cache::WriteCache;
 using draconis::utils::env::GetEnv;
 using draconis::utils::error::DracError, draconis::utils::error::DracErrorCode;
 
-namespace {
-  // Checks if two strings are equal, ignoring case by converting both to lowercase.
-} // namespace
-
 namespace draconis::core::system {
   fn System::getMemInfo() -> Result<ResourceUsage> {
+    // Mach ports are used for communicating with the kernel. mach_host_self
+    // provides a port to the host kernel, which is needed for host-level queries.
     static mach_port_t HostPort = mach_host_self();
-    static vm_size_t   PageSize = 0;
 
+    // The size of a virtual memory page in bytes.
+    static vm_size_t PageSize = 0;
+
+    // Make sure the page size is set.
     if (PageSize == 0)
       if (host_page_size(HostPort, &PageSize) != KERN_SUCCESS)
         return Err(DracError("Failed to get page size"));
@@ -44,16 +45,23 @@ namespace draconis::core::system {
     u64   totalMem = 0;
     usize size     = sizeof(totalMem);
 
+    // "hw.memsize" is the standard key for getting the total memory size from the system.
     if (sysctlbyname("hw.memsize", &totalMem, &size, nullptr, 0) == -1)
       return Err(DracError("Failed to get total memory info"));
 
     vm_statistics64_data_t vmStats;
     mach_msg_type_number_t infoCount = sizeof(vmStats) / sizeof(natural_t);
 
+    // Retrieve detailed virtual memory statistics from the Mach kernel.
+    // The `reinterpret_cast` is required here to interface with the C-style
+    // Mach API, which expects a generic `host_info64_t` pointer.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     if (host_statistics64(HostPort, HOST_VM_INFO64, reinterpret_cast<host_info64_t>(&vmStats), &infoCount) != KERN_SUCCESS)
       return Err(DracError("Failed to get memory statistics"));
 
+    // Calculate "used" memory based on the statistics returned by host_statistics64.
+    // - active_count: Memory that is actively being used by the process.
+    // - wire_count: Memory that is wired to physical memory.
     u64 usedMem = (vmStats.active_count + vmStats.wire_count) * PageSize;
 
     return ResourceUsage {
@@ -67,113 +75,7 @@ namespace draconis::core::system {
   }
 
   fn System::getOSVersion() -> Result<String> {
-    const String cacheKey = "macos_version";
-    if (Result<String> cachedVersion = GetValidCache<String>(cacheKey))
-      return *cachedVersion;
-
-    // clang-format off
-    static constexpr Array<Pair<u8, StringView>, 6> VERSION_NAMES = {{
-      { 11, "Big Sur"  },
-      { 12, "Monterey" },
-      { 13, "Ventura"  },
-      { 14, "Sonoma"   },
-      { 15, "Sequoia"  },
-      { 26, "Tahoe"    },
-    }};
-    // clang-format on
-
-    CFURLRef url = CFURLCreateWithFileSystemPath(
-      kCFAllocatorDefault,
-      CFSTR("/System/Library/CoreServices/SystemVersion.plist"),
-      kCFURLPOSIXPathStyle,
-      false
-    );
-
-    if (!url)
-      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to create CFURL for SystemVersion.plist"));
-
-    CFReadStreamRef stream = CFReadStreamCreateWithFile(kCFAllocatorDefault, url);
-    CFRelease(url);
-
-    if (!stream)
-      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to create read stream for SystemVersion.plist"));
-
-    if (!CFReadStreamOpen(stream)) {
-      CFRelease(stream);
-      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to open SystemVersion.plist"));
-    }
-
-    static constexpr usize    BUFFER_SIZE = 4096;
-    Array<UInt8, BUFFER_SIZE> buffer {};
-    CFMutableDataRef          data      = CFDataCreateMutable(kCFAllocatorDefault, 0);
-    CFIndex                   bytesRead = 0;
-
-    while ((bytesRead = CFReadStreamRead(stream, buffer.data(), buffer.size())) > 0)
-      CFDataAppendBytes(data, buffer.data(), bytesRead);
-
-    CFReadStreamClose(stream);
-    CFRelease(stream);
-
-    if (CFDataGetLength(data) == 0) {
-      CFRelease(data);
-      return Err(DracError(DracErrorCode::PlatformSpecific, "SystemVersion.plist is empty"));
-    }
-
-    CFPropertyListRef plist = CFPropertyListCreateWithData(
-      kCFAllocatorDefault, data, kCFPropertyListImmutable, nullptr, nullptr
-    );
-
-    CFRelease(data);
-
-    if (!plist || CFGetTypeID(plist) != CFDictionaryGetTypeID()) {
-      if (plist)
-        CFRelease(plist);
-
-      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to parse SystemVersion.plist"));
-    }
-
-    const auto* dict          = static_cast<CFDictionaryRef>(plist);
-    const auto* versionString = static_cast<CFStringRef>(CFDictionaryGetValue(dict, CFSTR("iOSSupportVersion")));
-
-    if (!versionString || CFGetTypeID(versionString) != CFStringGetTypeID()) {
-      CFRelease(plist);
-      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to get version string from SystemVersion.plist"));
-    }
-
-    static constexpr usize VERSION_BUFFER_SIZE = 256;
-
-    Array<char, VERSION_BUFFER_SIZE> versionBuffer {};
-
-    if (!CFStringGetCString(versionString, versionBuffer.data(), versionBuffer.size(), kCFStringEncodingUTF8)) {
-      CFRelease(plist);
-      return Err(DracError(DracErrorCode::PlatformSpecific, "Failed to convert version string to C string"));
-    }
-
-    String versionNumber(versionBuffer.data());
-    CFRelease(plist);
-
-    if (versionNumber.empty())
-      return Err(DracError(DracErrorCode::PlatformSpecific, "Version string is empty"));
-
-    const usize dotPos = versionNumber.find('.');
-    if (dotPos == String::npos)
-      return Err(DracError(DracErrorCode::PlatformSpecific, "Invalid version number format"));
-
-    const u8   majorVersion = static_cast<u8>(std::stoi(versionNumber.substr(0, dotPos)));
-    StringView versionName  = "Unknown";
-
-    for (const auto& [version, name] : VERSION_NAMES)
-      if (version == majorVersion) {
-        versionName = name;
-        break;
-      }
-
-    String version = std::format("macOS {} {}", versionNumber, versionName);
-
-    if (Result writeResult = WriteCache(cacheKey, version); !writeResult)
-      debug_at(writeResult.error());
-
-    return version;
+    return macOS::GetOSVersion();
   }
 
   fn System::getDesktopEnvironment() -> Result<String> {
@@ -181,10 +83,6 @@ namespace draconis::core::system {
   }
 
   fn System::getWindowManager() -> Result<String> {
-    const String cacheKey = "macos_wm";
-    if (Result<String> cachedWm = GetValidCache<String>(cacheKey))
-      return *cachedWm;
-
     constexpr Array<StringView, 5> knownWms = {
       "Yabai",
       "ChunkWM",
@@ -224,26 +122,13 @@ namespace draconis::core::system {
         if (std::ranges::equal(StringView(procInfo.kp_proc.p_comm), wmName, [](char chrA, char chrB) {
               return std::tolower(static_cast<unsigned char>(chrA)) == std::tolower(static_cast<unsigned char>(chrB));
             })) {
-          if (Result writeResult = WriteCache(cacheKey, wmName); !writeResult)
-            debug_at(writeResult.error());
-
           return String(wmName);
         }
 
-    String manager = "Quartz";
-
-    if (Result writeResult = WriteCache(cacheKey, manager); !writeResult)
-      debug_at(writeResult.error());
-
-    return manager;
+    return "Quartz";
   }
 
   fn System::getKernelVersion() -> Result<String> {
-    const String cacheKey = "macos_kernel";
-
-    if (Result<String> cachedKernel = GetValidCache<String>(cacheKey))
-      return *cachedKernel;
-
     Array<char, 256> kernelVersion {};
 
     usize kernelVersionLen = kernelVersion.size();
@@ -251,18 +136,10 @@ namespace draconis::core::system {
     if (sysctlbyname("kern.osrelease", kernelVersion.data(), &kernelVersionLen, nullptr, 0) == -1)
       return Err(DracError("Failed to get kernel version"));
 
-    if (Result writeResult = WriteCache(cacheKey, kernelVersion.data()); !writeResult)
-      debug_at(writeResult.error());
-
-    return kernelVersion.data();
+    return String(kernelVersion.data());
   }
 
   fn System::getHost() -> Result<String> {
-    const String cacheKey = "macos_host";
-
-    if (Result<String> cachedHost = GetValidCache<String>(cacheKey))
-      return *cachedHost;
-
     Array<char, 256> hwModel {};
 
     usize hwModelLen = hwModel.size();
@@ -425,11 +302,7 @@ namespace draconis::core::system {
     if (iter == MODEL_NAME_BY_HW_MODEL.end())
       return Err(DracError("Failed to get host info"));
 
-    String host(iter->second);
-    if (Result writeResult = WriteCache(cacheKey, host); !writeResult)
-      debug_at(writeResult.error());
-
-    return String(host);
+    return String(iter->second);
   }
 
   fn System::getCPUModel() -> Result<String> {
@@ -444,6 +317,8 @@ namespace draconis::core::system {
   }
 
   fn System::getGPUModel() -> Result<String> {
+    // Getting the GPU model is relatively slow, and is very unlikely to change,
+    // so it's best to just cache the result.
     const String cacheKey = "macos_gpu";
 
     if (Result<String> cachedGPU = GetValidCache<String>(cacheKey))

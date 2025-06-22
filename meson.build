@@ -247,6 +247,10 @@ if not glaze_dep.found()
 endif
 lib_deps += glaze_dep
 
+if run_command(find_program('printenv'), 'IN_NIX_SHELL', check: false).returncode() == 0
+  add_project_arguments('-DDRAC_NIX_BUILD', language: ['cpp', 'objcpp'])
+endif
+
 # ---------------- #
 #  Subdirectories  #
 # ---------------- #

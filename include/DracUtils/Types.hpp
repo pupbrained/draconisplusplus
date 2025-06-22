@@ -9,17 +9,18 @@
 
 #pragma once
 
-#include <array>       // std::array (Array)
-#include <future>      // std::future (Future)
-#include <map>         // std::map (Map)
-#include <memory>      // std::shared_ptr and std::unique_ptr (SharedPointer, UniquePointer)
-#include <mutex>       // std::mutex and std::lock_guard (Mutex, LockGuard)
-#include <optional>    // std::optional (Option)
-#include <span>        // std::span (Span)
-#include <string>      // std::string (String, StringView)
-#include <string_view> // std::string_view (StringView)
-#include <utility>     // std::pair (Pair)
-#include <vector>      // std::vector (Vec)
+#include <array>         // std::array (Array)
+#include <future>        // std::future (Future)
+#include <map>           // std::map (Map)
+#include <memory>        // std::shared_ptr and std::unique_ptr (SharedPointer, UniquePointer)
+#include <mutex>         // std::mutex and std::lock_guard (Mutex, LockGuard)
+#include <optional>      // std::optional (Option)
+#include <span>          // std::span (Span)
+#include <string>        // std::string (String, StringView)
+#include <string_view>   // std::string_view (StringView)
+#include <unordered_map> // std::unordered_map (UnorderedMap)
+#include <utility>       // std::pair (Pair)
+#include <vector>        // std::vector (Vec)
 
 namespace draconis::utils::types {
   /**

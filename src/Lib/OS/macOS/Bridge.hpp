@@ -43,6 +43,16 @@ namespace draconis::core::system::macOS {
    * to identify the default graphics device.
    */
   fn GetGPUModel() -> Result<String>;
+
+  /**
+   * @brief Gets the version of the macOS operating system.
+   * @return A Result containing the version as a String on success, or a DracError on failure.
+   *
+   * @note When using Nix to build the draconis++ library, the Apple SDK available in nixpkgs
+   * returns 16, while the actual Tahoe SDK returns 26. To get around that, we simply add 10
+   * to the displayed major version.
+   */
+  fn GetOSVersion() -> Result<String>;
 } // namespace draconis::core::system::macOS
 
 #endif
