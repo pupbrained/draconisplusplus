@@ -3,9 +3,9 @@
 #include <curl/curl.h>
 #include <utility> // std::{exchange, move}
 
-#include <DracUtils/Definitions.hpp>
-#include <DracUtils/Error.hpp>
-#include <DracUtils/Types.hpp>
+#include <Drac++/Utils/Definitions.hpp>
+#include <Drac++/Utils/Error.hpp>
+#include <Drac++/Utils/Types.hpp>
 
 namespace Curl {
   /**

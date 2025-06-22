@@ -3,10 +3,9 @@
 #include <ftxui/dom/elements.hpp> // ftxui::Element
 #include <ftxui/screen/color.hpp> // ftxui::Color
 
-#include <Drac++/Core/System.hpp>
 #include <Drac++/Services/Weather.hpp>
 
-#include <DracUtils/Types.hpp>
+#include <Drac++/Utils/Types.hpp>
 
 #include "Config/Config.hpp"
 #include "Core/SystemInfo.hpp"

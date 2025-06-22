@@ -4,8 +4,8 @@
 
   #include <unordered_map>
 
-  #include "DracUtils/Error.hpp"
-  #include "DracUtils/Types.hpp"
+  #include "Drac++/Utils/Error.hpp"
+  #include "Drac++/Utils/Types.hpp"
 
 namespace draconis::services::weather::utils {
   /**

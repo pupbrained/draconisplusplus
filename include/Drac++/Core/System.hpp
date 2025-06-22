@@ -7,9 +7,9 @@
 
 #pragma once
 
-#include "DracUtils/Definitions.hpp"
-#include "DracUtils/Error.hpp"
-#include "DracUtils/Types.hpp"
+#include "../Utils/Definitions.hpp"
+#include "../Utils/Error.hpp"
+#include "../Utils/Types.hpp"
 
 namespace draconis::core::system {
   namespace {

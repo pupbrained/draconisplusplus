@@ -8,9 +8,9 @@
   #include <type_traits> // std::is_convertible_v
   #include <utility>     // std::exchange, std::forward
 
-  #include <DracUtils/Definitions.hpp>
-  #include <DracUtils/Error.hpp>
-  #include <DracUtils/Types.hpp>
+  #include <Drac++/Utils/Definitions.hpp>
+  #include <Drac++/Utils/Error.hpp>
+  #include <Drac++/Utils/Types.hpp>
 
 namespace DBus {
   using drac::error::DracError, drac::error::DracErrorCode;

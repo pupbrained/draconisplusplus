@@ -1,9 +1,7 @@
 #pragma once
 
-#include <Drac++/Core/System.hpp>
-
-#include <DracUtils/Error.hpp>
-#include <DracUtils/Types.hpp>
+#include <Drac++/Utils/Error.hpp>
+#include <Drac++/Utils/Types.hpp>
 
 #include "Config/Config.hpp"
 
@@ -40,6 +38,6 @@ namespace draconis::core::system {
     Result<MediaInfo> nowPlaying;
 #endif
 
-    SystemInfo(const Config& config);
+    explicit SystemInfo(const Config& config);
   };
 } // namespace draconis::core::system

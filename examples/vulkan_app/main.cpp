@@ -4,9 +4,9 @@
 #include <Drac++/Core/System.hpp>
 #include <Drac++/Services/Packages.hpp>
 
-#include <DracUtils/Error.hpp>
-#include <DracUtils/Logging.hpp>
-#include <DracUtils/Types.hpp>
+#include <Drac++/Utils/Error.hpp>
+#include <Drac++/Utils/Logging.hpp>
+#include <Drac++/Utils/Types.hpp>
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>

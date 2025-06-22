@@ -1,10 +1,7 @@
 #include "UI.hpp"
 
-#include <ftxui/dom/elements.hpp>
-#include <ranges> // std::ranges::{begin, end, iota, transform}
-
-#include <DracUtils/Logging.hpp>
-#include <DracUtils/Types.hpp>
+#include <Drac++/Utils/Logging.hpp>
+#include <Drac++/Utils/Types.hpp>
 
 using namespace ftxui;
 using namespace draconis::utils::types;
@@ -147,18 +144,42 @@ namespace draconis::ui {
 #endif // __linux__
 
     fn CreateColorCircles() -> Element {
-      using std::ranges::begin, std::ranges::end;
-      using std::views::iota, std::views::transform;
+      static const Element COLOR_CIRCLES = hbox({
+        text("◯") | bold | color(static_cast<Color::Palette256>(0)),
+        text(" "),
+        text("◯") | bold | color(static_cast<Color::Palette256>(1)),
+        text(" "),
+        text("◯") | bold | color(static_cast<Color::Palette256>(2)),
+        text(" "),
+        text("◯") | bold | color(static_cast<Color::Palette256>(3)),
+        text(" "),
+        text("◯") | bold | color(static_cast<Color::Palette256>(4)),
+        text(" "),
+        text("◯") | bold | color(static_cast<Color::Palette256>(5)),
+        text(" "),
+        text("◯") | bold | color(static_cast<Color::Palette256>(6)),
+        text(" "),
+        text("◯") | bold | color(static_cast<Color::Palette256>(7)),
+        text(" "),
+        text("◯") | bold | color(static_cast<Color::Palette256>(8)),
+        text(" "),
+        text("◯") | bold | color(static_cast<Color::Palette256>(9)),
+        text(" "),
+        text("◯") | bold | color(static_cast<Color::Palette256>(10)),
+        text(" "),
+        text("◯") | bold | color(static_cast<Color::Palette256>(11)),
+        text(" "),
+        text("◯") | bold | color(static_cast<Color::Palette256>(12)),
+        text(" "),
+        text("◯") | bold | color(static_cast<Color::Palette256>(13)),
+        text(" "),
+        text("◯") | bold | color(static_cast<Color::Palette256>(14)),
+        text(" "),
+        text("◯") | bold | color(static_cast<Color::Palette256>(15)),
+        text(" "),
+      });
 
-      auto colorView =
-        iota(0, 16) | transform([](i32 colorIndex) {
-          return hbox({
-            text("◯") | bold | color(static_cast<Color::Palette256>(colorIndex)),
-            text(" "),
-          });
-        });
-
-      return hbox(Elements(begin(colorView), end(colorView)));
+      return COLOR_CIRCLES;
     }
 
     fn get_visual_width(const String& str) -> usize {
@@ -222,7 +243,7 @@ namespace draconis::ui {
 
 #if DRAC_ENABLE_WEATHER
     if (weather) {
-      const auto& [temperature, name, description] = *weather;
+      const auto& [temperature, townName, description] = *weather;
 
       CStr tempUnit = config.weather.units == services::weather::Unit::METRIC ? "C" : "F";
 
@@ -230,8 +251,8 @@ namespace draconis::ui {
         {
           .icon  = weatherIcon,
           .label = "Weather",
-          .value = config.weather.showTownName && name
-            ? std::format("{}°{} in {}", std::lround(temperature), tempUnit, *name)
+          .value = config.weather.showTownName && townName
+            ? std::format("{}°{} in {}", std::lround(temperature), tempUnit, *townName)
             : std::format("{}°{}, {}", std::lround(temperature), tempUnit, description),
         }
       );

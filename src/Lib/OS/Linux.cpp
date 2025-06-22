@@ -23,10 +23,10 @@
   #include <Drac++/Core/System.hpp>
   #include <Drac++/Services/PackageCounting.hpp>
 
-  #include <DracUtils/Definitions.hpp>
-  #include <DracUtils/Env.hpp>
-  #include <DracUtils/Error.hpp>
-  #include <DracUtils/Types.hpp>
+  #include <Drac++/Utils/Definitions.hpp>
+  #include <Drac++/Utils/Env.hpp>
+  #include <Drac++/Utils/Error.hpp>
+  #include <Drac++/Utils/Types.hpp>
 
   #include "Utils/Caching.hpp"
   #include "Wrappers/DBus.hpp"

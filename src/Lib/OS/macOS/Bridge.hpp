@@ -11,9 +11,9 @@
 
 #ifdef __APPLE__
 
-  #include <DracUtils/Definitions.hpp>
-  #include <DracUtils/Error.hpp>
-  #include <DracUtils/Types.hpp>
+  #include <Drac++/Utils/Definitions.hpp>
+  #include <Drac++/Utils/Error.hpp>
+  #include <Drac++/Utils/Types.hpp>
 
 namespace draconis::core::system::macOS {
   namespace {

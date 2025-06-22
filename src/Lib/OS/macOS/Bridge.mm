@@ -14,7 +14,7 @@
   #include <Metal/Metal.h>       // For MTLDevice to identify the GPU.
   #include <dispatch/dispatch.h> // For Grand Central Dispatch (GCD) semaphores and queues.
 
-  #include <DracUtils/Error.hpp>
+  #include <Drac++/Utils/Error.hpp>
 
 using namespace draconis::utils::types;
 using draconis::utils::error::DracError;

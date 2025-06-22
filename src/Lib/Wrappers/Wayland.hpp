@@ -4,9 +4,9 @@
 
   #include <wayland-client.h> // Wayland client library
 
-  #include <DracUtils/Definitions.hpp>
-  #include <DracUtils/Logging.hpp>
-  #include <DracUtils/Types.hpp>
+  #include <Drac++/Utils/Definitions.hpp>
+  #include <Drac++/Utils/Logging.hpp>
+  #include <Drac++/Utils/Types.hpp>
 
 namespace Wayland {
   using drac::types::i32, drac::types::CStr, drac::types::None;

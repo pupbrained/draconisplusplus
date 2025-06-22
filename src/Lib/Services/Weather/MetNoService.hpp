@@ -4,7 +4,7 @@
 
   #include "Drac++/Services/Weather.hpp"
 
-  #include "DracUtils/Types.hpp"
+  #include "Drac++/Utils/Types.hpp"
 
 namespace draconis::services::weather {
   class MetNoService final : public IWeatherService {

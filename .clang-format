@@ -23,18 +23,14 @@ ContinuationIndentWidth: 2
 Cpp11BracedListStyle: false
 IncludeBlocks: Regroup
 IncludeCategories:
-  # 1. Drac++ headers (<...> or "...")
-  - Regex:           '^(<|")Drac\+\+/.*'
-    Priority:        2
-  # 2. DracUtils headers (<...> or "...")
-  - Regex:           '^(<|")DracUtils/.*'
-    Priority:        3
-  # 3. Other project headers ("...")
-  - Regex:           '".*"'
-    Priority:        4
-  # 4. System headers (<...>)
-  - Regex:           '<.*>'
-    Priority:        1
+  - Regex: '^(<|")Drac\+\+/Utils/.*'
+    Priority: 3
+  - Regex: '^(<|")Drac\+\+/.*'
+    Priority: 2
+  - Regex: '".*"'
+    Priority: 4
+  - Regex: '<.*>'
+    Priority: 1
 IndentExternBlock: Indent
 IndentPPDirectives: BeforeHash
 NamespaceIndentation: All

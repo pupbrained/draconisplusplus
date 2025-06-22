@@ -11,14 +11,13 @@
   #include <iostream> // std::cout
 #endif
 
-#include <Drac++/Core/System.hpp>
 #include <Drac++/Services/Packages.hpp>
 #include <Drac++/Services/Weather.hpp>
 
-#include <DracUtils/Definitions.hpp>
-#include <DracUtils/Error.hpp>
-#include <DracUtils/Logging.hpp>
-#include <DracUtils/Types.hpp>
+#include <Drac++/Utils/Definitions.hpp>
+#include <Drac++/Utils/Error.hpp>
+#include <Drac++/Utils/Logging.hpp>
+#include <Drac++/Utils/Types.hpp>
 
 #include "Config/Config.hpp"
 #include "Core/SystemInfo.hpp"

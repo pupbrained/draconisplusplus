@@ -10,6 +10,10 @@
     #define _DEFAULT_SOURCE // exposes timegm
   #endif
 
+  #include "Drac++/Utils/Definitions.hpp"
+  #include "Drac++/Utils/Error.hpp"
+  #include "Drac++/Utils/Types.hpp"
+
 using namespace draconis::utils::types;
 using draconis::utils::error::DracError;
 using enum draconis::utils::error::DracErrorCode;

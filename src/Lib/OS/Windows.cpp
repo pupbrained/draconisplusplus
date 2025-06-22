@@ -34,12 +34,11 @@
 
   #include "Drac++/Core/System.hpp"
 
-  #include "DracUtils/Env.hpp"
-  #include "DracUtils/Error.hpp"
-  #include "DracUtils/Logging.hpp"
-  #include "DracUtils/Types.hpp"
-
-  #include "Utils/Caching.hpp"
+  #include "Drac++/Utils/Caching.hpp"
+  #include "Drac++/Utils/Env.hpp"
+  #include "Drac++/Utils/Error.hpp"
+  #include "Drac++/Utils/Logging.hpp"
+  #include "Drac++/Utils/Types.hpp"
 
 namespace {
   using draconis::utils::error::DracError;
@@ -88,7 +87,17 @@ namespace {
         return String {};
 
       // First call WideCharToMultiByte to get the buffer size...
-      const i32 sizeNeeded = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), static_cast<int>(wstr.length()), nullptr, 0, nullptr, nullptr);
+      const i32 sizeNeeded = WideCharToMultiByte(
+        CP_UTF8,
+        0,
+        wstr.c_str(),
+        static_cast<int>(wstr.length()),
+        nullptr,
+        0,
+        nullptr,
+        nullptr
+      );
+
       if (sizeNeeded == 0)
         return Err(DracError(PlatformSpecific, std::format("Failed to get buffer size for UTF-8 conversion. Error code: {}", GetLastError())));
 
@@ -96,7 +105,17 @@ namespace {
       String result(sizeNeeded, 0);
 
       // ...and finally call WideCharToMultiByte again to convert the wide string to UTF-8.
-      const i32 bytesConverted = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), static_cast<int>(wstr.length()), result.data(), sizeNeeded, nullptr, nullptr);
+      const i32 bytesConverted = WideCharToMultiByte(
+        CP_UTF8,
+        0,
+        wstr.c_str(),
+        static_cast<int>(wstr.length()),
+        result.data(),
+        sizeNeeded,
+        nullptr,
+        nullptr
+      );
+
       if (bytesConverted == 0)
         return Err(DracError(PlatformSpecific, std::format("Failed to convert wide string to UTF-8. Error code: {}", GetLastError())));
 
@@ -154,9 +173,18 @@ namespace {
 
       // Query the registry value.
       // NOLINTNEXTLINE(*-pro-type-reinterpret-cast) - reinterpret_cast is required to convert the buffer to a byte array.
-      const LSTATUS status = RegQueryValueExW(hKey, valueName.c_str(), nullptr, &type, reinterpret_cast<LPBYTE>(registryBuffer.data()), &dataSizeInBytes);
 
-      if (status != ERROR_SUCCESS) {
+      if (
+        const LSTATUS status = RegQueryValueExW(
+          hKey,
+          valueName.c_str(),
+          nullptr,
+          &type,
+          reinterpret_cast<LPBYTE>(registryBuffer.data()),
+          &dataSizeInBytes
+        );
+        status != ERROR_SUCCESS
+      ) {
         if (status == ERROR_FILE_NOT_FOUND)
           return Err(DracError(NotFound, "Registry value not found"));
 
@@ -521,7 +549,6 @@ namespace draconis::core::system {
 
   fn GetHost() -> Result<String> {
     // See the RegistryCache class for how the registry keys are retrieved.
-
     const RegistryCache& registry = RegistryCache::getInstance();
 
     HKEY hardwareConfigKey = registry.getHardwareConfigKey();
@@ -539,25 +566,22 @@ namespace draconis::core::system {
 
   fn GetKernelVersion() -> Result<String> {
     // See the OsVersionCache class for how the version data is retrieved.
-
     const Result<OsVersionCache::VersionData>& versionDataResult = OsVersionCache::getInstance().getVersionData();
 
     if (!versionDataResult)
       return Err(versionDataResult.error());
 
-    const OsVersionCache::VersionData& versionData = *versionDataResult;
+    const auto& [majorVersion, minorVersion, buildNumber] = *versionDataResult;
 
-    return std::format("{}.{}.{}", versionData.majorVersion, versionData.minorVersion, versionData.buildNumber);
+    return std::format("{}.{}.{}", majorVersion, minorVersion, buildNumber);
   }
 
   fn GetWindowManager() -> Result<String> {
     if (!cache::ProcessTreeCache::getInstance().initialize())
       return Err(DracError(PlatformSpecific, "Failed to initialize process tree cache"));
 
-    const UnorderedMap<DWORD, cache::ProcessTreeCache::Data>& processMap = cache::ProcessTreeCache::getInstance().getProcessMap();
-
-    for (const auto& [pid, processData] : processMap) {
-      const StringView processName = processData.baseExeNameLower;
+    for (const auto& [parentPid, baseExeNameLower] : cache::ProcessTreeCache::getInstance().getProcessMap() | std::views::values) {
+      const StringView processName = baseExeNameLower;
 
       if (const auto mapIter = std::ranges::find_if(windowManagerMap, [&](const Pair<StringView, StringView>& pair) { return processName == pair.first; }); mapIter != std::ranges::end(windowManagerMap))
         return String(mapIter->second);

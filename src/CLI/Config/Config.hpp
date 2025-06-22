@@ -6,7 +6,7 @@
   #include <pwd.h>    // getpwuid, passwd
   #include <unistd.h> // getuid
 
-  #include "DracUtils/Env.hpp"
+  #include "Drac++/Utils/Env.hpp"
 #endif
 
 #if !DRAC_PRECOMPILED_CONFIG
@@ -15,7 +15,7 @@
   #include <toml++/impl/node_view.hpp> // toml::node_view
   #include <toml++/impl/table.hpp>     // toml::table
 
-  #include "DracUtils/Logging.hpp"
+  #include "Drac++/Utils/Logging.hpp"
 #endif
 
 #if DRAC_ENABLE_WEATHER
@@ -26,8 +26,8 @@
   #include <Drac++/Services/Packages.hpp>
 #endif
 
-#include <DracUtils/Definitions.hpp>
-#include <DracUtils/Types.hpp>
+#include <Drac++/Utils/Definitions.hpp>
+#include <Drac++/Utils/Types.hpp>
 
 namespace draconis::config {
   /**

@@ -1,7 +1,7 @@
 #if DRAC_ENABLE_WEATHER
 
-  #include <DracUtils/Error.hpp>
-  #include <DracUtils/Types.hpp>
+  #include <Drac++/Utils/Error.hpp>
+  #include <Drac++/Utils/Types.hpp>
 
   #include "Services/Weather/DataTransferObjects.hpp"
   #include "Services/Weather/WeatherUtils.hpp"

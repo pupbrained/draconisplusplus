@@ -1,7 +1,7 @@
 #include "Config.hpp"
 
-#include <DracUtils/Definitions.hpp>
-#include <DracUtils/Logging.hpp>
+#include <Drac++/Utils/Definitions.hpp>
+#include <Drac++/Utils/Logging.hpp>
 
 #if !DRAC_PRECOMPILED_CONFIG
   #include <filesystem>                // std::filesystem::{path, operator/, exists, create_directories}
@@ -11,8 +11,8 @@
   #include <toml++/impl/parser.hpp>    // toml::{parse_file, parse_result}
   #include <toml++/impl/table.hpp>     // toml::table
 
-  #include <DracUtils/Env.hpp>
-  #include <DracUtils/Types.hpp>
+  #include <Drac++/Utils/Env.hpp>
+  #include <Drac++/Utils/Types.hpp>
 
 namespace fs = std::filesystem;
 #else

@@ -4,8 +4,8 @@
 
   #include <xcb/xcb.h> // XCB library
 
-  #include <DracUtils/Definitions.hpp>
-  #include <DracUtils/Types.hpp>
+  #include <Drac++/Utils/Definitions.hpp>
+  #include <Drac++/Utils/Types.hpp>
 
 namespace XCB {
   using drac::types::u8, drac::types::u16, drac::types::i32, drac::types::u32, drac::types::CStr, drac::types::None;

@@ -73,9 +73,9 @@
   #include <vector>
 #endif
 
-#include <DracUtils/Definitions.hpp>
-#include <DracUtils/Error.hpp>
-#include <DracUtils/Types.hpp>
+#include <Drac++/Utils/Definitions.hpp>
+#include <Drac++/Utils/Error.hpp>
+#include <Drac++/Utils/Types.hpp>
 
 #ifndef ARGPARSE_CUSTOM_STRTOF
   #define ARGPARSE_CUSTOM_STRTOF strtof
@@ -1057,50 +1057,48 @@ namespace argparse {
      */
     template <class F, class... Args>
     fn action(F&& callable, Args&&... bound_args)
-      -> Argument&
-      requires(std::is_invocable_v<F, Args..., const draconis::utils::types::String>)
-    {
-      using draconis::utils::types::String, draconis::utils::types::Result;
+      -> Argument& requires(std::is_invocable_v<F, Args..., const draconis::utils::types::String>) {
+        using draconis::utils::types::String, draconis::utils::types::Result;
 
-      using RawReturnType = std::invoke_result_t<F, Args..., const draconis::utils::types::String>;
+        using RawReturnType = std::invoke_result_t<F, Args..., const draconis::utils::types::String>;
 
-      if constexpr (std::is_void_v<RawReturnType>) {
-        m_actions.emplace_back<void_action>(
-          [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<> {
-            details::apply_plus_one(f, tup, opt);
-            return {};
-          }
-        );
-      } else if constexpr (argparse::details::is_specialization_v<RawReturnType, Result> && std::is_void_v<typename RawReturnType::value_type>) {
-        m_actions.emplace_back<void_action>(
-          [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<> {
-            return details::apply_plus_one(f, tup, opt);
-          }
-        );
-      } else if constexpr (argparse::details::is_specialization_v<RawReturnType, Result>) {
-        m_actions.emplace_back<valued_action>(
-          [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<ArgValue> {
-            RawReturnType result = details::apply_plus_one(f, tup, opt);
-            if (result) {
-              if constexpr (!std::is_void_v<typename RawReturnType::value_type>) {
-                return result.value();
-              } else {
-                return ArgValue {};
-              }
-            } else {
-              return Err(result.error());
+        if constexpr (std::is_void_v<RawReturnType>) {
+          m_actions.emplace_back<void_action>(
+            [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<> {
+              details::apply_plus_one(f, tup, opt);
+              return {};
             }
-          }
-        );
-      } else {
-        m_actions.emplace_back<valued_action>(
-          [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<ArgValue> {
-            return details::apply_plus_one(f, tup, opt);
-          }
-        );
+          );
+        } else if constexpr (argparse::details::is_specialization_v<RawReturnType, Result> && std::is_void_v<typename RawReturnType::value_type>) {
+          m_actions.emplace_back<void_action>(
+            [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<> {
+              return details::apply_plus_one(f, tup, opt);
+            }
+          );
+        } else if constexpr (argparse::details::is_specialization_v<RawReturnType, Result>) {
+          m_actions.emplace_back<valued_action>(
+            [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<ArgValue> {
+              RawReturnType result = details::apply_plus_one(f, tup, opt);
+              if (result) {
+                if constexpr (!std::is_void_v<typename RawReturnType::value_type>) {
+                  return result.value();
+                } else {
+                  return ArgValue {};
+                }
+              } else {
+                return Err(result.error());
+              }
+            }
+          );
+        } else {
+          m_actions.emplace_back<valued_action>(
+            [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<ArgValue> {
+              return details::apply_plus_one(f, tup, opt);
+            }
+          );
+        }
+        return *this;
       }
-      return *this;
-    }
 
     /**
      * @brief Store the argument value into a boolean variable
@@ -1109,7 +1107,7 @@ namespace argparse {
      * @details If no default or implicit value is set, configures the argument as a flag
      */
     fn store_into(bool& variable)
-      -> Argument& {
+      ->Argument& {
       using draconis::utils::types::String, draconis::utils::types::Result;
 
       if ((!m_default_value.has_value()) && (!m_implicit_value.has_value()))
@@ -1133,9 +1131,7 @@ namespace argparse {
      * @return Reference to this argument for method chaining
      */
     template <typename T>
-    fn store_into(T& variable) -> Argument&
-      requires(std::is_integral_v<T>)
-    {
+    fn store_into(T& variable) -> Argument& requires(std::is_integral_v<T>) {
       using draconis::utils::error::DracError, draconis::utils::error::DracErrorCode;
       using draconis::utils::types::Err, draconis::utils::types::Result;
 
@@ -1162,9 +1158,7 @@ namespace argparse {
      * @return Reference to this argument for method chaining
      */
     template <typename T>
-    fn store_into(T& variable) -> Argument&
-      requires(std::is_floating_point_v<T>)
-    {
+    fn store_into(T& variable)->Argument& requires(std::is_floating_point_v<T>) {
       using draconis::utils::error::DracError, draconis::utils::error::DracErrorCode;
       using draconis::utils::types::Err, draconis::utils::types::Result;
 
@@ -1189,7 +1183,8 @@ namespace argparse {
      * @param variable Reference to the string variable to store the value in
      * @return Reference to this argument for method chaining
      */
-    fn store_into(draconis::utils::types::String& variable) -> Argument& {
+    fn store_into(draconis::utils::types::String& variable)
+      ->Argument& {
       using draconis::utils::types::String, draconis::utils::types::Result;
 
       if (m_default_value.has_value())
@@ -1366,9 +1361,7 @@ namespace argparse {
      *          - 'g'/'G': General format
      */
     template <char Shape, typename T>
-    fn scan() -> Argument&
-      requires(std::is_arithmetic_v<T>)
-    {
+    fn scan() -> Argument& requires(std::is_arithmetic_v<T>) {
       using draconis::utils::error::DracError;
       using draconis::utils::types::Err, draconis::utils::types::Result, draconis::utils::types::String;
 
@@ -1459,7 +1452,8 @@ namespace argparse {
      * @param num_args The exact number of arguments required
      * @return Reference to this argument for method chaining
      */
-    fn nargs(const draconis::utils::types::usize num_args) -> Argument& {
+    fn nargs(const draconis::utils::types::usize num_args)
+      ->Argument& {
       m_num_args_range = NArgsRange { num_args, num_args };
       return *this;
     }

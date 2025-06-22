@@ -7,8 +7,8 @@
   #include <matchit.hpp>
   #include <variant>
 
-  #include "DracUtils/Error.hpp"
-  #include "DracUtils/Types.hpp"
+  #include "../Utils/Error.hpp"
+  #include "../Utils/Types.hpp"
 
 namespace draconis::services::weather {
   /**

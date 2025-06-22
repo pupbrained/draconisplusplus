@@ -26,7 +26,7 @@ namespace draconis::utils::env {
    * @param name The name of the environment variable to retrieve.
    * @return A Result containing the value of the environment variable as a CStr.
    */
-  [[nodiscard]] inline fn GetEnv(CStr name) -> Result<CStr> {
+  [[nodiscard]] inline fn GetEnv(const CStr name) -> Result<CStr> {
 #ifdef _WIN32
     char* rawPtr     = nullptr;
     usize bufferSize = 0;

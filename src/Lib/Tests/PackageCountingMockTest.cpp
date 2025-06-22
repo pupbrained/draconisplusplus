@@ -2,8 +2,8 @@
 
 #include <Drac++/Services/Packages.hpp>
 
-#include <DracUtils/Error.hpp>
-#include <DracUtils/Types.hpp>
+#include <Drac++/Utils/Error.hpp>
+#include <Drac++/Utils/Types.hpp>
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"

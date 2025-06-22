@@ -10,9 +10,9 @@
 #include <type_traits>            // std::decay_t
 #include <utility>
 
-#include <DracUtils/Definitions.hpp>
-#include <DracUtils/Error.hpp>
-#include <DracUtils/Types.hpp>
+#include <Drac++/Utils/Definitions.hpp>
+#include <Drac++/Utils/Error.hpp>
+#include <Drac++/Utils/Types.hpp>
 
 namespace draconis::utils::cache {
   namespace {
@@ -125,7 +125,8 @@ namespace draconis::utils::cache {
       fs::path path;
       bool     committed = false;
 
-      explicit TempFileGuard(fs::path _path) : path(std::move(_path)) {}
+      explicit TempFileGuard(fs::path _path)
+        : path(std::move(_path)) {}
 
       ~TempFileGuard() {
         if (!committed) {

@@ -4,9 +4,9 @@
 
   #include <filesystem> // std::filesystem::path
 
-  #include "DracUtils/Definitions.hpp"
-  #include "DracUtils/Error.hpp"
-  #include "DracUtils/Types.hpp"
+  #include "../Utils/Definitions.hpp"
+  #include "../Utils/Error.hpp"
+  #include "../Utils/Types.hpp"
 
 namespace draconis::services::packages {
   /**

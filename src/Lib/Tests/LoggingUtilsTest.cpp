@@ -1,7 +1,7 @@
 #include <ftxui/screen/color.hpp> // ftxui::Color
 
-#include <DracUtils/Logging.hpp>
-#include <DracUtils/Types.hpp>
+#include <Drac++/Utils/Logging.hpp>
+#include <Drac++/Utils/Types.hpp>
 
 #include "gtest/gtest.h"
 
