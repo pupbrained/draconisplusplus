@@ -14,6 +14,7 @@
   #include <Drac++/Core/System.hpp>
   #include <Drac++/Services/Packages.hpp>
 
+  #include <Drac++/Utils/Caching.hpp>
   #include <Drac++/Utils/Definitions.hpp>
   #include <Drac++/Utils/Env.hpp>
   #include <Drac++/Utils/Error.hpp>
@@ -21,7 +22,6 @@
   #include <Drac++/Utils/Types.hpp>
 
   #include "OS/macOS/Bridge.hpp"
-  #include "Utils/Caching.hpp"
 
 using namespace draconis::utils::types;
 using draconis::utils::cache::GetValidCache, draconis::utils::cache::WriteCache;
@@ -29,7 +29,7 @@ using draconis::utils::env::GetEnv;
 using draconis::utils::error::DracError, draconis::utils::error::DracErrorCode;
 
 namespace draconis::core::system {
-  fn System::getMemInfo() -> Result<ResourceUsage> {
+  fn GetMemInfo() -> Result<ResourceUsage> {
     // Mach ports are used for communicating with the kernel. mach_host_self
     // provides a port to the host kernel, which is needed for host-level queries.
     static mach_port_t HostPort = mach_host_self();
@@ -70,19 +70,19 @@ namespace draconis::core::system {
     };
   }
 
-  fn System::getNowPlaying() -> Result<MediaInfo> {
+  fn GetNowPlaying() -> Result<MediaInfo> {
     return macOS::GetNowPlayingInfo();
   }
 
-  fn System::getOSVersion() -> Result<String> {
+  fn GetOSVersion() -> Result<String> {
     return macOS::GetOSVersion();
   }
 
-  fn System::getDesktopEnvironment() -> Result<String> {
+  fn GetDesktopEnvironment() -> Result<String> {
     return "Aqua";
   }
 
-  fn System::getWindowManager() -> Result<String> {
+  fn GetWindowManager() -> Result<String> {
     constexpr Array<StringView, 5> knownWms = {
       "Yabai",
       "ChunkWM",
@@ -128,7 +128,7 @@ namespace draconis::core::system {
     return "Quartz";
   }
 
-  fn System::getKernelVersion() -> Result<String> {
+  fn GetKernelVersion() -> Result<String> {
     Array<char, 256> kernelVersion {};
 
     usize kernelVersionLen = kernelVersion.size();
@@ -139,7 +139,7 @@ namespace draconis::core::system {
     return String(kernelVersion.data());
   }
 
-  fn System::getHost() -> Result<String> {
+  fn GetHost() -> Result<String> {
     Array<char, 256> hwModel {};
 
     usize hwModelLen = hwModel.size();
@@ -305,7 +305,7 @@ namespace draconis::core::system {
     return String(iter->second);
   }
 
-  fn System::getCPUModel() -> Result<String> {
+  fn GetCPUModel() -> Result<String> {
     Array<char, 256> cpuModel {};
 
     usize cpuModelLen = cpuModel.size();
@@ -316,7 +316,7 @@ namespace draconis::core::system {
     return String(cpuModel.data());
   }
 
-  fn System::getGPUModel() -> Result<String> {
+  fn GetGPUModel() -> Result<String> {
     // Getting the GPU model is relatively slow, and is very unlikely to change,
     // so it's best to just cache the result.
     const String cacheKey = "macos_gpu";
@@ -335,7 +335,7 @@ namespace draconis::core::system {
     return *gpuModel;
   }
 
-  fn System::getDiskUsage() -> Result<ResourceUsage> {
+  fn GetDiskUsage() -> Result<ResourceUsage> {
     struct statvfs vfs;
 
     if (statvfs("/", &vfs) != 0)
@@ -347,7 +347,7 @@ namespace draconis::core::system {
     };
   }
 
-  fn System::getShell() -> Result<String> {
+  fn GetShell() -> Result<String> {
     if (const Result<String> shellPath = GetEnv("SHELL")) {
       // clang-format off
       constexpr Array<Pair<StringView, StringView>, 8> shellMap {{
