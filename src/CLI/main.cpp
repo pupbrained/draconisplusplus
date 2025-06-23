@@ -177,6 +177,61 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
     }
   }
 
+  if (Result<CPUCores> cpuCores = GetCPUCores()) {
+    info_log("CPU cores: {} physical, {} logical", cpuCores->physical, cpuCores->logical);
+  } else {
+    debug_at(cpuCores.error());
+  }
+
+  if (Result<Vec<Display>> displays = GetDisplays()) {
+    for (const Display& display : *displays) {
+      info_log("Display ID: {}", display.id);
+      info_log("Display resolution: {}x{}", display.resolution.width, display.resolution.height);
+      info_log("Display refresh rate: {}Hz", display.refreshRate);
+      info_log("Display is primary: {}", display.isPrimary);
+    }
+  } else {
+    debug_at(displays.error());
+  }
+
+  if (Result<Vec<NetworkInterface>> networkInterfaces = GetNetworkInterfaces()) {
+    for (const NetworkInterface& networkInterface : *networkInterfaces) {
+      info_log("Network interface: {}", networkInterface.name);
+      info_log("Network interface IPv4 address: {}", networkInterface.ipv4Address.value_or("N/A"));
+      info_log("Network interface IPv6 address: {}", networkInterface.ipv6Address.value_or("N/A"));
+      info_log("Network interface MAC address: {}", networkInterface.macAddress.value_or("N/A"));
+      info_log("Network interface is up: {}", networkInterface.isUp);
+      info_log("Network interface is loopback: {}", networkInterface.isLoopback);
+    }
+  } else {
+    debug_at(networkInterfaces.error());
+  }
+
+  if (Result<Battery> battery = GetBatteryInfo()) {
+    using matchit::match, matchit::is, matchit::_;
+
+    info_log(
+      "Battery status: {}",
+      match(battery->status)(
+        is | Battery::Status::Charging    = "Charging",
+        is | Battery::Status::Discharging = "Discharging",
+        is | Battery::Status::Full        = "Full",
+        is | Battery::Status::Unknown     = "Unknown",
+        is | Battery::Status::NotPresent  = "Not Present"
+      )
+    );
+
+    info_log("Battery percentage: {}%", battery->percentage);
+
+    if (battery->timeRemaining.has_value()) {
+      info_log("Battery time remaining: {}", battery->timeRemaining.value());
+    } else {
+      info_log("Battery time remaining: N/A");
+    }
+  } else {
+    debug_at(battery.error());
+  }
+
   {
     using namespace ftxui;
     using namespace ftxui::Dimension;
@@ -208,30 +263,6 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
     Screen screen = Screen::Create(Full(), Fit(document));
     Render(screen, document);
     screen.Print();
-  }
-
-  if (Result<Vec<Display>> displays = GetDisplays()) {
-    for (const Display& display : *displays) {
-      info_log("Display ID: {}", display.id);
-      info_log("Display resolution: {}x{}", display.resolution.width, display.resolution.height);
-      info_log("Display refresh rate: {}Hz", display.refreshRate);
-      info_log("Display is primary: {}", display.isPrimary);
-    }
-  } else {
-    debug_at(displays.error());
-  }
-
-  if (Result<Vec<NetworkInterface>> networkInterfaces = GetNetworkInterfaces()) {
-    for (const NetworkInterface& networkInterface : *networkInterfaces) {
-      info_log("Network interface: {}", networkInterface.name);
-      info_log("Network interface IPv4 address: {}", networkInterface.ipv4Address.value_or("N/A"));
-      info_log("Network interface IPv6 address: {}", networkInterface.ipv6Address.value_or("N/A"));
-      info_log("Network interface MAC address: {}", networkInterface.macAddress.value_or("N/A"));
-      info_log("Network interface is up: {}", networkInterface.isUp);
-      info_log("Network interface is loopback: {}", networkInterface.isLoopback);
-    }
-  } else {
-    debug_at(networkInterfaces.error());
   }
 
   // Running the program as part of the shell's startup will cut

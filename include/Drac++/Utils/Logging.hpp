@@ -24,7 +24,7 @@
 namespace draconis::utils::logging {
   namespace {
     using types::Array;
-    using types::CStr;
+    using types::PCStr;
     using types::LockGuard;
     using types::Mutex;
     using types::String;
@@ -66,13 +66,13 @@ namespace draconis::utils::logging {
     static constexpr ftxui::Color::Palette16 ERROR_COLOR      = ftxui::Color::Palette16::Red;
     static constexpr ftxui::Color::Palette16 DEBUG_INFO_COLOR = ftxui::Color::Palette16::GrayLight;
 
-    static constexpr CStr TIMESTAMP_FORMAT = "%X";
-    static constexpr CStr LOG_FORMAT       = "{} {} {}";
+    static constexpr PCStr TIMESTAMP_FORMAT = "%X";
+    static constexpr PCStr LOG_FORMAT       = "{} {} {}";
 
 #ifndef NDEBUG
-    static constexpr CStr DEBUG_INFO_FORMAT = "{}{}{}\n";
-    static constexpr CStr FILE_LINE_FORMAT  = "{}:{}";
-    static constexpr CStr DEBUG_LINE_PREFIX = "           ╰──── ";
+    static constexpr PCStr DEBUG_INFO_FORMAT = "{}{}{}\n";
+    static constexpr PCStr FILE_LINE_FORMAT  = "{}:{}";
+    static constexpr PCStr DEBUG_LINE_PREFIX = "           ╰──── ";
 #endif
   };
 

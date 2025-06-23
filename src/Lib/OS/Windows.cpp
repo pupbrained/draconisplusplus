@@ -22,12 +22,22 @@
 
   #include <dxgi.h>                                 // IDXGIFactory, IDXGIAdapter, DXGI_ADAPTER_DESC
   #include <ranges>                                 // std::ranges::find_if, std::ranges::views::transform
+  #include <sysinfoapi.h>                           // GetLogicalProcessorInformationEx, RelationProcessorCore, PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX, KAFFINITY
   #include <tlhelp32.h>                             // CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS
   #include <winerror.h>                             // DXGI_ERROR_NOT_FOUND, ERROR_FILE_NOT_FOUND, ERROR_SUCCESS, FAILED, SUCCEEDED
   #include <winrt/Windows.Foundation.Collections.h> // winrt::Windows::Foundation::Collections::Map
   #include <winrt/Windows.Management.Deployment.h>  // winrt::Windows::Management::Deployment::PackageManager
   #include <winrt/Windows.Media.Control.h>          // winrt::Windows::Media::Control::MediaProperties
   #include <winrt/Windows.System.Profile.h>         // winrt::Windows::System::Profile::AnalyticsInfo
+  #include <winuser.h>                              // EnumDisplayMonitors, GetMonitorInfoW, MonitorFromWindow, EnumDisplaySettingsW
+
+  // Core Winsock headers
+  #include <winsock2.h> // AF_INET, AF_UNSPEC, sockaddr_in
+  #include <ws2tcpip.h> // inet_ntop, inet_pton
+
+  // IP Helper API headers
+  #include <iphlpapi.h> // GetAdaptersAddresses, GetBestRoute
+  #include <iptypes.h>  // GAA_FLAG_INCLUDE_PREFIX, IP_ADAPTER_ADDRESSES, IP_ADAPTER_UNICAST_ADDRESS
 
   #if DRAC_ENABLE_PACKAGECOUNT
     #include "Drac++/Services/Packages.hpp"
@@ -46,9 +56,9 @@ namespace {
 
   namespace constants {
     // Registry keys for Windows version information
-    constexpr const wchar_t* PRODUCT_NAME    = L"ProductName";
-    constexpr const wchar_t* DISPLAY_VERSION = L"DisplayVersion";
-    constexpr const wchar_t* SYSTEM_FAMILY   = L"SystemFamily";
+    constexpr PWCStr PRODUCT_NAME    = L"ProductName";
+    constexpr PWCStr DISPLAY_VERSION = L"DisplayVersion";
+    constexpr PWCStr SYSTEM_FAMILY   = L"SystemFamily";
 
     // clang-format off
     constexpr Array<Pair<StringView, StringView>, 5> windowsShellMap = {{
@@ -80,22 +90,13 @@ namespace {
   } // namespace constants
 
   namespace helpers {
-    fn ConvertWStringToUTF8(const std::wstring& wstr) -> Result<String> {
+    fn ConvertWStringToUTF8(const WString& wstr) -> Result<String> {
       // Likely best to just return an empty string if an empty wide string is provided.
       if (wstr.empty())
         return String {};
 
       // First call WideCharToMultiByte to get the buffer size...
-      const i32 sizeNeeded = WideCharToMultiByte(
-        CP_UTF8,
-        0,
-        wstr.c_str(),
-        static_cast<int>(wstr.length()),
-        nullptr,
-        0,
-        nullptr,
-        nullptr
-      );
+      const i32 sizeNeeded = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), static_cast<int>(wstr.length()), nullptr, 0, nullptr, nullptr);
 
       if (sizeNeeded == 0)
         return Err(DracError(PlatformSpecific, std::format("Failed to get buffer size for UTF-8 conversion. Error code: {}", GetLastError())));
@@ -104,16 +105,8 @@ namespace {
       String result(sizeNeeded, 0);
 
       // ...and finally call WideCharToMultiByte again to convert the wide string to UTF-8.
-      const i32 bytesConverted = WideCharToMultiByte(
-        CP_UTF8,
-        0,
-        wstr.c_str(),
-        static_cast<int>(wstr.length()),
-        result.data(),
-        sizeNeeded,
-        nullptr,
-        nullptr
-      );
+      const i32 bytesConverted =
+        WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), static_cast<int>(wstr.length()), result.data(), sizeNeeded, nullptr, nullptr);
 
       if (bytesConverted == 0)
         return Err(DracError(PlatformSpecific, std::format("Failed to convert wide string to UTF-8. Error code: {}", GetLastError())));
@@ -121,9 +114,9 @@ namespace {
       return result;
     }
 
-    fn GetDirCount(const std::wstring_view path) -> Result<u64> {
+    fn GetDirCount(const WString& path) -> Result<u64> {
       // Create mutable copy and append wildcard.
-      std::wstring searchPath(path);
+      WString searchPath(path);
       searchPath.append(L"\\*");
 
       // Used to receive information about the found file or directory.
@@ -145,7 +138,8 @@ namespace {
         // Only increment if the found item is:
         // 1. a directory
         // 2. not a special directory (".", "..")
-        if ((findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) && (wcscmp(findData.cFileName, L".") != 0 && wcscmp(findData.cFileName, L"..") != 0))
+        if ((findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) &&
+            (wcscmp(findData.cFileName, L".") != 0 && wcscmp(findData.cFileName, L"..") != 0))
           count++;
 
         // Continue searching for more files and directories.
@@ -159,29 +153,28 @@ namespace {
       return count;
     }
 
-    // Reads a registry value into a wstring.
-    fn GetRegistryValue(const HKEY& hKey, const std::wstring& valueName) -> Result<std::wstring> {
+    // Reads a registry value into a WString.
+    fn GetRegistryValue(const HKEY& hKey, const WString& valueName) -> Result<WString> {
       // Buffer for storing the registry value. Should be large enough to hold most values.
-      Array<wchar_t, 1024> registryBuffer {};
+      Array<WCStr, 1024> registryBuffer {};
 
       // Size of the buffer in bytes.
-      DWORD dataSizeInBytes = registryBuffer.size() * sizeof(wchar_t);
+      DWORD dataSizeInBytes = registryBuffer.size() * sizeof(WCStr);
 
       // Stores the type of the registry value.
       DWORD type = 0;
 
       // Query the registry value.
-      if (
-        const LSTATUS status = RegQueryValueExW(
-          hKey,
-          valueName.c_str(),
-          nullptr,
-          &type,
-          reinterpret_cast<LPBYTE>(registryBuffer.data()), // NOLINT(*-pro-type-reinterpret-cast) - reinterpret_cast is required to convert the buffer to a byte array.
-          &dataSizeInBytes
-        );
-        status != ERROR_SUCCESS
-      ) {
+      if (const LSTATUS status = RegQueryValueExW(
+            hKey,
+            valueName.c_str(),
+            nullptr,
+            &type,
+            // NOLINTNEXTLINE(*-pro-type-reinterpret-cast) - reinterpret_cast is required to convert the buffer to a byte array.
+            reinterpret_cast<LPBYTE>(registryBuffer.data()),
+            &dataSizeInBytes
+          );
+          status != ERROR_SUCCESS) {
         if (status == ERROR_FILE_NOT_FOUND)
           return Err(DracError(NotFound, "Registry value not found"));
 
@@ -190,7 +183,7 @@ namespace {
 
       // Ensure the retrieved value is a string.
       if (type == REG_SZ || type == REG_EXPAND_SZ)
-        return std::wstring(registryBuffer.data());
+        return WString(registryBuffer.data());
 
       return Err(DracError(ParseError, "Registry value exists but is not a string type. Type is: " + std::to_string(type)));
     }
@@ -200,7 +193,6 @@ namespace {
   namespace cache {
     // Caches registry values, allowing them to only be retrieved once.
     class RegistryCache {
-     private:
       HKEY m_currentVersionKey = nullptr;
       HKEY m_hardwareConfigKey = nullptr;
 
@@ -347,21 +339,25 @@ namespace {
 
         // Iterate through all processes captured in the snapshot.
         for (BOOL ok = Process32FirstW(hSnap, &pe32); ok; ok = Process32NextW(hSnap, &pe32)) {
-          std::filesystem::path exePath(pe32.szExeFile);
-          std::wstring          baseName = exePath.stem().wstring();
+          WStringView exeFileView(pe32.szExeFile);
 
-          // Normalize for case-insensitive comparison.
-          std::ranges::transform(baseName, baseName.begin(), [](const wchar_t character) { return towlower(character); });
+          const usize lastSlashPos = exeFileView.find_last_of(L"\\/");
+          const usize start        = (lastSlashPos == WStringView::npos) ? 0 : lastSlashPos + 1;
+
+          const usize lastDotPos = exeFileView.find_last_of(L'.');
+          const usize end        = (lastDotPos == WStringView::npos || lastDotPos < start) ? exeFileView.length() : lastDotPos;
+
+          WStringView stemView = exeFileView.substr(start, end - start);
+
+          WString baseName(stemView);
+          std::ranges::transform(baseName, baseName.begin(), [](const WCStr character) { return towlower(character); });
 
           const Result<String> baseNameUTF8 = helpers::ConvertWStringToUTF8(baseName);
 
           if (!baseNameUTF8)
             continue;
 
-          m_processMap[pe32.th32ProcessID] = Data {
-            .parentPid        = pe32.th32ParentProcessID,
-            .baseExeNameLower = *baseNameUTF8
-          };
+          m_processMap[pe32.th32ProcessID] = Data { .parentPid = pe32.th32ParentProcessID, .baseExeNameLower = *baseNameUTF8 };
         }
 
         // Ensure that the handle is closed to avoid leaks.
@@ -394,6 +390,7 @@ namespace {
     template <usize sz>
     fn FindShellInProcessTree(const DWORD startPid, const Array<Pair<StringView, StringView>, sz>& shellMap) -> Result<String> {
       using cache::ProcessTreeCache;
+
       // PID 0 (System Idle Process) is always the root process, and cannot have a parent.
       if (startPid == 0)
         return Err(DracError(PlatformSpecific, "Start PID is 0"));
@@ -420,7 +417,8 @@ namespace {
 
         // Check if the process name matches any shell in the map,
         // and return its friendly-name counterpart if it is.
-        if (const auto mapIter = std::ranges::find_if(shellMap, [&](const Pair<StringView, StringView>& pair) { return StringView { processName } == pair.first; });
+        if (const auto mapIter =
+              std::ranges::find_if(shellMap, [&](const Pair<StringView, StringView>& pair) { return StringView { processName } == pair.first; });
             mapIter != std::ranges::end(shellMap))
           return String(mapIter->second);
 
@@ -488,10 +486,10 @@ namespace draconis::core::system {
     // Windows is weird about its versioning scheme, and Windows 11 is still
     // considered Windows 10 in the registry. We have to manually check if
     // the actual version is Windows 11 by checking the build number.
-    constexpr const wchar_t* windows10 = L"Windows 10";
-    constexpr const wchar_t* windows11 = L"Windows 11";
+    constexpr PWCStr windows10 = L"Windows 10";
+    constexpr PWCStr windows11 = L"Windows 11";
 
-    constexpr usize windowsLen = std::char_traits<wchar_t>::length(windows10);
+    constexpr usize windowsLen = std::char_traits<WCStr>::length(windows10);
 
     const RegistryCache& registry = RegistryCache::getInstance();
 
@@ -500,7 +498,7 @@ namespace draconis::core::system {
     if (!currentVersionKey)
       return Err(DracError(NotFound, "Failed to open registry key"));
 
-    Result<std::wstring> productName = GetRegistryValue(currentVersionKey, PRODUCT_NAME);
+    Result<WString> productName = GetRegistryValue(currentVersionKey, PRODUCT_NAME);
 
     if (!productName)
       return Err(productName.error());
@@ -512,7 +510,7 @@ namespace draconis::core::system {
     // if it's currently "Windows 10" and the build number is greater than or equal to 22000.
     if (const Result<u64> buildNumberOpt = OsVersionCache::getInstance().getBuildNumber())
       if (const u64 buildNumber = *buildNumberOpt; buildNumber >= 22000)
-        if (const size_t pos = productName->find(windows10); pos != std::wstring::npos) {
+        if (const size_t pos = productName->find(windows10); pos != WString::npos) {
           // Make sure we're not replacing a substring of a larger string. Should never happen,
           // but if it ever does, we'll just leave the product name unchanged.
           const bool startBoundary = (pos == 0 || !iswalnum(productName->at(pos - 1)));
@@ -523,7 +521,7 @@ namespace draconis::core::system {
         }
 
     // Append the display version if it exists.
-    const Result<std::wstring> displayVersion = GetRegistryValue(currentVersionKey, DISPLAY_VERSION);
+    const Result<WString> displayVersion = GetRegistryValue(currentVersionKey, DISPLAY_VERSION);
 
     if (!displayVersion)
       return Err(displayVersion.error());
@@ -553,7 +551,7 @@ namespace draconis::core::system {
     if (!hardwareConfigKey)
       return Err(DracError(NotFound, "Failed to open registry key"));
 
-    const Result<std::wstring> systemFamily = GetRegistryValue(hardwareConfigKey, SYSTEM_FAMILY);
+    const Result<WString> systemFamily = GetRegistryValue(hardwareConfigKey, SYSTEM_FAMILY);
 
     if (!systemFamily)
       return Err(DracError(NotFound, "SystemFamily not found in registry"));
@@ -580,7 +578,13 @@ namespace draconis::core::system {
     for (const auto& [parentPid, baseExeNameLower] : cache::ProcessTreeCache::getInstance().getProcessMap() | std::views::values) {
       const StringView processName = baseExeNameLower;
 
-      if (const auto mapIter = std::ranges::find_if(windowManagerMap, [&](const Pair<StringView, StringView>& pair) { return processName == pair.first; }); mapIter != std::ranges::end(windowManagerMap))
+      if (
+        const auto mapIter =
+          std::ranges::find_if(windowManagerMap, [&](const Pair<StringView, StringView>& pair) -> bool {
+            return processName == pair.first;
+          });
+        mapIter != std::ranges::end(windowManagerMap)
+      )
         return String(mapIter->second);
     }
 
@@ -634,7 +638,13 @@ namespace draconis::core::system {
           shellExe.resize(shellExe.length() - 4);
 
         // Check if the executable name matches any shell in the map.
-        if (const auto iter = std::ranges::find_if(msysShellMap, [&](const Pair<StringView, StringView>& pair) { return StringView { shellExe } == pair.first; }); iter != std::ranges::end(msysShellMap))
+        if (
+          const auto iter =
+            std::ranges::find_if(msysShellMap, [&](const Pair<StringView, StringView>& pair) -> bool {
+              return StringView { shellExe } == pair.first;
+            });
+          iter != std::ranges::end(msysShellMap)
+        )
           return String(iter->second);
 
         // If the executable name doesn't match any shell in the map, we might as well just return it as is.
@@ -741,7 +751,7 @@ namespace draconis::core::system {
       // This key contains information about the processor.
       if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
         // Get the processor name value from the registry key.
-        Result<std::wstring> processorNameW = GetRegistryValue(hKey, L"ProcessorNameString");
+        Result<WString> processorNameW = GetRegistryValue(hKey, L"ProcessorNameString");
 
         // Ensure the key is closed to prevent leaks.
         RegCloseKey(hKey);
@@ -755,6 +765,50 @@ namespace draconis::core::system {
     // At this point, there's no other good method to get the CPU model on Windows.
     // Using WMI is useless because it just calls the same registry key we're already using.
     return Err(DracError(NotFound, "All methods to get CPU model failed on this platform"));
+  }
+
+  fn GetCPUCores() -> Result<CPUCores> {
+    const DWORD logicalProcessors = GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+    if (logicalProcessors == 0)
+      return Err(
+        DracError(
+          PlatformSpecific,
+          std::format("GetActiveProcessorCount failed with error code {}", GetLastError())
+        )
+      );
+
+    DWORD bufferSize = 0;
+
+    if (GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &bufferSize) == FALSE && GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+      return Err(
+        DracError(
+          PlatformSpecific,
+          std::format("GetLogicalProcessorInformationEx (size query) failed with error code {}", GetLastError())
+        )
+      );
+
+    Array<BYTE, 1024> buffer {};
+
+    // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+    if (GetLogicalProcessorInformationEx(RelationProcessorCore, reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(buffer.data()), &bufferSize) == FALSE)
+      return Err(DracError(
+        PlatformSpecific,
+        std::format("GetLogicalProcessorInformationEx (data retrieval) failed with error code {}", GetLastError())
+      ));
+
+    DWORD      physicalCores = 0;
+    DWORD      offset        = 0;
+    Span<BYTE> bufferSpan(buffer);
+
+    while (offset < bufferSize) {
+      physicalCores++;
+
+      // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+      const auto* current = reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(&bufferSpan[offset]);
+      offset += current->Size;
+    }
+
+    return CPUCores(static_cast<u16>(physicalCores), static_cast<u16>(logicalProcessors));
   }
 
   fn GetGPUModel() -> Result<String> {
@@ -795,7 +849,7 @@ namespace draconis::core::system {
 
     // The DirectX description is a wide string.
     // We have to convert it to a UTF-8 string.
-    Array<char, 128> gpuName {};
+    Array<CStr, 128> gpuName {};
 
     WideCharToMultiByte(CP_UTF8, 0, desc.Description, -1, gpuName.data(), gpuName.size(), nullptr, nullptr);
 
@@ -804,6 +858,251 @@ namespace draconis::core::system {
     pFactory->Release();
 
     return gpuName.data();
+  }
+
+  fn GetUptime() -> Result<std::chrono::seconds> {
+    return std::chrono::seconds(GetTickCount64() / 1000);
+  }
+
+  fn GetDisplays() -> Result<Vec<Display>> {
+    UINT32 pathCount = 0;
+    UINT32 modeCount = 0;
+
+    if (GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, &pathCount, &modeCount) != ERROR_SUCCESS)
+      return Err(DracError(PlatformSpecific, "GetDisplayConfigBufferSizes failed to get buffer sizes"));
+
+    Vec<DISPLAYCONFIG_PATH_INFO> paths(pathCount);
+    Vec<DISPLAYCONFIG_MODE_INFO> modes(modeCount);
+
+    if (QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, &pathCount, paths.data(), &modeCount, modes.data(), nullptr) != ERROR_SUCCESS)
+      return Err(DracError(PlatformSpecific, "QueryDisplayConfig failed to retrieve display data"));
+
+    Vec<Display> displays;
+    displays.reserve(pathCount);
+
+    // NOLINTBEGIN(*-pro-type-union-access)
+    for (const auto& path : paths) {
+      if (path.flags & DISPLAYCONFIG_PATH_ACTIVE) {
+        const DISPLAYCONFIG_MODE_INFO& mode = modes[path.targetInfo.modeInfoIdx];
+
+        if (mode.infoType != DISPLAYCONFIG_MODE_INFO_TYPE_TARGET)
+          continue;
+
+        Display display;
+
+        display.id = path.targetInfo.id;
+
+        display.resolution.width  = mode.targetMode.targetVideoSignalInfo.activeSize.cx;
+        display.resolution.height = mode.targetMode.targetVideoSignalInfo.activeSize.cy;
+
+        if (const DISPLAYCONFIG_VIDEO_SIGNAL_INFO& timing = mode.targetMode.targetVideoSignalInfo;
+            timing.totalSize.cx != 0 && timing.totalSize.cy != 0)
+          display.refreshRate = static_cast<u16>(std::round(static_cast<double>(timing.pixelRate) / (timing.totalSize.cx * timing.totalSize.cy)));
+        else
+          display.refreshRate = 0;
+
+        display.isPrimary = (path.flags & DISPLAYCONFIG_PATH_ACTIVE) != 0;
+
+        displays.push_back(display);
+      }
+    }
+    // NOLINTEND(*-pro-type-union-access)
+
+    if (displays.empty())
+      return Err(DracError(NotFound, "No active displays found with QueryDisplayConfig"));
+
+    return displays;
+  }
+
+  fn GetPrimaryDisplay() -> Result<Display> {
+    const HMONITOR primaryMonitor = MonitorFromWindow(nullptr, MONITOR_DEFAULTTOPRIMARY);
+
+    if (!primaryMonitor)
+      return Err(DracError(PlatformSpecific, "Failed to get a handle to the primary monitor"));
+
+    MONITORINFOEXW monitorInfo;
+    monitorInfo.cbSize = sizeof(MONITORINFOEXW);
+
+    if (!GetMonitorInfoW(primaryMonitor, &monitorInfo))
+      return Err(DracError(PlatformSpecific, "GetMonitorInfoW failed for the primary monitor"));
+
+    DEVMODEW devMode;
+    devMode.dmSize        = sizeof(DEVMODEW);
+    devMode.dmDriverExtra = 0;
+
+    if (!EnumDisplaySettingsW(monitorInfo.szDevice, ENUM_CURRENT_SETTINGS, &devMode))
+      return Err(DracError(PlatformSpecific, "EnumDisplaySettingsW failed for the primary monitor"));
+
+    Display display;
+    display.id                = 0;
+    display.resolution.width  = static_cast<u16>(devMode.dmPelsWidth);
+    display.resolution.height = static_cast<u16>(devMode.dmPelsHeight);
+    display.refreshRate       = static_cast<u16>(devMode.dmDisplayFrequency);
+    display.isPrimary         = true;
+
+    return display;
+  }
+
+  fn GetNetworkInterfaces() -> Result<Vec<NetworkInterface>> {
+    Vec<NetworkInterface> interfaces;
+    ULONG                 bufferSize = 15000; // A reasonable starting buffer size
+    Vec<BYTE>             buffer(bufferSize);
+
+    // GetAdaptersAddresses is a two-call function. First call gets the required buffer size.
+    // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+    auto* pAddresses = reinterpret_cast<IP_ADAPTER_ADDRESSES*>(buffer.data());
+    DWORD result     = GetAdaptersAddresses(AF_UNSPEC, GAA_FLAG_INCLUDE_PREFIX, nullptr, pAddresses, &bufferSize);
+
+    if (result == ERROR_BUFFER_OVERFLOW) {
+      buffer.resize(bufferSize);
+      // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+      pAddresses = reinterpret_cast<IP_ADAPTER_ADDRESSES*>(buffer.data());
+      result     = GetAdaptersAddresses(AF_UNSPEC, GAA_FLAG_INCLUDE_PREFIX, nullptr, pAddresses, &bufferSize);
+    }
+
+    if (result != NO_ERROR)
+      return Err(DracError(PlatformSpecific, "GetAdaptersAddresses failed with error: " + std::to_string(result)));
+
+    // Iterate through the linked list of adapters
+    for (IP_ADAPTER_ADDRESSES* pCurrAddresses = pAddresses; pCurrAddresses != nullptr; pCurrAddresses = pCurrAddresses->Next) {
+      NetworkInterface iface;
+      iface.name = pCurrAddresses->AdapterName;
+
+      iface.isUp       = (pCurrAddresses->OperStatus == IfOperStatusUp);
+      iface.isLoopback = (pCurrAddresses->IfType == IF_TYPE_SOFTWARE_LOOPBACK);
+
+      // Format the MAC address
+      if (pCurrAddresses->PhysicalAddressLength == 6)
+        iface.macAddress = std::format(
+          "{:02X}:{:02X}:{:02X}:{:02X}:{:02X}:{:02X}",
+          pCurrAddresses->PhysicalAddress[0],
+          pCurrAddresses->PhysicalAddress[1],
+          pCurrAddresses->PhysicalAddress[2],
+          pCurrAddresses->PhysicalAddress[3],
+          pCurrAddresses->PhysicalAddress[4],
+          pCurrAddresses->PhysicalAddress[5]
+        );
+
+      // Iterate through the IP addresses for this adapter
+      for (const IP_ADAPTER_UNICAST_ADDRESS* pUnicast = pCurrAddresses->FirstUnicastAddress; pUnicast != nullptr; pUnicast = pUnicast->Next)
+        if (pUnicast->Address.lpSockaddr->sa_family == AF_INET) {
+          // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+          const auto* saIn = reinterpret_cast<sockaddr_in*>(pUnicast->Address.lpSockaddr);
+
+          Array<char, INET_ADDRSTRLEN> strBuffer {};
+
+          if (inet_ntop(AF_INET, &(saIn->sin_addr), strBuffer.data(), INET_ADDRSTRLEN))
+            iface.ipv4Address = strBuffer.data();
+        }
+
+      interfaces.push_back(iface);
+    }
+
+    return interfaces;
+  }
+
+  fn GetPrimaryNetworkInterface() -> Result<NetworkInterface> {
+    MIB_IPFORWARDROW routeRow;
+    sockaddr_in      destAddr {};
+    destAddr.sin_family = AF_INET;
+    inet_pton(AF_INET, "8.8.8.8", &destAddr.sin_addr);
+
+    if (DWORD status = GetBestRoute(destAddr.sin_addr.s_addr, 0, &routeRow); status != NO_ERROR)
+      return Err(DracError(PlatformSpecific, "GetBestRoute failed with error: " + std::to_string(status)));
+
+    // The interface index for the best route
+    const DWORD primaryInterfaceIndex = routeRow.dwForwardIfIndex;
+
+    ULONG     bufferSize = 15000;
+    Vec<BYTE> buffer(bufferSize);
+
+    // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+    auto* pAddresses = reinterpret_cast<IP_ADAPTER_ADDRESSES*>(buffer.data());
+
+    DWORD result = GetAdaptersAddresses(AF_UNSPEC, GAA_FLAG_INCLUDE_PREFIX, nullptr, pAddresses, &bufferSize);
+    if (result == ERROR_BUFFER_OVERFLOW) {
+      buffer.resize(bufferSize);
+      // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+      pAddresses = reinterpret_cast<IP_ADAPTER_ADDRESSES*>(buffer.data());
+      result     = GetAdaptersAddresses(AF_UNSPEC, GAA_FLAG_INCLUDE_PREFIX, nullptr, pAddresses, &bufferSize);
+    }
+
+    if (result != NO_ERROR)
+      return Err(DracError(PlatformSpecific, "GetAdaptersAddresses failed with error: " + std::to_string(result)));
+
+    for (IP_ADAPTER_ADDRESSES* pCurrAddresses = pAddresses; pCurrAddresses != nullptr; pCurrAddresses = pCurrAddresses->Next) {
+      // NOLINTNEXTLINE(*-union-access)
+      if (pCurrAddresses->IfIndex == primaryInterfaceIndex) {
+        NetworkInterface iface;
+        iface.name = pCurrAddresses->AdapterName;
+
+        iface.isUp       = (pCurrAddresses->OperStatus == IfOperStatusUp);
+        iface.isLoopback = (pCurrAddresses->IfType == IF_TYPE_SOFTWARE_LOOPBACK);
+
+        if (pCurrAddresses->PhysicalAddressLength == 6)
+          iface.macAddress = std::format(
+            "{:02X}:{:02X}:{:02X}:{:02X}:{:02X}:{:02X}",
+            pCurrAddresses->PhysicalAddress[0],
+            pCurrAddresses->PhysicalAddress[1],
+            pCurrAddresses->PhysicalAddress[2],
+            pCurrAddresses->PhysicalAddress[3],
+            pCurrAddresses->PhysicalAddress[4],
+            pCurrAddresses->PhysicalAddress[5]
+          );
+
+        for (IP_ADAPTER_UNICAST_ADDRESS* pUnicast = pCurrAddresses->FirstUnicastAddress; pUnicast != nullptr; pUnicast = pUnicast->Next) {
+          if (pUnicast->Address.lpSockaddr->sa_family == AF_INET) {
+            // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+            auto* saIn = reinterpret_cast<sockaddr_in*>(pUnicast->Address.lpSockaddr);
+
+            Array<char, INET_ADDRSTRLEN> strBuffer {};
+
+            if (inet_ntop(AF_INET, &(saIn->sin_addr), strBuffer.data(), INET_ADDRSTRLEN))
+              iface.ipv4Address = strBuffer.data();
+          }
+        }
+        return iface;
+      }
+    }
+
+    return Err(DracError(NotFound, "Could not find details for the primary network interface."));
+  }
+
+  fn GetBatteryInfo() -> Result<Battery> {
+    using matchit::match, matchit::is, matchit::_;
+    using enum Battery::Status;
+
+    SYSTEM_POWER_STATUS powerStatus;
+
+    if (!GetSystemPowerStatus(&powerStatus))
+      return Err(DracError(PlatformSpecific, "GetSystemPowerStatus failed with error code " + std::to_string(GetLastError())));
+
+    // The BATTERY_FLAG_NO_SYSTEM_BATTERY flag (0x80) indicates no battery is present.
+    if (powerStatus.BatteryFlag & BATTERY_FLAG_NO_BATTERY)
+      return Battery(NotPresent, 0, None);
+
+    // The BATTERY_FLAG_UNKNOWN flag (0xFF) indicates the status can't be determined.
+    if (powerStatus.BatteryFlag == BATTERY_FLAG_UNKNOWN)
+      return Battery(Unknown, 0, None);
+
+    // 255 means unknown, so we'll map it to None.
+    const Option<u8> percentage = (powerStatus.BatteryLifePercent == 255) ? None : Option(powerStatus.BatteryLifePercent);
+
+    // The catch-all should only ever need to cover 255 but using it regardless is safer.
+    const Battery::Status status = match(powerStatus.ACLineStatus)(
+      is | (_ == 1 && percentage == 100) = Full,
+      is | 1                             = Charging,
+      is | 0                             = Discharging,
+      is | _                             = Unknown
+    );
+
+    return Battery(
+      status,
+      percentage,
+      powerStatus.BatteryFullLifeTime == static_cast<DWORD>(-1)
+        ? None
+        : Option(std::chrono::seconds(powerStatus.BatteryFullLifeTime))
+    );
   }
 } // namespace draconis::core::system
 
@@ -814,11 +1113,11 @@ namespace draconis::services::packages {
 
   fn CountChocolatey() -> Result<u64> {
     // C:\ProgramData\chocolatey is the default installation directory.
-    std::wstring chocoPath = L"C:\\ProgramData\\chocolatey";
+    WString chocoPath = L"C:\\ProgramData\\chocolatey";
 
     // If the ChocolateyInstall environment variable is set, use that instead.
     // Most of the time it's set to C:\ProgramData\chocolatey, but it can be overridden.
-    if (const Result<wchar_t*> chocoEnv = GetEnvW(L"ChocolateyInstall"); chocoEnv)
+    if (const Result<WCStr*> chocoEnv = GetEnvW(L"ChocolateyInstall"); chocoEnv)
       chocoPath = *chocoEnv;
 
     // The lib directory contains the package metadata.
@@ -833,13 +1132,13 @@ namespace draconis::services::packages {
   }
 
   fn CountScoop() -> Result<u64> {
-    std::wstring scoopAppsPath;
+    WString scoopAppsPath;
 
     // The SCOOP environment variable should be used first if it's set.
-    if (const Result<wchar_t*> scoopEnv = GetEnvW(L"SCOOP"); scoopEnv) {
+    if (const Result<WCStr*> scoopEnv = GetEnvW(L"SCOOP"); scoopEnv) {
       scoopAppsPath = *scoopEnv;
       scoopAppsPath.append(L"\\apps");
-    } else if (const Result<wchar_t*> userProfile = GetEnvW(L"USERPROFILE"); userProfile) {
+    } else if (const Result<WCStr*> userProfile = GetEnvW(L"USERPROFILE"); userProfile) {
       // Otherwise, we can try finding the scoop folder in the user's home directory.
       scoopAppsPath = *userProfile;
       scoopAppsPath.append(L"\\scoop\\apps");
@@ -862,7 +1161,8 @@ namespace draconis::services::packages {
 
       // The only good way to get the number of packages installed via winget is using WinRT.
       // It's a bit slow, but it's still faster than shelling out to the command line.
-      // FindPackagesForUser returns an iterator to the first package, so we can use std::ranges::distance to get the number of packages.
+      // FindPackagesForUser returns an iterator to the first package, so we can use std::ranges::distance to get the
+      // number of packages.
       return std::ranges::distance(PackageManager().FindPackagesForUser(L""));
     } catch (const winrt::hresult_error& e) {
       // Make sure to catch any errors that WinRT might throw.

@@ -1,4 +1,3 @@
-#include <netdb.h>
 #ifdef __APPLE__
   #include <CoreFoundation/CFPropertyList.h> // CFPropertyListCreateWithData, kCFPropertyListImmutable
   #include <CoreFoundation/CFStream.h>       // CFReadStreamClose, CFReadStreamCreateWithFile, CFReadStreamOpen, CFReadStreamRead, CFReadStreamRef
@@ -14,6 +13,7 @@
   #include <net/if.h>
   #include <net/if_dl.h>
   #include <net/route.h>
+  #include <netdb.h>
   #include <netinet/in.h>
   #include <sys/statvfs.h> // statvfs
   #include <sys/sysctl.h>  // {CTL_KERN, KERN_PROC, KERN_PROC_ALL, kinfo_proc, sysctl, sysctlbyname}

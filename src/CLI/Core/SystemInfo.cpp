@@ -39,7 +39,7 @@ namespace draconis::core::system {
 
           monthBuffer.resize(monthLen);
 
-          CStr suffix = match(day)(
+          PCStr suffix = match(day)(
             is | in(11, 13)    = "th",
             is | (_ % 10 == 1) = "st",
             is | (_ % 10 == 2) = "nd",

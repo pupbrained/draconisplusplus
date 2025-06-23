@@ -13,6 +13,7 @@
 
 namespace draconis::core::system {
   namespace {
+    using utils::types::Battery;
     using utils::types::CPUCores;
     using utils::types::Display;
     using utils::types::f64;
@@ -622,4 +623,37 @@ namespace draconis::core::system {
    * @endcode
    */
   fn GetPrimaryNetworkInterface() -> Result<NetworkInterface>;
+
+  /**
+   * @brief Fetches the battery information.
+   * @return The battery information.
+   *
+   * @details Obtained differently depending on the platform:
+   *  - Windows: `GetSystemPowerStatus`
+   *  - macOS: `IOPSGetPowerSourceState`
+   *  - Other: To be implemented
+   *
+   * @warning This function can fail if:
+   *  - Windows: `GetSystemPowerStatus` fails
+   *  - macOS: `IOPSGetPowerSourceState` fails
+   *  - Other: To be implemented
+   *
+   * @code{.cpp}
+   * #include <print>
+   * #include <Drac++/Core/System.hpp>
+   *
+   * int main() {
+   *   Result<Battery> batteryInfo = draconis::core::system::GetBatteryInfo();
+   *
+   *   if (batteryInfo.has_value()) {
+   *     std::println("Battery info: {}", batteryInfo.value().name);
+   *   } else {
+   *     std::println("Failed to get battery info: {}", batteryInfo.error().message());
+   *   }
+   *
+   *   return 0;
+   * }
+   * @endcode
+   */
+  fn GetBatteryInfo() -> Result<Battery>;
 } // namespace draconis::core::system

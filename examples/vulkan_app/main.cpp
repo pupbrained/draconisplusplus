@@ -207,11 +207,11 @@ fn main() -> i32 {
   vk::ApplicationInfo appInfo("Vulkan Example", 1, "Draconis++ Example", 1, VK_API_VERSION_1_3);
 
   u32   glfwExtensionCount = 0;
-  CStr* glfwExtensions     = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+  PCStr* glfwExtensions     = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
-  Vec<CStr> extensions;
+  Vec<PCStr> extensions;
   extensions.reserve(glfwExtensionCount);
-  for (Span<CStr> glfwExts(glfwExtensions, glfwExtensionCount); CStr ext : glfwExts)
+  for (Span<PCStr> glfwExts(glfwExtensions, glfwExtensionCount); PCStr ext : glfwExts)
     extensions.push_back(ext);
 
 #ifdef __APPLE__
@@ -271,7 +271,7 @@ fn main() -> i32 {
 
   vk::DeviceQueueCreateInfo deviceQueueCreateInfo(vk::DeviceQueueCreateFlags(), static_cast<u32>(graphicsQueueFamilyIndex), 1, &queuePriority);
 
-  const Vec<CStr> deviceExtensions = {
+  const Vec<PCStr> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME
   };
@@ -383,7 +383,7 @@ fn main() -> i32 {
 
   initInfo.DescriptorPool = imguiPoolResult.value;
 
-  ImGui_ImplVulkan_LoadFunctions([](const CStr function_name, void* vulkan_instance) {
+  ImGui_ImplVulkan_LoadFunctions([](const PCStr function_name, void* vulkan_instance) {
     return VULKAN_HPP_DEFAULT_DISPATCHER.vkGetInstanceProcAddr(static_cast<VkInstance>(vulkan_instance), function_name);
   });
 

@@ -168,6 +168,8 @@ elif host_system == 'windows'
     cpp.find_library('dxgi'),
     cpp.find_library('dxguid'),
   ]
+
+  add_project_arguments('-D_WIN32_WINNT=0x0601', language: 'cpp')
 elif host_system != 'serenity' and host_system != 'haiku'
   dbus_dep = dependency('dbus-1', required: false)
   xcb_dep = dependency('xcb', required: false)

@@ -10,7 +10,7 @@
 
 namespace draconis::utils::env {
   namespace {
-    using types::CStr;
+    using types::PCStr;
     using types::Err;
     using types::i32;
     using types::Result;
@@ -26,7 +26,7 @@ namespace draconis::utils::env {
    * @param name The name of the environment variable to retrieve.
    * @return A Result containing the value of the environment variable as a CStr.
    */
-  [[nodiscard]] inline fn GetEnv(const CStr name) -> Result<CStr> {
+  [[nodiscard]] inline fn GetEnv(const PCStr name) -> Result<PCStr> {
 #ifdef _WIN32
     char* rawPtr     = nullptr;
     usize bufferSize = 0;
@@ -45,7 +45,7 @@ namespace draconis::utils::env {
     return ptrManager.get();
 #else
     // Use std::getenv to retrieve environment variables on POSIX systems
-    const CStr value = std::getenv(name);
+    const PCStr value = std::getenv(name);
 
     if (!value)
       return Err(DracError(NotFound, "Environment variable not found"));

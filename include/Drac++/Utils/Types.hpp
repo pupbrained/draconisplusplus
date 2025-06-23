@@ -116,6 +116,13 @@ namespace draconis::utils::types {
   using String = std::string;
 
   /**
+   * @brief Alias for std::wstring.
+   *
+   * Owning, mutable wide string.
+   */
+  using WString = std::wstring;
+
+  /**
    * @brief Alias for std::string_view.
    *
    * Non-owning view of a string.
@@ -123,11 +130,39 @@ namespace draconis::utils::types {
   using StringView = std::string_view;
 
   /**
+   * @brief Alias for std::wstring_view.
+   *
+   * Non-owning view of a wide string.
+   */
+  using WStringView = std::wstring_view;
+
+  /**
+   * @brief Alias for char.
+   *
+   * Single character type.
+   */
+  using CStr = char;
+
+  /**
    * @brief Alias for const char*.
    *
    * Pointer to a null-terminated C-style string.
    */
-  using CStr = const char*;
+  using PCStr = const char*;
+
+  /**
+   * @brief Alias for wchar_t.
+   *
+   * Single wide character type.
+   */
+  using WCStr = wchar_t;
+
+  /**
+   * @brief Alias for const wchar_t*.
+   *
+   * Pointer to a null-terminated C-style wide string.
+   */
+  using PWCStr = const wchar_t*;
 
   /**
    * @brief Alias for void*.
@@ -323,7 +358,7 @@ namespace draconis::utils::types {
 
     CPUCores() = default;
 
-    CPUCores(u16 physical, u16 logical)
+    CPUCores(const u16 physical, const u16 logical)
       : physical(physical), logical(logical) {}
   };
 
@@ -352,10 +387,14 @@ namespace draconis::utils::types {
 
     Display() = default;
 
-    Display(u32 identifier, Resolution resolution, u16 refreshRate, bool isPrimary)
+    Display(const u32 identifier, const Resolution resolution, const u16 refreshRate, const bool isPrimary)
       : id(identifier), resolution(resolution), refreshRate(refreshRate), isPrimary(isPrimary) {}
   };
 
+  /**
+   * @struct NetworkInterface
+   * @brief Represents a network interface.
+   */
   struct NetworkInterface {
     String         name;        ///< Network interface name.
     Option<String> ipv4Address; ///< Network interface IPv4 address.
@@ -368,6 +407,24 @@ namespace draconis::utils::types {
 
     NetworkInterface(String name, Option<String> ipv4Address, Option<String> ipv6Address, Option<String> macAddress, bool isUp, bool isLoopback)
       : name(std::move(name)), ipv4Address(std::move(ipv4Address)), ipv6Address(std::move(ipv6Address)), macAddress(std::move(macAddress)), isUp(isUp), isLoopback(isLoopback) {}
+  };
+
+  struct Battery {
+    enum class Status : u8 {
+      Unknown,     ///< Battery status is unknown.
+      Charging,    ///< Battery is charging.
+      Discharging, ///< Battery is discharging.
+      Full,        ///< Battery is fully charged.
+      NotPresent   ///< No battery present.
+    } status;      ///< Current battery status.
+
+    Option<u8>                   percentage;    ///< Battery charge percentage (0-100).
+    Option<std::chrono::seconds> timeRemaining; ///< Estimated time remaining in seconds, if available.
+
+    Battery() = default;
+
+    Battery(const Status status, const Option<u8> percentage, Option<std::chrono::seconds> timeRemaining)
+      : status(status), percentage(percentage), timeRemaining(timeRemaining) {}
   };
 } // namespace draconis::utils::types
 

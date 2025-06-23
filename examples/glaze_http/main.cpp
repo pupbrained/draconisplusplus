@@ -1,5 +1,3 @@
-#define _WIN32_WINNT 0x0601
-
 #include <asio/error.hpp> // asio::error::operation_aborted
 #include <chrono>         // std::chrono::{minutes, steady_clock, time_point}
 #include <csignal>        // SIGINT, SIGTERM, SIG_ERR, std::signal
@@ -36,9 +34,9 @@ using enum draconis::utils::error::DracErrorCode;
 namespace fs = std::filesystem;
 
 namespace {
-  constexpr i16  port        = 3722;
-  constexpr CStr indexFile   = "examples/glaze_http/web/index.mustache";
-  constexpr CStr stylingFile = "examples/glaze_http/web/style.css";
+  constexpr i16   port        = 3722;
+  constexpr PCStr indexFile   = "examples/glaze_http/web/index.mustache";
+  constexpr PCStr stylingFile = "examples/glaze_http/web/style.css";
 
   struct State {
 #if DRAC_ENABLE_WEATHER
