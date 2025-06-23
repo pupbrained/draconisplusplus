@@ -40,6 +40,7 @@ namespace draconis::ui {
     StringView memory;
     StringView cpu;
     StringView gpu;
+    StringView uptime;
 #if DRAC_ENABLE_NOWPLAYING
     StringView music;
 #endif

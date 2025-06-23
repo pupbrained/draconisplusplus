@@ -41,7 +41,7 @@ namespace {
 #endif
     Vec<Pair<String, DracError>> failures;
 
-    constexpr u8 totalPossibleReadouts = 9
+    constexpr u8 totalPossibleReadouts = 10
 #if DRAC_ENABLE_PACKAGECOUNT
       + 1
 #endif
@@ -73,6 +73,8 @@ namespace {
       failures.emplace_back("DiskUsage", data.diskUsage.error());
     if (!data.shell.has_value())
       failures.emplace_back("Shell", data.shell.error());
+    if (!data.uptime.has_value())
+      failures.emplace_back("Uptime", data.uptime.error());
 #if DRAC_ENABLE_PACKAGECOUNT
     if (!data.packageCount.has_value())
       failures.emplace_back("PackageCount", data.packageCount.error());
@@ -206,6 +208,30 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
     Screen screen = Screen::Create(Full(), Fit(document));
     Render(screen, document);
     screen.Print();
+  }
+
+  if (Result<Vec<Display>> displays = GetDisplays()) {
+    for (const Display& display : *displays) {
+      info_log("Display ID: {}", display.id);
+      info_log("Display resolution: {}x{}", display.resolution.width, display.resolution.height);
+      info_log("Display refresh rate: {}Hz", display.refreshRate);
+      info_log("Display is primary: {}", display.isPrimary);
+    }
+  } else {
+    debug_at(displays.error());
+  }
+
+  if (Result<Vec<NetworkInterface>> networkInterfaces = GetNetworkInterfaces()) {
+    for (const NetworkInterface& networkInterface : *networkInterfaces) {
+      info_log("Network interface: {}", networkInterface.name);
+      info_log("Network interface IPv4 address: {}", networkInterface.ipv4Address.value_or("N/A"));
+      info_log("Network interface IPv6 address: {}", networkInterface.ipv6Address.value_or("N/A"));
+      info_log("Network interface MAC address: {}", networkInterface.macAddress.value_or("N/A"));
+      info_log("Network interface is up: {}", networkInterface.isUp);
+      info_log("Network interface is loopback: {}", networkInterface.isLoopback);
+    }
+  } else {
+    debug_at(networkInterfaces.error());
   }
 
   // Running the program as part of the shell's startup will cut

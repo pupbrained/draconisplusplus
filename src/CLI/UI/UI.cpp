@@ -27,6 +27,7 @@ namespace draconis::ui {
     .memory             = "",
     .cpu                = "",
     .gpu                = "",
+    .uptime             = "",
 #if DRAC_ENABLE_NOWPLAYING
     .music = "",
 #endif
@@ -55,7 +56,8 @@ namespace draconis::ui {
 #else
     .cpu = " 󰻟  ", // 32-bit CPU
 #endif
-    .gpu = "   ",
+    .gpu    = "   ",
+    .uptime = "   ",
 #if DRAC_ENABLE_NOWPLAYING
     .music = "   ",
 #endif
@@ -91,6 +93,7 @@ namespace draconis::ui {
     .memory             = " 🧠 ",
     .cpu                = " 💻 ",
     .gpu                = " 🎨 ",
+    .uptime             = " ⏰ ",
 #if DRAC_ENABLE_NOWPLAYING
     .music = " 🎵 ",
 #endif
@@ -215,6 +218,7 @@ namespace draconis::ui {
       memoryIcon,
       cpuIcon,
       gpuIcon,
+      uptimeIcon,
     #if DRAC_ENABLE_NOWPLAYING
       musicIcon,
     #endif
@@ -299,6 +303,11 @@ namespace draconis::ui {
 
     if (data.gpuModel)
       hardwareRows.push_back({ .icon = gpuIcon, .label = "GPU", .value = *data.gpuModel });
+
+    if (data.uptime)
+      hardwareRows.push_back(
+        { .icon = uptimeIcon, .label = "Uptime", .value = std::format("{}", SecondsToFormattedDuration { *data.uptime }) }
+      );
 
     if (data.shell)
       softwareRows.push_back({ .icon = shellIcon, .label = "Shell", .value = *data.shell });

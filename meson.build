@@ -148,7 +148,14 @@ if host_system == 'darwin'
   platform_deps += [
     dependency(
       'appleframeworks',
-      modules: ['foundation', 'iokit', 'mediaplayer', 'metal', 'systemconfiguration'],
+      modules: [
+        'coregraphics',
+        'foundation',
+        'iokit',
+        'mediaplayer',
+        'metal',
+        'systemconfiguration',
+      ],
       static: true,
     ),
     cpp.find_library('iconv'),

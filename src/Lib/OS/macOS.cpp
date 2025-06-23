@@ -1,15 +1,22 @@
+#include <netdb.h>
 #ifdef __APPLE__
-
   #include <CoreFoundation/CFPropertyList.h> // CFPropertyListCreateWithData, kCFPropertyListImmutable
   #include <CoreFoundation/CFStream.h>       // CFReadStreamClose, CFReadStreamCreateWithFile, CFReadStreamOpen, CFReadStreamRead, CFReadStreamRef
+  #include <CoreGraphics/CGDirectDisplay.h>  // CGDisplayCopyDeviceDescription, CGDisplayCopyDisplayMode, CGDisplayIsMain, CGDisplayModeGetMaximumRefreshRate, CGDisplayModeGetRefreshRate, CGDisplayPixelsHigh, CGDisplayPixelsWide, CGDisplayRef, CGDisplayModeRef, CGDirectDisplayID
   #include <IOKit/IOKitLib.h>                // IOKit types and functions
   #include <algorithm>                       // std::ranges::equal
-  #include <flat_map>                        // std::flat_map
-  #include <mach/mach_host.h>                // host_statistics64
-  #include <mach/mach_init.h>                // host_page_size, mach_host_self
-  #include <mach/vm_statistics.h>            // vm_statistics64_data_t
-  #include <sys/statvfs.h>                   // statvfs
-  #include <sys/sysctl.h>                    // {CTL_KERN, KERN_PROC, KERN_PROC_ALL, kinfo_proc, sysctl, sysctlbyname}
+  #include <arpa/inet.h>
+  #include <flat_map> // std::flat_map
+  #include <ifaddrs.h>
+  #include <mach/mach_host.h>     // host_statistics64
+  #include <mach/mach_init.h>     // host_page_size, mach_host_self
+  #include <mach/vm_statistics.h> // vm_statistics64_data_t
+  #include <net/if.h>
+  #include <net/if_dl.h>
+  #include <net/route.h>
+  #include <netinet/in.h>
+  #include <sys/statvfs.h> // statvfs
+  #include <sys/sysctl.h>  // {CTL_KERN, KERN_PROC, KERN_PROC_ALL, kinfo_proc, sysctl, sysctlbyname}
 
   #include <Drac++/Core/System.hpp>
   #include <Drac++/Services/Packages.hpp>
@@ -26,7 +33,40 @@
 using namespace draconis::utils::types;
 using draconis::utils::cache::GetValidCache, draconis::utils::cache::WriteCache;
 using draconis::utils::env::GetEnv;
-using draconis::utils::error::DracError, draconis::utils::error::DracErrorCode;
+using draconis::utils::error::DracError;
+using enum draconis::utils::error::DracErrorCode;
+
+namespace {
+  fn getDisplayInfoById(CGDirectDisplayID displayID) -> Result<Display> {
+    // Get display resolution
+    const usize width  = CGDisplayPixelsWide(displayID);
+    const usize height = CGDisplayPixelsHigh(displayID);
+
+    if (width == 0 || height == 0)
+      return Err(DracError(PlatformSpecific, "Failed to get display resolution."));
+
+    // Get the current display mode to find the refresh rate
+    CGDisplayModeRef currentMode = CGDisplayCopyDisplayMode(displayID);
+    if (currentMode == nullptr)
+      return Err(DracError(PlatformSpecific, "Failed to get display mode."));
+
+    f64 refreshRate = CGDisplayModeGetRefreshRate(currentMode);
+
+    // Release the display mode object
+    CGDisplayModeRelease(currentMode);
+
+    // Check if this is the main display
+    const bool isPrimary = displayID == CGMainDisplayID();
+
+    return Display(
+      displayID,
+      { .width = static_cast<u16>(width), .height = static_cast<u16>(height) },
+      static_cast<u16>(refreshRate),
+      isPrimary
+    );
+  }
+
+} // namespace
 
 namespace draconis::core::system {
   fn GetMemInfo() -> Result<ResourceUsage> {
@@ -99,7 +139,7 @@ namespace draconis::core::system {
       return Err(DracError("sysctl size query failed for KERN_PROC_ALL"));
 
     if (len == 0)
-      return Err(DracError(DracErrorCode::NotFound, "sysctl for KERN_PROC_ALL returned zero length"));
+      return Err(DracError(NotFound, "sysctl for KERN_PROC_ALL returned zero length"));
 
     Vec<char> buf(len);
 
@@ -108,7 +148,7 @@ namespace draconis::core::system {
 
     if (len % sizeof(kinfo_proc) != 0)
       return Err(DracError(
-        DracErrorCode::PlatformSpecific,
+        PlatformSpecific,
         std::format("sysctl returned size {} which is not a multiple of kinfo_proc size {}", len, sizeof(kinfo_proc))
       ));
 
@@ -316,6 +356,25 @@ namespace draconis::core::system {
     return String(cpuModel.data());
   }
 
+  fn GetCPUCores() -> Result<CPUCores> {
+    u32   physicalCores = 0;
+    u32   logicalCores  = 0;
+    usize size          = sizeof(u32);
+
+    if (sysctlbyname("hw.physicalcpu", &physicalCores, &size, nullptr, 0) == -1)
+      return Err(DracError("sysctlbyname for hw.physicalcpu failed"));
+
+    size = sizeof(u32);
+
+    if (sysctlbyname("hw.logicalcpu", &logicalCores, &size, nullptr, 0) == -1)
+      return Err(DracError("sysctlbyname for hw.logicalcpu failed"));
+
+    debug_log("Physical cores: {}", physicalCores);
+    debug_log("Logical cores: {}", logicalCores);
+
+    return CPUCores(physicalCores, logicalCores);
+  }
+
   fn GetGPUModel() -> Result<String> {
     // Getting the GPU model is relatively slow, and is very unlikely to change,
     // so it's best to just cache the result.
@@ -369,7 +428,207 @@ namespace draconis::core::system {
       return *shellPath;
     }
 
-    return Err(DracError(DracErrorCode::NotFound, "Could not find SHELL environment variable"));
+    return Err(DracError(NotFound, "Could not find SHELL environment variable"));
+  }
+
+  fn GetUptime() -> Result<std::chrono::seconds> {
+    using namespace std::chrono;
+
+    Array<i32, 2> mib = { CTL_KERN, KERN_BOOTTIME };
+
+    struct timeval boottime;
+    usize          len = sizeof(boottime);
+
+    if (sysctl(mib.data(), mib.size(), &boottime, &len, nullptr, 0) == -1)
+      return Err(DracError("Failed to get system boot time using sysctl"));
+
+    const system_clock::time_point bootTimepoint = system_clock::from_time_t(boottime.tv_sec);
+
+    const system_clock::time_point now = system_clock::now();
+
+    return duration_cast<seconds>(now - bootTimepoint);
+  }
+
+  fn GetPrimaryDisplay() -> Result<Display> {
+    return getDisplayInfoById(CGMainDisplayID());
+  }
+
+  fn GetDisplays() -> Result<Vec<Display>> {
+    u32 displayCount = 0;
+
+    if (CGGetOnlineDisplayList(0, nullptr, &displayCount) != kCGErrorSuccess)
+      return Err(DracError(ApiUnavailable, "Failed to get display count."));
+
+    if (displayCount == 0)
+      return Err(DracError(NotFound, "No displays found"));
+
+    Vec<CGDirectDisplayID> displayIDs(displayCount);
+
+    if (CGGetOnlineDisplayList(displayCount, displayIDs.data(), &displayCount) != kCGErrorSuccess)
+      return Err(DracError(ApiUnavailable, "Failed to get display list."));
+
+    Vec<Display> displays;
+    displays.reserve(displayCount);
+
+    for (const CGDirectDisplayID displayID : displayIDs)
+      if (Result<Display> display = getDisplayInfoById(displayID); display)
+        displays.push_back(*display);
+
+    return displays;
+  }
+
+  fn GetPrimaryNetworkInterface() -> Result<NetworkInterface> {
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) - This requires a lot of casts and there's no good way to avoid them.
+    Array<i32, 6> mib = { CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_FLAGS, RTF_GATEWAY };
+    usize         len = 0;
+
+    if (sysctl(mib.data(), mib.size(), nullptr, &len, nullptr, 0) == -1)
+      return Err(DracError("sysctl(1) failed to get routing table size"));
+
+    Vec<char> buf(len);
+
+    if (sysctl(mib.data(), mib.size(), buf.data(), &len, nullptr, 0) == -1)
+      return Err(DracError("sysctl(2) failed to get routing table dump"));
+
+    String primaryInterfaceName;
+    for (usize offset = 0; offset < len;) {
+      const auto* rtm   = reinterpret_cast<const rt_msghdr*>(&buf[offset]);
+      const auto* saddr = reinterpret_cast<const sockaddr*>(std::next(rtm));
+
+      if (rtm->rtm_msglen == 0)
+        break;
+
+      if (saddr->sa_family == AF_INET && rtm->rtm_addrs & RTA_DST)
+        if (reinterpret_cast<const sockaddr_in*>(saddr)->sin_addr.s_addr == 0) {
+          Array<char, IF_NAMESIZE> ifName = {};
+          if (if_indextoname(rtm->rtm_index, ifName.data()) != nullptr) {
+            primaryInterfaceName = String(ifName.data());
+            break;
+          }
+        }
+
+      offset += rtm->rtm_msglen;
+    }
+
+    if (primaryInterfaceName.empty())
+      return Err(DracError(NotFound, "Could not determine primary interface name from routing table."));
+
+    ifaddrs* ifaddrList = nullptr;
+    if (getifaddrs(&ifaddrList) == -1)
+      return Err(DracError("getifaddrs failed"));
+
+    UniquePointer<ifaddrs, decltype(&freeifaddrs)> ifaddrsDeleter(ifaddrList, &freeifaddrs);
+
+    NetworkInterface primaryInterface;
+    primaryInterface.name = primaryInterfaceName;
+    bool foundDetails     = false;
+
+    for (ifaddrs* ifa = ifaddrList; ifa != nullptr; ifa = ifa->ifa_next) {
+      // Skip any entries that don't match our primary interface name
+      if (ifa->ifa_addr == nullptr || primaryInterfaceName != ifa->ifa_name)
+        continue;
+
+      foundDetails = true;
+
+      // Set flags
+      primaryInterface.isUp       = ifa->ifa_flags & IFF_UP;
+      primaryInterface.isLoopback = ifa->ifa_flags & IFF_LOOPBACK;
+
+      // Get IPv4 details
+      if (ifa->ifa_addr->sa_family == AF_INET) {
+        Array<char, NI_MAXHOST> host = {};
+        if (getnameinfo(ifa->ifa_addr, sizeof(sockaddr_in), host.data(), host.size(), nullptr, 0, NI_NUMERICHOST) == 0)
+          primaryInterface.ipv4Address = String(host.data());
+      } else if (ifa->ifa_addr->sa_family == AF_LINK) {
+        auto* sdl = reinterpret_cast<sockaddr_dl*>(ifa->ifa_addr);
+
+        if (sdl && sdl->sdl_alen == 6) {
+          const auto* macPtr = reinterpret_cast<const u8*>(LLADDR(sdl));
+
+          const Span<const u8> macAddr(macPtr, sdl->sdl_alen);
+
+          primaryInterface.macAddress = std::format(
+            "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+            macAddr[0],
+            macAddr[1],
+            macAddr[2],
+            macAddr[3],
+            macAddr[4],
+            macAddr[5]
+          );
+        }
+      }
+    }
+
+    if (!foundDetails)
+      return Err(DracError(NotFound, "Found primary interface name, but could not find its details via getifaddrs."));
+
+    return primaryInterface;
+    // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+  }
+
+  fn GetNetworkInterfaces() -> Result<Vec<NetworkInterface>> {
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) - This requires a lot of casts and there's no good way to avoid them.
+    ifaddrs* ifaddrList = nullptr;
+    if (getifaddrs(&ifaddrList) == -1)
+      return Err(DracError("getifaddrs failed"));
+
+    UniquePointer<ifaddrs, decltype(&freeifaddrs)> ifaddrsDeleter(ifaddrList, &freeifaddrs);
+
+    // Use a map to collect interface information since getifaddrs returns multiple entries per interface
+    std::flat_map<String, NetworkInterface> interfaceMap;
+
+    for (ifaddrs* ifa = ifaddrList; ifa != nullptr; ifa = ifa->ifa_next) {
+      if (ifa->ifa_addr == nullptr)
+        continue;
+
+      const String interfaceName = String(ifa->ifa_name);
+
+      // Get or create the interface entry
+      auto& interface = interfaceMap[interfaceName];
+      interface.name  = interfaceName;
+
+      // Set flags
+      interface.isUp       = ifa->ifa_flags & IFF_UP;
+      interface.isLoopback = ifa->ifa_flags & IFF_LOOPBACK;
+
+      // Get IPv4 details
+      if (ifa->ifa_addr->sa_family == AF_INET) {
+        Array<char, NI_MAXHOST> host = {};
+        if (getnameinfo(ifa->ifa_addr, sizeof(sockaddr_in), host.data(), host.size(), nullptr, 0, NI_NUMERICHOST) == 0)
+          interface.ipv4Address = String(host.data());
+      } else if (ifa->ifa_addr->sa_family == AF_LINK) {
+        auto* sdl = reinterpret_cast<sockaddr_dl*>(ifa->ifa_addr);
+
+        if (sdl && sdl->sdl_alen == 6) {
+          const auto*          macPtr = reinterpret_cast<const u8*>(LLADDR(sdl));
+          const Span<const u8> macAddr(macPtr, sdl->sdl_alen);
+
+          interface.macAddress = std::format(
+            "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+            macAddr[0],
+            macAddr[1],
+            macAddr[2],
+            macAddr[3],
+            macAddr[4],
+            macAddr[5]
+          );
+        }
+      }
+    }
+
+    // Convert the map to a vector
+    Vec<NetworkInterface> interfaces;
+    interfaces.reserve(interfaceMap.size());
+
+    for (const auto& pair : interfaceMap)
+      interfaces.push_back(pair.second);
+
+    if (interfaces.empty())
+      return Err(DracError(NotFound, "No network interfaces found"));
+
+    return interfaces;
+    // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
   }
 } // namespace draconis::core::system
 
@@ -404,7 +663,7 @@ namespace draconis::services::packages {
       Result       dirCount = GetCountFromDirectory(cacheKey, cellarPath, true);
 
       if (!dirCount) {
-        if (dirCount.error().code != DracErrorCode::NotFound)
+        if (dirCount.error().code != NotFound)
           return dirCount;
 
         continue;
@@ -414,7 +673,7 @@ namespace draconis::services::packages {
     }
 
     if (count == 0)
-      return Err(DracError(DracErrorCode::NotFound, "No Homebrew packages found in any Cellar directory"));
+      return Err(DracError(NotFound, "No Homebrew packages found in any Cellar directory"));
 
     if (Result writeResult = WriteCache(cacheKey, count); !writeResult)
       debug_at(writeResult.error());

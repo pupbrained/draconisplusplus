@@ -13,16 +13,19 @@
 
 namespace draconis::core::system {
   namespace {
-    using utils::types::CPUArch;
+    using utils::types::CPUCores;
+    using utils::types::Display;
     using utils::types::f64;
     using utils::types::Frequencies;
     using utils::types::i64;
     using utils::types::MediaInfo;
+    using utils::types::NetworkInterface;
     using utils::types::ResourceUsage;
     using utils::types::Result;
     using utils::types::String;
     using utils::types::u64;
     using utils::types::usize;
+    using utils::types::Vec;
   } // namespace
 
   /**
@@ -52,7 +55,7 @@ namespace draconis::core::system {
    * #include <Drac++/Core/System.hpp>
    *
    * int main() {
-   *   Result<ResourceUsage> memInfo = os::System::getMemInfo();
+   *   Result<ResourceUsage> memInfo = draconis::core::system::GetMemInfo();
    *
    *   if (memInfo.has_value()) {
    *     std::println("Used: {} bytes", memInfo.value().usedBytes);
@@ -89,7 +92,7 @@ namespace draconis::core::system {
    * #include <Drac++/Core/System.hpp>
    *
    * int main() {
-   *   Result<MediaInfo> nowPlaying = os::System::getNowPlaying();
+   *   Result<MediaInfo> nowPlaying = draconis::core::system::GetNowPlaying();
    *
    *   if (nowPlaying.has_value()) {
    *     std::println("Now playing: {} - {}", nowPlaying.value().title, nowPlaying.value().artist);
@@ -129,7 +132,7 @@ namespace draconis::core::system {
    * #include <Drac++/Core/System.hpp>
    *
    * int main() {
-   *   Result<String> osVersion = os::System::getOSVersion();
+   *   Result<String> osVersion = draconis::core::system::GetOSVersion();
    *
    *   if (osVersion.has_value()) {
    *     std::println("OS version: {}", osVersion.value());
@@ -164,7 +167,7 @@ namespace draconis::core::system {
    * #include <Drac++/Core/System.hpp>
    *
    * int main() {
-   *   Result<String> desktopEnv = os::System::getDesktopEnvironment();
+   *   Result<String> desktopEnv = draconis::core::system::GetDesktopEnvironment();
    *
    *   if (desktopEnv.has_value()) {
    *     std::println("Desktop environment: {}", desktopEnv.value());
@@ -200,7 +203,7 @@ namespace draconis::core::system {
    * #include <Drac++/Core/System.hpp>
    *
    * int main() {
-   *   Result<String> windowMgr = os::System::getWindowManager();
+   *   Result<String> windowMgr = draconis::core::system::GetWindowManager();
    *
    *   if (windowMgr.has_value()) {
    *     std::println("Window manager: {}", windowMgr.value());
@@ -233,7 +236,7 @@ namespace draconis::core::system {
    * #include <Drac++/Core/System.hpp>
    *
    * int main() {
-   *   Result<String> shell = os::System::getShell();
+   *   Result<String> shell = draconis::core::system::GetShell();
    *
    *   if (shell.has_value()) {
    *     std::println("Shell: {}", shell.value());
@@ -274,7 +277,7 @@ namespace draconis::core::system {
    * #include <Drac++/Core/System.hpp>
    *
    * int main() {
-   *   Result<String> host = os::System::getHost();
+   *   Result<String> host = draconis::core::system::GetHost();
    *
    *   if (host.has_value()) {
    *     std::println("Host: {}", host.value());
@@ -309,7 +312,7 @@ namespace draconis::core::system {
    * #include <Drac++/Core/System.hpp>
    *
    * int main() {
-   *   Result<String> cpuModel = os::System::getCPUModel();
+   *   Result<String> cpuModel = draconis::core::system::GetCPUModel();
    *
    *   if (cpuModel.has_value()) {
    *     std::println("CPU model: {}", cpuModel.value());
@@ -322,6 +325,38 @@ namespace draconis::core::system {
    * @endcode
    */
   fn GetCPUModel() -> Result<String>;
+
+  /**
+   * @brief Fetches the number of physical and logical cores on the CPU.
+   * @return The CPUCores struct containing the number of physical and logical cores.
+   *
+   * @details Obtained differently depending on the platform:
+   *  - Windows: `GetLogicalProcessorInformation`
+   *  - Other: To be implemented
+   *
+   * @warning This function can fail if:
+   *  - Windows: `GetLogicalProcessorInformation` fails
+   *  - Other: To be implemented
+   *
+   * @code{.cpp}
+   * #include <print>
+   * #include <Drac++/Core/System.hpp>
+   *
+   * int main() {
+   *   Result<CPUCores> cpuCores = draconis::core::system::GetCPUCores();
+   *
+   *   if (cpuCores.has_value()) {
+   *     std::println("Physical cores: {}", cpuCores.value().physical);
+   *     std::println("Logical cores: {}", cpuCores.value().logical);
+   *   } else {
+   *     std::println("Failed to get CPU cores: {}", cpuCores.error().message());
+   *   }
+   *
+   *   return 0;
+   * }
+   * @endcode
+   */
+  fn GetCPUCores() -> Result<CPUCores>;
 
   /**
    * @brief Fetches the GPU model.
@@ -342,7 +377,7 @@ namespace draconis::core::system {
    * #include <Drac++/Core/System.hpp>
    *
    * int main() {
-   *   Result<String> gpuModel = os::System::getGPUModel();
+   *   Result<String> gpuModel = draconis::core::system::GetGPUModel();
    *
    *   if (gpuModel.has_value()) {
    *     std::println("GPU model: {}", gpuModel.value());
@@ -377,7 +412,7 @@ namespace draconis::core::system {
    * #include <Drac++/Core/System.hpp>
    *
    * int main() {
-   *   Result<String> kernelVersion = os::System::getKernelVersion();
+   *   Result<String> kernelVersion = draconis::core::system::GetKernelVersion();
    *
    *   if (kernelVersion.has_value()) {
    *     std::println("Kernel version: {}", kernelVersion.value());
@@ -408,7 +443,7 @@ namespace draconis::core::system {
    * #include <Drac++/Core/System.hpp>
    *
    * int main() {
-   *   Result<ResourceUsage> diskUsage = os::System::getDiskUsage();
+   *   Result<ResourceUsage> diskUsage = draconis::core::system::GetDiskUsage();
    *
    *   if (diskUsage.has_value()) {
    *     std::println("Used: {} bytes", diskUsage.value().usedBytes);
@@ -422,4 +457,169 @@ namespace draconis::core::system {
    * @endcode
    */
   fn GetDiskUsage() -> Result<ResourceUsage>;
+
+  /**
+   * @brief Fetches the uptime.
+   * @return The uptime in seconds.
+   *
+   * @details Obtained differently depending on the platform:
+   *  - Windows: `GetTickCount64`
+   *  - macOS: `sysctlbyname("kern.boottime")`
+   *  - Other: To be implemented
+   *
+   * @warning This function can fail if:
+   *  - Windows: `GetTickCount64` fails
+   *  - macOS: `sysctlbyname` returns -1
+   *  - Other: To be implemented
+   *
+   * @code{.cpp}
+   * #include <print>
+   * #include <Drac++/Core/System.hpp>
+   *
+   * int main() {
+   *   Result<std::chrono::seconds> uptime = draconis::core::system::GetUptime();
+   *
+   *   if (uptime.has_value()) {
+   *     std::println("Uptime: {} seconds", uptime.value().count());
+   *   } else {
+   *     std::println("Failed to get uptime: {}", uptime.error().message());
+   *   }
+   *
+   *   return 0;
+   * }
+   * @endcode
+   */
+  fn GetUptime() -> Result<std::chrono::seconds>;
+
+  /**
+   * @brief Fetches the displays.
+   * @return The displays.
+   *
+   * @details Obtained differently depending on the platform:
+   *  - Windows: `GetDisplayConfigBufferSizes`
+   *  - macOS: `CGGetActiveDisplayList`
+   *  - Other: To be implemented
+   *
+   * @warning This function can fail if:
+   *  - Windows: `GetDisplayConfigBufferSizes` fails
+   *  - macOS: `CGGetActiveDisplayList` fails
+   *  - Other: To be implemented
+   *
+   * @code{.cpp}
+   * #include <print>
+   * #include <Drac++/Core/System.hpp>
+   *
+   * int main() {
+   *   Result<Array<Display, 16>> displays = draconis::core::system::GetDisplays();
+   *
+   *   if (displays.has_value()) {
+   *     std::println("Displays: {}", displays.value().size());
+   *   } else {
+   *     std::println("Failed to get displays: {}", displays.error().message());
+   *   }
+   *
+   *   return 0;
+   * }
+   * @endcode
+   */
+  fn GetDisplays() -> Result<Vec<Display>>;
+
+  /**
+   * @brief Fetches the primary display.
+   * @return The primary display.
+   *
+   * @details Obtained differently depending on the platform:
+   *  - Windows: `GetDisplayConfigBufferSizes`
+   *  - macOS: `CGGetActiveDisplayList`
+   *  - Other: To be implemented
+   *
+   * @warning This function can fail if:
+   *  - Windows: `GetDisplayConfigBufferSizes` fails
+   *  - macOS: `CGGetActiveDisplayList` fails
+   *  - Other: To be implemented
+   *
+   * @code{.cpp}
+   * #include <print>
+   * #include <Drac++/Core/System.hpp>
+   *
+   * int main() {
+   *   Result<Display> primaryDisplay = draconis::core::system::GetPrimaryDisplay();
+   *
+   *   if (primaryDisplay.has_value()) {
+   *     std::println("Primary display: {}", primaryDisplay.value().name);
+   *   } else {
+   *     std::println("Failed to get primary display: {}", primaryDisplay.error().message());
+   *   }
+   *
+   *   return 0;
+   * }
+   * @endcode
+   */
+  fn GetPrimaryDisplay() -> Result<Display>;
+
+  /**
+   * @brief Fetches the network interfaces.
+   * @return The network interfaces.
+   *
+   * @details Obtained differently depending on the platform:
+   *  - Windows: `GetAdaptersAddresses`
+   *  - macOS: `getifaddrs`
+   *  - Other: To be implemented
+   *
+   * @warning This function can fail if:
+   *  - Windows: `GetAdaptersAddresses` fails
+   *  - macOS: `getifaddrs` fails
+   *  - Other: To be implemented
+   *
+   * @code{.cpp}
+   * #include <print>
+   * #include <Drac++/Core/System.hpp>
+   *
+   * int main() {
+   *   Result<Vec<NetworkInterface>> networkInterfaces = draconis::core::system::GetNetworkInterfaces();
+   *
+   *   if (networkInterfaces.has_value()) {
+   *     std::println("Network interfaces: {}", networkInterfaces.value().size());
+   *   } else {
+   *     std::println("Failed to get network interfaces: {}", networkInterfaces.error().message());
+   *   }
+   *
+   *   return 0;
+   * }
+   * @endcode
+   */
+  fn GetNetworkInterfaces() -> Result<Vec<NetworkInterface>>;
+
+  /**
+   * @brief Fetches the primary network interface.
+   * @return The primary network interface.
+   *
+   * @details Obtained differently depending on the platform:
+   *  - Windows: `GetAdaptersAddresses`
+   *  - macOS: `getifaddrs`
+   *  - Other: To be implemented
+   *
+   * @warning This function can fail if:
+   *  - Windows: `GetAdaptersAddresses` fails
+   *  - macOS: `getifaddrs` fails
+   *  - Other: To be implemented
+   *
+   * @code{.cpp}
+   * #include <print>
+   * #include <Drac++/Core/System.hpp>
+   *
+   * int main() {
+   *   Result<NetworkInterface> primaryNetworkInterface = draconis::core::system::GetPrimaryNetworkInterface();
+   *
+   *   if (primaryNetworkInterface.has_value()) {
+   *     std::println("Primary network interface: {}", primaryNetworkInterface.value().name);
+   *   } else {
+   *     std::println("Failed to get primary network interface: {}", primaryNetworkInterface.error().message());
+   *   }
+   *
+   *   return 0;
+   * }
+   * @endcode
+   */
+  fn GetPrimaryNetworkInterface() -> Result<NetworkInterface>;
 } // namespace draconis::core::system

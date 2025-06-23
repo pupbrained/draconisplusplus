@@ -19,6 +19,8 @@ namespace draconis::core::system {
     using utils::types::String;
     using utils::types::u64;
     using utils::types::usize;
+
+    using std::chrono::seconds;
   } // namespace
 
   /**
@@ -35,7 +37,10 @@ namespace draconis::core::system {
     Result<ResourceUsage> diskUsage;
     Result<String>        shell;
     Result<String>        cpuModel;
+    Result<CPUCores>      cpuCores;
     Result<String>        gpuModel;
+    Result<seconds>       uptime;
+    Result<Display>       primaryDisplay;
 #if DRAC_ENABLE_PACKAGECOUNT
     Result<u64> packageCount;
 #endif
