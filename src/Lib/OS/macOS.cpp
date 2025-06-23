@@ -75,13 +75,14 @@ namespace {
     if (value == nullptr)
       return None;
 
-    T result;
-    if (CFNumberGetValue(value, CFNumberGetType(value), &result))
-      return result;
+    int64_t intermediateResult = 0;
+
+    if (CFNumberGetValue(value, kCFNumberSInt64Type, &intermediateResult))
+      if (intermediateResult >= std::numeric_limits<T>::min() && intermediateResult <= std::numeric_limits<T>::max())
+        return static_cast<T>(intermediateResult);
 
     return None;
   }
-
 } // namespace
 
 namespace draconis::core::system {
@@ -659,7 +660,7 @@ namespace draconis::core::system {
       return Err(DracError(NotFound, "Could not get power source information from IOKit."));
 
     // RAII to ensure the CF object is released.
-    UniquePointer<const void, decltype(&CFRelease)> powerSourcesInfoDeleter(powerSourcesInfo, &CFRelease);
+    const UniquePointer<const void, decltype(&CFRelease)> powerSourcesInfoDeleter(powerSourcesInfo, &CFRelease);
 
     // The snapshot is an array of power sources.
     const auto* const powerSourcesList = static_cast<CFArrayRef>(powerSourcesInfo);
@@ -677,8 +678,21 @@ namespace draconis::core::system {
       if (type == nullptr || CFStringCompare(type, CFSTR(kIOPSInternalBatteryType), 0) != kCFCompareEqualTo)
         continue;
 
-      u8   percentage = getNumericValue<u8>(sourceDescription, CFSTR(kIOPSCurrentCapacityKey)).value_or(0);
-      bool isCharging = CFBooleanGetValue(static_cast<CFBooleanRef>(CFDictionaryGetValue(sourceDescription, CFSTR(kIOPSIsChargingKey))));
+      u8 percentage = getNumericValue<u8>(sourceDescription, CFSTR(kIOPSCurrentCapacityKey)).value_or(0);
+
+      CFTypeRef isChargingRef = CFDictionaryGetValue(sourceDescription, CFSTR(kIOPSIsChargingKey));
+      bool      isCharging    = false; // Default to a safe value.
+
+      if (isChargingRef != nullptr) {
+        if (CFGetTypeID(isChargingRef) == CFBooleanGetTypeID()) {
+          isCharging = CFBooleanGetValue(static_cast<CFBooleanRef>(isChargingRef));
+        } else if (CFGetTypeID(isChargingRef) == CFNumberGetTypeID()) {
+          int numericValue = 0;
+          if (CFNumberGetValue(static_cast<CFNumberRef>(isChargingRef), kCFNumberIntType, &numericValue)) {
+            isCharging = (numericValue != 0);
+          }
+        }
+      }
 
       Battery::Status status = match(isCharging)(
         is | (_ == true && percentage == 100) = Full,
