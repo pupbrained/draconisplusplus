@@ -221,13 +221,12 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
       )
     );
 
-    info_log("Battery percentage: {}%", battery->percentage);
+    info_log("Battery percentage: {}%", battery->percentage.value_or(0));
 
-    if (battery->timeRemaining.has_value()) {
-      info_log("Battery time remaining: {}", battery->timeRemaining.value());
-    } else {
+    if (battery->timeRemaining.has_value())
+      info_log("Battery time remaining: {}", SecondsToFormattedDuration(battery->timeRemaining.value()));
+    else
       info_log("Battery time remaining: N/A");
-    }
   } else {
     debug_at(battery.error());
   }

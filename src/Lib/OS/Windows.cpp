@@ -1079,11 +1079,11 @@ namespace draconis::core::system {
 
     // The BATTERY_FLAG_NO_SYSTEM_BATTERY flag (0x80) indicates no battery is present.
     if (powerStatus.BatteryFlag & BATTERY_FLAG_NO_BATTERY)
-      return Battery(NotPresent, 0, None);
+      return Err(DracError(NotFound, "No battery found"));
 
     // The BATTERY_FLAG_UNKNOWN flag (0xFF) indicates the status can't be determined.
     if (powerStatus.BatteryFlag == BATTERY_FLAG_UNKNOWN)
-      return Battery(Unknown, 0, None);
+      return Err(DracError(NotFound, "Battery status unknown"));
 
     // 255 means unknown, so we'll map it to None.
     const Option<u8> percentage = (powerStatus.BatteryLifePercent == 255) ? None : Option(powerStatus.BatteryLifePercent);

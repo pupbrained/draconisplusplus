@@ -57,10 +57,10 @@ namespace draconis::config {
       return GetUserNameA(username.data(), &size) ? username.data() : "User";
 #else
       using draconis::utils::env::GetEnv;
-      using draconis::utils::types::CStr, draconis::utils::types::String, draconis::utils::types::Result;
+      using draconis::utils::types::PCStr, draconis::utils::types::String, draconis::utils::types::Result;
 
       const passwd*        pwd        = getpwuid(getuid());
-      CStr                 pwdName    = pwd ? pwd->pw_name : nullptr;
+      PCStr                pwdName    = pwd ? pwd->pw_name : nullptr;
       const Result<String> envUser    = GetEnv("USER");
       const Result<String> envLogname = GetEnv("LOGNAME");
 

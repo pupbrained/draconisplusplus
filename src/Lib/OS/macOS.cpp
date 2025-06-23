@@ -3,7 +3,9 @@
   #include <CoreFoundation/CFStream.h>       // CFReadStreamClose, CFReadStreamCreateWithFile, CFReadStreamOpen, CFReadStreamRead, CFReadStreamRef
   #include <CoreGraphics/CGDirectDisplay.h>  // CGDisplayCopyDeviceDescription, CGDisplayCopyDisplayMode, CGDisplayIsMain, CGDisplayModeGetMaximumRefreshRate, CGDisplayModeGetRefreshRate, CGDisplayPixelsHigh, CGDisplayPixelsWide, CGDisplayRef, CGDisplayModeRef, CGDirectDisplayID
   #include <IOKit/IOKitLib.h>                // IOKit types and functions
-  #include <algorithm>                       // std::ranges::equal
+  #include <IOKit/ps/IOPSKeys.h>
+  #include <IOKit/ps/IOPowerSources.h>
+  #include <algorithm> // std::ranges::equal
   #include <arpa/inet.h>
   #include <flat_map> // std::flat_map
   #include <ifaddrs.h>
@@ -64,6 +66,20 @@ namespace {
       static_cast<u16>(refreshRate),
       isPrimary
     );
+  }
+
+  template <typename T>
+  fn getNumericValue(const CFDictionaryRef dict, const CFStringRef key) -> Option<T> {
+    const auto* value = static_cast<const CFNumberRef>(CFDictionaryGetValue(dict, key));
+
+    if (value == nullptr)
+      return None;
+
+    T result;
+    if (CFNumberGetValue(value, CFNumberGetType(value), &result))
+      return result;
+
+    return None;
   }
 
 } // namespace
@@ -629,6 +645,59 @@ namespace draconis::core::system {
 
     return interfaces;
     // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+  }
+
+  fn GetBatteryInfo() -> Result<Battery> {
+    using matchit::match, matchit::is, matchit::_;
+    using enum Battery::Status;
+
+    // This snapshot contains information about all power sources (e.g., AC Power, Battery).
+    // It's a Core Foundation object that we must release.
+    CFTypeRef powerSourcesInfo = IOPSCopyPowerSourcesInfo();
+
+    if (powerSourcesInfo == nullptr)
+      return Err(DracError(NotFound, "Could not get power source information from IOKit."));
+
+    // RAII to ensure the CF object is released.
+    UniquePointer<const void, decltype(&CFRelease)> powerSourcesInfoDeleter(powerSourcesInfo, &CFRelease);
+
+    // The snapshot is an array of power sources.
+    const auto* const powerSourcesList = static_cast<CFArrayRef>(powerSourcesInfo);
+    const CFIndex     sourceCount      = CFArrayGetCount(powerSourcesList);
+
+    for (CFIndex i = 0; i < sourceCount; ++i) {
+      // Get the dictionary of properties for a single power source.
+      CFDictionaryRef sourceDescription = IOPSGetPowerSourceDescription(powerSourcesInfo, CFArrayGetValueAtIndex(powerSourcesList, i));
+      if (sourceDescription == nullptr)
+        continue;
+
+      // Check if this source is an internal battery.
+      const auto* type = static_cast<const CFStringRef>(CFDictionaryGetValue(sourceDescription, CFSTR(kIOPSTypeKey)));
+
+      if (type == nullptr || CFStringCompare(type, CFSTR(kIOPSInternalBatteryType), 0) != kCFCompareEqualTo)
+        continue;
+
+      u8   percentage = getNumericValue<u8>(sourceDescription, CFSTR(kIOPSCurrentCapacityKey)).value_or(0);
+      bool isCharging = CFBooleanGetValue(static_cast<CFBooleanRef>(CFDictionaryGetValue(sourceDescription, CFSTR(kIOPSIsChargingKey))));
+
+      Battery::Status status = match(isCharging)(
+        is | (_ == true && percentage == 100) = Full,
+        is | true                             = Charging,
+        is | false                            = Discharging,
+        is | _                                = Unknown
+      );
+
+      Option<std::chrono::seconds> timeRemaining = None;
+
+      // Time to empty is given in minutes. A value of 0 means calculating, < 0 means unlimited/plugged in.
+      if (Option<i32> timeMinutes = getNumericValue<i32>(sourceDescription, CFSTR(kIOPSTimeToEmptyKey)); timeMinutes && *timeMinutes > 0)
+        timeRemaining = std::chrono::minutes(*timeMinutes);
+
+      return Battery(status, percentage, timeRemaining);
+    }
+
+    // If the loop finishes without finding an internal battery.
+    return Err(DracError(NotFound, "No internal battery found."));
   }
 } // namespace draconis::core::system
 
