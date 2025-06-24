@@ -84,8 +84,6 @@ namespace draconis::core::system {
     Future<Result<String>>               cpuFut      = std::async(async, &GetCPUModel);
     Future<Result<CPUCores>>             cpuCoresFut = std::async(async, &GetCPUCores);
     Future<Result<String>>               gpuFut      = std::async(async, &GetGPUModel);
-    Future<Result<String>>               deFut       = std::async(async, &GetDesktopEnvironment);
-    Future<Result<String>>               wmFut       = std::async(async, &GetWindowManager);
     Future<Result<String>>               shellFut    = std::async(async, &GetShell);
     Future<Result<ResourceUsage>>        memFut      = std::async(async, &GetMemInfo);
     Future<Result<ResourceUsage>>        diskFut     = std::async(async, &GetDiskUsage);
@@ -100,14 +98,16 @@ namespace draconis::core::system {
     Future<Result<MediaInfo>> npFut = std::async(config.nowPlaying.enabled ? async : deferred, &GetNowPlaying);
 #endif
 
+    this->desktopEnv     = GetDesktopEnvironment();
+    this->windowMgr      = GetWindowManager();
+    this->primaryDisplay = GetPrimaryDisplay();
+
     this->osVersion     = osFut.get();
     this->kernelVersion = kernelFut.get();
     this->host          = hostFut.get();
     this->cpuModel      = replaceTrademarkSymbols(cpuFut.get());
     this->cpuCores      = cpuCoresFut.get();
     this->gpuModel      = gpuFut.get();
-    this->desktopEnv    = deFut.get();
-    this->windowMgr     = wmFut.get();
     this->shell         = shellFut.get();
     this->memInfo       = memFut.get();
     this->diskUsage     = diskFut.get();

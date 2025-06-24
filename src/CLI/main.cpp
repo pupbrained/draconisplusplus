@@ -183,17 +183,6 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
     debug_at(cpuCores.error());
   }
 
-  if (Result<Vec<Display>> displays = GetDisplays()) {
-    for (const Display& display : *displays) {
-      info_log("Display ID: {}", display.id);
-      info_log("Display resolution: {}x{}", display.resolution.width, display.resolution.height);
-      info_log("Display refresh rate: {}Hz", display.refreshRate);
-      info_log("Display is primary: {}", display.isPrimary);
-    }
-  } else {
-    debug_at(displays.error());
-  }
-
   if (Result<Vec<NetworkInterface>> networkInterfaces = GetNetworkInterfaces()) {
     for (const NetworkInterface& networkInterface : *networkInterfaces) {
       info_log("Network interface: {}", networkInterface.name);
@@ -238,6 +227,15 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
 
     const Config&    config = Config::getInstance();
     const SystemInfo data(config);
+
+    if (data.primaryDisplay) {
+      info_log("Display ID: {}", data.primaryDisplay->id);
+      info_log("Display resolution: {}x{}", data.primaryDisplay->resolution.width, data.primaryDisplay->resolution.height);
+      info_log("Display refresh rate: {}Hz", data.primaryDisplay->refreshRate);
+      info_log("Display is primary: {}", data.primaryDisplay->isPrimary);
+    } else {
+      debug_at(data.primaryDisplay.error());
+    }
 
     Result<Report> weatherReport = config.weather.service->getWeatherInfo();
 

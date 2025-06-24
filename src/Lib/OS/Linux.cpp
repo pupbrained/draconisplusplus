@@ -427,11 +427,6 @@ namespace {
   #endif
 
   #ifdef HAVE_WAYLAND
-  fn get_display_singleton() -> Wayland::DisplayGuard& {
-    static Wayland::DisplayGuard DisplayConnection;
-    return DisplayConnection;
-  }
-
   // Forward declarations for listener callbacks and helper structs.
   struct WaylandOutputInfo;
   struct WaylandSessionState;
@@ -590,78 +585,94 @@ namespace {
   }
 
   fn GetWaylandDisplays() -> Result<Vec<Display>> {
-    // Get the one and only display connection.
-    // This no longer creates a new connection on every call.
-    Wayland::DisplayGuard& display = get_display_singleton();
+    Wayland::DisplayGuard display;
 
-    // Check if the connection is valid.
-    if (!display)
+    if (!display) {
       return Err(DracError(NotFound, "Failed to connect to Wayland display."));
+    }
 
     WaylandSessionState state;
-    // NOTE: We now use display.get() to get the raw wl_display* pointer
-    WlRegistryPtr registry(wl_display_get_registry(display.get()));
-
-    if (!registry)
+    WlRegistryPtr       registry(wl_display_get_registry(display.get()));
+    if (!registry) {
       return Err(DracError(ApiUnavailable, "Failed to get Wayland registry."));
+    }
+
+    // This listener will set a boolean flag to true when the server has
+    // processed the corresponding sync request.
+    bool                 sync_done     = false;
+    wl_callback_listener sync_listener = {
+      .done = [](void* data, wl_callback* /*cb*/, uint32_t /*serial*/) {
+        *static_cast<bool*>(data) = true;
+      }
+    };
 
     wl_registry_add_listener(registry.get(), &registry_listener, &state);
 
-    // First roundtrip
-    if (wl_display_roundtrip(display.get()) == -1) {
-      int errorCode = errno;
-      error_log("wl_display_roundtrip failed after adding registry listener. errno: {} ({})", errorCode, strerror(errorCode));
-      return Err(DracError(ApiUnavailable, "wl_display_roundtrip failed after adding registry listener."));
+    // Sync Point 1: Wait for the server to announce all global objects.
+    // This replaces the first wl_display_roundtrip().
+    wl_callback* sync_cb_1 = wl_display_sync(display.get());
+    wl_callback_add_listener(sync_cb_1, &sync_listener, &sync_done);
+
+    while (!sync_done) {
+      if (wl_display_dispatch(display.get()) == -1) {
+        wl_callback_destroy(sync_cb_1);
+        return Err(DracError(ApiUnavailable, "wl_display_dispatch failed during first sync."));
+      }
+    }
+    wl_callback_destroy(sync_cb_1);
+
+    // After the first sync, we should have all the outputs and the output manager.
+    if (!state.outputManager) {
+      return Err(DracError(NotFound, "Wayland compositor does not support zxdg_output_manager_v1."));
     }
 
-    // Now that the first roundtrip is done, we are guaranteed to have our output manager.
-    if (state.outputManager) {
-      // For each output we found, request its xdg_output interface and add a listener.
-      for (auto& infoPtr : state.outputs) {
-        if (infoPtr->outputHandle && !infoPtr->xdgOutputHandle) {
-          infoPtr->xdgOutputHandle.reset(zxdg_output_manager_v1_get_xdg_output(state.outputManager.get(), infoPtr->outputHandle.get()));
-          // Add the listener for the output's properties (logical position, etc.)
+    // Now, request the xdg_output interface for each output we found.
+    for (auto& infoPtr : state.outputs) {
+      if (infoPtr->outputHandle) {
+        infoPtr->xdgOutputHandle.reset(zxdg_output_manager_v1_get_xdg_output(state.outputManager.get(), infoPtr->outputHandle.get()));
+        if (infoPtr->xdgOutputHandle) {
           zxdg_output_v1_add_listener(infoPtr->xdgOutputHandle.get(), &xdg_output_listener, infoPtr.get());
         }
       }
     }
 
-    // --- Second Synchronization Point ---
-    // We just sent a new batch of requests (get_xdg_output and add_listener for each output).
-    // We need another roundtrip to wait for the server to process *those* requests and send back
-    // the corresponding events (mode, geometry, logical_position, etc.).
-    // After this call, your `WaylandOutputInfo` structs will be filled with their resolution, refresh rate, etc.
-    if (wl_display_roundtrip(display.get()) == -1) {
-      // This is the crucial debugging step:
-      int errorCode = errno;
-      error_log("wl_display_roundtrip failed after adding registry listener. errno: {} ({})", errorCode, strerror(errorCode));
+    // Sync Point 2: Wait for the server to send the properties (resolution, etc.)
+    // for all the new xdg_output objects we just created.
+    // This replaces the second wl_display_roundtrip().
+    sync_done              = false;
+    wl_callback* sync_cb_2 = wl_display_sync(display.get());
+    wl_callback_add_listener(sync_cb_2, &sync_listener, &sync_done);
 
-      return Err(DracError(ApiUnavailable, "wl_display_roundtrip failed after adding registry listener."));
+    while (!sync_done) {
+      if (wl_display_dispatch(display.get()) == -1) {
+        wl_callback_destroy(sync_cb_2);
+        return Err(DracError(ApiUnavailable, "wl_display_dispatch failed during second sync."));
+      }
     }
+    wl_callback_destroy(sync_cb_2);
 
-    // By now, all communication is done and the data is stable.
-    // You can now safely process the results.
+    // Now all information is stable and can be processed.
     Vec<Display> resultDisplays;
     ssize_t      primaryIdx = -1;
 
     for (const auto& infoPtr : state.outputs) {
       if (infoPtr->resolution.width > 0) {
         const bool isAtOrigin = (infoPtr->logicalX == 0 && infoPtr->logicalY == 0);
-        if (isAtOrigin)
+        if (isAtOrigin) {
           primaryIdx = resultDisplays.size();
-        resultDisplays.emplace_back(infoPtr->id, infoPtr->resolution, infoPtr->refreshRate, false);
+        }
+        resultDisplays.emplace_back(infoPtr->id, infoPtr->resolution, infoPtr->refreshRate, isAtOrigin);
       }
     }
 
-    if (resultDisplays.empty())
+    if (resultDisplays.empty()) {
       return Err(DracError(NotFound, "No valid Wayland outputs found."));
+    }
 
-    // If a primary display was found at (0,0), set its flag.
-    // Otherwise, fall back to making the first display in the list primary.
-    if (primaryIdx != -1)
-      resultDisplays[primaryIdx].isPrimary = true;
-    else
+    // If we couldn't determine a primary display by position, fallback to the first one.
+    if (primaryIdx == -1 && !resultDisplays.empty()) {
       resultDisplays.front().isPrimary = true;
+    }
 
     return resultDisplays;
   }
