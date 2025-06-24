@@ -79,8 +79,6 @@
             pugixml
             xorg.libxcb
             wayland
-            wayland-protocols
-            wayland-scanner
           ]));
 
         draconisPkgs = import ./nix {inherit nixpkgs self system;};

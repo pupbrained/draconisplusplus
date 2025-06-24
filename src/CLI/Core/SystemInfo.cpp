@@ -78,17 +78,20 @@ namespace draconis::core::system {
     };
 
     // Use batch operations for related information
-    Future<Result<String>>               osFut       = std::async(async, &GetOSVersion);
-    Future<Result<String>>               kernelFut   = std::async(async, &GetKernelVersion);
-    Future<Result<String>>               hostFut     = std::async(async, &GetHost);
-    Future<Result<String>>               cpuFut      = std::async(async, &GetCPUModel);
-    Future<Result<CPUCores>>             cpuCoresFut = std::async(async, &GetCPUCores);
-    Future<Result<String>>               gpuFut      = std::async(async, &GetGPUModel);
-    Future<Result<String>>               shellFut    = std::async(async, &GetShell);
-    Future<Result<ResourceUsage>>        memFut      = std::async(async, &GetMemInfo);
-    Future<Result<ResourceUsage>>        diskFut     = std::async(async, &GetDiskUsage);
-    Future<Result<String>>               dateFut     = std::async(async, &getDate);
-    Future<Result<std::chrono::seconds>> uptimeFut   = std::async(async, &GetUptime);
+    Future<Result<String>>               desktopEnvFut     = std::async(async, &GetDesktopEnvironment);
+    Future<Result<String>>               windowMgrFut      = std::async(async, &GetWindowManager);
+    Future<Result<Display>>              primaryDisplayFut = std::async(async, &GetPrimaryDisplay);
+    Future<Result<String>>               osFut             = std::async(async, &GetOSVersion);
+    Future<Result<String>>               kernelFut         = std::async(async, &GetKernelVersion);
+    Future<Result<String>>               hostFut           = std::async(async, &GetHost);
+    Future<Result<String>>               cpuFut            = std::async(async, &GetCPUModel);
+    Future<Result<CPUCores>>             cpuCoresFut       = std::async(async, &GetCPUCores);
+    Future<Result<String>>               gpuFut            = std::async(async, &GetGPUModel);
+    Future<Result<String>>               shellFut          = std::async(async, &GetShell);
+    Future<Result<ResourceUsage>>        memFut            = std::async(async, &GetMemInfo);
+    Future<Result<ResourceUsage>>        diskFut           = std::async(async, &GetDiskUsage);
+    Future<Result<String>>               dateFut           = std::async(async, &getDate);
+    Future<Result<std::chrono::seconds>> uptimeFut         = std::async(async, &GetUptime);
 
 #if DRAC_ENABLE_PACKAGECOUNT
     Future<Result<u64>> pkgFut = std::async(async, draconis::services::packages::GetTotalCount, config.enabledPackageManagers);
@@ -98,21 +101,20 @@ namespace draconis::core::system {
     Future<Result<MediaInfo>> npFut = std::async(config.nowPlaying.enabled ? async : deferred, &GetNowPlaying);
 #endif
 
-    this->desktopEnv     = GetDesktopEnvironment();
-    this->windowMgr      = GetWindowManager();
-    this->primaryDisplay = GetPrimaryDisplay();
-
-    this->osVersion     = osFut.get();
-    this->kernelVersion = kernelFut.get();
-    this->host          = hostFut.get();
-    this->cpuModel      = replaceTrademarkSymbols(cpuFut.get());
-    this->cpuCores      = cpuCoresFut.get();
-    this->gpuModel      = gpuFut.get();
-    this->shell         = shellFut.get();
-    this->memInfo       = memFut.get();
-    this->diskUsage     = diskFut.get();
-    this->uptime        = uptimeFut.get();
-    this->date          = dateFut.get();
+    this->desktopEnv     = desktopEnvFut.get();
+    this->windowMgr      = windowMgrFut.get();
+    this->primaryDisplay = primaryDisplayFut.get();
+    this->osVersion      = osFut.get();
+    this->kernelVersion  = kernelFut.get();
+    this->host           = hostFut.get();
+    this->cpuModel       = replaceTrademarkSymbols(cpuFut.get());
+    this->cpuCores       = cpuCoresFut.get();
+    this->gpuModel       = gpuFut.get();
+    this->shell          = shellFut.get();
+    this->memInfo        = memFut.get();
+    this->diskUsage      = diskFut.get();
+    this->uptime         = uptimeFut.get();
+    this->date           = dateFut.get();
 
 #if DRAC_ENABLE_PACKAGECOUNT
     this->packageCount = pkgFut.get();

@@ -22,7 +22,6 @@ add_project_arguments(
 
 cpp = meson.get_compiler('cpp')
 host_system = host_machine.system()
-wl_mod = import('unstable-wayland')
 
 # ------------------------ #
 #  Compiler Configuration  #
@@ -209,9 +208,7 @@ elif host_system != 'serenity' and host_system != 'haiku'
 
   if get_option('use_wayland') == true
     if wayland_dep.found()
-      xdg_output_xml = wl_mod.find_protocol('xdg-output', state: 'unstable', version: 1)
-      wayland_generated_sources = wl_mod.scan_xml([xdg_output_xml], client: true)
-      platform_deps += [wayland_dep, declare_dependency(sources: wayland_generated_sources)]
+      platform_deps += wayland_dep
       add_project_arguments('-DHAVE_WAYLAND', language: 'cpp')
     else
       error('Option "use_wayland" is enabled, but wayland-client was not found.')
