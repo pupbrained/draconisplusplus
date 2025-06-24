@@ -597,36 +597,16 @@ namespace {
       return Err(DracError(ApiUnavailable, "Failed to get Wayland registry."));
     }
 
-    // This listener will set a boolean flag to true when the server has
-    // processed the corresponding sync request.
-    bool                 sync_done     = false;
-    wl_callback_listener sync_listener = {
-      .done = [](void* data, wl_callback* /*cb*/, uint32_t /*serial*/) {
-        *static_cast<bool*>(data) = true;
-      }
-    };
-
     wl_registry_add_listener(registry.get(), &registry_listener, &state);
 
-    // Sync Point 1: Wait for the server to announce all global objects.
-    // This replaces the first wl_display_roundtrip().
-    wl_callback* sync_cb_1 = wl_display_sync(display.get());
-    wl_callback_add_listener(sync_cb_1, &sync_listener, &sync_done);
-
-    while (!sync_done) {
-      if (wl_display_dispatch(display.get()) == -1) {
-        wl_callback_destroy(sync_cb_1);
-        return Err(DracError(ApiUnavailable, "wl_display_dispatch failed during first sync."));
-      }
+    if (wl_display_roundtrip(display.get()) == -1) {
+      return Err(DracError(ApiUnavailable, "wl_display_roundtrip failed during first sync."));
     }
-    wl_callback_destroy(sync_cb_1);
 
-    // After the first sync, we should have all the outputs and the output manager.
     if (!state.outputManager) {
       return Err(DracError(NotFound, "Wayland compositor does not support zxdg_output_manager_v1."));
     }
 
-    // Now, request the xdg_output interface for each output we found.
     for (auto& infoPtr : state.outputs) {
       if (infoPtr->outputHandle) {
         infoPtr->xdgOutputHandle.reset(zxdg_output_manager_v1_get_xdg_output(state.outputManager.get(), infoPtr->outputHandle.get()));
@@ -636,22 +616,10 @@ namespace {
       }
     }
 
-    // Sync Point 2: Wait for the server to send the properties (resolution, etc.)
-    // for all the new xdg_output objects we just created.
-    // This replaces the second wl_display_roundtrip().
-    sync_done              = false;
-    wl_callback* sync_cb_2 = wl_display_sync(display.get());
-    wl_callback_add_listener(sync_cb_2, &sync_listener, &sync_done);
-
-    while (!sync_done) {
-      if (wl_display_dispatch(display.get()) == -1) {
-        wl_callback_destroy(sync_cb_2);
-        return Err(DracError(ApiUnavailable, "wl_display_dispatch failed during second sync."));
-      }
+    if (wl_display_roundtrip(display.get()) == -1) {
+      return Err(DracError(ApiUnavailable, "wl_display_roundtrip failed during second sync."));
     }
-    wl_callback_destroy(sync_cb_2);
 
-    // Now all information is stable and can be processed.
     Vec<Display> resultDisplays;
     ssize_t      primaryIdx = -1;
 
@@ -669,7 +637,6 @@ namespace {
       return Err(DracError(NotFound, "No valid Wayland outputs found."));
     }
 
-    // If we couldn't determine a primary display by position, fallback to the first one.
     if (primaryIdx == -1 && !resultDisplays.empty()) {
       resultDisplays.front().isPrimary = true;
     }
