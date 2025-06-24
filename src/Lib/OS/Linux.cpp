@@ -19,23 +19,30 @@
   #include <sys/utsname.h>        // utsname, uname
   #include <unistd.h>             // readlink
   #include <utility>              // std::move
+  #ifdef HAVE_XCB
+    #include <xcb/randr.h>
+  #endif
+  #ifdef HAVE_WAYLAND
+    #include <wayland-client.h>
+    #include <xdg-output-unstable-v1-client-protocol.h>
+  #endif
 
   #include <Drac++/Core/System.hpp>
-  #include <Drac++/Services/PackageCounting.hpp>
+  #include <Drac++/Services/Packages.hpp>
 
+  #include <Drac++/Utils/Caching.hpp>
   #include <Drac++/Utils/Definitions.hpp>
   #include <Drac++/Utils/Env.hpp>
   #include <Drac++/Utils/Error.hpp>
   #include <Drac++/Utils/Types.hpp>
 
-  #include "Utils/Caching.hpp"
   #include "Wrappers/DBus.hpp"
   #include "Wrappers/Wayland.hpp"
   #include "Wrappers/XCB.hpp"
 
-using drac::error::DracError;
-using enum drac::error::DracErrorCode;
-using namespace drac::types;
+using draconis::utils::error::DracError;
+using enum draconis::utils::error::DracErrorCode;
+using namespace draconis::utils::types;
 namespace fs = std::filesystem;
 
 // clang-format off
@@ -332,12 +339,339 @@ namespace {
     return Err(DracError(NotSupported, "Wayland support not available"));
   }
   #endif
+
+  #ifdef HAVE_XCB
+  fn GetX11Displays() -> Result<Vec<Display>> {
+    using namespace XCB;
+
+    DisplayGuard conn;
+    if (!conn)
+      return Err(DracError(ApiUnavailable, "Failed to connect to X server"));
+
+    const auto* setup = conn.setup();
+    if (!setup)
+      return Err(DracError(ApiUnavailable, "Failed to get X server setup"));
+
+    const ReplyGuard<xcb_query_extension_reply_t> randrQueryReply(
+      xcb_query_extension_reply(conn.get(), xcb_query_extension(conn.get(), std::strlen("RANDR"), "RANDR"), nullptr)
+    );
+    if (!randrQueryReply || !randrQueryReply->present)
+      return Err(DracError(NotSupported, "X server does not support RANDR extension"));
+
+    Screen* screen = conn.rootScreen();
+    if (!screen)
+      return Err(DracError(NotFound, "Failed to get X root screen"));
+
+    const ReplyGuard<xcb_randr_get_screen_resources_current_reply_t> screenResourcesReply(
+      xcb_randr_get_screen_resources_current_reply(
+        conn.get(), xcb_randr_get_screen_resources_current(conn.get(), screen->root), nullptr
+      )
+    );
+    if (!screenResourcesReply)
+      return Err(DracError(ApiUnavailable, "Failed to get screen resources"));
+
+    xcb_randr_output_t* outputs     = xcb_randr_get_screen_resources_current_outputs(screenResourcesReply.get());
+    const int           outputCount = xcb_randr_get_screen_resources_current_outputs_length(screenResourcesReply.get());
+
+    if (outputCount == 0)
+      return Err(DracError(NotFound, "No outputs found"));
+
+    Vec<Display> displays;
+
+    const ReplyGuard<xcb_randr_get_output_primary_reply_t> primaryOutputReply(
+      xcb_randr_get_output_primary_reply(conn.get(), xcb_randr_get_output_primary(conn.get(), screen->root), nullptr)
+    );
+    const xcb_randr_output_t primaryOutput = primaryOutputReply ? primaryOutputReply->output : XCB_NONE;
+
+    for (int i = 0; i < outputCount; ++i) {
+      const ReplyGuard<xcb_randr_get_output_info_reply_t> outputInfoReply(
+        xcb_randr_get_output_info_reply(conn.get(), xcb_randr_get_output_info(conn.get(), outputs[i], XCB_CURRENT_TIME), nullptr)
+      );
+
+      if (!outputInfoReply || outputInfoReply->crtc == XCB_NONE)
+        continue;
+
+      const ReplyGuard<xcb_randr_get_crtc_info_reply_t> crtcInfoReply(
+        xcb_randr_get_crtc_info_reply(conn.get(), xcb_randr_get_crtc_info(conn.get(), outputInfoReply->crtc, XCB_CURRENT_TIME), nullptr)
+      );
+
+      if (!crtcInfoReply)
+        continue;
+
+      u16 refreshRate = 0;
+
+      if (crtcInfoReply->mode != XCB_NONE) {
+        xcb_randr_mode_info_t*         modeInfo  = nullptr;
+        xcb_randr_mode_info_iterator_t modesIter = xcb_randr_get_screen_resources_current_modes_iterator(screenResourcesReply.get());
+        for (; modesIter.rem; xcb_randr_mode_info_next(&modesIter)) {
+          if (modesIter.data->id == crtcInfoReply->mode) {
+            modeInfo = modesIter.data;
+            break;
+          }
+        }
+
+        if (modeInfo && modeInfo->htotal > 0 && modeInfo->vtotal > 0)
+          refreshRate = static_cast<u16>(round(static_cast<f64>(modeInfo->dot_clock) / (static_cast<f64>(modeInfo->htotal) * static_cast<f64>(modeInfo->vtotal))));
+      }
+
+      displays.emplace_back(
+        outputs[i],
+        Display::Resolution { .width = crtcInfoReply->width, .height = crtcInfoReply->height },
+        refreshRate,
+        outputs[i] == primaryOutput
+      );
+    }
+
+    return displays;
+  }
+  #endif
+
+  #ifdef HAVE_WAYLAND
+  fn get_display_singleton() -> Wayland::DisplayGuard& {
+    static Wayland::DisplayGuard DisplayConnection;
+    return DisplayConnection;
+  }
+
+  // Forward declarations for listener callbacks and helper structs.
+  struct WaylandOutputInfo;
+  struct WaylandSessionState;
+
+  // Listener for zxdg_output_v1 events.
+  void xdg_output_handle_logical_position(void* data, zxdg_output_v1* xdg_output, i32 xPos, i32 yPos);
+  void xdg_output_handle_logical_size(void* data, zxdg_output_v1* xdg_output, i32 width, i32 height);
+  void xdg_output_handle_done(void* data, zxdg_output_v1* xdg_output);
+  void xdg_output_handle_name(void* data, zxdg_output_v1* xdg_output, const char* name);
+  void xdg_output_handle_description(void* data, zxdg_output_v1* xdg_output, const char* description);
+
+  // Listener for wl_output events.
+  void output_handle_geometry(void* data, wl_output* output, i32 xPos, i32 yPos, i32 width, i32 height, i32 sub, const char* make, const char* model, i32 transform);
+  void output_handle_mode(void* data, wl_output* output, u32 flags, i32 width, i32 height, i32 refreshRate);
+  void output_handle_done(void* data, wl_output* output);
+  void output_handle_scale(void* data, wl_output* output, i32 factor);
+
+  // Listener for wl_registry events.
+  void registry_handle_global(void* data, wl_registry* registry, u32 name, const char* interface, u32 version);
+  void registry_handle_global_remove(void* data, wl_registry* registry, u32 name);
+
+  /**
+   * @brief RAII wrappers for Wayland objects using custom deleters.
+   */
+  struct WlOutputDeleter {
+    void operator()(wl_output* ptr) const {
+      wl_output_destroy(ptr);
+    }
+  };
+  struct XdgOutputV1Deleter {
+    void operator()(zxdg_output_v1* ptr) const {
+      zxdg_output_v1_destroy(ptr);
+    }
+  };
+  struct XdgOutputManagerV1Deleter {
+    void operator()(zxdg_output_manager_v1* ptr) const {
+      zxdg_output_manager_v1_destroy(ptr);
+    }
+  };
+  struct WlRegistryDeleter {
+    void operator()(wl_registry* ptr) const {
+      wl_registry_destroy(ptr);
+    }
+  };
+
+  using WlOutputPtr           = std::unique_ptr<wl_output, WlOutputDeleter>;
+  using XdgOutputV1Ptr        = std::unique_ptr<zxdg_output_v1, XdgOutputV1Deleter>;
+  using XdgOutputManagerV1Ptr = std::unique_ptr<zxdg_output_manager_v1, XdgOutputManagerV1Deleter>;
+  using WlRegistryPtr         = std::unique_ptr<wl_registry, WlRegistryDeleter>;
+
+  /**
+   * @brief Holds all retrieved information for a single display (output).
+   */
+  struct WaylandOutputInfo {
+    u32                 id = 0;
+    WlOutputPtr         outputHandle;
+    Display::Resolution resolution  = { .width = 0, .height = 0 };
+    u16                 refreshRate = 0;
+
+    XdgOutputV1Ptr xdgOutputHandle;
+    i32            logicalX = -1;
+    i32            logicalY = -1;
+  };
+
+  /**
+   * @brief Holds the overall state for the Wayland display enumeration process.
+   */
+  struct WaylandSessionState {
+    XdgOutputManagerV1Ptr                   outputManager;
+    Vec<std::unique_ptr<WaylandOutputInfo>> outputs; // MODIFIED
+    bool                                    initialRegistryDone = false;
+  };
+
+  const zxdg_output_v1_listener xdg_output_listener = {
+    .logical_position = xdg_output_handle_logical_position,
+    .logical_size     = xdg_output_handle_logical_size,
+    .done             = xdg_output_handle_done,
+    .name             = xdg_output_handle_name,
+    .description      = xdg_output_handle_description,
+  };
+
+  const wl_output_listener output_listener = {
+    .geometry = output_handle_geometry,
+    .mode     = output_handle_mode,
+    .done     = output_handle_done,
+    .scale    = output_handle_scale,
+  };
+
+  const wl_registry_listener registry_listener = {
+    .global        = registry_handle_global,
+    .global_remove = registry_handle_global_remove,
+  };
+
+  // Listener Implementations
+
+  void xdg_output_handle_logical_position(void* data, zxdg_output_v1* /*xdg_output*/, i32 xPos, i32 yPos) {
+    auto* info     = static_cast<WaylandOutputInfo*>(data);
+    info->logicalX = xPos;
+    info->logicalY = yPos;
+  }
+
+  void xdg_output_handle_logical_size(void* /*data*/, zxdg_output_v1* /*xdg_output*/, i32 /*width*/, i32 /*height*/) {}
+  void xdg_output_handle_done(void* /*data*/, zxdg_output_v1* /*xdg_output*/) {}
+  void xdg_output_handle_name(void* /*data*/, zxdg_output_v1* /*xdg_output*/, const char* /*name*/) {}
+  void xdg_output_handle_description(void* /*data*/, zxdg_output_v1* /*xdg_output*/, const char* /*description*/) {}
+
+  void output_handle_mode(void* data, wl_output* /*output*/, u32 flags, i32 width, i32 height, i32 refreshRate) {
+    if (flags & WL_OUTPUT_MODE_CURRENT) {
+      auto* info        = static_cast<WaylandOutputInfo*>(data);
+      info->resolution  = { .width = static_cast<u16>(width), .height = static_cast<u16>(height) };
+      info->refreshRate = static_cast<u16>(round(static_cast<f64>(refreshRate) / 1000.0));
+    }
+  }
+
+  void output_handle_geometry(void* /*data*/, wl_output* /*output*/, i32 /*xPos*/, i32 /*yPos*/, i32 /*w*/, i32 /*h*/, i32 /*sub*/, const char* /*make*/, const char* /*model*/, i32 /*transform*/) {}
+  void output_handle_done(void* /*data*/, wl_output* /*output*/) {}
+  void output_handle_scale(void* /*data*/, wl_output* /*output*/, i32 /*factor*/) {}
+
+  void registry_handle_global(void* data, wl_registry* registry, u32 name, const char* interface, u32 version) {
+    auto* state = static_cast<WaylandSessionState*>(data);
+
+    if (strcmp(interface, wl_output_interface.name) == 0) {
+      // The client code uses wl_output version 2 features.
+      // Let's bind with the minimum of the advertised version and what we support.
+      const u32 supportedVersion = 2;
+      const u32 versionToBind    = std::min(version, supportedVersion);
+
+      auto& newOutputPtr = state->outputs.emplace_back(std::make_unique<WaylandOutputInfo>());
+      newOutputPtr->id   = name;
+      newOutputPtr->outputHandle.reset(static_cast<wl_output*>(wl_registry_bind(registry, name, &wl_output_interface, versionToBind)));
+
+      // IMPORTANT: Check if the bind was successful
+      if (!newOutputPtr->outputHandle) {
+        error_log("Failed to bind to wl_output (name: {})", name);
+        state->outputs.pop_back(); // Remove the failed entry
+        return;
+      }
+
+      wl_output_add_listener(newOutputPtr->outputHandle.get(), &output_listener, newOutputPtr.get());
+    } else if (strcmp(interface, zxdg_output_manager_v1_interface.name) == 0) {
+      // This logic is similar for the output manager
+      const u32 supportedVersion = 2;
+      const u32 versionToBind    = std::min(version, supportedVersion);
+
+      state->outputManager.reset(static_cast<zxdg_output_manager_v1*>(wl_registry_bind(registry, name, &zxdg_output_manager_v1_interface, versionToBind)));
+
+      if (!state->outputManager) {
+        error_log("Failed to bind to zxdg_output_manager_v1 (name: {})", name);
+      }
+    }
+  }
+
+  void registry_handle_global_remove(void* data, wl_registry* /*registry*/, u32 name) {
+    auto* state = static_cast<WaylandSessionState*>(data);
+    std::erase_if(state->outputs, [name](const auto& output) { return output->id == name; });
+  }
+
+  fn GetWaylandDisplays() -> Result<Vec<Display>> {
+    // Get the one and only display connection.
+    // This no longer creates a new connection on every call.
+    Wayland::DisplayGuard& display = get_display_singleton();
+
+    // Check if the connection is valid.
+    if (!display)
+      return Err(DracError(NotFound, "Failed to connect to Wayland display."));
+
+    WaylandSessionState state;
+    // NOTE: We now use display.get() to get the raw wl_display* pointer
+    WlRegistryPtr registry(wl_display_get_registry(display.get()));
+
+    if (!registry)
+      return Err(DracError(ApiUnavailable, "Failed to get Wayland registry."));
+
+    wl_registry_add_listener(registry.get(), &registry_listener, &state);
+
+    // First roundtrip
+    if (wl_display_roundtrip(display.get()) == -1) {
+      int errorCode = errno;
+      error_log("wl_display_roundtrip failed after adding registry listener. errno: {} ({})", errorCode, strerror(errorCode));
+      return Err(DracError(ApiUnavailable, "wl_display_roundtrip failed after adding registry listener."));
+    }
+
+    // Now that the first roundtrip is done, we are guaranteed to have our output manager.
+    if (state.outputManager) {
+      // For each output we found, request its xdg_output interface and add a listener.
+      for (auto& infoPtr : state.outputs) {
+        if (infoPtr->outputHandle && !infoPtr->xdgOutputHandle) {
+          infoPtr->xdgOutputHandle.reset(zxdg_output_manager_v1_get_xdg_output(state.outputManager.get(), infoPtr->outputHandle.get()));
+          // Add the listener for the output's properties (logical position, etc.)
+          zxdg_output_v1_add_listener(infoPtr->xdgOutputHandle.get(), &xdg_output_listener, infoPtr.get());
+        }
+      }
+    }
+
+    // --- Second Synchronization Point ---
+    // We just sent a new batch of requests (get_xdg_output and add_listener for each output).
+    // We need another roundtrip to wait for the server to process *those* requests and send back
+    // the corresponding events (mode, geometry, logical_position, etc.).
+    // After this call, your `WaylandOutputInfo` structs will be filled with their resolution, refresh rate, etc.
+    if (wl_display_roundtrip(display.get()) == -1) {
+      // This is the crucial debugging step:
+      int errorCode = errno;
+      error_log("wl_display_roundtrip failed after adding registry listener. errno: {} ({})", errorCode, strerror(errorCode));
+
+      return Err(DracError(ApiUnavailable, "wl_display_roundtrip failed after adding registry listener."));
+    }
+
+    // By now, all communication is done and the data is stable.
+    // You can now safely process the results.
+    Vec<Display> resultDisplays;
+    ssize_t      primaryIdx = -1;
+
+    for (const auto& infoPtr : state.outputs) {
+      if (infoPtr->resolution.width > 0) {
+        const bool isAtOrigin = (infoPtr->logicalX == 0 && infoPtr->logicalY == 0);
+        if (isAtOrigin)
+          primaryIdx = resultDisplays.size();
+        resultDisplays.emplace_back(infoPtr->id, infoPtr->resolution, infoPtr->refreshRate, false);
+      }
+    }
+
+    if (resultDisplays.empty())
+      return Err(DracError(NotFound, "No valid Wayland outputs found."));
+
+    // If a primary display was found at (0,0), set its flag.
+    // Otherwise, fall back to making the first display in the list primary.
+    if (primaryIdx != -1)
+      resultDisplays[primaryIdx].isPrimary = true;
+    else
+      resultDisplays.front().isPrimary = true;
+
+    return resultDisplays;
+  }
+  #endif
 } // namespace
 
-namespace os {
-  using drac::env::GetEnv;
+namespace draconis::core::system {
+  using draconis::utils::env::GetEnv;
 
-  fn System::getOSVersion() -> Result<String> {
+  fn GetOSVersion() -> Result<String> {
     std::ifstream file("/etc/os-release");
 
     if (!file)
@@ -364,7 +698,7 @@ namespace os {
     return Err(DracError(NotFound, "PRETTY_NAME line not found in /etc/os-release"));
   }
 
-  fn System::getMemInfo() -> Result<ResourceUsage> {
+  fn GetMemInfo() -> Result<ResourceUsage> {
     struct sysinfo info;
 
     if (sysinfo(&info) != 0)
@@ -379,7 +713,7 @@ namespace os {
     };
   }
 
-  fn System::getNowPlaying() -> Result<MediaInfo> {
+  fn GetNowPlaying() -> Result<MediaInfo> {
   #ifdef HAVE_DBUS
     using namespace DBus;
 
@@ -512,7 +846,7 @@ namespace os {
     return Err(DracError(NotFound, "No media player found or an unknown error occurred"));
   }
 
-  fn System::getWindowManager() -> Result<String> {
+  fn GetWindowManager() -> Result<String> {
   #if !defined(HAVE_WAYLAND) && !defined(HAVE_XCB)
     return Err(DracError(NotSupported, "Wayland or XCB support not available"));
   #endif
@@ -526,8 +860,8 @@ namespace os {
     return Err(DracError(NotFound, "No display server detected"));
   }
 
-  fn System::getDesktopEnvironment() -> Result<String> {
-    Result<CStr> xdgEnvResult = GetEnv("XDG_CURRENT_DESKTOP");
+  fn GetDesktopEnvironment() -> Result<String> {
+    Result<PCStr> xdgEnvResult = GetEnv("XDG_CURRENT_DESKTOP");
 
     if (xdgEnvResult) {
       String xdgDesktopSz = String(*xdgEnvResult);
@@ -538,7 +872,7 @@ namespace os {
       return xdgDesktopSz;
     }
 
-    Result<CStr> desktopSessionResult = GetEnv("DESKTOP_SESSION");
+    Result<PCStr> desktopSessionResult = GetEnv("DESKTOP_SESSION");
 
     if (desktopSessionResult)
       return *desktopSessionResult;
@@ -546,7 +880,7 @@ namespace os {
     return Err(desktopSessionResult.error());
   }
 
-  fn System::getShell() -> Result<String> {
+  fn GetShell() -> Result<String> {
     // clang-format off
     return GetEnv("SHELL")
       .transform([](String shellPath) -> String {
@@ -572,9 +906,9 @@ namespace os {
     // clang-format on
   }
 
-  fn System::getHost() -> Result<String> {
-    constexpr CStr primaryPath  = "/sys/class/dmi/id/product_family";
-    constexpr CStr fallbackPath = "/sys/class/dmi/id/product_name";
+  fn GetHost() -> Result<String> {
+    constexpr PCStr primaryPath  = "/sys/class/dmi/id/product_family";
+    constexpr PCStr fallbackPath = "/sys/class/dmi/id/product_name";
 
     fn readFirstLine = [&](const String& path) -> Result<String> {
       std::ifstream file(path);
@@ -615,17 +949,17 @@ namespace os {
     ));
   }
 
-  fn System::getCPUModel() -> Result<String> {
-    std::array<unsigned int, 4> cpuInfo;
-    std::array<char, 49>        brandString = { 0 };
+  fn GetCPUModel() -> Result<String> {
+    Array<u32, 4>   cpuInfo;
+    Array<char, 49> brandString = { 0 };
 
     __get_cpuid(0x80000000, cpuInfo.data(), &cpuInfo[1], &cpuInfo[2], &cpuInfo[3]);
-    const unsigned int maxFunction = cpuInfo[0];
+    const u32 maxFunction = cpuInfo[0];
 
     if (maxFunction < 0x80000004)
       return Err(DracError(NotSupported, "CPU does not support brand string"));
 
-    for (unsigned int i = 0; i < 3; ++i) {
+    for (u32 i = 0; i < 3; ++i) {
       __get_cpuid(0x80000002 + i, cpuInfo.data(), &cpuInfo[1], &cpuInfo[2], &cpuInfo[3]);
       std::memcpy(&brandString.at(i * 16), cpuInfo.data(), sizeof(cpuInfo));
     }
@@ -640,8 +974,72 @@ namespace os {
     return result;
   }
 
-  fn System::getGPUModel() -> Result<String> {
-    using drac::cache::GetValidCache, drac::cache::WriteCache;
+  fn GetCPUCores() -> Result<CPUCores> {
+    u32 eax = 0, ebx = 0, ecx = 0, edx = 0;
+
+    __get_cpuid(0x0, &eax, &ebx, &ecx, &edx);
+    const u32 maxLeaf   = eax;
+    const u32 vendorEbx = ebx;
+
+    u32 logicalCores  = 0;
+    u32 physicalCores = 0;
+
+    if (maxLeaf >= 0xB) {
+      u32 threadsPerCore = 0;
+      for (u32 subleaf = 0;; ++subleaf) {
+        __get_cpuid_count(0xB, subleaf, &eax, &ebx, &ecx, &edx);
+        if (ebx == 0)
+          break;
+
+        const u32 levelType         = (ecx >> 8) & 0xFF;
+        const u32 processorsAtLevel = ebx & 0xFFFF;
+
+        if (levelType == 1) // SMT (Hyper-Threading) level
+          threadsPerCore = processorsAtLevel;
+
+        if (levelType == 2) // Core level
+          logicalCores = processorsAtLevel;
+      }
+
+      if (logicalCores > 0 && threadsPerCore > 0)
+        physicalCores = logicalCores / threadsPerCore;
+    }
+
+    if (physicalCores == 0 || logicalCores == 0) {
+      __get_cpuid(0x1, &eax, &ebx, &ecx, &edx);
+      logicalCores                 = (ebx >> 16) & 0xFF;
+      const bool hasHyperthreading = (edx & (1 << 28)) != 0;
+
+      if (hasHyperthreading) {
+        constexpr u32 vendorIntel = 0x756e6547; // "Genu"ine"Intel"
+        constexpr u32 vendorAmd   = 0x68747541; // "Auth"entic"AMD"
+
+        if (vendorEbx == vendorIntel && maxLeaf >= 0x4) {
+          __get_cpuid_count(0x4, 0, &eax, &ebx, &ecx, &edx);
+          physicalCores = ((eax >> 26) & 0x3F) + 1;
+        } else if (vendorEbx == vendorAmd) {
+          __get_cpuid(0x80000000, &eax, &ebx, &ecx, &edx); // Get max extended leaf
+          if (eax >= 0x80000008) {
+            __get_cpuid(0x80000008, &eax, &ebx, &ecx, &edx);
+            physicalCores = (ecx & 0xFF) + 1;
+          }
+        }
+      } else {
+        physicalCores = logicalCores;
+      }
+    }
+
+    if (physicalCores == 0 && logicalCores > 0)
+      physicalCores = logicalCores;
+
+    if (physicalCores == 0 || logicalCores == 0)
+      return Err(DracError(InternalError, "Failed to determine core counts via CPUID"));
+
+    return CPUCores(static_cast<u16>(physicalCores), static_cast<u16>(logicalCores));
+  }
+
+  fn GetGPUModel() -> Result<String> {
+    using draconis::utils::cache::GetValidCache, draconis::utils::cache::WriteCache;
 
     const String cacheKey = "gpu_model";
 
@@ -692,7 +1090,16 @@ namespace os {
     return Err(DracError(NotFound, "No compatible GPU found in /sys/bus/pci/devices."));
   }
 
-  fn System::getKernelVersion() -> Result<String> {
+  fn GetUptime() -> Result<std::chrono::seconds> {
+    struct sysinfo info;
+
+    if (sysinfo(&info) != 0)
+      return Err(DracError(InternalError, "sysinfo call failed"));
+
+    return std::chrono::seconds(info.uptime);
+  }
+
+  fn GetKernelVersion() -> Result<String> {
     utsname uts;
 
     if (uname(&uts) == -1)
@@ -704,7 +1111,7 @@ namespace os {
     return String(uts.release);
   }
 
-  fn System::getDiskUsage() -> Result<ResourceUsage> {
+  fn GetDiskUsage() -> Result<ResourceUsage> {
     struct statvfs stat;
 
     if (statvfs("/", &stat) == -1)
@@ -715,12 +1122,60 @@ namespace os {
       .totalBytes = stat.f_blocks * stat.f_frsize,
     };
   }
-} // namespace os
+
+  fn GetDisplays() -> Result<Vec<Display>> {
+    if (GetEnv("WAYLAND_DISPLAY")) {
+  #ifdef HAVE_WAYLAND
+      return GetWaylandDisplays();
+  #else
+      return Err(DracError(NotSupported, "Wayland support not available"));
+  #endif
+    }
+
+    if (GetEnv("DISPLAY")) {
+  #ifdef HAVE_XCB
+      return GetX11Displays();
+  #else
+      return Err(DracError(NotSupported, "XCB (X11) support not available"));
+  #endif
+    }
+
+    return Err(DracError(NotFound, "No display server detected"));
+  }
+
+  fn GetPrimaryDisplay() -> Result<Display> {
+    Result<Vec<Display>> displays = GetDisplays();
+    if (!displays)
+      return Err(displays.error());
+
+    for (const auto& display : *displays) {
+      if (display.isPrimary)
+        return display;
+    }
+
+    if (!displays->empty())
+      return displays->front();
+
+    return Err(DracError(NotFound, "No displays found"));
+  }
+
+  fn GetNetworkInterfaces() -> Result<Vec<NetworkInterface>> {
+    return Vec<NetworkInterface>();
+  }
+
+  fn GetPrimaryNetworkInterface() -> Result<NetworkInterface> {
+    return NetworkInterface();
+  }
+
+  fn GetBatteryInfo() -> Result<Battery> {
+    return Battery();
+  }
+} // namespace draconis::core::system
 
   #ifdef DRAC_ENABLE_PACKAGECOUNT
-namespace package {
+namespace draconis::services::packages {
   fn CountApk() -> Result<u64> {
-    using namespace drac::cache;
+    using draconis::utils::cache::GetValidCache, draconis::utils::cache::WriteCache;
 
     const String   pmID      = "apk";
     const fs::path apkDbPath = "/lib/apk/db/installed";
@@ -811,7 +1266,7 @@ namespace package {
     return GetCountFromPlist("xbps", plistPath);
   }
     #endif
-} // namespace package
+} // namespace draconis::services::packages
   #endif
 
 #endif

@@ -13,9 +13,17 @@
   #include <Drac++/Utils/Types.hpp>
 
 namespace DBus {
-  using drac::error::DracError, drac::error::DracErrorCode;
-  using drac::types::Option, drac::types::Result, drac::types::Err, drac::types::String, drac::types::i32,
-    drac::types::u32, drac::types::None;
+  namespace {
+    using draconis::utils::error::DracError;
+    using draconis::utils::error::DracErrorCode;
+    using draconis::utils::types::Err;
+    using draconis::utils::types::i32;
+    using draconis::utils::types::None;
+    using draconis::utils::types::Option;
+    using draconis::utils::types::Result;
+    using draconis::utils::types::String;
+    using draconis::utils::types::u32;
+  } // namespace
 
   /**
    * @brief RAII wrapper for DBusError. Automatically initializes and frees the error.

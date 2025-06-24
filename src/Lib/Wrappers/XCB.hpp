@@ -8,7 +8,14 @@
   #include <Drac++/Utils/Types.hpp>
 
 namespace XCB {
-  using drac::types::u8, drac::types::u16, drac::types::i32, drac::types::u32, drac::types::CStr, drac::types::None;
+  namespace {
+    using draconis::utils::types::i32;
+    using draconis::utils::types::None;
+    using draconis::utils::types::PCStr;
+    using draconis::utils::types::u16;
+    using draconis::utils::types::u32;
+    using draconis::utils::types::u8;
+  } // namespace
 
   using Connection = xcb_connection_t;
   using Setup      = xcb_setup_t;
@@ -52,7 +59,7 @@ namespace XCB {
    * @param screenp Pointer to an integer that will store the screen number
    * @return A pointer to the connection object
    */
-  inline fn Connect(CStr displayname, i32* screenp) -> Connection* {
+  inline fn Connect(PCStr displayname, i32* screenp) -> Connection* {
     return xcb_connect(displayname, screenp);
   }
 
@@ -92,7 +99,7 @@ namespace XCB {
    * @param name The name of the atom
    * @return The cookie for the atom
    */
-  inline fn InternAtom(Connection* conn, const u8 only_if_exists, const u16 name_len, CStr name) -> IntAtomCookie {
+  inline fn InternAtom(Connection* conn, const u8 only_if_exists, const u16 name_len, PCStr name) -> IntAtomCookie {
     return xcb_intern_atom(conn, only_if_exists, name_len, name);
   }
 
@@ -182,7 +189,7 @@ namespace XCB {
      * Opens an XCB connection
      * @param name Display name (nullptr for default)
      */
-    explicit DisplayGuard(const CStr name = nullptr)
+    explicit DisplayGuard(const PCStr name = nullptr)
       : m_connection(Connect(name, nullptr)) {}
 
     ~DisplayGuard() {

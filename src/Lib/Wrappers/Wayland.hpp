@@ -9,7 +9,11 @@
   #include <Drac++/Utils/Types.hpp>
 
 namespace Wayland {
-  using drac::types::i32, drac::types::CStr, drac::types::None;
+  namespace {
+    using draconis::utils::types::i32;
+    using draconis::utils::types::None;
+    using draconis::utils::types::PCStr;
+  } // namespace
 
   using Display = wl_display;
 
@@ -22,7 +26,7 @@ namespace Wayland {
    * @param name The name of the display to connect to (or nullptr for default)
    * @return A pointer to the Wayland display object
    */
-  inline fn Connect(CStr name) -> Display* {
+  inline fn Connect(PCStr name) -> Display* {
     return wl_display_connect(name);
   }
 
@@ -67,8 +71,9 @@ namespace Wayland {
      * establishes a connection to the Wayland display.
      */
     DisplayGuard() {
-      wl_log_set_handler_client([](CStr fmt, va_list args) -> void {
-        using drac::types::i32, drac::types::StringView;
+      wl_log_set_handler_client([](PCStr fmt, va_list args) -> void {
+        using draconis::utils::types::i32;
+        using draconis::utils::types::StringView;
 
         va_list argsCopy;
         va_copy(argsCopy, args);

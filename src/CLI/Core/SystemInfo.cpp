@@ -91,7 +91,6 @@ namespace draconis::core::system {
     Future<Result<ResourceUsage>>        diskFut     = std::async(async, &GetDiskUsage);
     Future<Result<String>>               dateFut     = std::async(async, &getDate);
     Future<Result<std::chrono::seconds>> uptimeFut   = std::async(async, &GetUptime);
-    Future<Result<Display>>              displayFut  = std::async(async, &GetPrimaryDisplay);
 
 #if DRAC_ENABLE_PACKAGECOUNT
     Future<Result<u64>> pkgFut = std::async(async, draconis::services::packages::GetTotalCount, config.enabledPackageManagers);
@@ -101,20 +100,19 @@ namespace draconis::core::system {
     Future<Result<MediaInfo>> npFut = std::async(config.nowPlaying.enabled ? async : deferred, &GetNowPlaying);
 #endif
 
-    this->osVersion      = osFut.get();
-    this->kernelVersion  = kernelFut.get();
-    this->host           = hostFut.get();
-    this->cpuModel       = replaceTrademarkSymbols(cpuFut.get());
-    this->cpuCores       = cpuCoresFut.get();
-    this->gpuModel       = gpuFut.get();
-    this->desktopEnv     = deFut.get();
-    this->windowMgr      = wmFut.get();
-    this->shell          = shellFut.get();
-    this->memInfo        = memFut.get();
-    this->diskUsage      = diskFut.get();
-    this->uptime         = uptimeFut.get();
-    this->date           = dateFut.get();
-    this->primaryDisplay = displayFut.get();
+    this->osVersion     = osFut.get();
+    this->kernelVersion = kernelFut.get();
+    this->host          = hostFut.get();
+    this->cpuModel      = replaceTrademarkSymbols(cpuFut.get());
+    this->cpuCores      = cpuCoresFut.get();
+    this->gpuModel      = gpuFut.get();
+    this->desktopEnv    = deFut.get();
+    this->windowMgr     = wmFut.get();
+    this->shell         = shellFut.get();
+    this->memInfo       = memFut.get();
+    this->diskUsage     = diskFut.get();
+    this->uptime        = uptimeFut.get();
+    this->date          = dateFut.get();
 
 #if DRAC_ENABLE_PACKAGECOUNT
     this->packageCount = pkgFut.get();

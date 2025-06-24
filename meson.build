@@ -3,7 +3,7 @@
 # ----------------------- #
 project(
   'draconis++',
-  'cpp',
+  ['cpp', 'c'],
   version: '0.1.0',
   meson_version: '>=1.1',
   default_options: [
@@ -22,6 +22,7 @@ add_project_arguments(
 
 cpp = meson.get_compiler('cpp')
 host_system = host_machine.system()
+wl_mod = import('unstable-wayland')
 
 # ------------------------ #
 #  Compiler Configuration  #
@@ -56,7 +57,7 @@ common_cpp_flags = {
     '/external:anglebrackets',
     '/std:c++latest',
   ],
-  'unix_extra': '-march=native',
+  'unix_extra': [],
   'windows_extra': '-DCURL_STATICLIB',
 }
 
@@ -173,6 +174,7 @@ elif host_system == 'windows'
 elif host_system != 'serenity' and host_system != 'haiku'
   dbus_dep = dependency('dbus-1', required: false)
   xcb_dep = dependency('xcb', required: false)
+  xcb_randr_dep = dependency('xcb-randr', required: false)
   xau_dep = dependency('xau', required: false)
   xdmcp_dep = dependency('xdmcp', required: false)
   wayland_dep = dependency('wayland-client', required: false)
@@ -195,19 +197,21 @@ elif host_system != 'serenity' and host_system != 'haiku'
   endif
 
   if get_option('use_xcb') == true
-    if xcb_dep.found() and xau_dep.found() and xdmcp_dep.found()
-      platform_deps += [xcb_dep, xau_dep, xdmcp_dep]
+    if xcb_dep.found() and xcb_randr_dep.found() and xau_dep.found() and xdmcp_dep.found()
+      platform_deps += [xcb_dep, xcb_randr_dep, xau_dep, xdmcp_dep]
       add_project_arguments('-DHAVE_XCB', language: 'cpp')
     else
       error(
-        'Option "use_xcb" is enabled, but one or more of its dependencies (xcb, xau, xdmcp) were not found.',
+        'Option "use_xcb" is enabled, but one or more of its dependencies (xcb, xcb-randr, xau, xdmcp) were not found.',
       )
     endif
   endif
 
   if get_option('use_wayland') == true
     if wayland_dep.found()
-      platform_deps += wayland_dep
+      xdg_output_xml = wl_mod.find_protocol('xdg-output', state: 'unstable', version: 1)
+      wayland_generated_sources = wl_mod.scan_xml([xdg_output_xml], client: true)
+      platform_deps += [wayland_dep, declare_dependency(sources: wayland_generated_sources)]
       add_project_arguments('-DHAVE_WAYLAND', language: 'cpp')
     else
       error('Option "use_wayland" is enabled, but wayland-client was not found.')
