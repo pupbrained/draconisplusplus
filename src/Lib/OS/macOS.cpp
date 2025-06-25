@@ -687,10 +687,9 @@ namespace draconis::core::system {
         if (CFGetTypeID(isChargingRef) == CFBooleanGetTypeID()) {
           isCharging = CFBooleanGetValue(static_cast<CFBooleanRef>(isChargingRef));
         } else if (CFGetTypeID(isChargingRef) == CFNumberGetTypeID()) {
-          int numericValue = 0;
-          if (CFNumberGetValue(static_cast<CFNumberRef>(isChargingRef), kCFNumberIntType, &numericValue)) {
+          i32 numericValue = 0;
+          if (CFNumberGetValue(static_cast<CFNumberRef>(isChargingRef), kCFNumberIntType, &numericValue))
             isCharging = (numericValue != 0);
-          }
         }
       }
 
