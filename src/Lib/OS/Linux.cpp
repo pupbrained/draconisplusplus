@@ -1,6 +1,9 @@
+#include <Drac++/Utils/Logging.hpp>
 #ifdef __linux__
 
   #include <algorithm>
+  #include <arpa/inet.h>          // inet_ntop
+  #include <chrono>               // std::chrono::minutes
   #include <climits>              // PATH_MAX
   #include <cpuid.h>              // __get_cpuid
   #include <cstring>              // std::strlen
@@ -10,7 +13,11 @@
   #include <fstream>              // std::ifstream
   #include <glaze/beve/read.hpp>  // glz::read_beve
   #include <glaze/beve/write.hpp> // glz::write_beve
+  #include <ifaddrs.h>            // getifaddrs, freeifaddrs, ifaddrs
   #include <matchit.hpp>          // matchit::{is, is_not, is_any, etc.}
+  #include <net/if.h>             // IFF_UP, IFF_LOOPBACK
+  #include <netdb.h>              // getnameinfo, NI_NUMERICHOST
+  #include <netinet/in.h>         // sockaddr_in
   #include <string>               // std::{getline, string (String)}
   #include <string_view>          // std::string_view (StringView)
   #include <sys/socket.h>         // ucred, getsockopt, SOL_SOCKET, SO_PEERCRED
@@ -22,6 +29,9 @@
   #ifdef HAVE_XCB
     #include <xcb/randr.h>
   #endif
+  #include <linux/if_packet.h> // sockaddr_ll
+  #include <map>               // std::map
+  #include <sstream>           // std::istringstream
 
   #include <Drac++/Core/System.hpp>
   #include <Drac++/Services/Packages.hpp>
@@ -48,6 +58,18 @@ extern "C" fn issetugid() -> usize { return 0; } // NOLINT(readability-identifie
 // clang-format on
 
 namespace {
+  template <std::integral T>
+  auto try_parse(std::string_view sview) -> Option<T> {
+    T value;
+
+    auto [ptr, ec] = std::from_chars(sview.data(), sview.data() + sview.size(), value);
+
+    if (ec == std::errc() && ptr == sview.data() + sview.size())
+      return value;
+
+    return None;
+  }
+
   fn LookupPciNamesFromStream(std::istream& pciStream, const StringView vendor_id_in, const StringView device_id_in) -> Pair<String, String> {
     const String vendorId = vendor_id_in.starts_with("0x") ? String(vendor_id_in.substr(2)) : String(vendor_id_in);
     const String deviceId = device_id_in.starts_with("0x") ? String(device_id_in.substr(2)) : String(device_id_in);
@@ -972,15 +994,246 @@ namespace draconis::core::system {
   }
 
   fn GetNetworkInterfaces() -> Result<Vec<NetworkInterface>> {
-    return Vec<NetworkInterface>();
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) - This requires a lot of casts and there's no good way to avoid them.
+    ifaddrs* ifaddrList = nullptr;
+    if (getifaddrs(&ifaddrList) == -1)
+      return Err(DracError(InternalError, "getifaddrs failed"));
+
+    UniquePointer<ifaddrs, decltype(&freeifaddrs)> ifaddrsDeleter(ifaddrList, &freeifaddrs);
+
+    // Use a map to collect interface information since getifaddrs returns multiple entries per interface
+    std::map<String, NetworkInterface> interfaceMap;
+
+    for (ifaddrs* ifa = ifaddrList; ifa != nullptr; ifa = ifa->ifa_next) {
+      if (ifa->ifa_addr == nullptr)
+        continue;
+
+      const String interfaceName = String(ifa->ifa_name);
+
+      // Get or create the interface entry
+      auto& interface = interfaceMap[interfaceName];
+      interface.name  = interfaceName;
+
+      // Set flags
+      interface.isUp       = ifa->ifa_flags & IFF_UP;
+      interface.isLoopback = ifa->ifa_flags & IFF_LOOPBACK;
+
+      // Get IPv4 details
+      if (ifa->ifa_addr->sa_family == AF_INET) {
+        Array<char, NI_MAXHOST> host = {};
+        if (getnameinfo(ifa->ifa_addr, sizeof(sockaddr_in), host.data(), host.size(), nullptr, 0, NI_NUMERICHOST) == 0)
+          interface.ipv4Address = String(host.data());
+      }
+      // Get IPv6 details
+      else if (ifa->ifa_addr->sa_family == AF_INET6) {
+        Array<char, NI_MAXHOST> host = {};
+        if (getnameinfo(ifa->ifa_addr, sizeof(sockaddr_in6), host.data(), host.size(), nullptr, 0, NI_NUMERICHOST) == 0)
+          interface.ipv6Address = String(host.data());
+      }
+      // Get MAC address (AF_PACKET on Linux)
+      else if (ifa->ifa_addr->sa_family == AF_PACKET) {
+        auto* sll = reinterpret_cast<sockaddr_ll*>(ifa->ifa_addr);
+
+        if (sll && sll->sll_halen == 6) {
+          interface.macAddress = std::format(
+            "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+            sll->sll_addr[0],
+            sll->sll_addr[1],
+            sll->sll_addr[2],
+            sll->sll_addr[3],
+            sll->sll_addr[4],
+            sll->sll_addr[5]
+          );
+        }
+      }
+    }
+
+    // Convert the map to a vector
+    Vec<NetworkInterface> interfaces;
+    interfaces.reserve(interfaceMap.size());
+
+    for (const auto& pair : interfaceMap)
+      interfaces.push_back(pair.second);
+
+    if (interfaces.empty())
+      return Err(DracError(NotFound, "No network interfaces found"));
+
+    return interfaces;
+    // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
   }
 
   fn GetPrimaryNetworkInterface() -> Result<NetworkInterface> {
-    return NetworkInterface();
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) - This requires a lot of casts and there's no good way to avoid them.
+    // First, try to find the default route to determine the primary interface
+    String primaryInterfaceName;
+
+    // Read the routing table from /proc/net/route
+    std::ifstream routeFile("/proc/net/route");
+    if (routeFile.is_open()) {
+      String line;
+      // Skip header line
+      std::getline(routeFile, line);
+
+      while (std::getline(routeFile, line)) {
+        std::istringstream iss(line);
+        String             iface, dest, gateway, flags, refcnt, use, metric, mask, mtu, window, irtt;
+
+        if (iss >> iface >> dest >> gateway >> flags >> refcnt >> use >> metric >> mask >> mtu >> window >> irtt) {
+          // Check if this is the default route (destination is 00000000)
+          if (dest == "00000000") {
+            primaryInterfaceName = iface;
+            break;
+          }
+        }
+      }
+    }
+
+    // If we couldn't find the primary interface from routing table, try to find the first non-loopback interface
+    if (primaryInterfaceName.empty()) {
+      ifaddrs* ifaddrList = nullptr;
+      if (getifaddrs(&ifaddrList) == -1)
+        return Err(DracError(InternalError, "getifaddrs failed"));
+
+      UniquePointer<ifaddrs, decltype(&freeifaddrs)> ifaddrsDeleter(ifaddrList, &freeifaddrs);
+
+      for (ifaddrs* ifa = ifaddrList; ifa != nullptr; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr == nullptr)
+          continue;
+
+        const String interfaceName = String(ifa->ifa_name);
+        const bool   isUp          = ifa->ifa_flags & IFF_UP;
+        const bool   isLoopback    = ifa->ifa_flags & IFF_LOOPBACK;
+
+        // Find the first non-loopback interface that is up
+        if (isUp && !isLoopback) {
+          primaryInterfaceName = interfaceName;
+          break;
+        }
+      }
+    }
+
+    if (primaryInterfaceName.empty())
+      return Err(DracError(NotFound, "Could not determine primary interface name"));
+
+    // Now get the detailed information for the primary interface
+    ifaddrs* ifaddrList = nullptr;
+    if (getifaddrs(&ifaddrList) == -1)
+      return Err(DracError(InternalError, "getifaddrs failed"));
+
+    UniquePointer<ifaddrs, decltype(&freeifaddrs)> ifaddrsDeleter(ifaddrList, &freeifaddrs);
+
+    NetworkInterface primaryInterface;
+    primaryInterface.name = primaryInterfaceName;
+    bool foundDetails     = false;
+
+    for (ifaddrs* ifa = ifaddrList; ifa != nullptr; ifa = ifa->ifa_next) {
+      // Skip any entries that don't match our primary interface name
+      if (ifa->ifa_addr == nullptr || primaryInterfaceName != ifa->ifa_name)
+        continue;
+
+      foundDetails = true;
+
+      // Set flags
+      primaryInterface.isUp       = ifa->ifa_flags & IFF_UP;
+      primaryInterface.isLoopback = ifa->ifa_flags & IFF_LOOPBACK;
+
+      // Get IPv4 details
+      if (ifa->ifa_addr->sa_family == AF_INET) {
+        Array<char, NI_MAXHOST> host = {};
+        if (getnameinfo(ifa->ifa_addr, sizeof(sockaddr_in), host.data(), host.size(), nullptr, 0, NI_NUMERICHOST) == 0)
+          primaryInterface.ipv4Address = String(host.data());
+      }
+      // Get IPv6 details
+      else if (ifa->ifa_addr->sa_family == AF_INET6) {
+        Array<char, NI_MAXHOST> host = {};
+        if (getnameinfo(ifa->ifa_addr, sizeof(sockaddr_in6), host.data(), host.size(), nullptr, 0, NI_NUMERICHOST) == 0)
+          primaryInterface.ipv6Address = String(host.data());
+      }
+      // Get MAC address (AF_PACKET on Linux)
+      else if (ifa->ifa_addr->sa_family == AF_PACKET) {
+        auto* sll = reinterpret_cast<sockaddr_ll*>(ifa->ifa_addr);
+
+        if (sll && sll->sll_halen == 6) {
+          primaryInterface.macAddress = std::format(
+            "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+            sll->sll_addr[0],
+            sll->sll_addr[1],
+            sll->sll_addr[2],
+            sll->sll_addr[3],
+            sll->sll_addr[4],
+            sll->sll_addr[5]
+          );
+        }
+      }
+    }
+
+    if (!foundDetails)
+      return Err(DracError(NotFound, "Found primary interface name, but could not find its details via getifaddrs"));
+
+    return primaryInterface;
+    // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
   }
 
   fn GetBatteryInfo() -> Result<Battery> {
-    return Battery();
+    using matchit::match, matchit::is, matchit::_;
+    using enum Battery::Status;
+
+    PCStr powerSupplyPath = "/sys/class/power_supply";
+
+    if (!fs::exists(powerSupplyPath))
+      return Err(DracError(NotFound, "Power supply directory not found"));
+
+    // Find the first battery device
+    fs::path batteryPath;
+    for (const fs::directory_entry& entry : fs::directory_iterator(powerSupplyPath))
+      if (Result<String> typeResult = ReadSysFile(entry.path() / "type");
+          typeResult && *typeResult == "Battery") {
+        batteryPath = entry.path();
+        break;
+      }
+
+    if (batteryPath.empty())
+      return Err(DracError(NotFound, "No battery found in power supply directory"));
+
+    // Read battery percentage
+    Option<u8> percentage =
+      ReadSysFile(batteryPath / "capacity")
+        .transform([](const String& capacityStr) -> Option<u8> {
+          return try_parse<u8>(capacityStr);
+        })
+        .value_or(None);
+
+    // Read battery status
+    Battery::Status status =
+      ReadSysFile(batteryPath / "status")
+        .transform([percentage](const String& statusStr) -> Battery::Status {
+          return match(statusStr)(
+            is | "Charging"     = Charging,
+            is | "Discharging"  = Discharging,
+            is | "Full"         = Full,
+            is | "Not charging" = (percentage && *percentage == 100 ? Full : Discharging),
+            is | _              = Unknown
+          );
+        })
+        .value_or(Unknown);
+
+    if (status != Charging && status != Discharging)
+      return Battery(status, percentage, None);
+
+    return Battery(
+      status,
+      percentage,
+      ReadSysFile(
+        batteryPath / std::format("/time_to_{}now", status == Discharging ? "empty" : "full")
+      )
+        .transform([](const String& timeStr) -> Option<std::chrono::seconds> {
+          if (Option<i32> timeMinutes = try_parse<i32>(timeStr); timeMinutes && *timeMinutes > 0)
+            return std::chrono::minutes(*timeMinutes);
+
+          return None;
+        })
+        .value_or(None)
+    );
   }
 } // namespace draconis::core::system
 
