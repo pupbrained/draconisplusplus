@@ -134,6 +134,7 @@ namespace draconis::config {
      */
     static fn fromToml(const toml::table& tbl) -> Weather {
       using draconis::utils::types::String;
+      using namespace draconis::services::weather;
 
       using matchit::match, matchit::is, matchit::_;
 
@@ -155,8 +156,8 @@ namespace draconis::config {
       String unitsStr      = tbl["units"].value_or("metric");
 
       match(unitsStr)(
-        is | "metric"   = [&]() { weather.units = weather::Unit::METRIC; },
-        is | "imperial" = [&]() { weather.units = weather::Unit::IMPERIAL; },
+        is | "metric"   = [&]() { weather.units = Unit::METRIC; },
+        is | "imperial" = [&]() { weather.units = Unit::IMPERIAL; },
         is | _          = [&]() { SET_ERROR("Invalid units: '{}'. Accepted values are 'metric' and 'imperial'.", unitsStr); }
       );
 
@@ -169,7 +170,7 @@ namespace draconis::config {
         match(locationNode)(
           is | app([](const toml::node_view<const toml::node>& node) { return node.is_string(); }, true) = [&]() { weather.location = *locationNode.value<String>(); },
           is | app([](const toml::node_view<const toml::node>& node) { return node.is_table(); }, true)  = [&]() {
-            weather.location = weather::Coords {
+            weather.location = Coords {
               .lat = *locationNode.as_table()->get("lat")->value<double>(),
               .lon = *locationNode.as_table()->get("lon")->value<double>(),
             };
@@ -184,22 +185,22 @@ namespace draconis::config {
         // clang-format off
         match(provider)(
           is | "openmeteo" = [&]() {
-            if (std::holds_alternative<weather::Coords>(weather.location)) {
-              const auto& coords = std::get<weather::Coords>(weather.location);
-              weather.service = CreateWeatherService(weather::Provider::OPENMETEO, coords, weather.units);
+            if (std::holds_alternative<Coords>(weather.location)) {
+              const auto& coords = std::get<Coords>(weather.location);
+              weather.service = CreateWeatherService(Provider::OPENMETEO, coords, weather.units);
             } else
               SET_ERROR("OpenMeteo requires coordinates (lat, lon) for location.");
           },
           is | "metno" = [&]() {
-            if (std::holds_alternative<weather::Coords>(weather.location)) {
-              const auto& coords = std::get<weather::Coords>(weather.location);
-              weather.service = CreateWeatherService(weather::Provider::METNO, coords, weather.units);
+            if (std::holds_alternative<Coords>(weather.location)) {
+              const auto& coords = std::get<Coords>(weather.location);
+              weather.service = CreateWeatherService(Provider::METNO, coords, weather.units);
             } else
               SET_ERROR("MetNo requires coordinates (lat, lon) for location.");
           },
           is | "openweathermap" = [&]() {
             if (weather.apiKey)
-              weather.service = CreateWeatherService(weather::Provider::OPENWEATHERMAP, weather.location, *weather.apiKey, weather.units);
+              weather.service = CreateWeatherService(Provider::OPENWEATHERMAP, weather.location,  weather.units, weather.apiKey);
             else
               SET_ERROR("OpenWeatherMap requires an API key.");
           },

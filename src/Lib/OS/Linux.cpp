@@ -390,6 +390,7 @@ namespace {
     const ReplyGuard<xcb_randr_get_output_primary_reply_t> primaryOutputReply(
       xcb_randr_get_output_primary_reply(conn.get(), xcb_randr_get_output_primary(conn.get(), screen->root), nullptr)
     );
+
     const xcb_randr_output_t primaryOutput = primaryOutputReply ? primaryOutputReply->output : XCB_NONE;
 
     if (primaryOutput == XCB_NONE)
@@ -447,121 +448,100 @@ namespace {
   #endif
 
   #ifdef HAVE_WAYLAND
-  // Wayland display detection implementation
-  struct WaylandDisplayData {
-    Vec<Display> displays;
-    Option<i32>  primaryIndex;
+  struct WaylandCallbackData {
+    struct Inner {
+      u32 id;
+      u32 width;
+      u32 height;
+      u32 refreshRate;
+    };
 
-    // Callbacks will populate this structure
-    WaylandDisplayData() : primaryIndex(None) {}
+    Vec<Inner> outputs;
   };
 
-  // Callback for Wayland output registry events
-  void wayland_registry_handle_global(void* data, struct wl_registry* registry, uint32_t id, const char* interface, uint32_t version) {
-    auto* displayData = static_cast<WaylandDisplayData*>(data);
+  void wayland_output_mode(void* data, wl_output* /*output*/, u32 flags, i32 width, i32 height, i32 refresh) {
+    if (!(flags & WL_OUTPUT_MODE_CURRENT))
+      return;
 
-    if (std::strcmp(interface, "wl_output") == 0) {
-      struct wl_output* output = static_cast<struct wl_output*>(
-        wl_registry_bind(registry, id, &wl_output_interface, std::min(version, 2u))
-      );
+    auto* callbackData = static_cast<WaylandCallbackData*>(data);
 
-      if (output) {
-        // Add a new display with the ID; other properties will be set in other callbacks
-        Display display(id, Display::Resolution { 0, 0 }, 0, false);
-        displayData->displays.push_back(std::move(display));
+    if (!callbackData->outputs.empty()) {
+      WaylandCallbackData::Inner& currentOutput = callbackData->outputs.back();
 
-        // If this is the first display, mark it as primary for now
-        if (displayData->displays.size() == 1 && !displayData->primaryIndex)
-          displayData->primaryIndex = 0;
-      }
+      currentOutput.width       = width > 0 ? width : 0;
+      currentOutput.height      = height > 0 ? height : 0;
+      currentOutput.refreshRate = refresh > 0 ? refresh : 0;
     }
   }
 
-  // Callback for when an output is removed
-  void wayland_registry_handle_global_remove(void* data, struct wl_registry* registry, uint32_t id) {
-    auto* displayData = static_cast<WaylandDisplayData*>(data);
+  void wayland_output_geometry(void* /*data*/, wl_output* /*output*/, i32 /*x*/, i32 /*y*/, i32 /*physical_width*/, i32 /*physical_height*/, i32 /*subpixel*/, const char* /*make*/, const char* /*model*/, i32 /*transform*/) {}
+  void wayland_output_done(void* /*data*/, wl_output* /*output*/) {}
+  void wayland_output_scale(void* /*data*/, wl_output* /*output*/, i32 /*factor*/) {}
 
-    // Find and remove the display with this ID
-    for (size_t i = 0; i < displayData->displays.size(); i++) {
-      if (displayData->displays[i].id == id) {
-        bool wasPrimary = displayData->displays[i].isPrimary;
+  void wayland_registry_handler(void* data, wl_registry* registry, u32 objectId, const char* interface, u32 version) {
+    if (std::strcmp(interface, "wl_output") != 0)
+      return;
 
-        displayData->displays.erase(displayData->displays.begin() + i);
+    auto* callbackData = static_cast<WaylandCallbackData*>(data);
 
-        // If the primary display was removed and we have other displays, make the first one primary
-        if (wasPrimary && !displayData->displays.empty())
-          displayData->displays[0].isPrimary = true;
+    wl_output* output = static_cast<wl_output*>(wl_registry_bind(registry, objectId, &wl_output_interface, std::min(version, 2U)));
 
-        // Update primary index if needed
-        if (displayData->primaryIndex && *displayData->primaryIndex >= static_cast<i32>(displayData->displays.size()))
-          displayData->primaryIndex = displayData->displays.empty() ? None : Option<i32>(0);
+    if (!output)
+      return;
 
-        break;
-      }
-    }
+    const static wl_output_listener OUTPUT_LISTENER = {
+      .geometry    = wayland_output_geometry,
+      .mode        = wayland_output_mode,
+      .done        = wayland_output_done,
+      .scale       = wayland_output_scale,
+      .name        = nullptr,
+      .description = nullptr
+    };
+
+    callbackData->outputs.push_back({ objectId, 0, 0, 0 });
+    wl_output_add_listener(output, &OUTPUT_LISTENER, data);
   }
 
-  // Output mode callback
-  void wayland_output_handle_mode(void* data, struct wl_output* output, uint32_t flags, int32_t width, int32_t height, int32_t refresh) {
-    auto* displayData = static_cast<WaylandDisplayData*>(data);
-
-    if (flags & WL_OUTPUT_MODE_CURRENT) {
-      // Find the display for this output
-      for (auto& display : displayData->displays) {
-        // In a real implementation, we'd need to map output pointers to display IDs
-        // This is simplified for illustration
-
-        if (display.resolution.width == 0 && display.resolution.height == 0) {
-          display.resolution.width  = width;
-          display.resolution.height = height;
-          display.refreshRate       = static_cast<u16>(refresh / 1000); // Convert mHz to Hz
-          break;
-        }
-      }
-    }
-  }
+  void wayland_registry_removal(void* /*data*/, wl_registry* /*registry*/, u32 /*id*/) {}
 
   fn GetWaylandDisplays() -> Result<Vec<Display>> {
     const Wayland::DisplayGuard display;
-
     if (!display)
-      return Err(DracError(NotFound, "Failed to connect to Wayland display"));
-
-    WaylandDisplayData displayData;
+      return Err(DracError(ApiUnavailable, "Failed to connect to Wayland display"));
 
     wl_registry* registry = wl_display_get_registry(display.get());
+
     if (!registry)
       return Err(DracError(ApiUnavailable, "Failed to get Wayland registry"));
 
-    // Set up registry listener
-    const struct wl_registry_listener registryListener = {
-      .global        = wayland_registry_handle_global,
-      .global_remove = wayland_registry_handle_global_remove
+    WaylandCallbackData callbackData;
+
+    const static wl_registry_listener REGISTRY_LISTENER = {
+      .global        = wayland_registry_handler,
+      .global_remove = wayland_registry_removal,
     };
 
-    wl_registry_add_listener(registry, &registryListener, &displayData);
+    if (wl_registry_add_listener(registry, &REGISTRY_LISTENER, &callbackData) < 0)
+      return Err(DracError(ApiUnavailable, "Failed to add registry listener"));
 
-    // Synchronize to ensure we get all registry objects
+    wl_display_roundtrip(display.get());
     wl_display_roundtrip(display.get());
 
-    // Set up output listeners for each output
-    const struct wl_output_listener outputListener = {
-      .geometry = [](void*, wl_output*, int32_t, int32_t, int32_t, int32_t, int32_t, const char*, const char*, int32_t) {},
-      .mode     = wayland_output_handle_mode,
-      .done     = [](void*, wl_output*) {},
-      .scale    = [](void*, wl_output*, int32_t) {}
-    };
+    Vec<Display> displays;
 
-    // Add output listeners
-    // This would need proper output tracking in a real implementation
+    for (const WaylandCallbackData::Inner& output : callbackData.outputs)
+      if (output.width > 0 && output.height > 0)
+        displays.emplace_back(
+          output.id,
+          Display::Resolution { .width = static_cast<u16>(output.width), .height = static_cast<u16>(output.height) },
+          output.refreshRate / 1000,
+          displays.empty()
+        );
 
-    // Process events to get output information
-    wl_display_roundtrip(display.get());
-
-    if (displayData.displays.empty())
+    if (displays.empty())
       return Err(DracError(NotFound, "No Wayland displays detected"));
 
-    return displayData.displays;
+    return displays;
   }
 
   fn GetWaylandPrimaryDisplay() -> Result<Display> {
@@ -570,16 +550,85 @@ namespace {
     if (!displays)
       return Err(displays.error());
 
-    // Find the primary display
-    for (const auto& display : *displays)
+    for (const Display& display : *displays)
       if (display.isPrimary)
         return display;
 
-    // If no display is marked as primary, return the first one
     if (!displays->empty())
       return displays->front();
 
     return Err(DracError(NotFound, "No primary Wayland display found"));
+  }
+
+  fn GetWaylandCompositor() -> Result<String> {
+    const Wayland::DisplayGuard display;
+
+    if (!display)
+      return Err(DracError(NotFound, "Failed to connect to display (is Wayland running?)"));
+
+    const i32 fileDescriptor = display.fd();
+    if (fileDescriptor < 0)
+      return Err(DracError(ApiUnavailable, "Failed to get Wayland file descriptor"));
+
+    ucred     cred {};
+    socklen_t len = sizeof(cred);
+
+    if (getsockopt(fileDescriptor, SOL_SOCKET, SO_PEERCRED, &cred, &len) == -1)
+      return Err(DracError("Failed to get socket credentials (SO_PEERCRED)"));
+
+    Array<char, 128> exeLinkPathBuf {};
+
+    auto [out, size] = std::format_to_n(exeLinkPathBuf.data(), exeLinkPathBuf.size() - 1, "/proc/{}/exe", cred.pid);
+
+    if (out >= exeLinkPathBuf.data() + exeLinkPathBuf.size() - 1)
+      return Err(DracError(InternalError, "Failed to format /proc path (PID too large?)"));
+
+    *out = '\0';
+
+    const char* exeLinkPath = exeLinkPathBuf.data();
+
+    Array<char, PATH_MAX> exeRealPathBuf {}; // NOLINT(misc-include-cleaner) - PATH_MAX is in <climits>
+
+    const isize bytesRead = readlink(exeLinkPath, exeRealPathBuf.data(), exeRealPathBuf.size() - 1);
+
+    if (bytesRead == -1)
+      return Err(DracError(std::format("Failed to read link '{}'", exeLinkPath)));
+
+    exeRealPathBuf.at(bytesRead) = '\0';
+
+    StringView compositorNameView;
+
+    const StringView pathView(exeRealPathBuf.data(), bytesRead);
+
+    StringView filenameView;
+
+    if (const usize lastCharPos = pathView.find_last_not_of('/'); lastCharPos != StringView::npos) {
+      const StringView relevantPart = pathView.substr(0, lastCharPos + 1);
+
+      if (const usize separatorPos = relevantPart.find_last_of('/'); separatorPos == StringView::npos)
+        filenameView = relevantPart;
+      else
+        filenameView = relevantPart.substr(separatorPos + 1);
+    }
+
+    if (!filenameView.empty())
+      compositorNameView = filenameView;
+
+    if (compositorNameView.empty() || compositorNameView == "." || compositorNameView == "/")
+      return Err(DracError(NotFound, "Failed to get compositor name from path"));
+
+    if (constexpr StringView wrappedSuffix = "-wrapped"; compositorNameView.length() > 1 + wrappedSuffix.length() &&
+        compositorNameView[0] == '.' && compositorNameView.ends_with(wrappedSuffix)) {
+      const StringView cleanedView =
+        compositorNameView.substr(1, compositorNameView.length() - 1 - wrappedSuffix.length());
+
+      if (cleanedView.empty())
+        return Err(DracError(NotFound, "Compositor name invalid after heuristic"));
+
+      return String(cleanedView);
+    }
+
+    return String(compositorNameView);
   }
   #else
   fn GetWaylandDisplays() -> Result<Vec<Display>> {
@@ -588,6 +637,10 @@ namespace {
 
   fn GetWaylandPrimaryDisplay() -> Result<Display> {
     return Err(DracError(NotSupported, "Wayland display support not available"));
+  }
+
+  fn GetWaylandCompositor() -> Result<String> {
+    return Err(DracError(NotSupported, "Wayland support not available"));
   }
   #endif
 } // namespace
@@ -1048,21 +1101,45 @@ namespace draconis::core::system {
   }
 
   fn GetDisplays() -> Result<Vec<Display>> {
-    if (GetEnv("WAYLAND_DISPLAY"))
-      return GetWaylandDisplays();
+    if (GetEnv("WAYLAND_DISPLAY")) {
+      Result<Vec<Display>> displays = GetWaylandDisplays();
 
-    if (GetEnv("DISPLAY"))
-      return GetX11Displays();
+      if (displays)
+        return displays;
+
+      debug_at(displays.error());
+    }
+
+    if (GetEnv("DISPLAY")) {
+      Result<Vec<Display>> displays = GetX11Displays();
+
+      if (displays)
+        return displays;
+
+      debug_at(displays.error());
+    }
 
     return Err(DracError(NotFound, "No display server detected"));
   }
 
   fn GetPrimaryDisplay() -> Result<Display> {
-    if (GetEnv("WAYLAND_DISPLAY"))
-      return GetWaylandPrimaryDisplay();
+    if (GetEnv("WAYLAND_DISPLAY")) {
+      Result<Display> display = GetWaylandPrimaryDisplay();
 
-    if (GetEnv("DISPLAY"))
-      return GetX11PrimaryDisplay();
+      if (display)
+        return display;
+
+      debug_at(display.error());
+    }
+
+    if (GetEnv("DISPLAY")) {
+      Result<Display> display = GetX11PrimaryDisplay();
+
+      if (display)
+        return display;
+
+      debug_at(display.error());
+    }
 
     return Err(DracError(NotFound, "No display server detected"));
   }

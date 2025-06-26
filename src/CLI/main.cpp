@@ -12,7 +12,9 @@
 #endif
 
 #include <Drac++/Services/Packages.hpp>
-#include <Drac++/Services/Weather.hpp>
+#if DRAC_ENABLE_WEATHER
+  #include <Drac++/Services/Weather.hpp>
+#endif
 
 #include <Drac++/Utils/Definitions.hpp>
 #include <Drac++/Utils/Error.hpp>
@@ -31,7 +33,9 @@ using namespace draconis::ui;
 using draconis::utils::error::DracError;
 using enum draconis::utils::error::DracErrorCode;
 
+#if DRAC_ENABLE_WEATHER
 using draconis::services::weather::Report;
+#endif
 
 namespace {
 #if DRAC_ENABLE_WEATHER
@@ -237,7 +241,18 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
       debug_at(data.primaryDisplay.error());
     }
 
-    Result<Report> weatherReport = config.weather.service->getWeatherInfo();
+#if DRAC_ENABLE_WEATHER
+    Result<Report> weatherReport;
+
+    if (config.weather.enabled && config.weather.service == nullptr) {
+      weatherReport = Err(DracError(Other, "Weather service is not configured"));
+    } else if (config.weather.enabled) {
+      weatherReport = config.weather.service->getWeatherInfo();
+    } else {
+      debug_log("Weather is disabled");
+      weatherReport = Err(DracError(ApiUnavailable, "Weather is disabled"));
+    }
+#endif
 
     if (doctorMode) {
 #if DRAC_ENABLE_WEATHER
@@ -250,12 +265,18 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
 
     Element document;
 
+#if DRAC_ENABLE_WEATHER
     if (weatherReport) {
       document = CreateUI(config, data, *weatherReport);
     } else {
-      error_at(weatherReport.error());
+      if (weatherReport.error().code != ApiUnavailable)
+        error_at(weatherReport.error());
+
       document = CreateUI(config, data, None);
     }
+#else
+    document = CreateUI(config, data, None);
+#endif
 
     Screen screen = Screen::Create(Full(), Fit(document));
     Render(screen, document);

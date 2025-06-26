@@ -186,7 +186,7 @@ namespace argparse {
       using draconis::utils::types::String, draconis::utils::types::StringView, draconis::utils::types::usize;
 
       if constexpr (std::is_same_v<T, bool>)
-        return val ? "true" : "false";
+        return val ? String("true") : String("false");
       else if constexpr (std::is_convertible_v<T, StringView>)
         return std::format("\"{}\"", String { StringView { val } });
       else if constexpr (IsContainer<T>) {
@@ -996,6 +996,8 @@ namespace argparse {
 
       if constexpr (std::is_convertible_v<T, StringView>)
         m_default_value_str = String { StringView { value } };
+      else if constexpr (std::is_same_v<T, bool>)
+        m_default_value_str = value ? "true" : "false";
       else if constexpr (details::can_invoke_to_string<T>::value)
         m_default_value_str = std::to_string(value);
 
@@ -1057,48 +1059,50 @@ namespace argparse {
      */
     template <class F, class... Args>
     fn action(F&& callable, Args&&... bound_args)
-      -> Argument& requires(std::is_invocable_v<F, Args..., const draconis::utils::types::String>) {
-        using draconis::utils::types::String, draconis::utils::types::Result;
+      -> Argument&
+      requires(std::is_invocable_v<F, Args..., const draconis::utils::types::String>)
+    {
+      using draconis::utils::types::String, draconis::utils::types::Result;
 
-        using RawReturnType = std::invoke_result_t<F, Args..., const draconis::utils::types::String>;
+      using RawReturnType = std::invoke_result_t<F, Args..., const draconis::utils::types::String>;
 
-        if constexpr (std::is_void_v<RawReturnType>) {
-          m_actions.emplace_back<void_action>(
-            [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<> {
-              details::apply_plus_one(f, tup, opt);
-              return {};
-            }
-          );
-        } else if constexpr (argparse::details::is_specialization_v<RawReturnType, Result> && std::is_void_v<typename RawReturnType::value_type>) {
-          m_actions.emplace_back<void_action>(
-            [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<> {
-              return details::apply_plus_one(f, tup, opt);
-            }
-          );
-        } else if constexpr (argparse::details::is_specialization_v<RawReturnType, Result>) {
-          m_actions.emplace_back<valued_action>(
-            [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<ArgValue> {
-              RawReturnType result = details::apply_plus_one(f, tup, opt);
-              if (result) {
-                if constexpr (!std::is_void_v<typename RawReturnType::value_type>) {
-                  return result.value();
-                } else {
-                  return ArgValue {};
-                }
+      if constexpr (std::is_void_v<RawReturnType>) {
+        m_actions.emplace_back<void_action>(
+          [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<> {
+            details::apply_plus_one(f, tup, opt);
+            return {};
+          }
+        );
+      } else if constexpr (argparse::details::is_specialization_v<RawReturnType, Result> && std::is_void_v<typename RawReturnType::value_type>) {
+        m_actions.emplace_back<void_action>(
+          [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<> {
+            return details::apply_plus_one(f, tup, opt);
+          }
+        );
+      } else if constexpr (argparse::details::is_specialization_v<RawReturnType, Result>) {
+        m_actions.emplace_back<valued_action>(
+          [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<ArgValue> {
+            RawReturnType result = details::apply_plus_one(f, tup, opt);
+            if (result) {
+              if constexpr (!std::is_void_v<typename RawReturnType::value_type>) {
+                return result.value();
               } else {
-                return Err(result.error());
+                return ArgValue {};
               }
+            } else {
+              return Err(result.error());
             }
-          );
-        } else {
-          m_actions.emplace_back<valued_action>(
-            [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<ArgValue> {
-              return details::apply_plus_one(f, tup, opt);
-            }
-          );
-        }
-        return *this;
+          }
+        );
+      } else {
+        m_actions.emplace_back<valued_action>(
+          [f = std::forward<F>(callable), tup = std::make_tuple(std::forward<Args>(bound_args)...)](const String& opt) mutable -> Result<ArgValue> {
+            return details::apply_plus_one(f, tup, opt);
+          }
+        );
       }
+      return *this;
+    }
 
     /**
      * @brief Store the argument value into a boolean variable
@@ -1107,7 +1111,7 @@ namespace argparse {
      * @details If no default or implicit value is set, configures the argument as a flag
      */
     fn store_into(bool& variable)
-      ->Argument& {
+      -> Argument& {
       using draconis::utils::types::String, draconis::utils::types::Result;
 
       if ((!m_default_value.has_value()) && (!m_implicit_value.has_value()))
@@ -1131,7 +1135,9 @@ namespace argparse {
      * @return Reference to this argument for method chaining
      */
     template <typename T>
-    fn store_into(T& variable) -> Argument& requires(std::is_integral_v<T>) {
+    fn store_into(T& variable) -> Argument&
+      requires(std::is_integral_v<T>)
+    {
       using draconis::utils::error::DracError, draconis::utils::error::DracErrorCode;
       using draconis::utils::types::Err, draconis::utils::types::Result;
 
@@ -1158,7 +1164,9 @@ namespace argparse {
      * @return Reference to this argument for method chaining
      */
     template <typename T>
-    fn store_into(T& variable)->Argument& requires(std::is_floating_point_v<T>) {
+    fn store_into(T& variable) -> Argument&
+      requires(std::is_floating_point_v<T>)
+    {
       using draconis::utils::error::DracError, draconis::utils::error::DracErrorCode;
       using draconis::utils::types::Err, draconis::utils::types::Result;
 
@@ -1184,7 +1192,7 @@ namespace argparse {
      * @return Reference to this argument for method chaining
      */
     fn store_into(draconis::utils::types::String& variable)
-      ->Argument& {
+      -> Argument& {
       using draconis::utils::types::String, draconis::utils::types::Result;
 
       if (m_default_value.has_value())
@@ -1361,7 +1369,9 @@ namespace argparse {
      *          - 'g'/'G': General format
      */
     template <char Shape, typename T>
-    fn scan() -> Argument& requires(std::is_arithmetic_v<T>) {
+    fn scan() -> Argument&
+      requires(std::is_arithmetic_v<T>)
+    {
       using draconis::utils::error::DracError;
       using draconis::utils::types::Err, draconis::utils::types::Result, draconis::utils::types::String;
 
@@ -1453,7 +1463,7 @@ namespace argparse {
      * @return Reference to this argument for method chaining
      */
     fn nargs(const draconis::utils::types::usize num_args)
-      ->Argument& {
+      -> Argument& {
       m_num_args_range = NArgsRange { num_args, num_args };
       return *this;
     }

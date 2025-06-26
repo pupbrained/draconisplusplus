@@ -22,8 +22,8 @@ namespace fs = std::filesystem;
 #endif
 
 #if !DRAC_PRECOMPILED_CONFIG
-using namespace drac::types;
-using drac::env::GetEnv;
+using namespace draconis::utils::types;
+using draconis::utils::env::GetEnv;
 
 namespace {
   fn GetConfigPath() -> fs::path {
@@ -80,7 +80,7 @@ namespace {
         return false;
       }
 
-      const String defaultName   = General::getDefaultName();
+      const String defaultName   = draconis::config::General::getDefaultName();
       String       configContent = std::format(R"toml(# Draconis++ Configuration File
 
 # General settings
@@ -132,20 +132,6 @@ location = "London"    # Your city name
   }
 } // namespace
 
-Config::Config(const toml::table& tbl) {
-  const toml::node_view genTbl = tbl["general"];
-  this->general                = genTbl.is_table() ? General::fromToml(*genTbl.as_table()) : General {};
-
-  #if DRAC_ENABLE_NOWPLAYING
-  const toml::node_view npTbl = tbl["now_playing"];
-  this->nowPlaying            = npTbl.is_table() ? NowPlaying::fromToml(*npTbl.as_table()) : NowPlaying {};
-  #endif
-
-  #if DRAC_ENABLE_WEATHER
-  const toml::node_view wthTbl = tbl["weather"];
-  this->weather                = wthTbl.is_table() ? Weather::fromToml(*wthTbl.as_table()) : Weather {};
-  #endif
-}
 #endif // !DRAC_PRECOMPILED_CONFIG
 
 namespace draconis::config {
@@ -254,4 +240,21 @@ namespace draconis::config {
     }
 #endif // DRAC_PRECOMPILED_CONFIG
   }
+
+#if !DRAC_PRECOMPILED_CONFIG
+  Config::Config(const toml::table& tbl) {
+    const toml::node_view genTbl = tbl["general"];
+    this->general                = genTbl.is_table() ? General::fromToml(*genTbl.as_table()) : General {};
+
+  #if DRAC_ENABLE_NOWPLAYING
+    const toml::node_view npTbl = tbl["now_playing"];
+    this->nowPlaying            = npTbl.is_table() ? NowPlaying::fromToml(*npTbl.as_table()) : NowPlaying {};
+  #endif
+
+  #if DRAC_ENABLE_WEATHER
+    const toml::node_view wthTbl = tbl["weather"];
+    this->weather                = wthTbl.is_table() ? Weather::fromToml(*wthTbl.as_table()) : Weather {};
+  #endif
+  }
+#endif
 } // namespace draconis::config

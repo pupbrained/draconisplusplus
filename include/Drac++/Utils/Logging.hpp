@@ -24,9 +24,9 @@
 namespace draconis::utils::logging {
   namespace {
     using types::Array;
-    using types::PCStr;
     using types::LockGuard;
     using types::Mutex;
+    using types::PCStr;
     using types::String;
     using types::StringView;
     using types::u64;
@@ -103,7 +103,7 @@ namespace draconis::utils::logging {
    * @return Styled string with ANSI codes
    */
   inline fn Colorize(const StringView text, const ftxui::Color::Palette16& color) -> String {
-    return std::format("{}{}{}", LogLevelConst::COLOR_CODE_LITERALS.at(color), text, LogLevelConst::RESET_CODE);
+    return std::format("{}{}{}", LogLevelConst::COLOR_CODE_LITERALS.at(static_cast<usize>(color)), text, LogLevelConst::RESET_CODE);
   }
 
   /**
