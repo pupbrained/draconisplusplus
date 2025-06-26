@@ -140,6 +140,10 @@ namespace draconis::core::system {
   }
 
   fn GetWindowManager() -> Result<String> {
+    const String cacheKey = "macos_wm";
+    if (const Result<String> cachedWM = GetValidCache<String>(cacheKey))
+      return *cachedWM;
+
     constexpr Array<StringView, 5> knownWms = {
       "Yabai",
       "ChunkWM",
@@ -179,13 +183,22 @@ namespace draconis::core::system {
         if (std::ranges::equal(StringView(procInfo.kp_proc.p_comm), wmName, [](char chrA, char chrB) {
               return std::tolower(static_cast<unsigned char>(chrA)) == std::tolower(static_cast<unsigned char>(chrB));
             })) {
+          if (const Result writeResult = WriteCache(cacheKey, String(wmName)); !writeResult)
+            debug_at(writeResult.error());
           return String(wmName);
         }
+
+    if (const Result writeResult = WriteCache(cacheKey, "Quartz"); !writeResult)
+      debug_at(writeResult.error());
 
     return "Quartz";
   }
 
   fn GetKernelVersion() -> Result<String> {
+    const String cacheKey = "macos_kernel";
+    if (const Result<String> cachedKernel = GetValidCache<String>(cacheKey))
+      return *cachedKernel;
+
     Array<char, 256> kernelVersion {};
 
     usize kernelVersionLen = kernelVersion.size();
@@ -193,10 +206,19 @@ namespace draconis::core::system {
     if (sysctlbyname("kern.osrelease", kernelVersion.data(), &kernelVersionLen, nullptr, 0) == -1)
       return Err(DracError("Failed to get kernel version"));
 
-    return String(kernelVersion.data());
+    const String kernel = String(kernelVersion.data());
+
+    if (const Result writeResult = WriteCache(cacheKey, kernel); !writeResult)
+      debug_at(writeResult.error());
+
+    return kernel;
   }
 
   fn GetHost() -> Result<String> {
+    const String cacheKey = "macos_host";
+    if (const Result<String> cachedHost = GetValidCache<String>(cacheKey))
+      return *cachedHost;
+
     Array<char, 256> hwModel {};
 
     usize hwModelLen = hwModel.size();
@@ -359,10 +381,19 @@ namespace draconis::core::system {
     if (iter == MODEL_NAME_BY_HW_MODEL.end())
       return Err(DracError("Failed to get host info"));
 
-    return String(iter->second);
+    const String host = String(iter->second);
+
+    if (const Result writeResult = WriteCache(cacheKey, host); !writeResult)
+      debug_at(writeResult.error());
+
+    return host;
   }
 
   fn GetCPUModel() -> Result<String> {
+    const String cacheKey = "macos_cpu_model";
+    if (const Result<String> cachedCPUModel = GetValidCache<String>(cacheKey))
+      return *cachedCPUModel;
+
     Array<char, 256> cpuModel {};
 
     usize cpuModelLen = cpuModel.size();
@@ -370,10 +401,19 @@ namespace draconis::core::system {
     if (sysctlbyname("machdep.cpu.brand_string", cpuModel.data(), &cpuModelLen, nullptr, 0) == -1)
       return Err(DracError("Failed to get CPU model"));
 
-    return String(cpuModel.data());
+    const String model = String(cpuModel.data());
+
+    if (const Result writeResult = WriteCache(cacheKey, model); !writeResult)
+      debug_at(writeResult.error());
+
+    return model;
   }
 
   fn GetCPUCores() -> Result<CPUCores> {
+    const String cacheKey = "macos_cpu_cores";
+    if (const Result<CPUCores> cachedCores = GetValidCache<CPUCores>(cacheKey))
+      return *cachedCores;
+
     u32   physicalCores = 0;
     u32   logicalCores  = 0;
     usize size          = sizeof(u32);
@@ -389,7 +429,12 @@ namespace draconis::core::system {
     debug_log("Physical cores: {}", physicalCores);
     debug_log("Logical cores: {}", logicalCores);
 
-    return CPUCores(physicalCores, logicalCores);
+    const CPUCores cores(physicalCores, logicalCores);
+
+    if (const Result writeResult = WriteCache(cacheKey, cores); !writeResult)
+      debug_at(writeResult.error());
+
+    return cores;
   }
 
   fn GetGPUModel() -> Result<String> {
@@ -424,6 +469,10 @@ namespace draconis::core::system {
   }
 
   fn GetShell() -> Result<String> {
+    const String cacheKey = "macos_shell";
+    if (const Result<String> cachedShell = GetValidCache<String>(cacheKey))
+      return *cachedShell;
+
     if (const Result<String> shellPath = GetEnv("SHELL")) {
       // clang-format off
       constexpr Array<Pair<StringView, StringView>, 8> shellMap {{
@@ -439,8 +488,14 @@ namespace draconis::core::system {
       // clang-format on
 
       for (const auto& [exe, name] : shellMap)
-        if (shellPath->ends_with(exe))
+        if (shellPath->ends_with(exe)) {
+          if (const Result writeResult = WriteCache(cacheKey, String(name)); !writeResult)
+            debug_at(writeResult.error());
           return String(name);
+        }
+
+      if (const Result writeResult = WriteCache(cacheKey, *shellPath); !writeResult)
+        debug_at(writeResult.error());
 
       return *shellPath;
     }
@@ -495,6 +550,10 @@ namespace draconis::core::system {
   }
 
   fn GetPrimaryNetworkInterface() -> Result<NetworkInterface> {
+    const String cacheKey = "macos_primary_network_interface";
+    if (const Result<NetworkInterface> cachedInterface = GetValidCache<NetworkInterface>(cacheKey))
+      return *cachedInterface;
+
     // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) - This requires a lot of casts and there's no good way to avoid them.
     Array<i32, 6> mib = { CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_FLAGS, RTF_GATEWAY };
     usize         len = 0;
@@ -579,6 +638,9 @@ namespace draconis::core::system {
 
     if (!foundDetails)
       return Err(DracError(NotFound, "Found primary interface name, but could not find its details via getifaddrs."));
+
+    if (const Result writeResult = WriteCache(cacheKey, primaryInterface); !writeResult)
+      debug_at(writeResult.error());
 
     return primaryInterface;
     // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
