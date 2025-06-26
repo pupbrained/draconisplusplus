@@ -48,11 +48,17 @@
   #include "Drac++/Utils/Env.hpp"
   #include "Drac++/Utils/Error.hpp"
   #include "Drac++/Utils/Types.hpp"
+  #include "Drac++/Utils/Caching.hpp"
+  #include "Drac++/Utils/CacheManager.hpp"
+  #include "Drac++/Utils/Caching.hpp"
+  #include "Drac++/Utils/CacheManager.hpp"
 
 namespace {
   using draconis::utils::error::DracError;
   using enum draconis::utils::error::DracErrorCode;
   using namespace draconis::utils::types;
+  using draconis::utils::cache::CacheManager;
+  using draconis::utils::cache::CacheManager;
 
   namespace constants {
     // Registry keys for Windows version information
@@ -482,193 +488,205 @@ namespace draconis::core::system {
   }
   #endif // DRAC_ENABLE_NOWPLAYING
 
-  fn GetOSVersion() -> Result<String> {
-    // Windows is weird about its versioning scheme, and Windows 11 is still
-    // considered Windows 10 in the registry. We have to manually check if
-    // the actual version is Windows 11 by checking the build number.
-    constexpr PWCStr windows10 = L"Windows 10";
-    constexpr PWCStr windows11 = L"Windows 11";
+  fn GetOSVersion(CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("windows_os_version", []() -> Result<String> {
+        // Windows is weird about its versioning scheme, and Windows 11 is still
+        // considered Windows 10 in the registry. We have to manually check if
+        // the actual version is Windows 11 by checking the build number.
+        constexpr PWCStr windows10 = L"Windows 10";
+        constexpr PWCStr windows11 = L"Windows 11";
 
-    constexpr usize windowsLen = std::char_traits<WCStr>::length(windows10);
+        constexpr usize windowsLen = std::char_traits<WCStr>::length(windows10);
 
-    const RegistryCache& registry = RegistryCache::getInstance();
+        const RegistryCache& registry = RegistryCache::getInstance();
 
-    HKEY currentVersionKey = registry.getCurrentVersionKey();
+        HKEY currentVersionKey = registry.getCurrentVersionKey();
 
-    if (!currentVersionKey)
-      return Err(DracError(NotFound, "Failed to open registry key"));
+        if (!currentVersionKey)
+            return Err(DracError(NotFound, "Failed to open registry key"));
 
-    Result<WString> productName = GetRegistryValue(currentVersionKey, PRODUCT_NAME);
+        Result<WString> productName = GetRegistryValue(currentVersionKey, PRODUCT_NAME);
 
-    if (!productName)
-      return Err(productName.error());
+        if (!productName)
+            return Err(productName.error());
 
-    if (productName->empty())
-      return Err(DracError(NotFound, "ProductName not found in registry"));
+        if (productName->empty())
+            return Err(DracError(NotFound, "ProductName not found in registry"));
 
-    // Build 22000+ of Windows are all considered Windows 11, so we can safely replace the product name
-    // if it's currently "Windows 10" and the build number is greater than or equal to 22000.
-    if (const Result<u64> buildNumberOpt = OsVersionCache::getInstance().getBuildNumber())
-      if (const u64 buildNumber = *buildNumberOpt; buildNumber >= 22000)
-        if (const size_t pos = productName->find(windows10); pos != WString::npos) {
-          // Make sure we're not replacing a substring of a larger string. Should never happen,
-          // but if it ever does, we'll just leave the product name unchanged.
-          const bool startBoundary = (pos == 0 || !iswalnum(productName->at(pos - 1)));
-          const bool endBoundary   = (pos + windowsLen == productName->length() || !iswalnum(productName->at(pos + windowsLen)));
+        // Build 22000+ of Windows are all considered Windows 11, so we can safely replace the product name
+        // if it's currently "Windows 10" and the build number is greater than or equal to 22000.
+        if (const Result<u64> buildNumberOpt = OsVersionCache::getInstance().getBuildNumber())
+            if (const u64 buildNumber = *buildNumberOpt; buildNumber >= 22000)
+                if (const size_t pos = productName->find(windows10); pos != WString::npos) {
+                    // Make sure we're not replacing a substring of a larger string. Should never happen,
+                    // but if it ever does, we'll just leave the product name unchanged.
+                    const bool startBoundary = (pos == 0 || !iswalnum(productName->at(pos - 1)));
+                    const bool endBoundary   = (pos + windowsLen == productName->length() || !iswalnum(productName->at(pos + windowsLen)));
 
-          if (startBoundary && endBoundary)
-            productName->replace(pos, windowsLen, windows11);
+                    if (startBoundary && endBoundary)
+                        productName->replace(pos, windowsLen, windows11);
+                }
+
+        // Append the display version if it exists.
+        const Result<WString> displayVersion = GetRegistryValue(currentVersionKey, DISPLAY_VERSION);
+
+        if (!displayVersion)
+            return Err(displayVersion.error());
+
+        const Result<String> productNameUTF8 = ConvertWStringToUTF8(*productName);
+
+        if (!productNameUTF8)
+            return Err(productNameUTF8.error());
+
+        if (displayVersion->empty())
+            return *productNameUTF8;
+
+        const Result<String> displayVersionUTF8 = ConvertWStringToUTF8(*displayVersion);
+
+        if (!displayVersionUTF8)
+            return Err(displayVersionUTF8.error());
+
+        return *productNameUTF8 + " " + *displayVersionUTF8;
+    });
+  }
+
+  fn GetHost(CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("windows_host", []() -> Result<String> {
+        // See the RegistryCache class for how the registry keys are retrieved.
+        const RegistryCache& registry = RegistryCache::getInstance();
+
+        HKEY hardwareConfigKey = registry.getHardwareConfigKey();
+
+        if (!hardwareConfigKey)
+            return Err(DracError(NotFound, "Failed to open registry key"));
+
+        const Result<WString> systemFamily = GetRegistryValue(hardwareConfigKey, SYSTEM_FAMILY);
+
+        if (!systemFamily)
+            return Err(DracError(NotFound, "SystemFamily not found in registry"));
+
+        return ConvertWStringToUTF8(*systemFamily);
+    });
+  }
+
+  fn GetKernelVersion(CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("windows_kernel_version", []() -> Result<String> {
+        // See the OsVersionCache class for how the version data is retrieved.
+        const Result<OsVersionCache::VersionData>& versionDataResult = OsVersionCache::getInstance().getVersionData();
+
+        if (!versionDataResult)
+            return Err(versionDataResult.error());
+
+        const auto& [majorVersion, minorVersion, buildNumber] = *versionDataResult;
+
+        return std::format("{}.{}.{}", majorVersion, minorVersion, buildNumber);
+    });
+  }
+
+  fn GetWindowManager(CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("windows_wm", []() -> Result<String> {
+        if (!cache::ProcessTreeCache::getInstance().initialize())
+            return Err(DracError(PlatformSpecific, "Failed to initialize process tree cache"));
+
+        for (const auto& [parentPid, baseExeNameLower] : cache::ProcessTreeCache::getInstance().getProcessMap() | std::views::values) {
+            const StringView processName = baseExeNameLower;
+
+            if (
+                const auto mapIter =
+                    std::ranges::find_if(windowManagerMap, [&](const Pair<StringView, StringView>& pair) -> bool {
+                        return processName == pair.first;
+                    });
+                mapIter != std::ranges::end(windowManagerMap)
+            )
+                return String(mapIter->second);
         }
 
-    // Append the display version if it exists.
-    const Result<WString> displayVersion = GetRegistryValue(currentVersionKey, DISPLAY_VERSION);
-
-    if (!displayVersion)
-      return Err(displayVersion.error());
-
-    const Result<String> productNameUTF8 = ConvertWStringToUTF8(*productName);
-
-    if (!productNameUTF8)
-      return Err(productNameUTF8.error());
-
-    if (displayVersion->empty())
-      return *productNameUTF8;
-
-    const Result<String> displayVersionUTF8 = ConvertWStringToUTF8(*displayVersion);
-
-    if (!displayVersionUTF8)
-      return Err(displayVersionUTF8.error());
-
-    return *productNameUTF8 + " " + *displayVersionUTF8;
+        return "DWM";
+    });
   }
 
-  fn GetHost() -> Result<String> {
-    // See the RegistryCache class for how the registry keys are retrieved.
-    const RegistryCache& registry = RegistryCache::getInstance();
+  fn GetDesktopEnvironment(CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("windows_desktop_environment", []() -> Result<String> {
+        // Windows doesn't really have the concept of a desktop environment,
+        // so our next best bet is just displaying the UI design based on the build number.
 
-    HKEY hardwareConfigKey = registry.getHardwareConfigKey();
+        const Result<u64> buildResult = OsVersionCache::getInstance().getBuildNumber();
 
-    if (!hardwareConfigKey)
-      return Err(DracError(NotFound, "Failed to open registry key"));
+        if (!buildResult)
+            return Err(buildResult.error());
 
-    const Result<WString> systemFamily = GetRegistryValue(hardwareConfigKey, SYSTEM_FAMILY);
+        const u64 build = *buildResult;
 
-    if (!systemFamily)
-      return Err(DracError(NotFound, "SystemFamily not found in registry"));
+        if (build >= 15063)
+            return "Fluent";
 
-    return ConvertWStringToUTF8(*systemFamily);
+        if (build >= 9200)
+            return "Metro";
+
+        if (build >= 6000)
+            return "Aero";
+
+        return "Classic";
+    });
   }
 
-  fn GetKernelVersion() -> Result<String> {
-    // See the OsVersionCache class for how the version data is retrieved.
-    const Result<OsVersionCache::VersionData>& versionDataResult = OsVersionCache::getInstance().getVersionData();
+  fn GetShell(CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("windows_shell", []() -> Result<String> {
+        using draconis::utils::env::GetEnv;
+        using shell::FindShellInProcessTree;
 
-    if (!versionDataResult)
-      return Err(versionDataResult.error());
+        // MSYS2 environments automatically set the MSYSTEM environment variable.
+        if (const Result<String> msystemResult = GetEnv("MSYSTEM"); msystemResult && !msystemResult->empty()) {
+            String shellPath;
 
-    const auto& [majorVersion, minorVersion, buildNumber] = *versionDataResult;
+            // The SHELL environment variable should basically always be set.
+            if (const Result<String> shellResult = GetEnv("SHELL"); shellResult && !shellResult->empty())
+                shellPath = *shellResult;
 
-    return std::format("{}.{}.{}", majorVersion, minorVersion, buildNumber);
-  }
+            if (!shellPath.empty()) {
+                // Get the executable name from the path.
+                const usize lastSlash = shellPath.find_last_of("\\/");
+                String      shellExe  = (lastSlash != String::npos) ? shellPath.substr(lastSlash + 1) : shellPath;
 
-  fn GetWindowManager() -> Result<String> {
-    if (!cache::ProcessTreeCache::getInstance().initialize())
-      return Err(DracError(PlatformSpecific, "Failed to initialize process tree cache"));
+                std::ranges::transform(shellExe, shellExe.begin(), [](const u8 character) { return std::tolower(character); });
 
-    for (const auto& [parentPid, baseExeNameLower] : cache::ProcessTreeCache::getInstance().getProcessMap() | std::views::values) {
-      const StringView processName = baseExeNameLower;
+                // Remove the .exe extension if it exists.
+                if (shellExe.ends_with(".exe"))
+                    shellExe.resize(shellExe.length() - 4);
 
-      if (
-        const auto mapIter =
-          std::ranges::find_if(windowManagerMap, [&](const Pair<StringView, StringView>& pair) -> bool {
-            return processName == pair.first;
-          });
-        mapIter != std::ranges::end(windowManagerMap)
-      )
-        return String(mapIter->second);
-    }
+                // Check if the executable name matches any shell in the map.
+                if (
+                    const auto iter =
+                        std::ranges::find_if(msysShellMap, [&](const Pair<StringView, StringView>& pair) -> bool {
+                            return StringView { shellExe } == pair.first;
+                        });
+                    iter != std::ranges::end(msysShellMap)
+                )
+                    return String(iter->second);
 
-    return "DWM";
-  }
+                // If the executable name doesn't match any shell in the map, we might as well just return it as is.
+                return shellExe;
+            }
 
-  fn GetDesktopEnvironment() -> Result<String> {
-    // Windows doesn't really have the concept of a desktop environment,
-    // so our next best bet is just displaying the UI design based on the build number.
+            // If the SHELL environment variable is not set, we can fall back to checking the process tree.
+            // This is slower, but if we don't have the SHELL variable there's not much else we can do.
+            const Result<String> msysShell = FindShellInProcessTree(GetCurrentProcessId(), msysShellMap);
 
-    const Result<u64> buildResult = OsVersionCache::getInstance().getBuildNumber();
+            if (msysShell)
+                return *msysShell;
 
-    if (!buildResult)
-      return Err(buildResult.error());
+            return Err(msysShell.error());
+        }
 
-    const u64 build = *buildResult;
+        // Normal windows shell environments don't set any environment variables we can check,
+        // so we have to check the process tree instead.
+        const Result<String> windowsShell = FindShellInProcessTree(GetCurrentProcessId(), windowsShellMap);
 
-    if (build >= 15063)
-      return "Fluent";
+        if (windowsShell)
+            return *windowsShell;
 
-    if (build >= 9200)
-      return "Metro";
-
-    if (build >= 6000)
-      return "Aero";
-
-    return "Classic";
-  }
-
-  fn GetShell() -> Result<String> {
-    using draconis::utils::env::GetEnv;
-    using shell::FindShellInProcessTree;
-
-    // MSYS2 environments automatically set the MSYSTEM environment variable.
-    if (const Result<String> msystemResult = GetEnv("MSYSTEM"); msystemResult && !msystemResult->empty()) {
-      String shellPath;
-
-      // The SHELL environment variable should basically always be set.
-      if (const Result<String> shellResult = GetEnv("SHELL"); shellResult && !shellResult->empty())
-        shellPath = *shellResult;
-
-      if (!shellPath.empty()) {
-        // Get the executable name from the path.
-        const usize lastSlash = shellPath.find_last_of("\\/");
-        String      shellExe  = (lastSlash != String::npos) ? shellPath.substr(lastSlash + 1) : shellPath;
-
-        std::ranges::transform(shellExe, shellExe.begin(), [](const u8 character) { return std::tolower(character); });
-
-        // Remove the .exe extension if it exists.
-        if (shellExe.ends_with(".exe"))
-          shellExe.resize(shellExe.length() - 4);
-
-        // Check if the executable name matches any shell in the map.
-        if (
-          const auto iter =
-            std::ranges::find_if(msysShellMap, [&](const Pair<StringView, StringView>& pair) -> bool {
-              return StringView { shellExe } == pair.first;
-            });
-          iter != std::ranges::end(msysShellMap)
-        )
-          return String(iter->second);
-
-        // If the executable name doesn't match any shell in the map, we might as well just return it as is.
-        return shellExe;
-      }
-
-      // If the SHELL environment variable is not set, we can fall back to checking the process tree.
-      // This is slower, but if we don't have the SHELL variable there's not much else we can do.
-      const Result<String> msysShell = FindShellInProcessTree(GetCurrentProcessId(), msysShellMap);
-
-      if (msysShell)
-        return *msysShell;
-
-      return Err(msysShell.error());
-    }
-
-    // Normal windows shell environments don't set any environment variables we can check,
-    // so we have to check the process tree instead.
-    const Result<String> windowsShell = FindShellInProcessTree(GetCurrentProcessId(), windowsShellMap);
-
-    if (windowsShell)
-      return *windowsShell;
-
-    return Err(windowsShell.error());
+        return Err(windowsShell.error());
+    });
   }
 
   fn GetDiskUsage() -> Result<ResourceUsage> {
@@ -686,178 +704,184 @@ namespace draconis::core::system {
     return ResourceUsage { .usedBytes = totalBytes.QuadPart - freeBytes.QuadPart, .totalBytes = totalBytes.QuadPart };
   }
 
-  fn GetCPUModel() -> Result<String> {
-    /*
-     * This function attempts to get the CPU model name on Windows in two ways:
-     * 1. Using __cpuid on x86/x86_64 platforms (much more direct and efficient).
-     * 2. Reading from the registry on all platforms (slower, but more reliable).
-     */
-  #if DRAC_ARCH_X86_64 || DRAC_ARCH_I686
-    {
-      /*
-       * The CPUID instruction is used to get the CPU model name on x86/x86_64 platforms.
-       * 1. First, we call CPUID with leaf 0x80000000 to ask the CPU if it supports the
-       *    extended functions needed to retrieve the brand string.
-       * 2. If it does, we then make three more calls to retrieve the 48-byte brand
-       *    string, which the CPU provides in three 16-byte chunks.
-       *
-       * (In this context, a "leaf" is basically just an action we ask the CPU to perform.)
-       */
+  fn GetCPUModel(CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("windows_cpu_model", []() -> Result<String> {
+        /*
+         * This function attempts to get the CPU model name on Windows in two ways:
+         * 1. Using __cpuid on x86/x86_64 platforms (much more direct and efficient).
+         * 2. Reading from the registry on all platforms (slower, but more reliable).
+         */
+    #if DRAC_ARCH_X86_64 || DRAC_ARCH_I686
+        {
+            /*
+             * The CPUID instruction is used to get the CPU model name on x86/x86_64 platforms.
+             * 1. First, we call CPUID with leaf 0x80000000 to ask the CPU if it supports the
+             *    extended functions needed to retrieve the brand string.
+             * 2. If it does, we then make three more calls to retrieve the 48-byte brand
+             *    string, which the CPU provides in three 16-byte chunks.
+             *
+             * (In this context, a "leaf" is basically just an action we ask the CPU to perform.)
+             */
 
-      // Array to hold the raw 32-bit values from the EAX, EBX, ECX, and EDX registers.
-      Array<i32, 4> cpuInfo = {};
+            // Array to hold the raw 32-bit values from the EAX, EBX, ECX, and EDX registers.
+            Array<i32, 4> cpuInfo = {};
 
-      // Buffer to hold the raw 48-byte brand string + null terminator.
-      Array<char, 49> brandString = {};
+            // Buffer to hold the raw 48-byte brand string + null terminator.
+            Array<char, 49> brandString = {};
 
-      // Step 1: Check for brand string support. The result is returned in EAX (cpuInfo[0]).
-      __cpuid(0x80000000, cpuInfo[0], cpuInfo[1], cpuInfo[2], cpuInfo[3]);
+            // Step 1: Check for brand string support. The result is returned in EAX (cpuInfo[0]).
+            __cpuid(0x80000000, cpuInfo[0], cpuInfo[1], cpuInfo[2], cpuInfo[3]);
 
-      // We must have extended functions support (functions up to 0x80000004).
-      if (const u32 maxFunction = cpuInfo[0]; maxFunction >= 0x80000004) {
-        // Retrieve the brand string in three 16-byte parts.
-        for (u32 i = 0; i < 3; i++) {
-          // Call leaves 0x80000002, 0x80000003, and 0x80000004. Each call
-          // returns a 16-byte chunk of the brand string.
-          __cpuid(0x80000002 + i, cpuInfo[0], cpuInfo[1], cpuInfo[2], cpuInfo[3]);
+            // We must have extended functions support (functions up to 0x80000004).
+            if (const u32 maxFunction = cpuInfo[0]; maxFunction >= 0x80000004) {
+                // Retrieve the brand string in three 16-byte parts.
+                for (u32 i = 0; i < 3; i++) {
+                    // Call leaves 0x80000002, 0x80000003, and 0x80000004. Each call
+                    // returns a 16-byte chunk of the brand string.
+                    __cpuid(0x80000002 + i, cpuInfo[0], cpuInfo[1], cpuInfo[2], cpuInfo[3]);
 
-          // Copy the chunk into the brand string buffer.
-          std::memcpy(&brandString.at(i * 16), cpuInfo.data(), sizeof(cpuInfo));
+                    // Copy the chunk into the brand string buffer.
+                    std::memcpy(&brandString.at(i * 16), cpuInfo.data(), sizeof(cpuInfo));
+                }
+
+                String result(brandString.data());
+
+                // Clean up any possible trailing whitespace.
+                while (!result.empty() && std::isspace(result.back()))
+                    result.pop_back();
+
+                // We're done if we got a valid, non-empty string.
+                // Otherwise, fallback to querying the registry.
+                if (!result.empty())
+                    return result;
+            }
+        }
+    #endif // DRAC_ARCH_X86_64 || DRAC_ARCH_I686
+
+        {
+            /*
+             * If the CPUID instruction fails/is unsupported on the target architecture,
+             * we fallback to querying the registry. This is a lot more reliable than
+             * querying the CPU itself and supports all architectures, but it's also slower.
+             */
+
+            HKEY hKey = nullptr;
+
+            // This key contains information about the processor.
+            if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+                // Get the processor name value from the registry key.
+                Result<WString> processorNameW = GetRegistryValue(hKey, L"ProcessorNameString");
+
+                // Ensure the key is closed to prevent leaks.
+                RegCloseKey(hKey);
+
+                // The registry returns wide strings so we have to convert to UTF-8 before returning.
+                if (processorNameW)
+                    return ConvertWStringToUTF8(*processorNameW);
+            }
         }
 
-        String result(brandString.data());
-
-        // Clean up any possible trailing whitespace.
-        while (!result.empty() && std::isspace(result.back()))
-          result.pop_back();
-
-        // We're done if we got a valid, non-empty string.
-        // Otherwise, fallback to querying the registry.
-        if (!result.empty())
-          return result;
-      }
-    }
-  #endif // DRAC_ARCH_X86_64 || DRAC_ARCH_I686
-
-    {
-      /*
-       * If the CPUID instruction fails/is unsupported on the target architecture,
-       * we fallback to querying the registry. This is a lot more reliable than
-       * querying the CPU itself and supports all architectures, but it's also slower.
-       */
-
-      HKEY hKey = nullptr;
-
-      // This key contains information about the processor.
-      if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
-        // Get the processor name value from the registry key.
-        Result<WString> processorNameW = GetRegistryValue(hKey, L"ProcessorNameString");
-
-        // Ensure the key is closed to prevent leaks.
-        RegCloseKey(hKey);
-
-        // The registry returns wide strings so we have to convert to UTF-8 before returning.
-        if (processorNameW)
-          return ConvertWStringToUTF8(*processorNameW);
-      }
-    }
-
-    // At this point, there's no other good method to get the CPU model on Windows.
-    // Using WMI is useless because it just calls the same registry key we're already using.
-    return Err(DracError(NotFound, "All methods to get CPU model failed on this platform"));
+        // At this point, there's no other good method to get the CPU model on Windows.
+        // Using WMI is useless because it just calls the same registry key we're already using.
+        return Err(DracError(NotFound, "All methods to get CPU model failed on this platform"));
+    });
   }
 
-  fn GetCPUCores() -> Result<CPUCores> {
-    const DWORD logicalProcessors = GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
-    if (logicalProcessors == 0)
-      return Err(
-        DracError(
-          PlatformSpecific,
-          std::format("GetActiveProcessorCount failed with error code {}", GetLastError())
-        )
-      );
+  fn GetCPUCores(CacheManager& cache) -> Result<CPUCores> {
+    return cache.getOrSet<CPUCores>("windows_cpu_cores", []() -> Result<CPUCores> {
+        const DWORD logicalProcessors = GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+        if (logicalProcessors == 0)
+            return Err(
+                DracError(
+                    PlatformSpecific,
+                    std::format("GetActiveProcessorCount failed with error code {}", GetLastError())
+                )
+            );
 
-    DWORD bufferSize = 0;
+        DWORD bufferSize = 0;
 
-    if (GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &bufferSize) == FALSE && GetLastError() != ERROR_INSUFFICIENT_BUFFER)
-      return Err(
-        DracError(
-          PlatformSpecific,
-          std::format("GetLogicalProcessorInformationEx (size query) failed with error code {}", GetLastError())
-        )
-      );
+        if (GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &bufferSize) == FALSE && GetLastError() != ERROR_INSUFFICIENT_BUFFER)
+            return Err(
+                DracError(
+                    PlatformSpecific,
+                    std::format("GetLogicalProcessorInformationEx (size query) failed with error code {}", GetLastError())
+                )
+            );
 
-    Array<BYTE, 1024> buffer {};
+        Array<BYTE, 1024> buffer {};
 
-    // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
-    if (GetLogicalProcessorInformationEx(RelationProcessorCore, reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(buffer.data()), &bufferSize) == FALSE)
-      return Err(DracError(
-        PlatformSpecific,
-        std::format("GetLogicalProcessorInformationEx (data retrieval) failed with error code {}", GetLastError())
-      ));
+        // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+        if (GetLogicalProcessorInformationEx(RelationProcessorCore, reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(buffer.data()), &bufferSize) == FALSE)
+            return Err(DracError(
+                PlatformSpecific,
+                std::format("GetLogicalProcessorInformationEx (data retrieval) failed with error code {}", GetLastError())
+            ));
 
-    DWORD      physicalCores = 0;
-    DWORD      offset        = 0;
-    Span<BYTE> bufferSpan(buffer);
+        DWORD      physicalCores = 0;
+        DWORD      offset        = 0;
+        Span<BYTE> bufferSpan(buffer);
 
-    while (offset < bufferSize) {
-      physicalCores++;
+        while (offset < bufferSize) {
+            physicalCores++;
 
-      // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
-      const auto* current = reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(&bufferSpan[offset]);
-      offset += current->Size;
-    }
+            // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+            const auto* current = reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(&bufferSpan[offset]);
+            offset += current->Size;
+        }
 
-    return CPUCores(static_cast<u16>(physicalCores), static_cast<u16>(logicalProcessors));
+        return CPUCores(static_cast<u16>(physicalCores), static_cast<u16>(logicalProcessors));
+    });
   }
 
-  fn GetGPUModel() -> Result<String> {
-    // Used to create and enumerate DirectX graphics interfaces.
-    IDXGIFactory* pFactory = nullptr;
+  fn GetGPUModel(CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("windows_gpu_model", []() -> Result<String> {
+        // Used to create and enumerate DirectX graphics interfaces.
+        IDXGIFactory* pFactory = nullptr;
 
-    // The __uuidof operator is a Microsoft-specific extension that gets the GUID of a COM interface.
-    // It's required by CreateDXGIFactory. The pragma below disables the compiler warning about this
-    // non-standard extension, as its use is necessary here.
-  #pragma clang diagnostic push
-  #pragma clang diagnostic ignored "-Wlanguage-extension-token"
-    // NOLINTNEXTLINE(*-pro-type-reinterpret-cast) - CreateDXGIFactory needs a void** parameter, not an IDXGIFactory**.
-    if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), reinterpret_cast<void**>(&pFactory))))
-      return Err(DracError(PlatformSpecific, "Failed to create DXGI Factory"));
-  #pragma clang diagnostic pop
+        // The __uuidof operator is a Microsoft-specific extension that gets the GUID of a COM interface.
+        // It's required by CreateDXGIFactory. The pragma below disables the compiler warning about this
+        // non-standard extension, as its use is necessary here.
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wlanguage-extension-token"
+        // NOLINTNEXTLINE(*-pro-type-reinterpret-cast) - CreateDXGIFactory needs a void** parameter, not an IDXGIFactory**.
+        if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), reinterpret_cast<void**>(&pFactory))))
+            return Err(DracError(PlatformSpecific, "Failed to create DXGI Factory"));
+    #pragma clang diagnostic pop
 
-    // Attempt to get the first adapter.
-    IDXGIAdapter* pAdapter = nullptr;
+        // Attempt to get the first adapter.
+        IDXGIAdapter* pAdapter = nullptr;
 
-    // 0 = primary adapter/GPU
-    if (pFactory->EnumAdapters(0, &pAdapter) == DXGI_ERROR_NOT_FOUND) {
-      // Clean up factory.
-      pFactory->Release();
+        // 0 = primary adapter/GPU
+        if (pFactory->EnumAdapters(0, &pAdapter) == DXGI_ERROR_NOT_FOUND) {
+            // Clean up factory.
+            pFactory->Release();
 
-      return Err(DracError(NotFound, "No DXGI adapters found"));
-    }
+            return Err(DracError(NotFound, "No DXGI adapters found"));
+        }
 
-    // Get the adapter description.
-    DXGI_ADAPTER_DESC desc {};
+        // Get the adapter description.
+        DXGI_ADAPTER_DESC desc {};
 
-    if (FAILED(pAdapter->GetDesc(&desc))) {
-      // Make sure to release the adapter and factory if GetDesc fails.
-      pAdapter->Release();
-      pFactory->Release();
+        if (FAILED(pAdapter->GetDesc(&desc))) {
+            // Make sure to release the adapter and factory if GetDesc fails.
+            pAdapter->Release();
+            pFactory->Release();
 
-      return Err(DracError(PlatformSpecific, "Failed to get adapter description"));
-    }
+            return Err(DracError(PlatformSpecific, "Failed to get adapter description"));
+        }
 
-    // The DirectX description is a wide string.
-    // We have to convert it to a UTF-8 string.
-    Array<CStr, 128> gpuName {};
+        // The DirectX description is a wide string.
+        // We have to convert it to a UTF-8 string.
+        Array<CStr, 128> gpuName {};
 
-    WideCharToMultiByte(CP_UTF8, 0, desc.Description, -1, gpuName.data(), gpuName.size(), nullptr, nullptr);
+        WideCharToMultiByte(CP_UTF8, 0, desc.Description, -1, gpuName.data(), gpuName.size(), nullptr, nullptr);
 
-    // Clean up resources.
-    pAdapter->Release();
-    pFactory->Release();
+        // Clean up resources.
+        pAdapter->Release();
+        pFactory->Release();
 
-    return gpuName.data();
+        return gpuName.data();
+    }, draconis::utils::cache::CachePolicy::NeverExpire());
   }
 
   fn GetUptime() -> Result<std::chrono::seconds> {
@@ -1001,71 +1025,73 @@ namespace draconis::core::system {
     return interfaces;
   }
 
-  fn GetPrimaryNetworkInterface() -> Result<NetworkInterface> {
-    MIB_IPFORWARDROW routeRow;
-    sockaddr_in      destAddr {};
-    destAddr.sin_family = AF_INET;
-    inet_pton(AF_INET, "8.8.8.8", &destAddr.sin_addr);
+  fn GetPrimaryNetworkInterface(CacheManager& cache) -> Result<NetworkInterface> {
+    return cache.getOrSet<NetworkInterface>("windows_primary_network_interface", []() -> Result<NetworkInterface> {
+        MIB_IPFORWARDROW routeRow;
+        sockaddr_in      destAddr {};
+        destAddr.sin_family = AF_INET;
+        inet_pton(AF_INET, "8.8.8.8", &destAddr.sin_addr);
 
-    if (DWORD status = GetBestRoute(destAddr.sin_addr.s_addr, 0, &routeRow); status != NO_ERROR)
-      return Err(DracError(PlatformSpecific, "GetBestRoute failed with error: " + std::to_string(status)));
+        if (DWORD status = GetBestRoute(destAddr.sin_addr.s_addr, 0, &routeRow); status != NO_ERROR)
+            return Err(DracError(PlatformSpecific, "GetBestRoute failed with error: " + std::to_string(status)));
 
-    // The interface index for the best route
-    const DWORD primaryInterfaceIndex = routeRow.dwForwardIfIndex;
+        // The interface index for the best route
+        const DWORD primaryInterfaceIndex = routeRow.dwForwardIfIndex;
 
-    ULONG     bufferSize = 15000;
-    Vec<BYTE> buffer(bufferSize);
+        ULONG     bufferSize = 15000;
+        Vec<BYTE> buffer(bufferSize);
 
-    // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
-    auto* pAddresses = reinterpret_cast<IP_ADAPTER_ADDRESSES*>(buffer.data());
+        // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+        auto* pAddresses = reinterpret_cast<IP_ADAPTER_ADDRESSES*>(buffer.data());
 
-    DWORD result = GetAdaptersAddresses(AF_UNSPEC, GAA_FLAG_INCLUDE_PREFIX, nullptr, pAddresses, &bufferSize);
-    if (result == ERROR_BUFFER_OVERFLOW) {
-      buffer.resize(bufferSize);
-      // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
-      pAddresses = reinterpret_cast<IP_ADAPTER_ADDRESSES*>(buffer.data());
-      result     = GetAdaptersAddresses(AF_UNSPEC, GAA_FLAG_INCLUDE_PREFIX, nullptr, pAddresses, &bufferSize);
-    }
-
-    if (result != NO_ERROR)
-      return Err(DracError(PlatformSpecific, "GetAdaptersAddresses failed with error: " + std::to_string(result)));
-
-    for (IP_ADAPTER_ADDRESSES* pCurrAddresses = pAddresses; pCurrAddresses != nullptr; pCurrAddresses = pCurrAddresses->Next) {
-      // NOLINTNEXTLINE(*-union-access)
-      if (pCurrAddresses->IfIndex == primaryInterfaceIndex) {
-        NetworkInterface iface;
-        iface.name = pCurrAddresses->AdapterName;
-
-        iface.isUp       = (pCurrAddresses->OperStatus == IfOperStatusUp);
-        iface.isLoopback = (pCurrAddresses->IfType == IF_TYPE_SOFTWARE_LOOPBACK);
-
-        if (pCurrAddresses->PhysicalAddressLength == 6)
-          iface.macAddress = std::format(
-            "{:02X}:{:02X}:{:02X}:{:02X}:{:02X}:{:02X}",
-            pCurrAddresses->PhysicalAddress[0],
-            pCurrAddresses->PhysicalAddress[1],
-            pCurrAddresses->PhysicalAddress[2],
-            pCurrAddresses->PhysicalAddress[3],
-            pCurrAddresses->PhysicalAddress[4],
-            pCurrAddresses->PhysicalAddress[5]
-          );
-
-        for (IP_ADAPTER_UNICAST_ADDRESS* pUnicast = pCurrAddresses->FirstUnicastAddress; pUnicast != nullptr; pUnicast = pUnicast->Next) {
-          if (pUnicast->Address.lpSockaddr->sa_family == AF_INET) {
+        DWORD result = GetAdaptersAddresses(AF_UNSPEC, GAA_FLAG_INCLUDE_PREFIX, nullptr, pAddresses, &bufferSize);
+        if (result == ERROR_BUFFER_OVERFLOW) {
+            buffer.resize(bufferSize);
             // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
-            auto* saIn = reinterpret_cast<sockaddr_in*>(pUnicast->Address.lpSockaddr);
-
-            Array<char, INET_ADDRSTRLEN> strBuffer {};
-
-            if (inet_ntop(AF_INET, &(saIn->sin_addr), strBuffer.data(), INET_ADDRSTRLEN))
-              iface.ipv4Address = strBuffer.data();
-          }
+            pAddresses = reinterpret_cast<IP_ADAPTER_ADDRESSES*>(buffer.data());
+            result     = GetAdaptersAddresses(AF_UNSPEC, GAA_FLAG_INCLUDE_PREFIX, nullptr, pAddresses, &bufferSize);
         }
-        return iface;
-      }
-    }
 
-    return Err(DracError(NotFound, "Could not find details for the primary network interface."));
+        if (result != NO_ERROR)
+            return Err(DracError(PlatformSpecific, "GetAdaptersAddresses failed with error: " + std::to_string(result)));
+
+        for (IP_ADAPTER_ADDRESSES* pCurrAddresses = pAddresses; pCurrAddresses != nullptr; pCurrAddresses = pCurrAddresses->Next) {
+            // NOLINTNEXTLINE(*-union-access)
+            if (pCurrAddresses->IfIndex == primaryInterfaceIndex) {
+                NetworkInterface iface;
+                iface.name = pCurrAddresses->AdapterName;
+
+                iface.isUp       = (pCurrAddresses->OperStatus == IfOperStatusUp);
+                iface.isLoopback = (pCurrAddresses->IfType == IF_TYPE_SOFTWARE_LOOPBACK);
+
+                if (pCurrAddresses->PhysicalAddressLength == 6)
+                    iface.macAddress = std::format(
+                        "{:02X}:{:02X}:{:02X}:{:02X}:{:02X}:{:02X}",
+                        pCurrAddresses->PhysicalAddress[0],
+                        pCurrAddresses->PhysicalAddress[1],
+                        pCurrAddresses->PhysicalAddress[2],
+                        pCurrAddresses->PhysicalAddress[3],
+                        pCurrAddresses->PhysicalAddress[4],
+                        pCurrAddresses->PhysicalAddress[5]
+                    );
+
+                for (IP_ADAPTER_UNICAST_ADDRESS* pUnicast = pCurrAddresses->FirstUnicastAddress; pUnicast != nullptr; pUnicast = pUnicast->Next) {
+                    if (pUnicast->Address.lpSockaddr->sa_family == AF_INET) {
+                        // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
+                        auto* saIn = reinterpret_cast<sockaddr_in*>(pUnicast->Address.lpSockaddr);
+
+                        Array<char, INET_ADDRSTRLEN> strBuffer {};
+
+                        if (inet_ntop(AF_INET, &(saIn->sin_addr), strBuffer.data(), INET_ADDRSTRLEN))
+                            iface.ipv4Address = strBuffer.data();
+                    }
+                }
+                return iface;
+            }
+        }
+
+        return Err(DracError(NotFound, "Could not find details for the primary network interface."));
+    });
   }
 
   fn GetBatteryInfo() -> Result<Battery> {

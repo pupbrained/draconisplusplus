@@ -57,7 +57,7 @@ namespace draconis::core::system {
     }
   } // namespace
 
-  SystemInfo::SystemInfo(const Config& config) {
+  SystemInfo::SystemInfo(utils::cache::CacheManager& cache, const Config& config) {
     using enum std::launch;
 
     // I'm not sure if AMD uses trademark symbols in their CPU models, but I know
@@ -78,16 +78,16 @@ namespace draconis::core::system {
     };
 
     // Use batch operations for related information
-    Future<Result<String>>               desktopEnvFut     = std::async(async, &GetDesktopEnvironment);
-    Future<Result<String>>               windowMgrFut      = std::async(async, &GetWindowManager);
+    Future<Result<String>>               desktopEnvFut     = std::async(async, [&cache]() { return GetDesktopEnvironment(cache); });
+    Future<Result<String>>               windowMgrFut      = std::async(async, [&cache]() { return GetWindowManager(cache); });
     Future<Result<Display>>              primaryDisplayFut = std::async(async, &GetPrimaryDisplay);
     Future<Result<String>>               osFut             = std::async(async, &GetOSVersion);
-    Future<Result<String>>               kernelFut         = std::async(async, &GetKernelVersion);
-    Future<Result<String>>               hostFut           = std::async(async, &GetHost);
-    Future<Result<String>>               cpuFut            = std::async(async, &GetCPUModel);
-    Future<Result<CPUCores>>             cpuCoresFut       = std::async(async, &GetCPUCores);
-    Future<Result<String>>               gpuFut            = std::async(async, &GetGPUModel);
-    Future<Result<String>>               shellFut          = std::async(async, &GetShell);
+    Future<Result<String>>               kernelFut         = std::async(async, [&cache]() { return GetKernelVersion(cache); });
+    Future<Result<String>>               hostFut           = std::async(async, [&cache]() { return GetHost(cache); });
+    Future<Result<String>>               cpuFut            = std::async(async, [&cache]() { return GetCPUModel(cache); });
+    Future<Result<CPUCores>>             cpuCoresFut       = std::async(async, [&cache]() { return GetCPUCores(cache); });
+    Future<Result<String>>               gpuFut            = std::async(async, [&cache]() { return GetGPUModel(cache); });
+    Future<Result<String>>               shellFut          = std::async(async, [&cache]() { return GetShell(cache); });
     Future<Result<ResourceUsage>>        memFut            = std::async(async, &GetMemInfo);
     Future<Result<ResourceUsage>>        diskFut           = std::async(async, &GetDiskUsage);
     Future<Result<String>>               dateFut           = std::async(async, &getDate);

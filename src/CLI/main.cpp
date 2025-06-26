@@ -16,6 +16,7 @@
   #include <Drac++/Services/Weather.hpp>
 #endif
 
+#include <Drac++/Utils/CacheManager.hpp>
 #include <Drac++/Utils/Definitions.hpp>
 #include <Drac++/Utils/Error.hpp>
 #include <Drac++/Utils/Logging.hpp>
@@ -29,6 +30,7 @@ using namespace draconis::utils::types;
 using namespace draconis::core::system;
 using namespace draconis::config;
 using namespace draconis::ui;
+using draconis::utils::cache::CacheManager;
 
 using draconis::utils::error::DracError;
 using enum draconis::utils::error::DracErrorCode;
@@ -181,7 +183,10 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
     }
   }
 
-  if (Result<CPUCores> cpuCores = GetCPUCores()) {
+  CacheManager cache;
+  cache.setGlobalPolicy({ .location = draconis::utils::cache::CacheLocation::Persistent, .ttl = std::chrono::hours(12) });
+
+  if (Result<CPUCores> cpuCores = GetCPUCores(cache)) {
     debug_log("CPU cores: {} physical, {} logical", cpuCores->physical, cpuCores->logical);
   } else {
     debug_at(cpuCores.error());
@@ -229,8 +234,8 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
     using namespace ftxui::Dimension;
     using matchit::match, matchit::is, matchit::_;
 
-    const Config&    config = Config::getInstance();
-    const SystemInfo data(config);
+    const Config& config = Config::getInstance();
+    SystemInfo    data(cache, config);
 
     if (data.primaryDisplay) {
       debug_log("Display ID: {}", data.primaryDisplay->id);

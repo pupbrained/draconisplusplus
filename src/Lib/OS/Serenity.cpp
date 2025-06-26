@@ -24,13 +24,15 @@
 #include "Util/Env.hpp"
 #include "Util/Logging.hpp"
 #include "Util/Types.hpp"
+#include "Util/Caching.hpp"
+#include "Util/CacheManager.hpp"
 
 #include "OperatingSystem.hpp"
 // clang-format on
 
-using namespace drac::types;
-using drac::error::DracError, drac::error::DracErrorCode;
-using drac::env::GetEnv;
+using namespace draconis::utils::types;
+using draconis::utils::error::DracError, draconis::utils::error::DracErrorCode;
+using draconis::utils::env::GetEnv;
 
 namespace {
   using glz::opts, glz::detail::Object, glz::object;
@@ -67,14 +69,16 @@ namespace {
   }
 } // namespace
 
-namespace os {
-  fn GetOSVersion() -> Result<String> {
-    utsname uts;
+namespace draconis::core::system {
+  fn GetOSVersion(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("serenity_os_version", []() -> Result<String> {
+        utsname uts;
 
-    if (uname(&uts) == -1)
-      return Err(DracError("uname call failed for OS Version"));
+        if (uname(&uts) == -1)
+            return Err(DracError("uname call failed for OS Version"));
 
-    return uts.sysname;
+        return uts.sysname;
+    });
   }
 
   fn GetMemInfo() -> Result<u64> {
@@ -110,50 +114,60 @@ namespace os {
     return Err(DracError(DracErrorCode::NotSupported, "Now playing is not supported on SerenityOS"));
   }
 
-  fn GetWindowManager() -> Result<String> {
-    return "WindowManager";
+  fn GetWindowManager(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("serenity_wm", []() -> Result<String> {
+        return "WindowManager";
+    });
   }
 
-  fn GetDesktopEnvironment() -> Result<String> {
-    return "SerenityOS Desktop";
+  fn GetDesktopEnvironment(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("serenity_desktop_environment", []() -> Result<String> {
+        return "SerenityOS Desktop";
+    });
   }
 
-  fn GetShell() -> Result<String> {
-    uid_t   userId = getuid();
-    passwd* pw     = getpwuid(userId);
+  fn GetShell(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("serenity_shell", []() -> Result<String> {
+        uid_t   userId = getuid();
+        passwd* pw     = getpwuid(userId);
 
-    if (pw == nullptr)
-      return Err(DracError(DracErrorCode::NotFound, std::format("User ID {} not found in /etc/passwd", userId)));
+        if (pw == nullptr)
+            return Err(DracError(DracErrorCode::NotFound, std::format("User ID {} not found in /etc/passwd", userId)));
 
-    if (pw->pw_shell == nullptr || *(pw->pw_shell) == '\0')
-      return Err(DracError(
-        DracErrorCode::NotFound, std::format("User shell entry is empty in /etc/passwd for user ID {}", userId)
-      ));
+        if (pw->pw_shell == nullptr || *(pw->pw_shell) == '\0')
+            return Err(DracError(
+                DracErrorCode::NotFound, std::format("User shell entry is empty in /etc/passwd for user ID {}", userId)
+            ));
 
-    String shell = pw->pw_shell;
+        String shell = pw->pw_shell;
 
-    if (shell.starts_with("/bin/"))
-      shell = shell.substr(5);
+        if (shell.starts_with("/bin/"))
+            shell = shell.substr(5);
 
-    return shell;
+        return shell;
+    });
   }
 
-  fn GetHost() -> Result<String> {
-    Array<char, HOST_NAME_MAX> hostname_buffer;
+  fn GetHost(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("serenity_host", []() -> Result<String> {
+        Array<char, HOST_NAME_MAX> hostname_buffer;
 
-    if (gethostname(hostname_buffer.data(), hostname_buffer.size()) != 0)
-      return Err(DracError("gethostname() failed: {}"));
+        if (gethostname(hostname_buffer.data(), hostname_buffer.size()) != 0)
+            return Err(DracError("gethostname() failed: {}"));
 
-    return String(hostname_buffer.data());
+        return String(hostname_buffer.data());
+    });
   }
 
-  fn GetKernelVersion() -> Result<String> {
-    utsname uts;
+  fn GetKernelVersion(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("serenity_kernel_version", []() -> Result<String> {
+        utsname uts;
 
-    if (uname(&uts) == -1)
-      return Err(DracError("uname call failed for Kernel Version"));
+        if (uname(&uts) == -1)
+            return Err(DracError("uname call failed for Kernel Version"));
 
-    return uts.release;
+        return uts.release;
+    });
   }
 
   fn GetDiskUsage() -> Result<DiskSpace> {
@@ -168,7 +182,7 @@ namespace os {
 
     return DiskSpace { usedBytes, totalBytes };
   }
-} // namespace os
+} // namespace draconis::core::system
 
 namespace package {
   fn GetSerenityCount() -> Result<u64> {

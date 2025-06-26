@@ -12,6 +12,9 @@ using namespace draconis::utils::types;
 
 namespace draconis::services::weather {
   fn CreateWeatherService(const Provider provider, const Location& location, Unit units, const Option<String>& apiKey) -> UniquePointer<IWeatherService> {
+    if (s_cacheManager == nullptr) {
+      s_cacheManager = std::make_unique<draconis::utils::cache::CacheManager>();
+    }
     assert(provider == Provider::OPENWEATHERMAP || provider == Provider::OPENMETEO || provider == Provider::METNO);
     assert(apiKey.has_value() || provider != Provider::OPENWEATHERMAP);
 

@@ -28,229 +28,216 @@ namespace fs = std::filesystem;
 using namespace draconis::utils::types;
 using draconis::utils::error::DracError;
 using enum draconis::utils::error::DracErrorCode;
-using draconis::utils::cache::GetValidCache, draconis::utils::cache::WriteCache;
+
 
 namespace {
   constexpr const char* CACHE_KEY_PREFIX = "pkg_count_";
 
   fn GetCountFromDirectoryImpl(
+    draconis::utils::cache::CacheManager& cache,
     const String&         pmId,
     const fs::path&       dirPath,
     const Option<String>& fileExtensionFilter,
     const bool            subtractOne
   ) -> Result<u64> {
-    std::error_code fsErrCode;
+    return cache.getOrSet<u64>(std::format("{}{}", CACHE_KEY_PREFIX, pmId), [&]() -> Result<u64> {
+        std::error_code fsErrCode;
 
-    const String cacheKey = std::format("{}{}", CACHE_KEY_PREFIX, pmId);
+        fsErrCode.clear();
 
-    if (Result<u64> cachedDataResult = GetValidCache<u64>(cacheKey))
-      return *cachedDataResult;
-    else
-      debug_at(cachedDataResult.error());
+        if (!fs::is_directory(dirPath, fsErrCode)) {
+            if (fsErrCode && fsErrCode != std::errc::no_such_file_or_directory)
+                return Err(DracError(
+                    IoError,
+                    std::format("Filesystem error checking if '{}' is a directory: {}", dirPath.string(), fsErrCode.message())
+                ));
 
-    fsErrCode.clear();
-
-    if (!fs::is_directory(dirPath, fsErrCode)) {
-      if (fsErrCode && fsErrCode != std::errc::no_such_file_or_directory)
-        return Err(DracError(
-          IoError,
-          std::format("Filesystem error checking if '{}' is a directory: {}", dirPath.string(), fsErrCode.message())
-        ));
-
-      return Err(DracError(NotFound, std::format("{} path is not a directory: {}", pmId, dirPath.string())));
-    }
-
-    fsErrCode.clear();
-
-    u64              count     = 0;
-    const bool       hasFilter = fileExtensionFilter.has_value();
-    const StringView filter    = fileExtensionFilter ? StringView(*fileExtensionFilter) : StringView();
-
-    try {
-      const fs::directory_iterator dirIter(
-        dirPath,
-        fs::directory_options::skip_permission_denied | fs::directory_options::follow_directory_symlink,
-        fsErrCode
-      );
-
-      if (fsErrCode)
-        return Err(DracError(IoError, std::format("Failed to create iterator for {} directory '{}': {}", pmId, dirPath.string(), fsErrCode.message())));
-
-      if (hasFilter) {
-        for (const fs::directory_entry& entry : dirIter) {
-          if (entry.path().empty())
-            continue;
-
-          if (std::error_code isFileErr; entry.is_regular_file(isFileErr) && !isFileErr) {
-            if (entry.path().extension().string() == filter)
-              count++;
-          } else if (isFileErr)
-            warn_log("Error stating entry '{}' in {} directory: {}", entry.path().string(), pmId, isFileErr.message());
+            return Err(DracError(NotFound, std::format("{} path is not a directory: {}", pmId, dirPath.string())));
         }
-      } else {
-        for (const fs::directory_entry& entry : dirIter) {
-          if (!entry.path().empty())
-            count++;
+
+        fsErrCode.clear();
+
+        u64              count     = 0;
+        const bool       hasFilter = fileExtensionFilter.has_value();
+        const StringView filter    = fileExtensionFilter ? StringView(*fileExtensionFilter) : StringView();
+
+        try {
+            const fs::directory_iterator dirIter(
+                dirPath,
+                fs::directory_options::skip_permission_denied | fs::directory_options::follow_directory_symlink,
+                fsErrCode
+            );
+
+            if (fsErrCode)
+                return Err(DracError(IoError, std::format("Failed to create iterator for {} directory '{}': {}", pmId, dirPath.string(), fsErrCode.message())));
+
+            if (hasFilter) {
+                for (const fs::directory_entry& entry : dirIter) {
+                    if (entry.path().empty())
+                        continue;
+
+                    if (std::error_code isFileErr; entry.is_regular_file(isFileErr) && !isFileErr) {
+                        if (entry.path().extension().string() == filter)
+                            count++;
+                    } else if (isFileErr)
+                        warn_log("Error stating entry '{}' in {} directory: {}", entry.path().string(), pmId, isFileErr.message());
+                }
+            } else {
+                for (const fs::directory_entry& entry : dirIter) {
+                    if (!entry.path().empty())
+                        count++;
+                }
+            }
+        } catch (const fs::filesystem_error& fsCatchErr) {
+            return Err(DracError(
+                IoError,
+                std::format("Filesystem error during {} directory iteration: {}", pmId, fsCatchErr.what())
+            ));
+        } catch (const Exception& exc) {
+            return Err(DracError(InternalError, exc.what()));
+        } catch (...) {
+            return Err(DracError(Other, std::format("Unknown error iterating {} directory", pmId)));
         }
-      }
-    } catch (const fs::filesystem_error& fsCatchErr) {
-      return Err(DracError(
-        IoError,
-        std::format("Filesystem error during {} directory iteration: {}", pmId, fsCatchErr.what())
-      ));
-    } catch (const Exception& exc) {
-      return Err(DracError(InternalError, exc.what()));
-    } catch (...) {
-      return Err(DracError(Other, std::format("Unknown error iterating {} directory", pmId)));
-    }
 
-    if (subtractOne && count > 0)
-      count--;
+        if (subtractOne && count > 0)
+            count--;
 
-    if (Result writeResult = WriteCache(cacheKey, count); !writeResult)
-      debug_at(writeResult.error());
-
-    return count;
+        return count;
+    });
   }
+
+    }
 } // namespace
 
 namespace draconis::services::packages {
   fn GetCountFromDirectory(
+    draconis::utils::cache::CacheManager& cache,
     const String&   pmId,
     const fs::path& dirPath,
     const String&   fileExtensionFilter,
     const bool      subtractOne
   ) -> Result<u64> {
-    return GetCountFromDirectoryImpl(pmId, dirPath, fileExtensionFilter, subtractOne);
+    return GetCountFromDirectoryImpl(cache, pmId, dirPath, fileExtensionFilter, subtractOne);
   }
 
-  fn GetCountFromDirectory(const String& pmId, const fs::path& dirPath, const String& fileExtensionFilter) -> Result<u64> {
-    return GetCountFromDirectoryImpl(pmId, dirPath, fileExtensionFilter, false);
+  fn GetCountFromDirectory(draconis::utils::cache::CacheManager& cache, const String& pmId, const fs::path& dirPath, const String& fileExtensionFilter) -> Result<u64> {
+    return GetCountFromDirectoryImpl(cache, pmId, dirPath, fileExtensionFilter, false);
   }
 
-  fn GetCountFromDirectory(const String& pmId, const fs::path& dirPath, const bool subtractOne) -> Result<u64> {
-    return GetCountFromDirectoryImpl(pmId, dirPath, None, subtractOne);
+  fn GetCountFromDirectory(draconis::utils::cache::CacheManager& cache, const String& pmId, const fs::path& dirPath, const bool subtractOne) -> Result<u64> {
+    return GetCountFromDirectoryImpl(cache, pmId, dirPath, None, subtractOne);
   }
 
-  fn GetCountFromDirectory(const String& pmId, const fs::path& dirPath) -> Result<u64> {
-    return GetCountFromDirectoryImpl(pmId, dirPath, None, false);
+  fn GetCountFromDirectory(draconis::utils::cache::CacheManager& cache, const String& pmId, const fs::path& dirPath) -> Result<u64> {
+    return GetCountFromDirectoryImpl(cache, pmId, dirPath, None, false);
   }
 
   #if !defined(__serenity__) && !defined(_WIN32)
-  fn GetCountFromDb(const String& pmId, const fs::path& dbPath, const String& countQuery) -> Result<u64> {
-    const String cacheKey = std::format("pkg_count_{}", pmId);
+  fn GetCountFromDb(
+    draconis::utils::cache::CacheManager& cache,
+    const String& pmId,
+    const fs::path& dbPath,
+    const String& countQuery
+  ) -> Result<u64> {
+    return cache.getOrSet<u64>(std::format("{}{}", CACHE_KEY_PREFIX, pmId), [&]() -> Result<u64> {
+        u64 count = 0;
 
-    if (Result<u64> cachedDataResult = GetValidCache<u64>(cacheKey))
-      return *cachedDataResult;
-    else
-      debug_at(cachedDataResult.error());
+        try {
+            if (std::error_code existsErr; !fs::exists(dbPath, existsErr) || existsErr)
+                return Err(DracError(NotFound, std::format("{} database not found at '{}'", pmId, dbPath.string())));
 
-    u64 count = 0;
+            const SQLite::Database database(dbPath.string(), SQLite::OPEN_READONLY);
 
-    try {
-      if (std::error_code existsErr; !fs::exists(dbPath, existsErr) || existsErr)
-        return Err(DracError(NotFound, std::format("{} database not found at '{}'", pmId, dbPath.string())));
+            if (SQLite::Statement queryStmt(database, countQuery); queryStmt.executeStep()) {
+                const i64 countInt64 = queryStmt.getColumn(0).getInt64();
 
-      const SQLite::Database database(dbPath.string(), SQLite::OPEN_READONLY);
+                if (countInt64 < 0)
+                    return Err(DracError(ParseError, std::format("Negative count returned by {} DB COUNT query.", pmId)));
 
-      if (SQLite::Statement queryStmt(database, countQuery); queryStmt.executeStep()) {
-        const i64 countInt64 = queryStmt.getColumn(0).getInt64();
+                count = static_cast<u64>(countInt64);
+            } else
+                return Err(DracError(ParseError, std::format("No rows returned by {} DB COUNT query.", pmId)));
+        } catch (const SQLite::Exception& e) {
+            error_log("SQLite error occurred accessing {} DB '{}': {}", pmId, dbPath.string(), e.what());
 
-        if (countInt64 < 0)
-          return Err(DracError(ParseError, std::format("Negative count returned by {} DB COUNT query.", pmId)));
+            return Err(DracError(ApiUnavailable, std::format("Failed to query {} database: {}", pmId, dbPath.string())));
+        } catch (const Exception& e) {
+            error_log("Standard exception accessing {} DB '{}': {}", pmId, dbPath.string(), e.what());
 
-        count = static_cast<u64>(countInt64);
-      } else
-        return Err(DracError(ParseError, std::format("No rows returned by {} DB COUNT query.", pmId)));
-    } catch (const SQLite::Exception& e) {
-      error_log("SQLite error occurred accessing {} DB '{}': {}", pmId, dbPath.string(), e.what());
+            return Err(DracError(InternalError, e.what()));
+        } catch (...) {
+            error_log("Unknown error occurred accessing {} DB '{}'", pmId, dbPath.string());
 
-      return Err(DracError(ApiUnavailable, std::format("Failed to query {} database: {}", pmId, dbPath.string())));
-    } catch (const Exception& e) {
-      error_log("Standard exception accessing {} DB '{}': {}", pmId, dbPath.string(), e.what());
+            return Err(DracError(Other, std::format("Unknown error occurred accessing {} DB", pmId)));
+        }
 
-      return Err(DracError(InternalError, e.what()));
-    } catch (...) {
-      error_log("Unknown error occurred accessing {} DB '{}'", pmId, dbPath.string());
-
-      return Err(DracError(Other, std::format("Unknown error occurred accessing {} DB", pmId)));
-    }
-
-    if (Result writeResult = WriteCache(cacheKey, count); !writeResult)
-      debug_at(writeResult.error());
-
-    return count;
+        return count;
+    });
   }
   #endif // __serenity__ || _WIN32
 
   #if defined(__linux__) && defined(HAVE_PUGIXML)
-  fn GetCountFromPlist(const String& pmId, const fs::path& plistPath) -> Result<u64> {
-    using pugi::xml_document, pugi::xml_node, pugi::xml_parse_result;
+  fn GetCountFromPlist(
+    draconis::utils::cache::CacheManager& cache,
+    const String& pmId,
+    const fs::path& plistPath
+  ) -> Result<u64> {
+    return cache.getOrSet<u64>(std::format("{}{}", CACHE_KEY_PREFIX, pmId), [&]() -> Result<u64> {
+        xml_document doc;
 
-    const String cacheKey = std::format("pkg_count_{}", pmId);
+        if (const xml_parse_result result = doc.load_file(plistPath.c_str()); !result)
+            return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse plist file '{}': {}", plistPath.string(), result.description())));
 
-    if (Result<u64> cachedDataResult = GetValidCache<u64>(cacheKey))
-      return *cachedDataResult;
-    else
-      debug_at(cachedDataResult.error());
+        const xml_node dict = doc.child("plist").child("dict");
 
-    xml_document doc;
+        if (!dict)
+            return Err(DracError(DracErrorCode::ParseError, std::format("No <dict> in plist file '{}'.", plistPath.string())));
 
-    if (const xml_parse_result result = doc.load_file(plistPath.c_str()); !result)
-      return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse plist file '{}': {}", plistPath.string(), result.description())));
+        u64              count           = 0;
+        const StringView alternativesKey = "_XBPS_ALTERNATIVES_";
+        const StringView keyName         = "key";
+        const StringView stateValue      = "installed";
 
-    const xml_node dict = doc.child("plist").child("dict");
+        for (xml_node node = dict.first_child(); node; node = node.next_sibling()) {
+            if (StringView(node.name()) != keyName)
+                continue;
 
-    if (!dict)
-      return Err(DracError(DracErrorCode::ParseError, std::format("No <dict> in plist file '{}'.", plistPath.string())));
+            if (const StringView keyName = node.child_value(); keyName == alternativesKey)
+                continue;
 
-    u64              count           = 0;
-    const StringView alternativesKey = "_XBPS_ALTERNATIVES_";
-    const StringView keyName         = "key";
-    const StringView stateValue      = "installed";
+            xml_node pkgDict = node.next_sibling("dict");
 
-    for (xml_node node = dict.first_child(); node; node = node.next_sibling()) {
-      if (StringView(node.name()) != keyName)
-        continue;
+            if (!pkgDict)
+                continue;
 
-      if (const StringView keyName = node.child_value(); keyName == alternativesKey)
-        continue;
+            bool isInstalled = false;
 
-      xml_node pkgDict = node.next_sibling("dict");
+            for (xml_node pkgNode = pkgDict.first_child(); pkgNode; pkgNode = pkgNode.next_sibling())
+                if (StringView(pkgNode.name()) == keyName && StringView(pkgNode.child_value()) == "state")
+                    if (xml_node stateValue = pkgNode.next_sibling("string"); stateValue && StringView(stateValue.child_value()) == stateValue) {
+                        isInstalled = true;
+                        break;
+                    }
 
-      if (!pkgDict)
-        continue;
+            if (isInstalled)
+                ++count;
+        }
 
-      bool isInstalled = false;
+        if (count == 0)
+            return Err(DracError(DracErrorCode::NotFound, std::format("No installed packages found in plist file '{}'.", plistPath.string())));
 
-      for (xml_node pkgNode = pkgDict.first_child(); pkgNode; pkgNode = pkgNode.next_sibling())
-        if (StringView(pkgNode.name()) == keyName && StringView(pkgNode.child_value()) == "state")
-          if (xml_node stateValue = pkgNode.next_sibling("string"); stateValue && StringView(stateValue.child_value()) == stateValue) {
-            isInstalled = true;
-            break;
-          }
-
-      if (isInstalled)
-        ++count;
-    }
-
-    if (count == 0)
-      return Err(DracError(DracErrorCode::NotFound, std::format("No installed packages found in plist file '{}'.", plistPath.string())));
-
-    if (Result writeResult = WriteCache(cacheKey, count); !writeResult)
-      debug_at(writeResult.error());
-
-    return count;
+        return count;
+    });
   }
   #endif // __linux__
 
   #if defined(__linux__) || defined(__APPLE__)
-  fn CountNix() -> Result<u64> {
-    return GetCountFromDb("nix", "/nix/var/nix/db/db.sqlite", "SELECT COUNT(path) FROM ValidPaths WHERE sigs IS NOT NULL");
+  fn CountNix(draconis::utils::cache::CacheManager& cache) -> Result<u64> {
+    return GetCountFromDb(cache, "nix", "/nix/var/nix/db/db.sqlite", "SELECT COUNT(path) FROM ValidPaths WHERE sigs IS NOT NULL");
   }
   #endif // __linux__ || __APPLE__
 
-  fn CountCargo() -> Result<u64> {
+  fn CountCargo(draconis::utils::cache::CacheManager& cache) -> Result<u64> {
     using draconis::utils::env::GetEnv;
 
     fs::path cargoPath {};
@@ -263,18 +250,18 @@ namespace draconis::services::packages {
     if (cargoPath.empty() || !fs::exists(cargoPath))
       return Err(DracError(NotFound, "Could not find cargo directory"));
 
-    return GetCountFromDirectory("cargo", cargoPath);
+    return GetCountFromDirectory(cache, "cargo", cargoPath);
   }
 
-  fn GetTotalCount(const Manager enabledPackageManagers) -> Result<u64> {
+  fn GetTotalCount(draconis::utils::cache::CacheManager& cache, const Manager enabledPackageManagers) -> Result<u64> {
   #if DRAC_PRECOMPILED_CONFIG
     #if DRAC_ENABLE_PACKAGECOUNT
     Vec<Future<Result<u64>>> futures;
     futures.reserve(16);
 
-    fn addFutureIfEnabled = [&futures, enabledPackageManagers]<typename T>(const Manager manager, T&& countFunc) -> void {
+    fn addFutureIfEnabled = [&futures, &cache, enabledPackageManagers]<typename T>(const Manager manager, T&& countFunc) -> void {
       if (HasPackageManager(enabledPackageManagers, manager))
-        futures.emplace_back(std::async(std::launch::async, std::forward<T>(countFunc)));
+        futures.emplace_back(std::async(std::launch::async, [&cache, countFunc]() { return countFunc(cache); }));
     };
 
       #ifdef __linux__
@@ -346,36 +333,36 @@ namespace draconis::services::packages {
       futures = {
         {
     #ifdef __linux__
-         std::async(std::launch::async, CountApk),
-         std::async(std::launch::async, CountDpkg),
-         std::async(std::launch::async, CountMoss),
-         std::async(std::launch::async, CountPacman),
-         std::async(std::launch::async, CountRpm),
+         std::async(std::launch::async, [&cache]() { return CountApk(cache); }),
+         std::async(std::launch::async, [&cache]() { return CountDpkg(cache); }),
+         std::async(std::launch::async, [&cache]() { return CountMoss(cache); }),
+         std::async(std::launch::async, [&cache]() { return CountPacman(cache); }),
+         std::async(std::launch::async, [&cache]() { return CountRpm(cache); }),
       #ifdef HAVE_PUGIXML
-         std::async(std::launch::async, CountXbps),
+         std::async(std::launch::async, [&cache]() { return CountXbps(cache); }),
       #endif
     #elifdef __APPLE__
-          std::async(std::launch::async, GetHomebrewCount),
-          std::async(std::launch::async, GetMacPortsCount),
+          std::async(std::launch::async, [&cache]() { return GetHomebrewCount(cache); }),
+          std::async(std::launch::async, [&cache]() { return GetMacPortsCount(cache); }),
     #elifdef _WIN32
-          std::async(std::launch::async, CountWinGet),
-          std::async(std::launch::async, CountChocolatey),
-          std::async(std::launch::async, CountScoop),
+          std::async(std::launch::async, [&cache]() { return CountWinGet(cache); }),
+          std::async(std::launch::async, [&cache]() { return CountChocolatey(cache); }),
+          std::async(std::launch::async, [&cache]() { return CountScoop(cache); }),
     #elif defined(__FreeBSD__) || defined(__DragonFly__)
-          std::async(std::launch::async, GetPkgNgCount),
+          std::async(std::launch::async, [&cache]() { return GetPkgNgCount(cache); }),
     #elifdef __NetBSD__
-          std::async(std::launch::async, GetPkgSrcCount),
+          std::async(std::launch::async, [&cache]() { return GetPkgSrcCount(cache); }),
     #elifdef __HAIKU__
-          std::async(std::launch::async, GetHaikuCount),
+          std::async(std::launch::async, [&cache]() { return GetHaikuCount(cache); }),
     #elifdef __serenity__
-          std::async(std::launch::async, GetSerenityCount),
+          std::async(std::launch::async, [&cache]() { return GetSerenityCount(cache); }),
     #endif
 
     #if defined(__linux__) || defined(__APPLE__)
-         std::async(std::launch::async, CountNix),
+         std::async(std::launch::async, [&cache]() { return CountNix(cache); }),
     #endif
 
-         std::async(std::launch::async, CountCargo),
+         std::async(std::launch::async, [&cache]() { return CountCargo(cache); }),
          }
     };
   #endif // DRAC_PRECOMPILED_CONFIG

@@ -20,40 +20,44 @@
 #include "Util/Env.hpp"
 #include "Util/Logging.hpp"
 #include "Util/Types.hpp"
+#include "Util/Caching.hpp"
+#include "Util/CacheManager.hpp"
 
 #include "OperatingSystem.hpp"
 // clang-format on
 
-using namespace drac::types;
-using drac::error::DracError, drac::error::DracErrorCode;
-using drac::env::GetEnv;
+using namespace draconis::utils::types;
+using draconis::utils::error::DracError, draconis::utils::error::DracErrorCode;
+using draconis::utils::env::GetEnv;
 
-namespace os {
-  fn GetOSVersion() -> Result<String> {
-    BFile    file;
-    status_t status = file.SetTo("/boot/system/lib/libbe.so", B_READ_ONLY);
+namespace draconis::core::system {
+  fn GetOSVersion(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("haiku_os_version", []() -> Result<String> {
+        BFile    file;
+        status_t status = file.SetTo("/boot/system/lib/libbe.so", B_READ_ONLY);
 
-    if (status != B_OK)
-      return Err(DracError(DracErrorCode::InternalError, "Error opening /boot/system/lib/libbe.so"));
+        if (status != B_OK)
+            return Err(DracError(DracErrorCode::InternalError, "Error opening /boot/system/lib/libbe.so"));
 
-    BAppFileInfo appInfo;
-    status = appInfo.SetTo(&file);
+        BAppFileInfo appInfo;
+        status = appInfo.SetTo(&file);
 
-    if (status != B_OK)
-      return Err(DracError(DracErrorCode::InternalError, "Error initializing BAppFileInfo"));
+        if (status != B_OK)
+            return Err(DracError(DracErrorCode::InternalError, "Error initializing BAppFileInfo"));
 
-    version_info versionInfo;
-    status = appInfo.GetVersionInfo(&versionInfo, B_APP_VERSION_KIND);
+        version_info versionInfo;
+        status = appInfo.GetVersionInfo(&versionInfo, B_APP_VERSION_KIND);
 
-    if (status != B_OK)
-      return Err(DracError(DracErrorCode::InternalError, "Error reading version info attribute"));
+        if (status != B_OK)
+            return Err(DracError(DracErrorCode::InternalError, "Error reading version info attribute"));
 
-    String versionShortString = versionInfo.short_info;
+        String versionShortString = versionInfo.short_info;
 
-    if (versionShortString.empty())
-      return Err(DracError(DracErrorCode::InternalError, "Version info short_info is empty"));
+        if (versionShortString.empty())
+            return Err(DracError(DracErrorCode::InternalError, "Version info short_info is empty"));
 
-    return String(versionShortString.c_str());
+        return String(versionShortString.c_str());
+    });
   }
 
   fn GetMemInfo() -> Result<u64> {
@@ -70,57 +74,67 @@ namespace os {
     return Err(DracError(DracErrorCode::NotSupported, "Now playing is not supported on Haiku"));
   }
 
-  fn GetWindowManager() -> Result<String> {
-    return "app_server";
+  fn GetWindowManager(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("haiku_wm", []() -> Result<String> {
+        return "app_server";
+    });
   }
 
-  fn GetDesktopEnvironment() -> Result<String> {
-    return "Haiku Desktop Environment";
+  fn GetDesktopEnvironment(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("haiku_desktop_environment", []() -> Result<String> {
+        return "Haiku Desktop Environment";
+    });
   }
 
-  fn GetShell() -> Result<String> {
-    if (const Result<String> shellPath = GetEnv("SHELL")) {
-      // clang-format off
-      constexpr Array<Pair<StringView, StringView>, 5> shellMap {{
-        { "bash",    "Bash" },
-        {  "zsh",     "Zsh" },
-        { "fish",    "Fish" },
-        {   "nu", "Nushell" },
-        {   "sh",      "SH" }, // sh last because other shells contain "sh"
-      }};
-      // clang-format on
+  fn GetShell(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("haiku_shell", []() -> Result<String> {
+        if (const Result<String> shellPath = GetEnv("SHELL")) {
+            // clang-format off
+            constexpr Array<Pair<StringView, StringView>, 5> shellMap {{
+                { "bash",    "Bash" },
+                {  "zsh",     "Zsh" },
+                { "fish",    "Fish" },
+                {   "nu", "Nushell" },
+                {   "sh",      "SH" }, // sh last because other shells contain "sh"
+            }};
+            // clang-format on
 
-      for (const auto& [exe, name] : shellMap)
-        if (shellPath->contains(exe))
-          return String(name.c_str());
+            for (const auto& [exe, name] : shellMap)
+                if (shellPath->contains(exe))
+                    return String(name.c_str());
 
-      return *shellPath; // fallback to the raw shell path
-    }
+            return *shellPath; // fallback to the raw shell path
+        }
 
-    return Err(DracError(DracErrorCode::NotFound, "Could not find SHELL environment variable"));
+        return Err(DracError(DracErrorCode::NotFound, "Could not find SHELL environment variable"));
+    });
   }
 
-  fn GetHost() -> Result<String> {
-    Array<char, HOST_NAME_MAX + 1> hostnameBuffer {};
+  fn GetHost(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("haiku_host", []() -> Result<String> {
+        Array<char, HOST_NAME_MAX + 1> hostnameBuffer {};
 
-    if (gethostname(hostnameBuffer.data(), hostnameBuffer.size()) != 0)
-      return Err(DracError(
-        DracErrorCode::ApiUnavailable, std::format("gethostname() failed: {} (errno {})", strerror(errno), errno)
-      ));
+        if (gethostname(hostnameBuffer.data(), hostnameBuffer.size()) != 0)
+            return Err(DracError(
+                DracErrorCode::ApiUnavailable, std::format("gethostname() failed: {} (errno {})", strerror(errno), errno)
+            ));
 
-    hostnameBuffer.at(HOST_NAME_MAX) = '\0';
+        hostnameBuffer.at(HOST_NAME_MAX) = '\0';
 
-    return String(hostnameBuffer.data());
+        return String(hostnameBuffer.data());
+    });
   }
 
-  fn GetKernelVersion() -> Result<String> {
-    system_info    sysinfo;
-    const status_t status = get_system_info(&sysinfo);
+  fn GetKernelVersion(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("haiku_kernel_version", []() -> Result<String> {
+        system_info    sysinfo;
+        const status_t status = get_system_info(&sysinfo);
 
-    if (status != B_OK)
-      return Err(DracError(DracErrorCode::InternalError, std::format("get_system_info failed: {}", strerror(status))));
+        if (status != B_OK)
+            return Err(DracError(DracErrorCode::InternalError, std::format("get_system_info failed: {}", strerror(status))));
 
-    return String(std::to_string(sysinfo.kernel_version).c_str());
+        return String(std::to_string(sysinfo.kernel_version).c_str());
+    });
   }
 
   fn GetDiskUsage() -> Result<DiskSpace> {
@@ -134,7 +148,7 @@ namespace os {
       .totalBytes = stat.f_blocks * stat.f_frsize,
     };
   }
-} // namespace os
+} // namespace draconis::core::system
 
 namespace package {
   fn GetHaikuCount() -> Result<u64> {

@@ -48,6 +48,6 @@ namespace draconis::core::system {
     Result<MediaInfo> nowPlaying;
 #endif
 
-    explicit SystemInfo(const Config& config);
+    explicit SystemInfo(utils::cache::CacheManager& cache, const Config& config);
   };
 } // namespace draconis::core::system

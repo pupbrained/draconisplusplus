@@ -4,7 +4,7 @@
 
   #include <utility>
 
-  #include "Drac++/Utils/Caching.hpp"
+  #include "Drac++/Utils/CacheManager.hpp"
   #include "Drac++/Utils/Error.hpp"
   #include "Drac++/Utils/Logging.hpp"
   #include "Drac++/Utils/Types.hpp"
@@ -18,6 +18,7 @@ using enum draconis::utils::error::DracErrorCode;
 using draconis::services::weather::OpenWeatherMapService;
 using draconis::services::weather::Report;
 using draconis::services::weather::Unit;
+using draconis::services::weather::s_cacheManager;
 
 namespace {
   fn MakeApiRequest(const String& url) -> Result<Report> {
@@ -73,44 +74,42 @@ OpenWeatherMapService::OpenWeatherMapService(Location location, String apiKey, c
   : m_location(std::move(location)), m_apiKey(std::move(apiKey)), m_units(units) {}
 
 fn OpenWeatherMapService::getWeatherInfo() const -> Result<Report> {
-  using draconis::utils::cache::GetValidCache, draconis::utils::cache::WriteCache;
-
-  if (Result<Report> cachedDataResult = GetValidCache<Report>("weather"))
-    return *cachedDataResult;
-  else
-    debug_at(cachedDataResult.error());
-
-  fn handleApiResult = [](const Result<Report>& result) -> Result<Report> {
-    if (!result)
-      return Err(result.error());
-
-    if (Result writeResult = WriteCache("weather", *result); !writeResult)
-      return Err(writeResult.error());
-
-    return *result;
-  };
-
+  String cacheKey;
   if (std::holds_alternative<String>(m_location)) {
-    const auto& city = std::get<String>(m_location);
-
-    Result<String> escapedUrl = Curl::Easy::escape(city);
-    if (!escapedUrl)
-      return Err(escapedUrl.error());
-
-    const String apiUrl = std::format("https://api.openweathermap.org/data/2.5/weather?q={}&appid={}&units={}", *escapedUrl, m_apiKey, m_units);
-
-    return handleApiResult(MakeApiRequest(apiUrl));
-  }
-
-  if (std::holds_alternative<Coords>(m_location)) {
+    cacheKey = std::format("owm_weather_city_{}", std::get<String>(m_location));
+  } else if (std::holds_alternative<Coords>(m_location)) {
     const auto& [lat, lon] = std::get<Coords>(m_location);
-
-    const String apiUrl = std::format("https://api.openweathermap.org/data/2.5/weather?lat={:.3f}&lon={:.3f}&appid={}&units={}", lat, lon, m_apiKey, m_units);
-
-    return handleApiResult(MakeApiRequest(apiUrl));
+    cacheKey               = std::format("owm_weather_coords_{:.3f}_{:.3f}", lat, lon);
+  } else {
+    return Err(DracError(ParseError, "Invalid location type in configuration."));
   }
 
-  return Err(DracError(ParseError, "Invalid location type in configuration."));
+  return s_cacheManager->getOrSet<Report>(
+    cacheKey,
+    [&]() -> Result<Report> {
+      if (std::holds_alternative<String>(m_location)) {
+        const auto& city = std::get<String>(m_location);
+
+        Result<String> escapedUrl = Curl::Easy::escape(city);
+        if (!escapedUrl)
+          return Err(escapedUrl.error());
+
+        const String apiUrl = std::format("https://api.openweathermap.org/data/2.5/weather?q={}&appid={}&units={}", *escapedUrl, m_apiKey, m_units);
+
+        return MakeApiRequest(apiUrl);
+      }
+
+      if (std::holds_alternative<Coords>(m_location)) {
+        const auto& [lat, lon] = std::get<Coords>(m_location);
+
+        const String apiUrl = std::format("https://api.openweathermap.org/data/2.5/weather?lat={:.3f}&lon={:.3f}&appid={}&units={}", lat, lon, m_apiKey, m_units);
+
+        return MakeApiRequest(apiUrl);
+      }
+
+      return Err(DracError(ParseError, "Invalid location type in configuration."));
+    }
+  );
 }
 
 #endif // DRAC_ENABLE_WEATHER

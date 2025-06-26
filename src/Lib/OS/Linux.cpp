@@ -714,31 +714,33 @@ namespace {
 namespace draconis::core::system {
   using draconis::utils::env::GetEnv;
 
-  fn GetOSVersion() -> Result<String> {
-    std::ifstream file("/etc/os-release");
+  fn GetOSVersion(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("linux_os_version", []() -> Result<String> {
+        std::ifstream file("/etc/os-release");
 
-    if (!file)
-      return Err(DracError(NotFound, std::format("Failed to open /etc/os-release")));
+        if (!file)
+            return Err(DracError(NotFound, std::format("Failed to open /etc/os-release")));
 
-    String               line;
-    constexpr StringView prefix = "PRETTY_NAME=";
+        String               line;
+        constexpr StringView prefix = "PRETTY_NAME=";
 
-    while (std::getline(file, line)) {
-      if (StringView(line).starts_with(prefix)) {
-        String value = line.substr(prefix.size());
+        while (std::getline(file, line)) {
+            if (StringView(line).starts_with(prefix)) {
+                String value = line.substr(prefix.size());
 
-        if ((value.length() >= 2 && value.front() == '"' && value.back() == '"') ||
-            (value.length() >= 2 && value.front() == '\'' && value.back() == '\''))
-          value = value.substr(1, value.length() - 2);
+                if ((value.length() >= 2 && value.front() == '"' && value.back() == '"') ||
+                    (value.length() >= 2 && value.front() == '\'' && value.back() == '\''))
+                    value = value.substr(1, value.length() - 2);
 
-        if (value.empty())
-          return Err(DracError(ParseError, std::format("PRETTY_NAME value is empty or only quotes in /etc/os-release")));
+                if (value.empty())
+                    return Err(DracError(ParseError, std::format("PRETTY_NAME value is empty or only quotes in /etc/os-release")));
 
-        return String(value);
-      }
-    }
+                return String(value);
+            }
+        }
 
-    return Err(DracError(NotFound, "PRETTY_NAME line not found in /etc/os-release"));
+        return Err(DracError(NotFound, "PRETTY_NAME line not found in /etc/os-release"));
+    });
   }
 
   fn GetMemInfo() -> Result<ResourceUsage> {
@@ -889,248 +891,251 @@ namespace draconis::core::system {
     return Err(DracError(NotFound, "No media player found or an unknown error occurred"));
   }
 
-  fn GetWindowManager() -> Result<String> {
+  fn GetWindowManager(draconis::utils::cache::CacheManager& cache) -> Result<String> {
   #if !defined(HAVE_WAYLAND) && !defined(HAVE_XCB)
     return Err(DracError(NotSupported, "Wayland or XCB support not available"));
   #endif
 
-    if (GetEnv("WAYLAND_DISPLAY"))
-      return GetWaylandCompositor();
+    return cache.getOrSet<String>("linux_wm", [&]() -> Result<String> {
+        if (GetEnv("WAYLAND_DISPLAY"))
+            return GetWaylandCompositor();
 
-    if (GetEnv("DISPLAY"))
-      return GetX11WindowManager();
+        if (GetEnv("DISPLAY"))
+            return GetX11WindowManager();
 
-    return Err(DracError(NotFound, "No display server detected"));
+        return Err(DracError(NotFound, "No display server detected"));
+    });
   }
 
-  fn GetDesktopEnvironment() -> Result<String> {
-    Result<PCStr> xdgEnvResult = GetEnv("XDG_CURRENT_DESKTOP");
+  fn GetDesktopEnvironment(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("linux_desktop_environment", []() -> Result<String> {
+        Result<PCStr> xdgEnvResult = GetEnv("XDG_CURRENT_DESKTOP");
 
-    if (xdgEnvResult) {
-      String xdgDesktopSz = String(*xdgEnvResult);
+        if (xdgEnvResult) {
+            String xdgDesktopSz = String(*xdgEnvResult);
 
-      if (const usize colonPos = xdgDesktopSz.find(':'); colonPos != String::npos)
-        xdgDesktopSz.resize(colonPos);
+            if (const usize colonPos = xdgDesktopSz.find(':'); colonPos != String::npos)
+                xdgDesktopSz.resize(colonPos);
 
-      return xdgDesktopSz;
-    }
+            return xdgDesktopSz;
+        }
 
-    Result<PCStr> desktopSessionResult = GetEnv("DESKTOP_SESSION");
+        Result<PCStr> desktopSessionResult = GetEnv("DESKTOP_SESSION");
 
-    if (desktopSessionResult)
-      return *desktopSessionResult;
+        if (desktopSessionResult)
+            return *desktopSessionResult;
 
-    return Err(desktopSessionResult.error());
+        return Err(desktopSessionResult.error());
+    });
   }
 
-  fn GetShell() -> Result<String> {
-    // clang-format off
-    return GetEnv("SHELL")
-      .transform([](String shellPath) -> String {
-        constexpr Array<Pair<StringView, StringView>, 5> shellMap {{
-          { "/usr/bin/bash", "Bash" },
-          { "/usr/bin/zsh", "Zsh" },
-          { "/usr/bin/fish", "Fish" },
-          { "/usr/bin/nu", "Nushell" },
-          { "/usr/bin/sh", "SH" },
+  fn GetShell(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("linux_shell", []() -> Result<String> {
+        // clang-format off
+        return GetEnv("SHELL")
+            .transform([](String shellPath) -> String {
+                constexpr Array<Pair<StringView, StringView>, 5> shellMap {{
+                    { "/usr/bin/bash", "Bash" },
+                    { "/usr/bin/zsh", "Zsh" },
+                    { "/usr/bin/fish", "Fish" },
+                    { "/usr/bin/nu", "Nushell" },
+                    { "/usr/bin/sh", "SH" },
+                }};
+
+                for (const auto& [exe, name] : shellMap)
+                    if (shellPath == exe)
+                        return String(name);
+
+                if (const usize lastSlash = shellPath.find_last_of('/'); lastSlash != String::npos)
+                    return shellPath.substr(lastSlash + 1);
+                return shellPath;
+            })
+            .transform([](const String& shellPath) -> String {
+                return shellPath;
+            });
+        // clang-format on
+    });
+  }
+
+  fn GetHost(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("linux_host", []() -> Result<String> {
+        constexpr PCStr primaryPath  = "/sys/class/dmi/id/product_family";
+        constexpr PCStr fallbackPath = "/sys/class/dmi/id/product_name";
+
+        fn readFirstLine = [&](const String& path) -> Result<String> {
+            std::ifstream file(path);
+            String        line;
+
+            if (!file)
+                return Err(DracError(NotFound, std::format("Failed to open DMI product identifier file '{}'", path)));
+
+            if (!std::getline(file, line) || line.empty())
+                return Err(DracError(ParseError, std::format("DMI product identifier file ('{}') is empty", path)));
+
+            return line;
+        };
+
+        Result<String> primaryResult = readFirstLine(primaryPath);
+
+        if (primaryResult)
+            return primaryResult;
+
+        DracError primaryError = primaryResult.error();
+
+        Result<String> fallbackResult = readFirstLine(fallbackPath);
+
+        if (fallbackResult)
+            return fallbackResult;
+
+        DracError fallbackError = fallbackResult.error();
+
+        return Err(DracError(
+            InternalError,
+            std::format(
+                "Failed to get host identifier. Primary ('{}'): {}. Fallback ('{}'): {}",
+                primaryPath,
+                primaryError.message,
+                fallbackPath,
+                fallbackError.message
+            )
+        ));
+    });
+  }
+
+  fn GetCPUModel(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("linux_cpu_model", []() -> Result<String> {
+        Array<u32, 4>   cpuInfo;
+        Array<char, 49> brandString = { 0 };
+
+        __get_cpuid(0x80000000, cpuInfo.data(), &cpuInfo[1], &cpuInfo[2], &cpuInfo[3]);
+        const u32 maxFunction = cpuInfo[0];
+
+        if (maxFunction < 0x80000004)
+            return Err(DracError(NotSupported, "CPU does not support brand string"));
+
+        for (u32 i = 0; i < 3; ++i) {
+            __get_cpuid(0x80000002 + i, cpuInfo.data(), &cpuInfo[1], &cpuInfo[2], &cpuInfo[3]);
+            std::memcpy(&brandString.at(i * 16), cpuInfo.data(), sizeof(cpuInfo));
+        }
+
+        std::string result(brandString.data());
+
+        result.erase(result.find_last_not_of(" \t\n\r") + 1);
+
+        if (result.empty())
+            return Err(DracError(InternalError, "Failed to get CPU model string via CPUID"));
+
+        return result;
+    });
+  }
+
+  fn GetCPUCores(draconis::utils::cache::CacheManager& cache) -> Result<CPUCores> {
+    return cache.getOrSet<CPUCores>("linux_cpu_cores", []() -> Result<CPUCores> {
+        u32 eax = 0, ebx = 0, ecx = 0, edx = 0;
+
+        __get_cpuid(0x0, &eax, &ebx, &ecx, &edx);
+        const u32 maxLeaf   = eax;
+        const u32 vendorEbx = ebx;
+
+        u32 logicalCores  = 0;
+        u32 physicalCores = 0;
+
+        if (maxLeaf >= 0xB) {
+            u32 threadsPerCore = 0;
+            for (u32 subleaf = 0;; ++subleaf) {
+                __get_cpuid_count(0xB, subleaf, &eax, &ebx, &ecx, &edx);
+                if (ebx == 0)
+                    break;
+
+                const u32 levelType         = (ecx >> 8) & 0xFF;
+                const u32 processorsAtLevel = ebx & 0xFFFF;
+
+                if (levelType == 1) // SMT (Hyper-Threading) level
+                    threadsPerCore = processorsAtLevel;
+
+                if (levelType == 2) // Core level
+                    logicalCores = processorsAtLevel;
+            }
+
+            if (logicalCores > 0 && threadsPerCore > 0)
+                physicalCores = logicalCores / threadsPerCore;
+        }
+
+        if (physicalCores == 0 || logicalCores == 0) {
+            __get_cpuid(0x1, &eax, &ebx, &ecx, &edx);
+            logicalCores                 = (ebx >> 16) & 0xFF;
+            const bool hasHyperthreading = (edx & (1 << 28)) != 0;
+
+            if (hasHyperthreading) {
+                constexpr u32 vendorIntel = 0x756e6547; // "Genu"ine"Intel"
+                constexpr u32 vendorAmd   = 0x68747541; // "Auth"entic"AMD"
+
+                if (vendorEbx == vendorIntel && maxLeaf >= 0x4) {
+                    __get_cpuid_count(0x4, 0, &eax, &ebx, &ecx, &edx);
+                    physicalCores = ((eax >> 26) & 0x3F) + 1;
+                } else if (vendorEbx == vendorAmd) {
+                    __get_cpuid(0x80000000, &eax, &ebx, &ecx, &edx); // Get max extended leaf
+                    if (eax >= 0x80000008) {
+                        __get_cpuid(0x80000008, &eax, &ebx, &ecx, &edx);
+                        physicalCores = (ecx & 0xFF) + 1;
+                    }
+                }
+            } else {
+                physicalCores = logicalCores;
+            }
+        }
+
+        if (physicalCores == 0 && logicalCores > 0)
+            physicalCores = logicalCores;
+
+        if (physicalCores == 0 || logicalCores == 0)
+            return Err(DracError(InternalError, "Failed to determine core counts via CPUID"));
+
+        return CPUCores(static_cast<u16>(physicalCores), static_cast<u16>(logicalCores));
+    });
+  }
+
+  fn GetGPUModel(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("linux_gpu_model", []() -> Result<String> {
+        const fs::path pciPath = "/sys/bus/pci/devices";
+
+        if (!fs::exists(pciPath))
+            return Err(DracError(NotFound, "PCI device path '/sys/bus/pci/devices' not found."));
+
+        // clang-format off
+        const Array<Pair<StringView, StringView>, 3> fallbackVendorMap = {{
+            { "0x1002",    "AMD" },
+            { "0x10de", "NVIDIA" },
+            { "0x8086",  "Intel" }
         }};
+        // clang-format on
 
-        for (const auto& [exe, name] : shellMap)
-          if (shellPath == exe)
-            return String(name);
+        for (const fs::directory_entry& entry : fs::directory_iterator(pciPath)) {
+            if (Result<String> classIdRes = ReadSysFile(entry.path() / "class"); !classIdRes || !classIdRes->starts_with("0x03"))
+                continue;
 
-        if (const usize lastSlash = shellPath.find_last_of('/'); lastSlash != String::npos)
-          return shellPath.substr(lastSlash + 1);
-        return shellPath;
-      })
-      .transform([](const String& shellPath) -> String {
-        return shellPath;
-      });
-    // clang-format on
-  }
+            Result<String> vendorIdRes = ReadSysFile(entry.path() / "vendor");
+            Result<String> deviceIdRes = ReadSysFile(entry.path() / "device");
 
-  fn GetHost() -> Result<String> {
-    constexpr PCStr primaryPath  = "/sys/class/dmi/id/product_family";
-    constexpr PCStr fallbackPath = "/sys/class/dmi/id/product_name";
+            if (vendorIdRes && deviceIdRes) {
+                auto [vendor, device] = LookupPciNames(*vendorIdRes, *deviceIdRes);
 
-    fn readFirstLine = [&](const String& path) -> Result<String> {
-      std::ifstream file(path);
-      String        line;
+                if (!vendor.empty() && !device.empty())
+                    return CleanGpuModelName(std::move(vendor), std::move(device));
+            }
 
-      if (!file)
-        return Err(DracError(NotFound, std::format("Failed to open DMI product identifier file '{}'", path)));
+            if (vendorIdRes) {
+                const auto* iter = std::ranges::find_if(fallbackVendorMap, [&](const auto& pair) {
+                    return pair.first == *vendorIdRes;
+                });
 
-      if (!std::getline(file, line) || line.empty())
-        return Err(DracError(ParseError, std::format("DMI product identifier file ('{}') is empty", path)));
-
-      return line;
-    };
-
-    Result<String> primaryResult = readFirstLine(primaryPath);
-
-    if (primaryResult)
-      return primaryResult;
-
-    DracError primaryError = primaryResult.error();
-
-    Result<String> fallbackResult = readFirstLine(fallbackPath);
-
-    if (fallbackResult)
-      return fallbackResult;
-
-    DracError fallbackError = fallbackResult.error();
-
-    return Err(DracError(
-      InternalError,
-      std::format(
-        "Failed to get host identifier. Primary ('{}'): {}. Fallback ('{}'): {}",
-        primaryPath,
-        primaryError.message,
-        fallbackPath,
-        fallbackError.message
-      )
-    ));
-  }
-
-  fn GetCPUModel() -> Result<String> {
-    Array<u32, 4>   cpuInfo;
-    Array<char, 49> brandString = { 0 };
-
-    __get_cpuid(0x80000000, cpuInfo.data(), &cpuInfo[1], &cpuInfo[2], &cpuInfo[3]);
-    const u32 maxFunction = cpuInfo[0];
-
-    if (maxFunction < 0x80000004)
-      return Err(DracError(NotSupported, "CPU does not support brand string"));
-
-    for (u32 i = 0; i < 3; ++i) {
-      __get_cpuid(0x80000002 + i, cpuInfo.data(), &cpuInfo[1], &cpuInfo[2], &cpuInfo[3]);
-      std::memcpy(&brandString.at(i * 16), cpuInfo.data(), sizeof(cpuInfo));
-    }
-
-    std::string result(brandString.data());
-
-    result.erase(result.find_last_not_of(" \t\n\r") + 1);
-
-    if (result.empty())
-      return Err(DracError(InternalError, "Failed to get CPU model string via CPUID"));
-
-    return result;
-  }
-
-  fn GetCPUCores() -> Result<CPUCores> {
-    u32 eax = 0, ebx = 0, ecx = 0, edx = 0;
-
-    __get_cpuid(0x0, &eax, &ebx, &ecx, &edx);
-    const u32 maxLeaf   = eax;
-    const u32 vendorEbx = ebx;
-
-    u32 logicalCores  = 0;
-    u32 physicalCores = 0;
-
-    if (maxLeaf >= 0xB) {
-      u32 threadsPerCore = 0;
-      for (u32 subleaf = 0;; ++subleaf) {
-        __get_cpuid_count(0xB, subleaf, &eax, &ebx, &ecx, &edx);
-        if (ebx == 0)
-          break;
-
-        const u32 levelType         = (ecx >> 8) & 0xFF;
-        const u32 processorsAtLevel = ebx & 0xFFFF;
-
-        if (levelType == 1) // SMT (Hyper-Threading) level
-          threadsPerCore = processorsAtLevel;
-
-        if (levelType == 2) // Core level
-          logicalCores = processorsAtLevel;
-      }
-
-      if (logicalCores > 0 && threadsPerCore > 0)
-        physicalCores = logicalCores / threadsPerCore;
-    }
-
-    if (physicalCores == 0 || logicalCores == 0) {
-      __get_cpuid(0x1, &eax, &ebx, &ecx, &edx);
-      logicalCores                 = (ebx >> 16) & 0xFF;
-      const bool hasHyperthreading = (edx & (1 << 28)) != 0;
-
-      if (hasHyperthreading) {
-        constexpr u32 vendorIntel = 0x756e6547; // "Genu"ine"Intel"
-        constexpr u32 vendorAmd   = 0x68747541; // "Auth"entic"AMD"
-
-        if (vendorEbx == vendorIntel && maxLeaf >= 0x4) {
-          __get_cpuid_count(0x4, 0, &eax, &ebx, &ecx, &edx);
-          physicalCores = ((eax >> 26) & 0x3F) + 1;
-        } else if (vendorEbx == vendorAmd) {
-          __get_cpuid(0x80000000, &eax, &ebx, &ecx, &edx); // Get max extended leaf
-          if (eax >= 0x80000008) {
-            __get_cpuid(0x80000008, &eax, &ebx, &ecx, &edx);
-            physicalCores = (ecx & 0xFF) + 1;
-          }
+                if (iter != fallbackVendorMap.end())
+                    return String(iter->second);
+            }
         }
-      } else {
-        physicalCores = logicalCores;
-      }
-    }
 
-    if (physicalCores == 0 && logicalCores > 0)
-      physicalCores = logicalCores;
-
-    if (physicalCores == 0 || logicalCores == 0)
-      return Err(DracError(InternalError, "Failed to determine core counts via CPUID"));
-
-    return CPUCores(static_cast<u16>(physicalCores), static_cast<u16>(logicalCores));
-  }
-
-  fn GetGPUModel() -> Result<String> {
-    using draconis::utils::cache::GetValidCache, draconis::utils::cache::WriteCache;
-
-    const String cacheKey = "gpu_model";
-
-    if (Result<String> cachedDataResult = GetValidCache<String>(cacheKey))
-      return *cachedDataResult;
-
-    const fs::path pciPath = "/sys/bus/pci/devices";
-
-    if (!fs::exists(pciPath))
-      return Err(DracError(NotFound, "PCI device path '/sys/bus/pci/devices' not found."));
-
-    // clang-format off
-    const Array<Pair<StringView, StringView>, 3> fallbackVendorMap = {{
-      { "0x1002",    "AMD" },
-      { "0x10de", "NVIDIA" },
-      { "0x8086",  "Intel" }
-    }};
-    // clang-format on
-
-    for (const fs::directory_entry& entry : fs::directory_iterator(pciPath)) {
-      if (Result<String> classIdRes = ReadSysFile(entry.path() / "class"); !classIdRes || !classIdRes->starts_with("0x03"))
-        continue;
-
-      Result<String> vendorIdRes = ReadSysFile(entry.path() / "vendor");
-      Result<String> deviceIdRes = ReadSysFile(entry.path() / "device");
-
-      if (vendorIdRes && deviceIdRes) {
-        auto [vendor, device] = LookupPciNames(*vendorIdRes, *deviceIdRes);
-
-        if (!vendor.empty() && !device.empty())
-          return CleanGpuModelName(std::move(vendor), std::move(device));
-      }
-
-      if (vendorIdRes) {
-        const auto* iter = std::ranges::find_if(fallbackVendorMap, [&](const auto& pair) {
-          return pair.first == *vendorIdRes;
-        });
-
-        if (iter != fallbackVendorMap.end()) {
-          if (Result writeResult = WriteCache(cacheKey, iter->second); !writeResult)
-            debug_at(writeResult.error());
-
-          return String(iter->second);
-        }
-      }
-    }
-
-    return Err(DracError(NotFound, "No compatible GPU found in /sys/bus/pci/devices."));
+        return Err(DracError(NotFound, "No compatible GPU found in /sys/bus/pci/devices."));
+    }, draconis::utils::cache::CachePolicy::NeverExpire());
   }
 
   fn GetUptime() -> Result<std::chrono::seconds> {
@@ -1142,16 +1147,18 @@ namespace draconis::core::system {
     return std::chrono::seconds(info.uptime);
   }
 
-  fn GetKernelVersion() -> Result<String> {
-    utsname uts;
+  fn GetKernelVersion(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("linux_kernel_version", []() -> Result<String> {
+        utsname uts;
 
-    if (uname(&uts) == -1)
-      return Err(DracError(InternalError, "uname call failed"));
+        if (uname(&uts) == -1)
+            return Err(DracError(InternalError, "uname call failed"));
 
-    if (std::strlen(uts.release) == 0)
-      return Err(DracError(ParseError, "uname returned null kernel release"));
+        if (std::strlen(uts.release) == 0)
+            return Err(DracError(ParseError, "uname returned null kernel release"));
 
-    return String(uts.release);
+        return String(uts.release);
+    });
   }
 
   fn GetDiskUsage() -> Result<ResourceUsage> {
@@ -1279,116 +1286,118 @@ namespace draconis::core::system {
     // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
   }
 
-  fn GetPrimaryNetworkInterface() -> Result<NetworkInterface> {
-    // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) - This requires a lot of casts and there's no good way to avoid them.
-    // First, try to find the default route to determine the primary interface
-    String primaryInterfaceName;
+  fn GetPrimaryNetworkInterface(draconis::utils::cache::CacheManager& cache) -> Result<NetworkInterface> {
+    return cache.getOrSet<NetworkInterface>("linux_primary_network_interface", []() -> Result<NetworkInterface> {
+        // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) - This requires a lot of casts and there's no good way to avoid them.
+        // First, try to find the default route to determine the primary interface
+        String primaryInterfaceName;
 
-    // Read the routing table from /proc/net/route
-    std::ifstream routeFile("/proc/net/route");
-    if (routeFile.is_open()) {
-      String line;
-      // Skip header line
-      std::getline(routeFile, line);
+        // Read the routing table from /proc/net/route
+        std::ifstream routeFile("/proc/net/route");
+        if (routeFile.is_open()) {
+            String line;
+            // Skip header line
+            std::getline(routeFile, line);
 
-      while (std::getline(routeFile, line)) {
-        std::istringstream iss(line);
-        String             iface, dest, gateway, flags, refcnt, use, metric, mask, mtu, window, irtt;
+            while (std::getline(routeFile, line)) {
+                std::istringstream iss(line);
+                String             iface, dest, gateway, flags, refcnt, use, metric, mask, mtu, window, irtt;
 
-        if (iss >> iface >> dest >> gateway >> flags >> refcnt >> use >> metric >> mask >> mtu >> window >> irtt) {
-          // Check if this is the default route (destination is 00000000)
-          if (dest == "00000000") {
-            primaryInterfaceName = iface;
-            break;
-          }
+                if (iss >> iface >> dest >> gateway >> flags >> refcnt >> use >> metric >> mask >> mtu >> window >> irtt) {
+                    // Check if this is the default route (destination is 00000000)
+                    if (dest == "00000000") {
+                        primaryInterfaceName = iface;
+                        break;
+                    }
+                }
+            }
         }
-      }
-    }
 
-    // If we couldn't find the primary interface from routing table, try to find the first non-loopback interface
-    if (primaryInterfaceName.empty()) {
-      ifaddrs* ifaddrList = nullptr;
-      if (getifaddrs(&ifaddrList) == -1)
-        return Err(DracError(InternalError, "getifaddrs failed"));
+        // If we couldn't find the primary interface from routing table, try to find the first non-loopback interface
+        if (primaryInterfaceName.empty()) {
+            ifaddrs* ifaddrList = nullptr;
+            if (getifaddrs(&ifaddrList) == -1)
+                return Err(DracError(InternalError, "getifaddrs failed"));
 
-      UniquePointer<ifaddrs, decltype(&freeifaddrs)> ifaddrsDeleter(ifaddrList, &freeifaddrs);
+            UniquePointer<ifaddrs, decltype(&freeifaddrs)> ifaddrsDeleter(ifaddrList, &freeifaddrs);
 
-      for (ifaddrs* ifa = ifaddrList; ifa != nullptr; ifa = ifa->ifa_next) {
-        if (ifa->ifa_addr == nullptr)
-          continue;
+            for (ifaddrs* ifa = ifaddrList; ifa != nullptr; ifa = ifa->ifa_next) {
+                if (ifa->ifa_addr == nullptr)
+                    continue;
 
-        const String interfaceName = String(ifa->ifa_name);
-        const bool   isUp          = ifa->ifa_flags & IFF_UP;
-        const bool   isLoopback    = ifa->ifa_flags & IFF_LOOPBACK;
+                const String interfaceName = String(ifa->ifa_name);
+                const bool   isUp          = ifa->ifa_flags & IFF_UP;
+                const bool   isLoopback    = ifa->ifa_flags & IFF_LOOPBACK;
 
-        // Find the first non-loopback interface that is up
-        if (isUp && !isLoopback) {
-          primaryInterfaceName = interfaceName;
-          break;
+                // Find the first non-loopback interface that is up
+                if (isUp && !isLoopback) {
+                    primaryInterfaceName = interfaceName;
+                    break;
+                }
+            }
         }
-      }
-    }
 
-    if (primaryInterfaceName.empty())
-      return Err(DracError(NotFound, "Could not determine primary interface name"));
+        if (primaryInterfaceName.empty())
+            return Err(DracError(NotFound, "Could not determine primary interface name"));
 
-    // Now get the detailed information for the primary interface
-    ifaddrs* ifaddrList = nullptr;
-    if (getifaddrs(&ifaddrList) == -1)
-      return Err(DracError(InternalError, "getifaddrs failed"));
+        // Now get the detailed information for the primary interface
+        ifaddrs* ifaddrList = nullptr;
+        if (getifaddrs(&ifaddrList) == -1)
+            return Err(DracError(InternalError, "getifaddrs failed"));
 
-    UniquePointer<ifaddrs, decltype(&freeifaddrs)> ifaddrsDeleter(ifaddrList, &freeifaddrs);
+        UniquePointer<ifaddrs, decltype(&freeifaddrs)> ifaddrsDeleter(ifaddrList, &freeifaddrs);
 
-    NetworkInterface primaryInterface;
-    primaryInterface.name = primaryInterfaceName;
-    bool foundDetails     = false;
+        NetworkInterface primaryInterface;
+        primaryInterface.name = primaryInterfaceName;
+        bool foundDetails     = false;
 
-    for (ifaddrs* ifa = ifaddrList; ifa != nullptr; ifa = ifa->ifa_next) {
-      // Skip any entries that don't match our primary interface name
-      if (ifa->ifa_addr == nullptr || primaryInterfaceName != ifa->ifa_name)
-        continue;
+        for (ifaddrs* ifa = ifaddrList; ifa != nullptr; ifa = ifa->ifa_next) {
+            // Skip any entries that don't match our primary interface name
+            if (ifa->ifa_addr == nullptr || primaryInterfaceName != ifa->ifa_name)
+                continue;
 
-      foundDetails = true;
+            foundDetails = true;
 
-      // Set flags
-      primaryInterface.isUp       = ifa->ifa_flags & IFF_UP;
-      primaryInterface.isLoopback = ifa->ifa_flags & IFF_LOOPBACK;
+            // Set flags
+            primaryInterface.isUp       = ifa->ifa_flags & IFF_UP;
+            primaryInterface.isLoopback = ifa->ifa_flags & IFF_LOOPBACK;
 
-      // Get IPv4 details
-      if (ifa->ifa_addr->sa_family == AF_INET) {
-        Array<char, NI_MAXHOST> host = {};
-        if (getnameinfo(ifa->ifa_addr, sizeof(sockaddr_in), host.data(), host.size(), nullptr, 0, NI_NUMERICHOST) == 0)
-          primaryInterface.ipv4Address = String(host.data());
-      }
-      // Get IPv6 details
-      else if (ifa->ifa_addr->sa_family == AF_INET6) {
-        Array<char, NI_MAXHOST> host = {};
-        if (getnameinfo(ifa->ifa_addr, sizeof(sockaddr_in6), host.data(), host.size(), nullptr, 0, NI_NUMERICHOST) == 0)
-          primaryInterface.ipv6Address = String(host.data());
-      }
-      // Get MAC address (AF_PACKET on Linux)
-      else if (ifa->ifa_addr->sa_family == AF_PACKET) {
-        auto* sll = reinterpret_cast<sockaddr_ll*>(ifa->ifa_addr);
+            // Get IPv4 details
+            if (ifa->ifa_addr->sa_family == AF_INET) {
+                Array<char, NI_MAXHOST> host = {};
+                if (getnameinfo(ifa->ifa_addr, sizeof(sockaddr_in), host.data(), host.size(), nullptr, 0, NI_NUMERICHOST) == 0)
+                    primaryInterface.ipv4Address = String(host.data());
+            }
+            // Get IPv6 details
+            else if (ifa->ifa_addr->sa_family == AF_INET6) {
+                Array<char, NI_MAXHOST> host = {};
+                if (getnameinfo(ifa->ifa_addr, sizeof(sockaddr_in6), host.data(), host.size(), nullptr, 0, NI_NUMERICHOST) == 0)
+                    primaryInterface.ipv6Address = String(host.data());
+            }
+            // Get MAC address (AF_PACKET on Linux)
+            else if (ifa->ifa_addr->sa_family == AF_PACKET) {
+                auto* sll = reinterpret_cast<sockaddr_ll*>(ifa->ifa_addr);
 
-        if (sll && sll->sll_halen == 6) {
-          primaryInterface.macAddress = std::format(
-            "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-            sll->sll_addr[0],
-            sll->sll_addr[1],
-            sll->sll_addr[2],
-            sll->sll_addr[3],
-            sll->sll_addr[4],
-            sll->sll_addr[5]
-          );
+                if (sll && sll->sll_halen == 6) {
+                    primaryInterface.macAddress = std::format(
+                        "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+                        sll->sll_addr[0],
+                        sll->sll_addr[1],
+                        sll->sll_addr[2],
+                        sll->sll_addr[3],
+                        sll->sll_addr[4],
+                        sll->sll_addr[5]
+                    );
+                }
+            }
         }
-      }
-    }
 
-    if (!foundDetails)
-      return Err(DracError(NotFound, "Found primary interface name, but could not find its details via getifaddrs"));
+        if (!foundDetails)
+            return Err(DracError(NotFound, "Found primary interface name, but could not find its details via getifaddrs"));
 
-    return primaryInterface;
-    // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+        return primaryInterface;
+        // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+    });
   }
 
   fn GetBatteryInfo() -> Result<Battery> {
@@ -1457,7 +1466,7 @@ namespace draconis::core::system {
   #ifdef DRAC_ENABLE_PACKAGECOUNT
 namespace draconis::services::packages {
   fn CountApk() -> Result<u64> {
-    using draconis::utils::cache::GetValidCache, draconis::utils::cache::WriteCache;
+    
 
     const String   pmID      = "apk";
     const fs::path apkDbPath = "/lib/apk/db/installed";

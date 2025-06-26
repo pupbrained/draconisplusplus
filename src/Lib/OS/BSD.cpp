@@ -21,6 +21,8 @@
 #include "Util/Env.hpp"
 #include "Util/Logging.hpp"
 #include "Util/Types.hpp"
+#include "Util/Caching.hpp"
+#include "Util/CacheManager.hpp"
 #include "Wrappers/DBus.hpp"
 #include "Wrappers/Wayland.hpp"
 #include "Wrappers/XCB.hpp"
@@ -28,8 +30,8 @@
 #include "OperatingSystem.hpp"
 // clang-format on
 
-using namespace drac::types;
-using drac::error::DracError, drac::error::DracErrorCode;
+using namespace draconis::utils::types;
+using draconis::utils::error::DracError, draconis::utils::error::DracErrorCode;
 
 namespace {
   #ifdef __FreeBSD__
@@ -202,42 +204,44 @@ namespace {
   }
 } // namespace
 
-namespace os {
+namespace draconis::core::system {
   using drac::env::GetEnv;
 
-  fn GetOSVersion() -> Result<String> {
-    constexpr CStr path = "/etc/os-release";
+  fn GetOSVersion(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("bsd_os_version", []() -> Result<String> {
+        constexpr CStr path = "/etc/os-release";
 
-    std::ifstream file(path);
+        std::ifstream file(path);
 
-    if (file) {
-      String               line;
-      constexpr StringView prefix = "NAME=";
+        if (file) {
+            String               line;
+            constexpr StringView prefix = "NAME=";
 
-      while (std::getline(file, line)) {
-        if (StringView(line).starts_with(prefix)) {
-          String value = line.substr(prefix.size());
+            while (std::getline(file, line)) {
+                if (StringView(line).starts_with(prefix)) {
+                    String value = line.substr(prefix.size());
 
-          if ((value.length() >= 2 && value.front() == '"' && value.back() == '"') ||
-              (value.length() >= 2 && value.front() == '\'' && value.back() == '\''))
-            value = value.substr(1, value.length() - 2);
+                    if ((value.length() >= 2 && value.front() == '"' && value.back() == '"') ||
+                        (value.length() >= 2 && value.front() == '\'' && value.back() == '\''))
+                        value = value.substr(1, value.length() - 2);
 
-          return String(value);
+                    return String(value);
+                }
+            }
         }
-      }
-    }
 
-    utsname uts;
+        utsname uts;
 
-    if (uname(&uts) == -1)
-      return Err(DracError(std::format("Failed to open {} and uname() call also failed", path)));
+        if (uname(&uts) == -1)
+            return Err(DracError(std::format("Failed to open {} and uname() call also failed", path)));
 
-    String osName = uts.sysname;
+        String osName = uts.sysname;
 
-    if (osName.empty())
-      return Err(DracError(DracErrorCode::ParseError, "uname() returned empty sysname or release"));
+        if (osName.empty())
+            return Err(DracError(DracErrorCode::ParseError, "uname() returned empty sysname or release"));
 
-    return String(osName);
+        return String(osName);
+    });
   }
 
   fn GetMemInfo() -> Result<u64> {
@@ -380,104 +384,114 @@ namespace os {
     return MediaInfo(std::move(title), std::move(artist));
   }
 
-  fn GetWindowManager() -> Result<String> {
-    if (!GetEnv("DISPLAY") && !GetEnv("WAYLAND_DISPLAY") && !GetEnv("XDG_SESSION_TYPE"))
-      return Err(DracError(DracErrorCode::NotFound, "Could not find a graphical session"));
+  fn GetWindowManager(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("bsd_wm", []() -> Result<String> {
+        if (!GetEnv("DISPLAY") && !GetEnv("WAYLAND_DISPLAY") && !GetEnv("XDG_SESSION_TYPE"))
+            return Err(DracError(DracErrorCode::NotFound, "Could not find a graphical session"));
 
-    if (Result<String> waylandResult = GetWaylandCompositor())
-      return String(*waylandResult);
+        if (Result<String> waylandResult = GetWaylandCompositor())
+            return String(*waylandResult);
 
-    if (Result<String> x11Result = GetX11WindowManager())
-      return String(*x11Result);
+        if (Result<String> x11Result = GetX11WindowManager())
+            return String(*x11Result);
 
-    return Err(DracError(DracErrorCode::NotFound, "Could not detect window manager (Wayland/X11) or both failed"));
+        return Err(DracError(DracErrorCode::NotFound, "Could not detect window manager (Wayland/X11) or both failed"));
+    });
   }
 
-  fn GetDesktopEnvironment() -> Result<String> {
-    if (!GetEnv("DISPLAY") && !GetEnv("WAYLAND_DISPLAY") && !GetEnv("XDG_SESSION_TYPE"))
-      return Err(DracError(DracErrorCode::NotFound, "Could not find a graphical session"));
+  fn GetDesktopEnvironment(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("bsd_desktop_environment", []() -> Result<String> {
+        if (!GetEnv("DISPLAY") && !GetEnv("WAYLAND_DISPLAY") && !GetEnv("XDG_SESSION_TYPE"))
+            return Err(DracError(DracErrorCode::NotFound, "Could not find a graphical session"));
 
-    return GetEnv("XDG_CURRENT_DESKTOP")
-      .transform([](String xdgDesktop) -> String {
-        if (const usize colon = xdgDesktop.find(':'); colon != String::npos)
-          xdgDesktop.resize(colon);
+        return GetEnv("XDG_CURRENT_DESKTOP")
+            .transform([](String xdgDesktop) -> String {
+                if (const usize colon = xdgDesktop.find(':'); colon != String::npos)
+                    xdgDesktop.resize(colon);
 
-        return xdgDesktop;
-      })
-      .or_else([](const DracError&) -> Result<String> { return GetEnv("DESKTOP_SESSION"); })
-      .transform([](String desktopSession) -> String {
-        if (const usize colon = desktopSession.find(':'); colon != String::npos)
-          desktopSession.resize(colon);
+                return xdgDesktop;
+            })
+            .or_else([](const DracError&) -> Result<String> { return GetEnv("DESKTOP_SESSION"); })
+            .transform([](String desktopSession) -> String {
+                if (const usize colon = desktopSession.find(':'); colon != String::npos)
+                    desktopSession.resize(colon);
 
-        return desktopSession;
-      })
-      .transform([](String desktop) -> String { return String(desktop); });
+                return desktopSession;
+            })
+            .transform([](String desktop) -> String { return String(desktop); });
+    });
   }
 
-  fn GetShell() -> Result<String> {
-    if (const Result<String> shellPath = GetEnv("SHELL")) {
-      // clang-format off
-      constexpr Array<Pair<StringView, StringView>, 5> shellMap {{
-        { "bash",    "Bash" },
-        {  "zsh",     "Zsh" },
-        { "fish",    "Fish" },
-        {   "nu", "Nushell" },
-        {   "sh",      "SH" }, // sh last because other shells contain "sh"
-      }};
-      // clang-format on
+  fn GetShell(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("bsd_shell", []() -> Result<String> {
+        if (const Result<String> shellPath = GetEnv("SHELL")) {
+            // clang-format off
+            constexpr Array<Pair<StringView, StringView>, 5> shellMap {{
+                { "bash",    "Bash" },
+                {  "zsh",     "Zsh" },
+                { "fish",    "Fish" },
+                {   "nu", "Nushell" },
+                {   "sh",      "SH" }, // sh last because other shells contain "sh"
+            }};
+            // clang-format on
 
-      for (const auto& [exe, name] : shellMap)
-        if (shellPath->contains(exe))
-          return String(name);
+            for (const auto& [exe, name] : shellMap)
+                if (shellPath->contains(exe))
+                    return String(name);
 
-      return String(*shellPath); // fallback to the raw shell path
-    }
+            return String(*shellPath); // fallback to the raw shell path
+        }
 
-    return Err(DracError(DracErrorCode::NotFound, "Could not find SHELL environment variable"));
+        return Err(DracError(DracErrorCode::NotFound, "Could not find SHELL environment variable"));
+    });
   }
 
-  fn GetHost() -> Result<String> {
-    Array<char, 256> buffer {};
-    usize            size = buffer.size();
+  fn GetHost(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("bsd_host", []() -> Result<String> {
+        Array<char, 256> buffer {};
+        usize            size = buffer.size();
 
-  #if defined(__FreeBSD__) || defined(__DragonFly__)
-    int result = kenv(KENV_GET, "smbios.system.product", buffer.data(), buffer.size() - 1); // Ensure space for null
+    #if defined(__FreeBSD__) || defined(__DragonFly__)
+        int result = kenv(KENV_GET, "smbios.system.product", buffer.data(), buffer.size() - 1); // Ensure space for null
 
-    if (result == -1) {
-      if (sysctlbyname("hw.model", buffer.data(), &size, nullptr, 0) == -1)
-        return Err(DracError("kenv smbios.system.product failed and sysctl hw.model also failed"));
+        if (result == -1) {
+            if (sysctlbyname("hw.model", buffer.data(), &size, nullptr, 0) == -1)
+                return Err(DracError("kenv smbios.system.product failed and sysctl hw.model also failed"));
 
-      buffer.at(std::min(size, buffer.size() - 1)) = '\0';
-      return String(buffer.data());
-    }
+            buffer.at(std::min(size, buffer.size() - 1)) = '\0';
+            return String(buffer.data());
+        }
 
-    if (result > 0)
-      buffer.at(result) = '\0';
-    else
-      buffer.at(0) = '\0';
+        if (result > 0)
+            buffer.at(result) = '\0';
+        else
+            buffer.at(0) = '\0';
 
-  #elifdef __NetBSD__
-    if (sysctlbyname("machdep.dmi.system-product", buffer.data(), &size, nullptr, 0) == -1)
-      return Err(DracError(std::format("sysctlbyname failed for")));
+    #elifdef __NetBSD__
+        if (sysctlbyname("machdep.dmi.system-product", buffer.data(), &size, nullptr, 0) == -1)
+            return Err(DracError(std::format("sysctlbyname failed for")));
 
-    buffer[std::min(size, buffer.size() - 1)] = '\0';
-  #endif
-    if (buffer[0] == '\0')
-      return Err(DracError(DracErrorCode::NotFound, "Failed to get host product information (empty result)"));
+        buffer[std::min(size, buffer.size() - 1)] = '\0';
+    #endif
+        if (buffer[0] == '\0')
+            return Err(DracError(DracErrorCode::NotFound, "Failed to get host product information (empty result)"));
 
-    return String(buffer.data());
+        return String(buffer.data());
+    });
   }
 
-  fn GetKernelVersion() -> Result<String> {
-    utsname uts;
+  fn GetKernelVersion(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("bsd_kernel_version", []() -> Result<String> {
+        utsname uts;
 
-    if (uname(&uts) == -1)
-      return Err(DracError("uname call failed"));
+        if (uname(&uts) == -1)
+            return Err(DracError("uname call failed"));
 
-    if (std::strlen(uts.release) == 0)
-      return Err(DracError(DracErrorCode::ParseError, "uname returned null kernel release"));
+        if (std::strlen(uts.release) == 0)
+            return Err(DracError(DracErrorCode::ParseError, "uname returned null kernel release"));
 
-    return String(uts.release);
+        return String(uts.release);
+    });
   }
 
   fn GetDiskUsage() -> Result<DiskSpace> {
@@ -491,16 +505,16 @@ namespace os {
       .totalBytes = stat.f_blocks * stat.f_frsize,
     };
   }
-} // namespace os
+} // namespace draconis::core::system
 
 namespace package {
   #ifdef __NetBSD__
-  fn GetPkgSrcCount() -> Result<u64> {
-    return GetCountFromDirectory("pkgsrc", fs::current_path().root_path() / "usr" / "pkg" / "pkgdb", true);
+  fn GetPkgSrcCount(draconis::utils::cache::CacheManager& cache) -> Result<u64> {
+    return GetCountFromDirectory(cache, "pkgsrc", fs::current_path().root_path() / "usr" / "pkg" / "pkgdb", true);
   }
   #else
-  fn GetPkgNgCount() -> Result<u64> {
-    return GetCountFromDb("pkgng", "/var/db/pkg/local.sqlite", "SELECT COUNT(*) FROM packages");
+  fn GetPkgNgCount(draconis::utils::cache::CacheManager& cache) -> Result<u64> {
+    return GetCountFromDb(cache, "pkgng", "/var/db/pkg/local.sqlite", "SELECT COUNT(*) FROM packages");
   }
   #endif
 } // namespace package

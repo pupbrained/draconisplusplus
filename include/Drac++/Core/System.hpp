@@ -10,6 +10,7 @@
 #include "../Utils/Definitions.hpp"
 #include "../Utils/Error.hpp"
 #include "../Utils/Types.hpp"
+#include "../Utils/CacheManager.hpp"
 
 namespace draconis::core::system {
   namespace {
@@ -145,7 +146,7 @@ namespace draconis::core::system {
    * }
    * @endcode
    */
-  fn GetOSVersion() -> Result<String>;
+  fn GetOSVersion(draconis::utils::cache::CacheManager& cache) -> Result<String>;
 
   /**
    * @brief Fetches the desktop environment.
@@ -180,7 +181,7 @@ namespace draconis::core::system {
    * }
    * @endcode
    */
-  fn GetDesktopEnvironment() -> Result<String>;
+  fn GetDesktopEnvironment(draconis::utils::cache::CacheManager& cache) -> Result<String>;
 
   /**
    * @brief Fetches the window manager.
@@ -216,7 +217,7 @@ namespace draconis::core::system {
    * }
    * @endcode
    */
-  fn GetWindowManager() -> Result<String>;
+  fn GetWindowManager(draconis::utils::cache::CacheManager& cache) -> Result<String>;
 
   /**
    * @brief Fetches the shell.
@@ -249,7 +250,7 @@ namespace draconis::core::system {
    * }
    * @endcode
    */
-  fn GetShell() -> Result<String>;
+  fn GetShell(draconis::utils::cache::CacheManager& cache) -> Result<String>;
 
   /**
    * @brief Fetches the host.
@@ -290,7 +291,7 @@ namespace draconis::core::system {
    * }
    * @endcode
    */
-  fn GetHost() -> Result<String>;
+  fn GetHost(draconis::utils::cache::CacheManager& cache) -> Result<String>;
 
   /**
    * @brief Fetches the CPU model.
@@ -325,7 +326,7 @@ namespace draconis::core::system {
    * }
    * @endcode
    */
-  fn GetCPUModel() -> Result<String>;
+  fn GetCPUModel(draconis::utils::cache::CacheManager& cache) -> Result<String>;
 
   /**
    * @brief Fetches the number of physical and logical cores on the CPU.
@@ -357,7 +358,7 @@ namespace draconis::core::system {
    * }
    * @endcode
    */
-  fn GetCPUCores() -> Result<CPUCores>;
+  fn GetCPUCores(draconis::utils::cache::CacheManager& cache) -> Result<CPUCores>;
 
   /**
    * @brief Fetches the GPU model.
@@ -390,7 +391,7 @@ namespace draconis::core::system {
    * }
    * @endcode
    */
-  fn GetGPUModel() -> Result<String>;
+  fn GetGPUModel(draconis::utils::cache::CacheManager& cache) -> Result<String>;
 
   /**
    * @brief Fetches the kernel version.
@@ -425,7 +426,7 @@ namespace draconis::core::system {
    * }
    * @endcode
    */
-  fn GetKernelVersion() -> Result<String>;
+  fn GetKernelVersion(draconis::utils::cache::CacheManager& cache) -> Result<String>;
 
   /**
    * @brief Fetches the disk usage.
@@ -622,7 +623,7 @@ namespace draconis::core::system {
    * }
    * @endcode
    */
-  fn GetPrimaryNetworkInterface() -> Result<NetworkInterface>;
+  fn GetPrimaryNetworkInterface(draconis::utils::cache::CacheManager& cache) -> Result<NetworkInterface>;
 
   /**
    * @brief Fetches the battery information.

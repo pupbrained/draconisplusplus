@@ -7,10 +7,12 @@
   #include <matchit.hpp>
   #include <variant>
 
-  #include "../Utils/Error.hpp"
-  #include "../Utils/Types.hpp"
+  #include "../Utils/CacheManager.hpp"
+#include "../Utils/Error.hpp"
+#include "../Utils/Types.hpp"
 
 namespace draconis::services::weather {
+  inline draconis::utils::types::UniquePointer<draconis::utils::cache::CacheManager> s_cacheManager = nullptr;
   /**
    * @brief Specifies the weather service provider.
    * @see config::DRAC_WEATHER_PROVIDER in `config(.example).hpp`.

@@ -4,6 +4,7 @@
 
   #include <filesystem> // std::filesystem::path
 
+  #include "../Utils/CacheManager.hpp"
   #include "../Utils/Definitions.hpp"
   #include "../Utils/Error.hpp"
   #include "../Utils/Types.hpp"
@@ -89,19 +90,21 @@ namespace draconis::services::packages {
    * @return Result containing the total package count (u64) on success,
    * or a DracError if aggregation fails (individual errors logged).
    */
-  fn GetTotalCount(Manager enabledPackageManagers) -> utils::types::Result<utils::types::u64>;
+  fn GetTotalCount(draconis::utils::cache::CacheManager& cache, Manager enabledPackageManagers) -> utils::types::Result<utils::types::u64>;
 
   /**
    * @brief Gets package count from a database using SQLite.
+   * @param cache The CacheManager instance to use for caching.
    * @param pmId Identifier for the package manager (for logging/cache).
    * @param dbPath Path to the SQLite database file.
    * @param countQuery SQL query to count packages (e.g., "SELECT COUNT(*) FROM packages").
    * @return Result containing the count (u64) or a DracError.
    */
-  fn GetCountFromDb(const utils::types::String& pmId, const std::filesystem::path& dbPath, const utils::types::String& countQuery) -> utils::types::Result<utils::types::u64>;
+  fn GetCountFromDb(draconis::utils::cache::CacheManager& cache, const utils::types::String& pmId, const std::filesystem::path& dbPath, const utils::types::String& countQuery) -> utils::types::Result<utils::types::u64>;
 
   /**
    * @brief Gets package count by iterating entries in a directory, optionally filtering and subtracting.
+   * @param cache The CacheManager instance to use for caching.
    * @param pmId Identifier for the package manager (for logging/cache).
    * @param dirPath Path to the directory to iterate.
    * @param fileExtensionFilter Only count files with this extension (e.g., ".list").
@@ -109,20 +112,22 @@ namespace draconis::services::packages {
    * @return Result containing the count (u64) or a DracError.
    */
   fn GetCountFromDirectory(
-    const utils::types::String&  pmId,
-    const std::filesystem::path& dirPath,
-    const utils::types::String&  fileExtensionFilter,
-    bool                         subtractOne
+    draconis::utils::cache::CacheManager& cache,
+    const utils::types::String&           pmId,
+    const std::filesystem::path&          dirPath,
+    const utils::types::String&           fileExtensionFilter,
+    bool                                  subtractOne
   ) -> utils::types::Result<utils::types::u64>;
 
   /**
    * @brief Gets package count by iterating entries in a directory, filtering by extension.
+   * @param cache The CacheManager instance to use for caching.
    * @param pmId Identifier for the package manager (for logging/cache).
    * @param dirPath Path to the directory to iterate.
    * @param fileExtensionFilter Only count files with this extension (e.g., ".list").
    * @return Result containing the count (u64) or a DracError. Defaults subtractOne to false.
    */
-  fn GetCountFromDirectory(const utils::types::String& pmId, const std::filesystem::path& dirPath, const utils::types::String& fileExtensionFilter) -> utils::types::Result<utils::types::u64>;
+  fn GetCountFromDirectory(draconis::utils::cache::CacheManager& cache, const utils::types::String& pmId, const std::filesystem::path& dirPath, const utils::types::String& fileExtensionFilter) -> utils::types::Result<utils::types::u64>;
 
   /**
    * @brief Gets package count by iterating entries in a directory, optionally subtracting one.
@@ -133,123 +138,143 @@ namespace draconis::services::packages {
    * overload that accepts a file extension filter. Prefer explicit `String` construction
    * for the filter overload.
    *
+   * @param cache The CacheManager instance to use for caching.
    * @param pmId Identifier for the package manager (for logging/cache).
    * @param dirPath Path to the directory to iterate.
    * @param subtractOne Subtract one from the final count.
    * @return Result containing the count (u64) or a DracError. Defaults fileExtensionFilter to "".
    */
   fn GetCountFromDirectory(
-    const utils::types::String&  pmId,
-    const std::filesystem::path& dirPath,
-    bool                         subtractOne
+    draconis::utils::cache::CacheManager& cache,
+    const utils::types::String&           pmId,
+    const std::filesystem::path&          dirPath,
+    bool                                  subtractOne
   ) -> utils::types::Result<utils::types::u64>;
 
   /**
    * @brief Gets package count by iterating all entries in a directory.
+   * @param cache The CacheManager instance to use for caching.
    * @param pmId Identifier for the package manager (for logging/cache).
    * @param dirPath Path to the directory to iterate.
    * @return Result containing the count (u64) or a DracError. Defaults filter to "" and subtractOne to false.
    */
-  fn GetCountFromDirectory(const utils::types::String& pmId, const std::filesystem::path& dirPath) -> utils::types::Result<utils::types::u64>;
+  fn GetCountFromDirectory(draconis::utils::cache::CacheManager& cache, const utils::types::String& pmId, const std::filesystem::path& dirPath) -> utils::types::Result<utils::types::u64>;
 
   #ifdef __linux__
   /**
    * @brief Counts installed packages using APK.
+   * @param cache The CacheManager instance to use for caching.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn CountApk() -> utils::types::Result<utils::types::u64>;
+  fn CountApk(draconis::utils::cache::CacheManager& cache) -> utils::types::Result<utils::types::u64>;
   /**
    * @brief Counts installed packages using Dpkg.
+   * @param cache The CacheManager instance to use for caching.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn CountDpkg() -> utils::types::Result<utils::types::u64>;
+  fn CountDpkg(draconis::utils::cache::CacheManager& cache) -> utils::types::Result<utils::types::u64>;
   /**
    * @brief Counts installed packages using Moss.
+   * @param cache The CacheManager instance to use for caching.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn CountMoss() -> utils::types::Result<utils::types::u64>;
+  fn CountMoss(draconis::utils::cache::CacheManager& cache) -> utils::types::Result<utils::types::u64>;
   /**
    * @brief Counts installed packages using Pacman.
+   * @param cache The CacheManager instance to use for caching.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn CountPacman() -> utils::types::Result<utils::types::u64>;
+  fn CountPacman(draconis::utils::cache::CacheManager& cache) -> utils::types::Result<utils::types::u64>;
   /**
    * @brief Counts installed packages using Rpm.
+   * @param cache The CacheManager instance to use for caching.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn CountRpm() -> utils::types::Result<utils::types::u64>;
+  fn CountRpm(draconis::utils::cache::CacheManager& cache) -> utils::types::Result<utils::types::u64>;
   /**
    * @brief Counts installed packages using Xbps.
+   * @param cache The CacheManager instance to use for caching.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn CountXbps() -> utils::types::Result<utils::types::u64>;
+  fn CountXbps(draconis::utils::cache::CacheManager& cache) -> utils::types::Result<utils::types::u64>;
 
   /**
    * @brief Counts installed packages in a plist file (used by xbps and potentially others).
+   * @param cache The CacheManager instance to use for caching.
    * @param pmId Identifier for the package manager (for logging/cache).
    * @param plistPath Path to the plist file.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn GetCountFromPlist(const utils::types::String& pmId, const std::filesystem::path& plistPath) -> utils::types::Result<utils::types::u64>;
+  fn GetCountFromPlist(draconis::utils::cache::CacheManager& cache, const utils::types::String& pmId, const std::filesystem::path& plistPath) -> utils::types::Result<utils::types::u64>;
   #elifdef __APPLE__
   /**
    * @brief Counts installed packages using Homebrew.
+   * @param cache The CacheManager instance to use for caching.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn GetHomebrewCount() -> utils::types::Result<utils::types::u64>;
+  fn GetHomebrewCount(draconis::utils::cache::CacheManager& cache) -> utils::types::Result<utils::types::u64>;
   /**
    * @brief Counts installed packages using MacPorts.
+   * @param cache The CacheManager instance to use for caching.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn GetMacPortsCount() -> utils::types::Result<utils::types::u64>;
+  fn GetMacPortsCount(draconis::utils::cache::CacheManager& cache) -> utils::types::Result<utils::types::u64>;
   #elifdef _WIN32
   /**
    * @brief Counts installed packages using WinGet.
+   * @param cache The CacheManager instance to use for caching.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn CountWinGet() -> utils::types::Result<utils::types::u64>;
+  fn CountWinGet(draconis::utils::cache::CacheManager& cache) -> utils::types::Result<utils::types::u64>;
   /**
    * @brief Counts installed packages using Chocolatey.
+   * @param cache The CacheManager instance to use for caching.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn CountChocolatey() -> utils::types::Result<utils::types::u64>;
+  fn CountChocolatey(draconis::utils::cache::CacheManager& cache) -> utils::types::Result<utils::types::u64>;
   /**
    * @brief Counts installed packages using Scoop.
+   * @param cache The CacheManager instance to use for caching.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn CountScoop() -> utils::types::Result<utils::types::u64>;
+  fn CountScoop(draconis::utils::cache::CacheManager& cache) -> utils::types::Result<utils::types::u64>;
   #elif defined(__FreeBSD__) || defined(__DragonFly__)
   /**
    * @brief Counts installed packages using PkgNg.
+   * @param cache The CacheManager instance to use for caching.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn GetPkgNgCount() -> utils::types::Result<utils::types::u64>;
+  fn GetPkgNgCount(draconis::utils::cache::CacheManager& cache) -> utils::types::Result<utils::types::u64>;
   #elifdef __NetBSD__
   /**
    * @brief Counts installed packages using PkgSrc.
+   * @param cache The CacheManager instance to use for caching.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn GetPkgSrcCount() -> utils::types::Result<utils::types::u64>;
+  fn GetPkgSrcCount(draconis::utils::cache::CacheManager& cache) -> utils::types::Result<utils::types::u64>;
   #elifdef __HAIKU__
   /**
    * @brief Counts installed packages using Haiku.
+   * @param cache The CacheManager instance to use for caching.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn GetSerenityCount() -> utils::types::Result<utils::types::u64>;
+  fn GetSerenityCount(draconis::utils::cache::CacheManager& cache) -> utils::types::Result<utils::types::u64>;
   #endif
 
   #if defined(__linux__) || defined(__APPLE__)
   /**
    * @brief Counts installed packages using Nix.
+   * @param cache The CacheManager instance to use for caching.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn CountNix() -> utils::types::Result<utils::types::u64>;
+  fn CountNix(draconis::utils::cache::CacheManager& cache) -> utils::types::Result<utils::types::u64>;
   #endif
   /**
    * @brief Counts installed packages using Cargo.
+   * @param cache The CacheManager instance to use for caching.
    * @return Result containing the count (u64) or a DracError.
    */
-  fn CountCargo() -> utils::types::Result<utils::types::u64>;
+  fn CountCargo(draconis::utils::cache::CacheManager& cache) -> utils::types::Result<utils::types::u64>;
 } // namespace draconis::services::packages
 
 #endif // DRAC_ENABLE_PACKAGECOUNT
