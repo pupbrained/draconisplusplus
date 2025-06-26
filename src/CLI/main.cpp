@@ -182,19 +182,19 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
   }
 
   if (Result<CPUCores> cpuCores = GetCPUCores()) {
-    info_log("CPU cores: {} physical, {} logical", cpuCores->physical, cpuCores->logical);
+    debug_log("CPU cores: {} physical, {} logical", cpuCores->physical, cpuCores->logical);
   } else {
     debug_at(cpuCores.error());
   }
 
   if (Result<Vec<NetworkInterface>> networkInterfaces = GetNetworkInterfaces()) {
     for (const NetworkInterface& networkInterface : *networkInterfaces) {
-      info_log("Network interface: {}", networkInterface.name);
-      info_log("Network interface IPv4 address: {}", networkInterface.ipv4Address.value_or("N/A"));
-      info_log("Network interface IPv6 address: {}", networkInterface.ipv6Address.value_or("N/A"));
-      info_log("Network interface MAC address: {}", networkInterface.macAddress.value_or("N/A"));
-      info_log("Network interface is up: {}", networkInterface.isUp);
-      info_log("Network interface is loopback: {}", networkInterface.isLoopback);
+      debug_log("Network interface: {}", networkInterface.name);
+      debug_log("Network interface IPv4 address: {}", networkInterface.ipv4Address.value_or("N/A"));
+      debug_log("Network interface IPv6 address: {}", networkInterface.ipv6Address.value_or("N/A"));
+      debug_log("Network interface MAC address: {}", networkInterface.macAddress.value_or("N/A"));
+      debug_log("Network interface is up: {}", networkInterface.isUp);
+      debug_log("Network interface is loopback: {}", networkInterface.isLoopback);
     }
   } else {
     debug_at(networkInterfaces.error());
@@ -203,7 +203,7 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
   if (Result<Battery> battery = GetBatteryInfo()) {
     using matchit::match, matchit::is, matchit::_;
 
-    info_log(
+    debug_log(
       "Battery status: {}",
       match(battery->status)(
         is | Battery::Status::Charging    = "Charging",
@@ -214,12 +214,12 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
       )
     );
 
-    info_log("Battery percentage: {}%", battery->percentage.value_or(0));
+    debug_log("Battery percentage: {}%", battery->percentage.value_or(0));
 
     if (battery->timeRemaining.has_value())
-      info_log("Battery time remaining: {}", SecondsToFormattedDuration(battery->timeRemaining.value()));
+      debug_log("Battery time remaining: {}", SecondsToFormattedDuration(battery->timeRemaining.value()));
     else
-      info_log("Battery time remaining: N/A");
+      debug_log("Battery time remaining: N/A");
   } else {
     debug_at(battery.error());
   }
@@ -233,10 +233,10 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
     const SystemInfo data(config);
 
     if (data.primaryDisplay) {
-      info_log("Display ID: {}", data.primaryDisplay->id);
-      info_log("Display resolution: {}x{}", data.primaryDisplay->resolution.width, data.primaryDisplay->resolution.height);
-      info_log("Display refresh rate: {}Hz", data.primaryDisplay->refreshRate);
-      info_log("Display is primary: {}", data.primaryDisplay->isPrimary);
+      debug_log("Display ID: {}", data.primaryDisplay->id);
+      debug_log("Display resolution: {}x{}", data.primaryDisplay->resolution.width, data.primaryDisplay->resolution.height);
+      debug_log("Display refresh rate: {}Hz", data.primaryDisplay->refreshRate);
+      debug_log("Display is primary: {}", data.primaryDisplay->isPrimary);
     } else {
       debug_at(data.primaryDisplay.error());
     }

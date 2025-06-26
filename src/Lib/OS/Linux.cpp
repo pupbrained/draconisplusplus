@@ -59,7 +59,7 @@ extern "C" fn issetugid() -> usize { return 0; } // NOLINT(readability-identifie
 
 namespace {
   template <std::integral T>
-  auto try_parse(std::string_view sview) -> Option<T> {
+  fn try_parse(std::string_view sview) -> Option<T> {
     T value;
 
     auto [ptr, ec] = std::from_chars(sview.data(), sview.data() + sview.size(), value);
@@ -290,6 +290,7 @@ namespace {
     const ReplyGuard<xcb_query_extension_reply_t> randrQueryReply(
       xcb_query_extension_reply(conn.get(), xcb_query_extension(conn.get(), std::strlen("RANDR"), "RANDR"), nullptr)
     );
+
     if (!randrQueryReply || !randrQueryReply->present)
       return Err(DracError(NotSupported, "X server does not support RANDR extension"));
 
@@ -302,6 +303,7 @@ namespace {
         conn.get(), xcb_randr_get_screen_resources_current(conn.get(), screen->root), nullptr
       )
     );
+
     if (!screenResourcesReply)
       return Err(DracError(ApiUnavailable, "Failed to get screen resources"));
 
@@ -504,6 +506,59 @@ namespace {
 
   void wayland_registry_removal(void* /*data*/, wl_registry* /*registry*/, u32 /*id*/) {}
 
+  struct WaylandPrimaryDisplayData {
+    wl_output* output = nullptr;
+    Display    display;
+    bool       done = false;
+  };
+
+  fn wayland_primary_mode(void* data, wl_output* /*output*/, u32 flags, i32 width, i32 height, i32 refresh) -> void {
+    if (!(flags & WL_OUTPUT_MODE_CURRENT))
+      return;
+
+    auto* displayData = static_cast<WaylandPrimaryDisplayData*>(data);
+
+    if (displayData->done)
+      return;
+
+    displayData->display.resolution  = { .width = static_cast<u16>(width), .height = static_cast<u16>(height) };
+    displayData->display.refreshRate = refresh > 0 ? refresh / 1000 : 0;
+  }
+
+  void wayland_primary_done(void* data, wl_output* /*wl_output*/) {
+    auto* displayData = static_cast<WaylandPrimaryDisplayData*>(data);
+    if (displayData->display.resolution.width > 0)
+      displayData->done = true;
+  }
+
+  fn wayland_primary_geometry(void* /*data*/, wl_output* /*output*/, i32 /*x*/, i32 /*y*/, i32 /*physical_width*/, i32 /*physical_height*/, i32 /*subpixel*/, const char* /*make*/, const char* /*model*/, i32 /*transform*/) -> void {}
+  fn wayland_primary_scale(void* /*data*/, wl_output* /*output*/, i32 /*factor*/) -> void {}
+
+  void wayland_primary_registry(void* data, wl_registry* registry, u32 name, const char* interface, u32 version) {
+    auto* displayData = static_cast<WaylandPrimaryDisplayData*>(data);
+    if (displayData->output != nullptr || strcmp(interface, "wl_output") != 0)
+      return;
+
+    displayData->display.id        = name;
+    displayData->display.isPrimary = true;
+    displayData->output            = static_cast<wl_output*>(wl_registry_bind(registry, name, &wl_output_interface, std::min(version, 2U)));
+    if (!displayData->output)
+      return;
+
+    const static wl_output_listener LISTENER = {
+      .geometry    = wayland_primary_geometry,
+      .mode        = wayland_primary_mode,
+      .done        = wayland_primary_done,
+      .scale       = wayland_primary_scale,
+      .name        = nullptr,
+      .description = nullptr
+    };
+
+    wl_output_add_listener(displayData->output, &LISTENER, data);
+  }
+
+  void wayland_primary_registry_remover(void* /*data*/, wl_registry* /*registry*/, u32 /*id*/) {}
+
   fn GetWaylandDisplays() -> Result<Vec<Display>> {
     const Wayland::DisplayGuard display;
     if (!display)
@@ -545,17 +600,28 @@ namespace {
   }
 
   fn GetWaylandPrimaryDisplay() -> Result<Display> {
-    Result<Vec<Display>> displays = GetWaylandDisplays();
+    const Wayland::DisplayGuard display;
+    if (!display)
+      return Err(DracError(ApiUnavailable, "Failed to connect to Wayland display"));
 
-    if (!displays)
-      return Err(displays.error());
+    wl_registry* registry = wl_display_get_registry(display.get());
+    if (!registry)
+      return Err(DracError(ApiUnavailable, "Failed to get Wayland registry"));
 
-    for (const Display& display : *displays)
-      if (display.isPrimary)
-        return display;
+    WaylandPrimaryDisplayData         data {};
+    const static wl_registry_listener LISTENER = { .global = wayland_primary_registry, .global_remove = wayland_primary_registry_remover };
 
-    if (!displays->empty())
-      return displays->front();
+    wl_registry_add_listener(registry, &LISTENER, &data);
+
+    wl_display_roundtrip(display.get());
+    wl_display_roundtrip(display.get());
+
+    if (data.output)
+      wl_output_destroy(data.output);
+    wl_registry_destroy(registry);
+
+    if (data.done)
+      return data.display;
 
     return Err(DracError(NotFound, "No primary Wayland display found"));
   }
