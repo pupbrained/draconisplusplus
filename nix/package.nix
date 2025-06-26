@@ -66,17 +66,13 @@
       version = "0.1.0";
       src = self;
 
-      nativeBuildInputs = with pkgs;
-        [
+      nativeBuildInputs = with pkgs; ([
           cmake
           meson
           ninja
           pkg-config
         ]
-        ++ (pkgs.lib.optionals stdenv.isLinux [
-          objcopy
-          xxd
-        ]);
+        ++ pkgs.lib.optional stdenv.isLinux xxd);
 
       buildInputs = deps;
 

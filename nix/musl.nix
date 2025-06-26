@@ -96,13 +96,14 @@
       version = "0.1.0";
       src = self;
 
-      nativeBuildInputs = with muslPkgs; [
-        cmake
-        meson
-        ninja
-        pkg-config
-        xxd
-      ];
+      nativeBuildInputs =
+        (with muslPkgs; [
+          cmake
+          meson
+          ninja
+          pkg-config
+        ]
+        ++ pkgs.lib.optional stdenv.isLinux xxd);
 
       mesonFlags = [
         "-Dbuild_for_musl=true"
