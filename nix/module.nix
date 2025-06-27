@@ -44,7 +44,7 @@ with lib; let
 
         #if DRAC_ENABLE_WEATHER
         constexpr services::weather::Provider DRAC_WEATHER_PROVIDER = services::weather::Provider::${lib.toUpper cfg.weatherProvider};
-        constexpr services::weather::Unit DRAC_WEATHER_UNIT = services::weather::Unit::${lib.toUpper cfg.weatherUnit};
+        constexpr services::weather::UnitSystem DRAC_WEATHER_UNIT = services::weather::UnitSystem::${lib.toUpper cfg.weatherUnit};
         constexpr bool DRAC_SHOW_TOWN_NAME = ${toString cfg.showTownName};
         constexpr std::optional<std::string> DRAC_API_KEY = ${apiKey};
         constexpr services::weather::Location DRAC_LOCATION = ${location};
