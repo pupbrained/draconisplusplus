@@ -14,6 +14,61 @@
 
 #include "Caching.hpp"
 
+// Add glaze serialization support for custom types
+namespace glz {
+  // Serialization for CPUCores
+  template <>
+  struct meta<draconis::utils::types::CPUCores> {
+    using T = draconis::utils::types::CPUCores;
+
+    static constexpr detail::Object value = object("physical", &T::physical, "logical", &T::logical);
+  };
+
+  // Serialization for NetworkInterface
+  template <>
+  struct meta<draconis::utils::types::NetworkInterface> {
+    using T = draconis::utils::types::NetworkInterface;
+
+    static constexpr detail::Object value = object(
+      "name",
+      &T::name,
+      "isUp",
+      &T::isUp,
+      "isLoopback",
+      &T::isLoopback,
+      "ipv4Address",
+      &T::ipv4Address,
+      "macAddress",
+      &T::macAddress
+    );
+  };
+
+  // Serialization for Display
+  template <>
+  struct meta<draconis::utils::types::Display> {
+    using T = draconis::utils::types::Display;
+
+    static constexpr detail::Object value = object(
+      "id",
+      &T::id,
+      "resolution",
+      &T::resolution,
+      "refreshRate",
+      &T::refreshRate,
+      "isPrimary",
+      &T::isPrimary
+    );
+  };
+
+  // Serialization for Resolution
+  template <>
+  struct meta<draconis::utils::types::Display::Resolution> {
+    using T = draconis::utils::types::Display::Resolution;
+
+    static constexpr detail::Object value = object("width", &T::width, "height", &T::height);
+  };
+} // namespace glz
+
 namespace draconis::utils::cache {
   using draconis::utils::types::Result;
   using draconis::utils::types::String;
@@ -22,6 +77,8 @@ namespace draconis::utils::cache {
 
   class CacheManager {
    public:
+    CacheManager() : m_globalPolicy { CacheLocation::Persistent, std::chrono::hours(24) } {}
+
     void setGlobalPolicy(const CachePolicy& policy) {
       m_globalPolicy = policy;
     }
@@ -37,8 +94,9 @@ namespace draconis::utils::cache {
       // 1. Check in-memory cache
       if (auto iter = m_inMemoryCache.find(key); iter != m_inMemoryCache.end()) {
         CacheEntry<T> entry;
-        if (glz::read_json(entry, iter->second.first) == glz::error_code::none) {
-          if (std::chrono::system_clock::now() < entry.expires) {
+        if (glz::read_beve(entry, iter->second.first) == glz::error_code::none) {
+          auto expiry_tp = std::chrono::system_clock::time_point(std::chrono::seconds(entry.expires));
+          if (std::chrono::system_clock::now() < expiry_tp) {
             return entry.data;
           }
         }
@@ -47,37 +105,48 @@ namespace draconis::utils::cache {
       // 2. Check filesystem cache
       const auto filePath = getCacheFilePath(key, policy.location);
       if (std::filesystem::exists(filePath)) {
-        std::string   fileContents;
-        CacheEntry<T> entry;
-        if (glz::read_file_json(entry, filePath.string(), fileContents) == glz::error_code::none) {
-          if (std::chrono::system_clock::now() < entry.expires) {
-            // Load into in-memory cache
-            m_inMemoryCache[key] = { fileContents, entry.expires };
-            return entry.data;
+        std::ifstream ifs(filePath, std::ios::binary);
+        if (ifs) {
+          std::string   fileContents((std::istreambuf_iterator<char>(ifs)), {});
+          CacheEntry<T> entry;
+          if (glz::read_beve(entry, fileContents) == glz::error_code::none) {
+            auto expiry_tp = std::chrono::system_clock::time_point(std::chrono::seconds(entry.expires));
+            if (std::chrono::system_clock::now() < expiry_tp) {
+              // Load into in-memory cache
+              m_inMemoryCache[key] = { fileContents, expiry_tp };
+              return entry.data;
+            }
           }
         }
       }
 
       // 3. Cache miss: call fetcher
+      debug_log("Cache miss for key: {}. Calling fetcher.", key);
       Result<T> fetchedResult = fetcher();
       if (!fetchedResult) {
+        error_log("Fetcher for key: {} returned an error: {}", key, fetchedResult.error().message);
         return fetchedResult; // Propagate error
       }
 
       // 4. Store in cache
+      u64 expiry_ts = std::chrono::duration_cast<std::chrono::seconds>(
+                        (std::chrono::system_clock::now() + policy.ttl).time_since_epoch()
+      )
+                        .count();
       CacheEntry<T> newEntry {
         .data    = *fetchedResult,
-        .expires = std::chrono::system_clock::now() + policy.ttl
+        .expires = expiry_ts
       };
 
-      std::string serializedData;
-      glz::write<glz::opts {}>(newEntry, serializedData);
+      std::string binaryBuffer;
+      glz::write_beve(newEntry, binaryBuffer);
 
-      m_inMemoryCache[key] = { serializedData, newEntry.expires };
+      m_inMemoryCache[key] = { binaryBuffer, std::chrono::system_clock::time_point(std::chrono::seconds(expiry_ts)) };
 
       if (policy.location != CacheLocation::InMemory) {
         std::filesystem::create_directories(filePath.parent_path());
-        glz::write_file_json(newEntry, filePath.string(), std::string {});
+        std::ofstream ofs(filePath, std::ios::binary | std::ios::trunc);
+        ofs.write(binaryBuffer.data(), static_cast<std::streamsize>(binaryBuffer.size()));
       }
 
       return fetchedResult;
@@ -90,8 +159,8 @@ namespace draconis::utils::cache {
 
     template <typename T>
     struct CacheEntry {
-      T                                     data;
-      std::chrono::system_clock::time_point expires;
+      T   data;
+      u64 expires; // store as UNIX timestamp (seconds since epoch)
     };
 
     static fn getCacheFilePath(const String& key, CacheLocation location) -> std::filesystem::path {

@@ -1,4 +1,5 @@
 #ifdef __APPLE__
+
   #include <CoreFoundation/CFPropertyList.h> // CFPropertyListCreateWithData, kCFPropertyListImmutable
   #include <CoreFoundation/CFStream.h>       // CFReadStreamClose, CFReadStreamCreateWithFile, CFReadStreamOpen, CFReadStreamRead, CFReadStreamRef
   #include <CoreGraphics/CGDirectDisplay.h>  // CGDisplayCopyDeviceDescription, CGDisplayCopyDisplayMode, CGDisplayIsMain, CGDisplayModeGetMaximumRefreshRate, CGDisplayModeGetRefreshRate, CGDisplayPixelsHigh, CGDisplayPixelsWide, CGDisplayRef, CGDisplayModeRef, CGDirectDisplayID
@@ -133,121 +134,268 @@ namespace draconis::core::system {
 
   fn GetOSVersion(draconis::utils::cache::CacheManager& cache) -> Result<String> {
     return cache.getOrSet<String>("macos_os_version", []() -> Result<String> {
-        return macOS::GetOSVersion();
+      return macOS::GetOSVersion();
     });
   }
 
   fn GetDesktopEnvironment(draconis::utils::cache::CacheManager& cache) -> Result<String> {
     return cache.getOrSet<String>("macos_desktop_environment", []() -> Result<String> {
-        return "Aqua";
+      return "Aqua";
     });
   }
 
   fn GetWindowManager(draconis::utils::cache::CacheManager& cache) -> Result<String> {
     return cache.getOrSet<String>("macos_wm", []() -> Result<String> {
-        constexpr Array<StringView, 5> knownWms = {
-            "Yabai",
-            "ChunkWM",
-            "Amethyst",
-            "Spectacle",
-            "Rectangle",
-        };
+      constexpr Array<StringView, 5> knownWms = {
+        "Yabai",
+        "ChunkWM",
+        "Amethyst",
+        "Spectacle",
+        "Rectangle",
+      };
 
-        Array<i32, 3> request = { CTL_KERN, KERN_PROC, KERN_PROC_ALL };
+      Array<i32, 3> request = { CTL_KERN, KERN_PROC, KERN_PROC_ALL };
 
-        usize len = 0;
+      usize len = 0;
 
-        if (sysctl(request.data(), request.size(), nullptr, &len, nullptr, 0) == -1)
-            return Err(DracError("sysctl size query failed for KERN_PROC_ALL"));
+      if (sysctl(request.data(), request.size(), nullptr, &len, nullptr, 0) == -1)
+        return Err(DracError("sysctl size query failed for KERN_PROC_ALL"));
 
-        if (len == 0)
-            return Err(DracError(NotFound, "sysctl for KERN_PROC_ALL returned zero length"));
+      if (len == 0)
+        return Err(DracError(NotFound, "sysctl for KERN_PROC_ALL returned zero length"));
 
-        Vec<char> buf(len);
+      Vec<char> buf(len);
 
-        if (sysctl(request.data(), request.size(), buf.data(), &len, nullptr, 0) == -1)
-            return Err(DracError("sysctl data fetch failed for KERN_PROC_ALL"));
+      if (sysctl(request.data(), request.size(), buf.data(), &len, nullptr, 0) == -1)
+        return Err(DracError("sysctl data fetch failed for KERN_PROC_ALL"));
 
-        if (len % sizeof(kinfo_proc) != 0)
-            return Err(DracError(
-                PlatformSpecific,
-                std::format("sysctl returned size {} which is not a multiple of kinfo_proc size {}", len, sizeof(kinfo_proc))
-            ));
+      if (len % sizeof(kinfo_proc) != 0)
+        return Err(DracError(
+          PlatformSpecific,
+          std::format("sysctl returned size {} which is not a multiple of kinfo_proc size {}", len, sizeof(kinfo_proc))
+        ));
 
-        usize count = len / sizeof(kinfo_proc);
+      usize count = len / sizeof(kinfo_proc);
 
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-        Span<const kinfo_proc> processes(reinterpret_cast<const kinfo_proc*>(buf.data()), count);
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+      Span<const kinfo_proc> processes(reinterpret_cast<const kinfo_proc*>(buf.data()), count);
 
-        for (const kinfo_proc& procInfo : processes)
-            for (const StringView& wmName : knownWms)
-                if (std::ranges::equal(StringView(procInfo.kp_proc.p_comm), wmName, [](char chrA, char chrB) {
-                    return std::tolower(static_cast<unsigned char>(chrA)) == std::tolower(static_cast<unsigned char>(chrB));
-                })) {
-                    return String(wmName);
-                }
+      for (const kinfo_proc& procInfo : processes)
+        for (const StringView& wmName : knownWms)
+          if (std::ranges::equal(StringView(procInfo.kp_proc.p_comm), wmName, [](char chrA, char chrB) {
+                return std::tolower(static_cast<unsigned char>(chrA)) == std::tolower(static_cast<unsigned char>(chrB));
+              })) {
+            return String(wmName);
+          }
 
-        return "Quartz";
+      return "Quartz";
     });
   }
 
   fn GetKernelVersion(draconis::utils::cache::CacheManager& cache) -> Result<String> {
     return cache.getOrSet<String>("macos_kernel", []() -> Result<String> {
-        Array<char, 256> kernelVersion {};
-        usize kernelVersionLen = kernelVersion.size();
-        if (sysctlbyname("kern.osrelease", kernelVersion.data(), &kernelVersionLen, nullptr, 0) == -1)
-            return Err(DracError("Failed to get kernel version"));
-        return String(kernelVersion.data());
+      Array<char, 256> kernelVersion {};
+      usize            kernelVersionLen = kernelVersion.size();
+      if (sysctlbyname("kern.osrelease", kernelVersion.data(), &kernelVersionLen, nullptr, 0) == -1)
+        return Err(DracError("Failed to get kernel version"));
+      return String(kernelVersion.data());
     });
   }
 
   fn GetHost(draconis::utils::cache::CacheManager& cache) -> Result<String> {
     return cache.getOrSet<String>("macos_host", []() -> Result<String> {
-        Array<char, 256> hwModel {};
-        usize hwModelLen = hwModel.size();
-        if (sysctlbyname("hw.model", hwModel.data(), &hwModelLen, nullptr, 0) == -1)
-            return Err(DracError("Failed to get host info"));
+      Array<char, 256> hwModel {};
+      usize            hwModelLen = hwModel.size();
+      if (sysctlbyname("hw.model", hwModel.data(), &hwModelLen, nullptr, 0) == -1)
+        return Err(DracError("Failed to get host info"));
 
-        static const std::flat_map<StringView, StringView> MODEL_NAME_BY_HW_MODEL = {
-            // ... (map data) ...
-        };
+      // taken from https://github.com/fastfetch-cli/fastfetch/blob/dev/src/detection/host/host_mac.c
+      // shortened a lot of the entries to remove unnecessary info
+      static const std::flat_map<StringView, StringView> MODEL_NAME_BY_HW_MODEL = {
+        // MacBook Pro
+        { "MacBookPro18,3",      "MacBook Pro (14-inch, 2021)" },
+        { "MacBookPro18,4",      "MacBook Pro (14-inch, 2021)" },
+        { "MacBookPro18,1",      "MacBook Pro (16-inch, 2021)" },
+        { "MacBookPro18,2",      "MacBook Pro (16-inch, 2021)" },
+        { "MacBookPro17,1",  "MacBook Pro (13-inch, M1, 2020)" },
+        { "MacBookPro16,3",      "MacBook Pro (13-inch, 2020)" },
+        { "MacBookPro16,2",      "MacBook Pro (13-inch, 2020)" },
+        { "MacBookPro16,4",      "MacBook Pro (16-inch, 2019)" },
+        { "MacBookPro16,1",      "MacBook Pro (16-inch, 2019)" },
+        { "MacBookPro15,4",      "MacBook Pro (13-inch, 2019)" },
+        { "MacBookPro15,3",      "MacBook Pro (15-inch, 2019)" },
+        { "MacBookPro15,2", "MacBook Pro (13-inch, 2018/2019)" },
+        { "MacBookPro15,1", "MacBook Pro (15-inch, 2018/2019)" },
+        { "MacBookPro14,3",      "MacBook Pro (15-inch, 2017)" },
+        { "MacBookPro14,2",      "MacBook Pro (13-inch, 2017)" },
+        { "MacBookPro14,1",      "MacBook Pro (13-inch, 2017)" },
+        { "MacBookPro13,3",      "MacBook Pro (15-inch, 2016)" },
+        { "MacBookPro13,2",      "MacBook Pro (13-inch, 2016)" },
+        { "MacBookPro13,1",      "MacBook Pro (13-inch, 2016)" },
+        { "MacBookPro12,1",      "MacBook Pro (13-inch, 2015)" },
+        { "MacBookPro11,4",      "MacBook Pro (15-inch, 2015)" },
+        { "MacBookPro11,5",      "MacBook Pro (15-inch, 2015)" },
+        { "MacBookPro11,2", "MacBook Pro (15-inch, 2013/2014)" },
+        { "MacBookPro11,3", "MacBook Pro (15-inch, 2013/2014)" },
+        { "MacBookPro11,1", "MacBook Pro (13-inch, 2013/2014)" },
+        { "MacBookPro10,2", "MacBook Pro (13-inch, 2012/2013)" },
+        { "MacBookPro10,1", "MacBook Pro (15-inch, 2012/2013)" },
+        {  "MacBookPro9,2",      "MacBook Pro (13-inch, 2012)" },
+        {  "MacBookPro9,1",      "MacBook Pro (15-inch, 2012)" },
+        {  "MacBookPro8,3",      "MacBook Pro (17-inch, 2011)" },
+        {  "MacBookPro8,2",      "MacBook Pro (15-inch, 2011)" },
+        {  "MacBookPro8,1",      "MacBook Pro (13-inch, 2011)" },
+        {  "MacBookPro7,1",      "MacBook Pro (13-inch, 2010)" },
+        {  "MacBookPro6,2",      "MacBook Pro (15-inch, 2010)" },
+        {  "MacBookPro6,1",      "MacBook Pro (17-inch, 2010)" },
+        {  "MacBookPro5,5",      "MacBook Pro (13-inch, 2009)" },
+        {  "MacBookPro5,3",      "MacBook Pro (15-inch, 2009)" },
+        {  "MacBookPro5,2",      "MacBook Pro (17-inch, 2009)" },
+        {  "MacBookPro5,1",      "MacBook Pro (15-inch, 2008)" },
+        {  "MacBookPro4,1",   "MacBook Pro (17/15-inch, 2008)" },
 
-        const auto iter = MODEL_NAME_BY_HW_MODEL.find(hwModel.data());
-        if (iter == MODEL_NAME_BY_HW_MODEL.end())
-            return Err(DracError("Failed to get host info"));
+        // MacBook Air
+        { "MacBookAir10,1",           "MacBook Air (M1, 2020)" },
+        {  "MacBookAir9,1",      "MacBook Air (13-inch, 2020)" },
+        {  "MacBookAir8,2",      "MacBook Air (13-inch, 2019)" },
+        {  "MacBookAir8,1",      "MacBook Air (13-inch, 2018)" },
+        {  "MacBookAir7,2", "MacBook Air (13-inch, 2015/2017)" },
+        {  "MacBookAir7,1",      "MacBook Air (11-inch, 2015)" },
+        {  "MacBookAir6,2", "MacBook Air (13-inch, 2013/2014)" },
+        {  "MacBookAir6,1", "MacBook Air (11-inch, 2013/2014)" },
+        {  "MacBookAir5,2",      "MacBook Air (13-inch, 2012)" },
+        {  "MacBookAir5,1",      "MacBook Air (11-inch, 2012)" },
+        {  "MacBookAir4,2",      "MacBook Air (13-inch, 2011)" },
+        {  "MacBookAir4,1",      "MacBook Air (11-inch, 2011)" },
+        {  "MacBookAir3,2",      "MacBook Air (13-inch, 2010)" },
+        {  "MacBookAir3,1",      "MacBook Air (11-inch, 2010)" },
+        {  "MacBookAir2,1",               "MacBook Air (2009)" },
 
-        return String(iter->second);
+        // Mac mini
+        {     "Macmini9,1",              "Mac mini (M1, 2020)" },
+        {     "Macmini8,1",                  "Mac mini (2018)" },
+        {     "Macmini7,1",                  "Mac mini (2014)" },
+        {     "Macmini6,1",                  "Mac mini (2012)" },
+        {     "Macmini6,2",                  "Mac mini (2012)" },
+        {     "Macmini5,1",                  "Mac mini (2011)" },
+        {     "Macmini5,2",                  "Mac mini (2011)" },
+        {     "Macmini4,1",                  "Mac mini (2010)" },
+        {     "Macmini3,1",                  "Mac mini (2009)" },
+
+        // MacBook
+        {    "MacBook10,1",          "MacBook (12-inch, 2017)" },
+        {     "MacBook9,1",          "MacBook (12-inch, 2016)" },
+        {     "MacBook8,1",          "MacBook (12-inch, 2015)" },
+        {     "MacBook7,1",          "MacBook (13-inch, 2010)" },
+        {     "MacBook6,1",          "MacBook (13-inch, 2009)" },
+        {     "MacBook5,2",          "MacBook (13-inch, 2009)" },
+
+        // Mac Pro
+        {      "MacPro7,1",                   "Mac Pro (2019)" },
+        {      "MacPro6,1",                   "Mac Pro (2013)" },
+        {      "MacPro5,1",            "Mac Pro (2010 - 2012)" },
+        {      "MacPro4,1",                   "Mac Pro (2009)" },
+
+        // Mac (Generic)
+        {        "Mac16,3",             "iMac (24-inch, 2024)" },
+        {        "Mac16,2",             "iMac (24-inch, 2024)" },
+        {        "Mac16,1",      "MacBook Pro (14-inch, 2024)" },
+        {        "Mac16,6",      "MacBook Pro (14-inch, 2024)" },
+        {        "Mac16,8",      "MacBook Pro (14-inch, 2024)" },
+        {        "Mac16,7",      "MacBook Pro (16-inch, 2024)" },
+        {        "Mac16,5",      "MacBook Pro (16-inch, 2024)" },
+        {       "Mac16,15",                  "Mac mini (2024)" },
+        {       "Mac16,10",                  "Mac mini (2024)" },
+        {       "Mac15,13",  "MacBook Air (15-inch, M3, 2024)" },
+        {        "Mac15,2",  "MacBook Air (13-inch, M3, 2024)" },
+        {        "Mac15,3",  "MacBook Pro (14-inch, Nov 2023)" },
+        {        "Mac15,4",             "iMac (24-inch, 2023)" },
+        {        "Mac15,5",             "iMac (24-inch, 2023)" },
+        {        "Mac15,6",  "MacBook Pro (14-inch, Nov 2023)" },
+        {        "Mac15,8",  "MacBook Pro (14-inch, Nov 2023)" },
+        {       "Mac15,10",  "MacBook Pro (14-inch, Nov 2023)" },
+        {        "Mac15,7",  "MacBook Pro (16-inch, Nov 2023)" },
+        {        "Mac15,9",  "MacBook Pro (16-inch, Nov 2023)" },
+        {       "Mac15,11",  "MacBook Pro (16-inch, Nov 2023)" },
+        {       "Mac14,15",  "MacBook Air (15-inch, M2, 2023)" },
+        {       "Mac14,14",      "Mac Studio (M2 Ultra, 2023)" },
+        {       "Mac14,13",        "Mac Studio (M2 Max, 2023)" },
+        {        "Mac14,8",                   "Mac Pro (2023)" },
+        {        "Mac14,6",      "MacBook Pro (16-inch, 2023)" },
+        {       "Mac14,10",      "MacBook Pro (16-inch, 2023)" },
+        {        "Mac14,5",      "MacBook Pro (14-inch, 2023)" },
+        {        "Mac14,9",      "MacBook Pro (14-inch, 2023)" },
+        {        "Mac14,3",              "Mac mini (M2, 2023)" },
+        {       "Mac14,12",              "Mac mini (M2, 2023)" },
+        {        "Mac14,7",  "MacBook Pro (13-inch, M2, 2022)" },
+        {        "Mac14,2",           "MacBook Air (M2, 2022)" },
+        {        "Mac13,1",        "Mac Studio (M1 Max, 2022)" },
+        {        "Mac13,2",      "Mac Studio (M1 Ultra, 2022)" },
+
+        // iMac
+        {       "iMac21,1",         "iMac (24-inch, M1, 2021)" },
+        {       "iMac21,2",         "iMac (24-inch, M1, 2021)" },
+        {       "iMac20,1",             "iMac (27-inch, 2020)" },
+        {       "iMac20,2",             "iMac (27-inch, 2020)" },
+        {       "iMac19,1",             "iMac (27-inch, 2019)" },
+        {       "iMac19,2",           "iMac (21.5-inch, 2019)" },
+        {     "iMacPro1,1",                  "iMac Pro (2017)" },
+        {       "iMac18,3",             "iMac (27-inch, 2017)" },
+        {       "iMac18,2",           "iMac (21.5-inch, 2017)" },
+        {       "iMac18,1",           "iMac (21.5-inch, 2017)" },
+        {       "iMac17,1",             "iMac (27-inch, 2015)" },
+        {       "iMac16,2",           "iMac (21.5-inch, 2015)" },
+        {       "iMac16,1",           "iMac (21.5-inch, 2015)" },
+        {       "iMac15,1",        "iMac (27-inch, 2014/2015)" },
+        {       "iMac14,4",           "iMac (21.5-inch, 2014)" },
+        {       "iMac14,2",             "iMac (27-inch, 2013)" },
+        {       "iMac14,1",           "iMac (21.5-inch, 2013)" },
+        {       "iMac13,2",             "iMac (27-inch, 2012)" },
+        {       "iMac13,1",           "iMac (21.5-inch, 2012)" },
+        {       "iMac12,2",             "iMac (27-inch, 2011)" },
+        {       "iMac12,1",           "iMac (21.5-inch, 2011)" },
+        {       "iMac11,3",             "iMac (27-inch, 2010)" },
+        {       "iMac11,2",           "iMac (21.5-inch, 2010)" },
+        {       "iMac10,1",        "iMac (27/21.5-inch, 2009)" },
+        {        "iMac9,1",          "iMac (24/20-inch, 2009)" },
+      };
+
+      const auto iter = MODEL_NAME_BY_HW_MODEL.find(hwModel.data());
+      if (iter == MODEL_NAME_BY_HW_MODEL.end())
+        return Err(DracError("Failed to get host info"));
+
+      return String(iter->second);
     });
   }
 
   fn GetCPUModel(draconis::utils::cache::CacheManager& cache) -> Result<String> {
     return cache.getOrSet<String>("macos_cpu_model", []() -> Result<String> {
-        Array<char, 256> cpuModel {};
-        usize cpuModelLen = cpuModel.size();
-        if (sysctlbyname("machdep.cpu.brand_string", cpuModel.data(), &cpuModelLen, nullptr, 0) == -1)
-            return Err(DracError("Failed to get CPU model"));
-        return String(cpuModel.data());
+      Array<char, 256> cpuModel {};
+      usize            cpuModelLen = cpuModel.size();
+      if (sysctlbyname("machdep.cpu.brand_string", cpuModel.data(), &cpuModelLen, nullptr, 0) == -1)
+        return Err(DracError("Failed to get CPU model"));
+      return String(cpuModel.data());
     });
   }
 
   fn GetCPUCores(draconis::utils::cache::CacheManager& cache) -> Result<CPUCores> {
     return cache.getOrSet<CPUCores>("macos_cpu_cores", []() -> Result<CPUCores> {
-        u32   physicalCores = 0;
-        u32   logicalCores  = 0;
-        usize size          = sizeof(u32);
+      u32   physicalCores = 0;
+      u32   logicalCores  = 0;
+      usize size          = sizeof(u32);
 
-        if (sysctlbyname("hw.physicalcpu", &physicalCores, &size, nullptr, 0) == -1)
-            return Err(DracError("sysctlbyname for hw.physicalcpu failed"));
+      if (sysctlbyname("hw.physicalcpu", &physicalCores, &size, nullptr, 0) == -1)
+        return Err(DracError("sysctlbyname for hw.physicalcpu failed"));
 
-        size = sizeof(u32);
+      size = sizeof(u32);
 
-        if (sysctlbyname("hw.logicalcpu", &logicalCores, &size, nullptr, 0) == -1)
-            return Err(DracError("sysctlbyname for hw.logicalcpu failed"));
+      if (sysctlbyname("hw.logicalcpu", &logicalCores, &size, nullptr, 0) == -1)
+        return Err(DracError("sysctlbyname for hw.logicalcpu failed"));
 
-        debug_log("Physical cores: {}", physicalCores);
-        debug_log("Logical cores: {}", logicalCores);
+      debug_log("Physical cores: {}", physicalCores);
+      debug_log("Logical cores: {}", logicalCores);
 
-        return CPUCores(physicalCores, logicalCores);
+      return CPUCores(physicalCores, logicalCores);
     });
   }
 
@@ -256,8 +404,7 @@ namespace draconis::core::system {
         const Result<String> gpuModel = macOS::GetGPUModel();
         if (!gpuModel)
             return Err(DracError("Failed to get GPU model"));
-        return *gpuModel;
-    }, draconis::utils::cache::CachePolicy::NeverExpire());
+        return *gpuModel; }, draconis::utils::cache::CachePolicy::NeverExpire());
   }
 
   fn GetDiskUsage() -> Result<ResourceUsage> {
@@ -274,8 +421,8 @@ namespace draconis::core::system {
 
   fn GetShell(draconis::utils::cache::CacheManager& cache) -> Result<String> {
     return cache.getOrSet<String>("macos_shell", []() -> Result<String> {
-        if (const Result<String> shellPath = GetEnv("SHELL")) {
-            // clang-format off
+      if (const Result<String> shellPath = GetEnv("SHELL")) {
+        // clang-format off
             constexpr Array<Pair<StringView, StringView>, 8> shellMap {{
                 { "bash", "Bash"      },
                 { "zsh",  "Zsh"       },
@@ -286,15 +433,15 @@ namespace draconis::core::system {
                 { "sh",   "Sh"        },
                 { "nu",   "NuShell"   },
             }};
-            // clang-format on
+        // clang-format on
 
-            for (const auto& [exe, name] : shellMap)
-                if (shellPath->ends_with(exe))
-                    return String(name);
+        for (const auto& [exe, name] : shellMap)
+          if (shellPath->ends_with(exe))
+            return String(name);
 
-            return *shellPath;
-        }
-        return Err(DracError(NotFound, "Could not find SHELL environment variable"));
+        return *shellPath;
+      }
+      return Err(DracError(NotFound, "Could not find SHELL environment variable"));
     });
   }
 
@@ -346,93 +493,93 @@ namespace draconis::core::system {
 
   fn GetPrimaryNetworkInterface(draconis::utils::cache::CacheManager& cache) -> Result<NetworkInterface> {
     return cache.getOrSet<NetworkInterface>("macos_primary_network_interface", []() -> Result<NetworkInterface> {
-        // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) - This requires a lot of casts and there's no good way to avoid them.
-        Array<i32, 6> mib = { CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_FLAGS, RTF_GATEWAY };
-        usize         len = 0;
+      // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) - This requires a lot of casts and there's no good way to avoid them.
+      Array<i32, 6> mib = { CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_FLAGS, RTF_GATEWAY };
+      usize         len = 0;
 
-        if (sysctl(mib.data(), mib.size(), nullptr, &len, nullptr, 0) == -1)
-            return Err(DracError("sysctl(1) failed to get routing table size"));
+      if (sysctl(mib.data(), mib.size(), nullptr, &len, nullptr, 0) == -1)
+        return Err(DracError("sysctl(1) failed to get routing table size"));
 
-        Vec<char> buf(len);
+      Vec<char> buf(len);
 
-        if (sysctl(mib.data(), mib.size(), buf.data(), &len, nullptr, 0) == -1)
-            return Err(DracError("sysctl(2) failed to get routing table dump"));
+      if (sysctl(mib.data(), mib.size(), buf.data(), &len, nullptr, 0) == -1)
+        return Err(DracError("sysctl(2) failed to get routing table dump"));
 
-        String primaryInterfaceName;
-        for (usize offset = 0; offset < len;) {
-            const auto* rtm   = reinterpret_cast<const rt_msghdr*>(&buf[offset]);
-            const auto* saddr = reinterpret_cast<const sockaddr*>(std::next(rtm));
+      String primaryInterfaceName;
+      for (usize offset = 0; offset < len;) {
+        const auto* rtm   = reinterpret_cast<const rt_msghdr*>(&buf[offset]);
+        const auto* saddr = reinterpret_cast<const sockaddr*>(std::next(rtm));
 
-            if (rtm->rtm_msglen == 0)
-                break;
+        if (rtm->rtm_msglen == 0)
+          break;
 
-            if (saddr->sa_family == AF_INET && rtm->rtm_addrs & RTA_DST)
-                if (reinterpret_cast<const sockaddr_in*>(saddr)->sin_addr.s_addr == 0) {
-                    Array<char, IF_NAMESIZE> ifName = {};
-                    if (if_indextoname(rtm->rtm_index, ifName.data()) != nullptr) {
-                        primaryInterfaceName = String(ifName.data());
-                        break;
-                    }
-                }
-
-            offset += rtm->rtm_msglen;
-        }
-
-        if (primaryInterfaceName.empty())
-            return Err(DracError(NotFound, "Could not determine primary interface name from routing table."));
-
-        ifaddrs* ifaddrList = nullptr;
-        if (getifaddrs(&ifaddrList) == -1)
-            return Err(DracError("getifaddrs failed"));
-
-        UniquePointer<ifaddrs, decltype(&freeifaddrs)> ifaddrsDeleter(ifaddrList, &freeifaddrs);
-
-        NetworkInterface primaryInterface;
-        primaryInterface.name = primaryInterfaceName;
-        bool foundDetails     = false;
-
-        for (ifaddrs* ifa = ifaddrList; ifa != nullptr; ifa = ifa->ifa_next) {
-            // Skip any entries that don't match our primary interface name
-            if (ifa->ifa_addr == nullptr || primaryInterfaceName != ifa->ifa_name)
-                continue;
-
-            foundDetails = true;
-
-            // Set flags
-            primaryInterface.isUp       = ifa->ifa_flags & IFF_UP;
-            primaryInterface.isLoopback = ifa->ifa_flags & IFF_LOOPBACK;
-
-            // Get IPv4 details
-            if (ifa->ifa_addr->sa_family == AF_INET) {
-                Array<char, NI_MAXHOST> host = {};
-                if (getnameinfo(ifa->ifa_addr, sizeof(sockaddr_in), host.data(), host.size(), nullptr, 0, NI_NUMERICHOST) == 0)
-                    primaryInterface.ipv4Address = String(host.data());
-            } else if (ifa->ifa_addr->sa_family == AF_LINK) {
-                auto* sdl = reinterpret_cast<sockaddr_dl*>(ifa->ifa_addr);
-
-                if (sdl && sdl->sdl_alen == 6) {
-                    const auto* macPtr = reinterpret_cast<const u8*>(LLADDR(sdl));
-
-                    const Span<const u8> macAddr(macPtr, sdl->sdl_alen);
-
-                    primaryInterface.macAddress = std::format(
-                        "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-                        macAddr[0],
-                        macAddr[1],
-                        macAddr[2],
-                        macAddr[3],
-                        macAddr[4],
-                        macAddr[5]
-                    );
-                }
+        if (saddr->sa_family == AF_INET && rtm->rtm_addrs & RTA_DST)
+          if (reinterpret_cast<const sockaddr_in*>(saddr)->sin_addr.s_addr == 0) {
+            Array<char, IF_NAMESIZE> ifName = {};
+            if (if_indextoname(rtm->rtm_index, ifName.data()) != nullptr) {
+              primaryInterfaceName = String(ifName.data());
+              break;
             }
+          }
+
+        offset += rtm->rtm_msglen;
+      }
+
+      if (primaryInterfaceName.empty())
+        return Err(DracError(NotFound, "Could not determine primary interface name from routing table."));
+
+      ifaddrs* ifaddrList = nullptr;
+      if (getifaddrs(&ifaddrList) == -1)
+        return Err(DracError("getifaddrs failed"));
+
+      UniquePointer<ifaddrs, decltype(&freeifaddrs)> ifaddrsDeleter(ifaddrList, &freeifaddrs);
+
+      NetworkInterface primaryInterface;
+      primaryInterface.name = primaryInterfaceName;
+      bool foundDetails     = false;
+
+      for (ifaddrs* ifa = ifaddrList; ifa != nullptr; ifa = ifa->ifa_next) {
+        // Skip any entries that don't match our primary interface name
+        if (ifa->ifa_addr == nullptr || primaryInterfaceName != ifa->ifa_name)
+          continue;
+
+        foundDetails = true;
+
+        // Set flags
+        primaryInterface.isUp       = ifa->ifa_flags & IFF_UP;
+        primaryInterface.isLoopback = ifa->ifa_flags & IFF_LOOPBACK;
+
+        // Get IPv4 details
+        if (ifa->ifa_addr->sa_family == AF_INET) {
+          Array<char, NI_MAXHOST> host = {};
+          if (getnameinfo(ifa->ifa_addr, sizeof(sockaddr_in), host.data(), host.size(), nullptr, 0, NI_NUMERICHOST) == 0)
+            primaryInterface.ipv4Address = String(host.data());
+        } else if (ifa->ifa_addr->sa_family == AF_LINK) {
+          auto* sdl = reinterpret_cast<sockaddr_dl*>(ifa->ifa_addr);
+
+          if (sdl && sdl->sdl_alen == 6) {
+            const auto* macPtr = reinterpret_cast<const u8*>(LLADDR(sdl));
+
+            const Span<const u8> macAddr(macPtr, sdl->sdl_alen);
+
+            primaryInterface.macAddress = std::format(
+              "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+              macAddr[0],
+              macAddr[1],
+              macAddr[2],
+              macAddr[3],
+              macAddr[4],
+              macAddr[5]
+            );
+          }
         }
+      }
 
-        if (!foundDetails)
-            return Err(DracError(NotFound, "Found primary interface name, but could not find its details via getifaddrs."));
+      if (!foundDetails)
+        return Err(DracError(NotFound, "Found primary interface name, but could not find its details via getifaddrs."));
 
-        return primaryInterface;
-        // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+      return primaryInterface;
+      // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
     });
   }
 
@@ -572,37 +719,37 @@ namespace draconis::services::packages {
 
   fn GetHomebrewCount(draconis::utils::cache::CacheManager& cache) -> Result<u64> {
     return cache.getOrSet<u64>("homebrew_total", [&]() -> Result<u64> {
-        Array<fs::path, 2> cellarPaths {
-            "/opt/homebrew/Cellar",
-            "/usr/local/Cellar",
-        };
+      Array<fs::path, 2> cellarPaths {
+        "/opt/homebrew/Cellar",
+        "/usr/local/Cellar",
+      };
 
-        u64 count = 0;
+      u64 count = 0;
 
-        for (const fs::path& cellarPath : cellarPaths) {
-            if (std::error_code errc; !fs::exists(cellarPath, errc) || errc) {
-                if (errc && errc != std::errc::no_such_file_or_directory)
-                    return Err(DracError(errc));
+      for (const fs::path& cellarPath : cellarPaths) {
+        if (std::error_code errc; !fs::exists(cellarPath, errc) || errc) {
+          if (errc && errc != std::errc::no_such_file_or_directory)
+            return Err(DracError(errc));
 
-                continue;
-            }
-
-            Result dirCount = GetCountFromDirectory(cache, "homebrew_" + cellarPath.filename().string(), cellarPath, true);
-
-            if (!dirCount) {
-                if (dirCount.error().code != NotFound)
-                    return dirCount;
-
-                continue;
-            }
-
-            count += *dirCount;
+          continue;
         }
 
-        if (count == 0)
-            return Err(DracError(NotFound, "No Homebrew packages found in any Cellar directory"));
+        Result dirCount = GetCountFromDirectory(cache, "homebrew_" + cellarPath.filename().string(), cellarPath, true);
 
-        return count;
+        if (!dirCount) {
+          if (dirCount.error().code != NotFound)
+            return dirCount;
+
+          continue;
+        }
+
+        count += *dirCount;
+      }
+
+      if (count == 0)
+        return Err(DracError(NotFound, "No Homebrew packages found in any Cellar directory"));
+
+      return count;
     });
   }
 

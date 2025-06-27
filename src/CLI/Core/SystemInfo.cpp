@@ -81,7 +81,7 @@ namespace draconis::core::system {
     Future<Result<String>>               desktopEnvFut     = std::async(async, [&cache]() { return GetDesktopEnvironment(cache); });
     Future<Result<String>>               windowMgrFut      = std::async(async, [&cache]() { return GetWindowManager(cache); });
     Future<Result<Display>>              primaryDisplayFut = std::async(async, &GetPrimaryDisplay);
-    Future<Result<String>>               osFut             = std::async(async, &GetOSVersion);
+    Future<Result<String>>               osFut             = std::async(async, [&cache]() { return GetOSVersion(cache); });
     Future<Result<String>>               kernelFut         = std::async(async, [&cache]() { return GetKernelVersion(cache); });
     Future<Result<String>>               hostFut           = std::async(async, [&cache]() { return GetHost(cache); });
     Future<Result<String>>               cpuFut            = std::async(async, [&cache]() { return GetCPUModel(cache); });
@@ -94,7 +94,7 @@ namespace draconis::core::system {
     Future<Result<std::chrono::seconds>> uptimeFut         = std::async(async, &GetUptime);
 
 #if DRAC_ENABLE_PACKAGECOUNT
-    Future<Result<u64>> pkgFut = std::async(async, draconis::services::packages::GetTotalCount, config.enabledPackageManagers);
+    Future<Result<u64>> pkgFut = std::async(async, [&cache, &config]() { return draconis::services::packages::GetTotalCount(cache, config.enabledPackageManagers); });
 #endif
 
 #if DRAC_ENABLE_NOWPLAYING

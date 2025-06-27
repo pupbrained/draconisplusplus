@@ -16,8 +16,8 @@ using draconis::utils::error::DracError;
 using enum draconis::utils::error::DracErrorCode;
 using draconis::services::weather::OpenMeteoService;
 using draconis::services::weather::Report;
-using draconis::services::weather::Unit;
 using draconis::services::weather::s_cacheManager;
+using draconis::services::weather::Unit;
 
 OpenMeteoService::OpenMeteoService(const f64 lat, const f64 lon, const Unit units)
   : m_lat(lat), m_lon(lon), m_units(units) {}
@@ -71,3 +71,5 @@ fn OpenMeteoService::getWeatherInfo() const -> Result<Report> {
     }
   );
 }
+
+#endif // DRAC_ENABLE_WEATHER

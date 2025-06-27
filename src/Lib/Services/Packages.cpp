@@ -29,93 +29,91 @@ using namespace draconis::utils::types;
 using draconis::utils::error::DracError;
 using enum draconis::utils::error::DracErrorCode;
 
-
 namespace {
   constexpr const char* CACHE_KEY_PREFIX = "pkg_count_";
 
   fn GetCountFromDirectoryImpl(
     draconis::utils::cache::CacheManager& cache,
-    const String&         pmId,
-    const fs::path&       dirPath,
-    const Option<String>& fileExtensionFilter,
-    const bool            subtractOne
+    const String&                         pmId,
+    const fs::path&                       dirPath,
+    const Option<String>&                 fileExtensionFilter,
+    const bool                            subtractOne
   ) -> Result<u64> {
     return cache.getOrSet<u64>(std::format("{}{}", CACHE_KEY_PREFIX, pmId), [&]() -> Result<u64> {
-        std::error_code fsErrCode;
+      std::error_code fsErrCode;
 
-        fsErrCode.clear();
+      fsErrCode.clear();
 
-        if (!fs::is_directory(dirPath, fsErrCode)) {
-            if (fsErrCode && fsErrCode != std::errc::no_such_file_or_directory)
-                return Err(DracError(
-                    IoError,
-                    std::format("Filesystem error checking if '{}' is a directory: {}", dirPath.string(), fsErrCode.message())
-                ));
+      if (!fs::is_directory(dirPath, fsErrCode)) {
+        if (fsErrCode && fsErrCode != std::errc::no_such_file_or_directory)
+          return Err(DracError(
+            IoError,
+            std::format("Filesystem error checking if '{}' is a directory: {}", dirPath.string(), fsErrCode.message())
+          ));
 
-            return Err(DracError(NotFound, std::format("{} path is not a directory: {}", pmId, dirPath.string())));
+        return Err(DracError(NotFound, std::format("{} path is not a directory: {}", pmId, dirPath.string())));
+      }
+
+      fsErrCode.clear();
+
+      u64              count     = 0;
+      const bool       hasFilter = fileExtensionFilter.has_value();
+      const StringView filter    = fileExtensionFilter ? StringView(*fileExtensionFilter) : StringView();
+
+      try {
+        const fs::directory_iterator dirIter(
+          dirPath,
+          fs::directory_options::skip_permission_denied | fs::directory_options::follow_directory_symlink,
+          fsErrCode
+        );
+
+        if (fsErrCode)
+          return Err(DracError(IoError, std::format("Failed to create iterator for {} directory '{}': {}", pmId, dirPath.string(), fsErrCode.message())));
+
+        if (hasFilter) {
+          for (const fs::directory_entry& entry : dirIter) {
+            if (entry.path().empty())
+              continue;
+
+            if (std::error_code isFileErr; entry.is_regular_file(isFileErr) && !isFileErr) {
+              if (entry.path().extension().string() == filter)
+                count++;
+            } else if (isFileErr)
+              warn_log("Error stating entry '{}' in {} directory: {}", entry.path().string(), pmId, isFileErr.message());
+          }
+        } else {
+          for (const fs::directory_entry& entry : dirIter) {
+            if (!entry.path().empty())
+              count++;
+          }
         }
+      } catch (const fs::filesystem_error& fsCatchErr) {
+        return Err(DracError(
+          IoError,
+          std::format("Filesystem error during {} directory iteration: {}", pmId, fsCatchErr.what())
+        ));
+      } catch (const Exception& exc) {
+        return Err(DracError(InternalError, exc.what()));
+      } catch (...) {
+        return Err(DracError(Other, std::format("Unknown error iterating {} directory", pmId)));
+      }
 
-        fsErrCode.clear();
+      if (subtractOne && count > 0)
+        count--;
 
-        u64              count     = 0;
-        const bool       hasFilter = fileExtensionFilter.has_value();
-        const StringView filter    = fileExtensionFilter ? StringView(*fileExtensionFilter) : StringView();
-
-        try {
-            const fs::directory_iterator dirIter(
-                dirPath,
-                fs::directory_options::skip_permission_denied | fs::directory_options::follow_directory_symlink,
-                fsErrCode
-            );
-
-            if (fsErrCode)
-                return Err(DracError(IoError, std::format("Failed to create iterator for {} directory '{}': {}", pmId, dirPath.string(), fsErrCode.message())));
-
-            if (hasFilter) {
-                for (const fs::directory_entry& entry : dirIter) {
-                    if (entry.path().empty())
-                        continue;
-
-                    if (std::error_code isFileErr; entry.is_regular_file(isFileErr) && !isFileErr) {
-                        if (entry.path().extension().string() == filter)
-                            count++;
-                    } else if (isFileErr)
-                        warn_log("Error stating entry '{}' in {} directory: {}", entry.path().string(), pmId, isFileErr.message());
-                }
-            } else {
-                for (const fs::directory_entry& entry : dirIter) {
-                    if (!entry.path().empty())
-                        count++;
-                }
-            }
-        } catch (const fs::filesystem_error& fsCatchErr) {
-            return Err(DracError(
-                IoError,
-                std::format("Filesystem error during {} directory iteration: {}", pmId, fsCatchErr.what())
-            ));
-        } catch (const Exception& exc) {
-            return Err(DracError(InternalError, exc.what()));
-        } catch (...) {
-            return Err(DracError(Other, std::format("Unknown error iterating {} directory", pmId)));
-        }
-
-        if (subtractOne && count > 0)
-            count--;
-
-        return count;
+      return count;
     });
   }
 
-    }
 } // namespace
 
 namespace draconis::services::packages {
   fn GetCountFromDirectory(
     draconis::utils::cache::CacheManager& cache,
-    const String&   pmId,
-    const fs::path& dirPath,
-    const String&   fileExtensionFilter,
-    const bool      subtractOne
+    const String&                         pmId,
+    const fs::path&                       dirPath,
+    const String&                         fileExtensionFilter,
+    const bool                            subtractOne
   ) -> Result<u64> {
     return GetCountFromDirectoryImpl(cache, pmId, dirPath, fileExtensionFilter, subtractOne);
   }
@@ -135,43 +133,43 @@ namespace draconis::services::packages {
   #if !defined(__serenity__) && !defined(_WIN32)
   fn GetCountFromDb(
     draconis::utils::cache::CacheManager& cache,
-    const String& pmId,
-    const fs::path& dbPath,
-    const String& countQuery
+    const String&                         pmId,
+    const fs::path&                       dbPath,
+    const String&                         countQuery
   ) -> Result<u64> {
     return cache.getOrSet<u64>(std::format("{}{}", CACHE_KEY_PREFIX, pmId), [&]() -> Result<u64> {
-        u64 count = 0;
+      u64 count = 0;
 
-        try {
-            if (std::error_code existsErr; !fs::exists(dbPath, existsErr) || existsErr)
-                return Err(DracError(NotFound, std::format("{} database not found at '{}'", pmId, dbPath.string())));
+      try {
+        if (std::error_code existsErr; !fs::exists(dbPath, existsErr) || existsErr)
+          return Err(DracError(NotFound, std::format("{} database not found at '{}'", pmId, dbPath.string())));
 
-            const SQLite::Database database(dbPath.string(), SQLite::OPEN_READONLY);
+        const SQLite::Database database(dbPath.string(), SQLite::OPEN_READONLY);
 
-            if (SQLite::Statement queryStmt(database, countQuery); queryStmt.executeStep()) {
-                const i64 countInt64 = queryStmt.getColumn(0).getInt64();
+        if (SQLite::Statement queryStmt(database, countQuery); queryStmt.executeStep()) {
+          const i64 countInt64 = queryStmt.getColumn(0).getInt64();
 
-                if (countInt64 < 0)
-                    return Err(DracError(ParseError, std::format("Negative count returned by {} DB COUNT query.", pmId)));
+          if (countInt64 < 0)
+            return Err(DracError(ParseError, std::format("Negative count returned by {} DB COUNT query.", pmId)));
 
-                count = static_cast<u64>(countInt64);
-            } else
-                return Err(DracError(ParseError, std::format("No rows returned by {} DB COUNT query.", pmId)));
-        } catch (const SQLite::Exception& e) {
-            error_log("SQLite error occurred accessing {} DB '{}': {}", pmId, dbPath.string(), e.what());
+          count = static_cast<u64>(countInt64);
+        } else
+          return Err(DracError(ParseError, std::format("No rows returned by {} DB COUNT query.", pmId)));
+      } catch (const SQLite::Exception& e) {
+        error_log("SQLite error occurred accessing {} DB '{}': {}", pmId, dbPath.string(), e.what());
 
-            return Err(DracError(ApiUnavailable, std::format("Failed to query {} database: {}", pmId, dbPath.string())));
-        } catch (const Exception& e) {
-            error_log("Standard exception accessing {} DB '{}': {}", pmId, dbPath.string(), e.what());
+        return Err(DracError(ApiUnavailable, std::format("Failed to query {} database: {}", pmId, dbPath.string())));
+      } catch (const Exception& e) {
+        error_log("Standard exception accessing {} DB '{}': {}", pmId, dbPath.string(), e.what());
 
-            return Err(DracError(InternalError, e.what()));
-        } catch (...) {
-            error_log("Unknown error occurred accessing {} DB '{}'", pmId, dbPath.string());
+        return Err(DracError(InternalError, e.what()));
+      } catch (...) {
+        error_log("Unknown error occurred accessing {} DB '{}'", pmId, dbPath.string());
 
-            return Err(DracError(Other, std::format("Unknown error occurred accessing {} DB", pmId)));
-        }
+        return Err(DracError(Other, std::format("Unknown error occurred accessing {} DB", pmId)));
+      }
 
-        return count;
+      return count;
     });
   }
   #endif // __serenity__ || _WIN32
@@ -179,54 +177,54 @@ namespace draconis::services::packages {
   #if defined(__linux__) && defined(HAVE_PUGIXML)
   fn GetCountFromPlist(
     draconis::utils::cache::CacheManager& cache,
-    const String& pmId,
-    const fs::path& plistPath
+    const String&                         pmId,
+    const fs::path&                       plistPath
   ) -> Result<u64> {
     return cache.getOrSet<u64>(std::format("{}{}", CACHE_KEY_PREFIX, pmId), [&]() -> Result<u64> {
-        xml_document doc;
+      xml_document doc;
 
-        if (const xml_parse_result result = doc.load_file(plistPath.c_str()); !result)
-            return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse plist file '{}': {}", plistPath.string(), result.description())));
+      if (const xml_parse_result result = doc.load_file(plistPath.c_str()); !result)
+        return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse plist file '{}': {}", plistPath.string(), result.description())));
 
-        const xml_node dict = doc.child("plist").child("dict");
+      const xml_node dict = doc.child("plist").child("dict");
 
-        if (!dict)
-            return Err(DracError(DracErrorCode::ParseError, std::format("No <dict> in plist file '{}'.", plistPath.string())));
+      if (!dict)
+        return Err(DracError(DracErrorCode::ParseError, std::format("No <dict> in plist file '{}'.", plistPath.string())));
 
-        u64              count           = 0;
-        const StringView alternativesKey = "_XBPS_ALTERNATIVES_";
-        const StringView keyName         = "key";
-        const StringView stateValue      = "installed";
+      u64              count           = 0;
+      const StringView alternativesKey = "_XBPS_ALTERNATIVES_";
+      const StringView keyName         = "key";
+      const StringView stateValue      = "installed";
 
-        for (xml_node node = dict.first_child(); node; node = node.next_sibling()) {
-            if (StringView(node.name()) != keyName)
-                continue;
+      for (xml_node node = dict.first_child(); node; node = node.next_sibling()) {
+        if (StringView(node.name()) != keyName)
+          continue;
 
-            if (const StringView keyName = node.child_value(); keyName == alternativesKey)
-                continue;
+        if (const StringView keyName = node.child_value(); keyName == alternativesKey)
+          continue;
 
-            xml_node pkgDict = node.next_sibling("dict");
+        xml_node pkgDict = node.next_sibling("dict");
 
-            if (!pkgDict)
-                continue;
+        if (!pkgDict)
+          continue;
 
-            bool isInstalled = false;
+        bool isInstalled = false;
 
-            for (xml_node pkgNode = pkgDict.first_child(); pkgNode; pkgNode = pkgNode.next_sibling())
-                if (StringView(pkgNode.name()) == keyName && StringView(pkgNode.child_value()) == "state")
-                    if (xml_node stateValue = pkgNode.next_sibling("string"); stateValue && StringView(stateValue.child_value()) == stateValue) {
-                        isInstalled = true;
-                        break;
-                    }
+        for (xml_node pkgNode = pkgDict.first_child(); pkgNode; pkgNode = pkgNode.next_sibling())
+          if (StringView(pkgNode.name()) == keyName && StringView(pkgNode.child_value()) == "state")
+            if (xml_node stateValue = pkgNode.next_sibling("string"); stateValue && StringView(stateValue.child_value()) == stateValue) {
+              isInstalled = true;
+              break;
+            }
 
-            if (isInstalled)
-                ++count;
-        }
+        if (isInstalled)
+          ++count;
+      }
 
-        if (count == 0)
-            return Err(DracError(DracErrorCode::NotFound, std::format("No installed packages found in plist file '{}'.", plistPath.string())));
+      if (count == 0)
+        return Err(DracError(DracErrorCode::NotFound, std::format("No installed packages found in plist file '{}'.", plistPath.string())));
 
-        return count;
+      return count;
     });
   }
   #endif // __linux__

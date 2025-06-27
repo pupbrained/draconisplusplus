@@ -5,6 +5,8 @@
 #include <ftxui/screen/screen.hpp> // ftxui::{Screen, Dimension::Full}
 #include <matchit.hpp>             // matchit::{match, is, _}
 
+#include <Drac++/Core/System.hpp>
+
 #ifdef __cpp_lib_print
   #include <print> // std::print
 #else
@@ -192,17 +194,14 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
     debug_at(cpuCores.error());
   }
 
-  if (Result<Vec<NetworkInterface>> networkInterfaces = GetNetworkInterfaces()) {
-    for (const NetworkInterface& networkInterface : *networkInterfaces) {
-      debug_log("Network interface: {}", networkInterface.name);
-      debug_log("Network interface IPv4 address: {}", networkInterface.ipv4Address.value_or("N/A"));
-      debug_log("Network interface IPv6 address: {}", networkInterface.ipv6Address.value_or("N/A"));
-      debug_log("Network interface MAC address: {}", networkInterface.macAddress.value_or("N/A"));
-      debug_log("Network interface is up: {}", networkInterface.isUp);
-      debug_log("Network interface is loopback: {}", networkInterface.isLoopback);
-    }
+  if (Result<NetworkInterface> networkInterface = GetPrimaryNetworkInterface(cache)) {
+    debug_log("Network interface: {}", networkInterface->name);
+    debug_log("Network interface IPv4 address: {}", networkInterface->ipv4Address.value_or("N/A"));
+    debug_log("Network interface MAC address: {}", networkInterface->macAddress.value_or("N/A"));
+    debug_log("Network interface is up: {}", networkInterface->isUp);
+    debug_log("Network interface is loopback: {}", networkInterface->isLoopback);
   } else {
-    debug_at(networkInterfaces.error());
+    debug_at(networkInterface.error());
   }
 
   if (Result<Battery> battery = GetBatteryInfo()) {
