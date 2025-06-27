@@ -24,11 +24,12 @@
   #include <Drac++/Core/System.hpp>
   #include <Drac++/Services/Packages.hpp>
 
-  #include <Drac++/Utils/Caching.hpp>
+  #include <Drac++/Utils/CacheManager.hpp>
   #include <Drac++/Utils/Definitions.hpp>
   #include <Drac++/Utils/Env.hpp>
   #include <Drac++/Utils/Error.hpp>
   #include <Drac++/Utils/Logging.hpp>
+  #include <Drac++/Utils/Shell.hpp>
   #include <Drac++/Utils/Types.hpp>
 
   #include "OS/macOS/Bridge.hpp"

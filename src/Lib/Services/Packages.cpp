@@ -17,7 +17,6 @@
   #include <matchit.hpp>  // matchit::{match, is, or_, _}
   #include <system_error> // std::{errc, error_code}
 
-  #include "Drac++/Utils/Caching.hpp"
   #include "Drac++/Utils/Env.hpp"
   #include "Drac++/Utils/Error.hpp"
   #include "Drac++/Utils/Logging.hpp"
@@ -259,7 +258,7 @@ namespace draconis::services::packages {
 
     fn addFutureIfEnabled = [&futures, &cache, enabledPackageManagers]<typename T>(const Manager manager, T&& countFunc) -> void {
       if (HasPackageManager(enabledPackageManagers, manager))
-        futures.emplace_back(std::async(std::launch::async, [&cache, countFunc]() { return countFunc(cache); }));
+        futures.emplace_back(std::async(std::launch::async, std::forward<T>(countFunc), std::ref(cache)));
     };
 
       #ifdef __linux__

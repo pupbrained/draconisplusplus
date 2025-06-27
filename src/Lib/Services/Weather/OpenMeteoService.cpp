@@ -4,7 +4,6 @@
 
   #include "Drac++/Utils/CacheManager.hpp"
   #include "Drac++/Utils/Error.hpp"
-  #include "Drac++/Utils/Logging.hpp"
   #include "Drac++/Utils/Types.hpp"
 
   #include "DataTransferObjects.hpp"
@@ -16,23 +15,22 @@ using draconis::utils::error::DracError;
 using enum draconis::utils::error::DracErrorCode;
 using draconis::services::weather::OpenMeteoService;
 using draconis::services::weather::Report;
-using draconis::services::weather::s_cacheManager;
-using draconis::services::weather::Unit;
+using draconis::services::weather::UnitSystem;
 
-OpenMeteoService::OpenMeteoService(const f64 lat, const f64 lon, const Unit units)
+OpenMeteoService::OpenMeteoService(const f64 lat, const f64 lon, const UnitSystem units)
   : m_lat(lat), m_lon(lon), m_units(units) {}
 
 fn OpenMeteoService::getWeatherInfo() const -> Result<Report> {
   using glz::error_ctx, glz::read, glz::error_code;
 
-  return s_cacheManager->getOrSet<Report>(
-    "openmeteo_weather", // Key for OpenMeteo weather data
+  return GetCacheManager()->getOrSet<Report>(
+    "openmeteo_weather",
     [&]() -> Result<Report> {
       String url = std::format(
         "https://api.open-meteo.com/v1/forecast?latitude={:.4f}&longitude={:.4f}&current_weather=true&temperature_unit={}",
         m_lat,
         m_lon,
-        m_units == Unit::IMPERIAL ? "fahrenheit" : "celsius"
+        m_units == UnitSystem::IMPERIAL ? "fahrenheit" : "celsius"
       );
 
       String responseBuffer;

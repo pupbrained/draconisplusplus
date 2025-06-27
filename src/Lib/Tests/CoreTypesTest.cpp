@@ -1,3 +1,4 @@
+#include <Drac++/Utils/DataTypes.hpp>
 #include <Drac++/Utils/Logging.hpp>
 #include <Drac++/Utils/Types.hpp>
 

@@ -13,10 +13,13 @@
   #include <glaze/beve/read.hpp>  // glz::read_beve
   #include <glaze/beve/write.hpp> // glz::write_beve
   #include <ifaddrs.h>            // getifaddrs, freeifaddrs, ifaddrs
+  #include <linux/if_packet.h>    // sockaddr_ll
+  #include <map>                  // std::map
   #include <matchit.hpp>          // matchit::{is, is_not, is_any, etc.}
   #include <net/if.h>             // IFF_UP, IFF_LOOPBACK
   #include <netdb.h>              // getnameinfo, NI_NUMERICHOST
   #include <netinet/in.h>         // sockaddr_in
+  #include <sstream>              // std::istringstream
   #include <string>               // std::{getline, string (String)}
   #include <string_view>          // std::string_view (StringView)
   #include <sys/socket.h>         // ucred, getsockopt, SOL_SOCKET, SO_PEERCRED
@@ -25,22 +28,17 @@
   #include <sys/utsname.h>        // utsname, uname
   #include <unistd.h>             // readlink
   #include <utility>              // std::move
-  #ifdef HAVE_XCB
-    #include <xcb/randr.h>
-  #endif
-  #include <linux/if_packet.h> // sockaddr_ll
-  #include <map>               // std::map
-  #include <sstream>           // std::istringstream
 
-  #include <Drac++/Core/System.hpp>
-  #include <Drac++/Services/Packages.hpp>
+  #include "Drac++/Core/System.hpp"
+  #include "Drac++/Services/Packages.hpp"
 
-  #include <Drac++/Utils/Caching.hpp>
-  #include <Drac++/Utils/Definitions.hpp>
-  #include <Drac++/Utils/Env.hpp>
-  #include <Drac++/Utils/Error.hpp>
-  #include <Drac++/Utils/Logging.hpp>
-  #include <Drac++/Utils/Types.hpp>
+  #include "Drac++/Utils/CacheManager.hpp"
+  #include "Drac++/Utils/DataTypes.hpp"
+  #include "Drac++/Utils/Definitions.hpp"
+  #include "Drac++/Utils/Env.hpp"
+  #include "Drac++/Utils/Error.hpp"
+  #include "Drac++/Utils/Logging.hpp"
+  #include "Drac++/Utils/Types.hpp"
 
   #include "Wrappers/DBus.hpp"
   #include "Wrappers/Wayland.hpp"
@@ -287,8 +285,8 @@ namespace {
     if (!setup)
       return Err(DracError(ApiUnavailable, "Failed to get X server setup"));
 
-    const ReplyGuard<xcb_query_extension_reply_t> randrQueryReply(
-      xcb_query_extension_reply(conn.get(), xcb_query_extension(conn.get(), std::strlen("RANDR"), "RANDR"), nullptr)
+    const ReplyGuard<QueryExtensionReply> randrQueryReply(
+      GetQueryExtensionReply(conn.get(), QueryExtension(conn.get(), std::strlen("RANDR"), "RANDR"), nullptr)
     );
 
     if (!randrQueryReply || !randrQueryReply->present)
@@ -298,17 +296,17 @@ namespace {
     if (!screen)
       return Err(DracError(NotFound, "Failed to get X root screen"));
 
-    const ReplyGuard<xcb_randr_get_screen_resources_current_reply_t> screenResourcesReply(
-      xcb_randr_get_screen_resources_current_reply(
-        conn.get(), xcb_randr_get_screen_resources_current(conn.get(), screen->root), nullptr
+    const ReplyGuard<RandrGetScreenResourcesCurrentReply> screenResourcesReply(
+      GetScreenResourcesCurrentReply(
+        conn.get(), GetScreenResourcesCurrent(conn.get(), screen->root), nullptr
       )
     );
 
     if (!screenResourcesReply)
       return Err(DracError(ApiUnavailable, "Failed to get screen resources"));
 
-    xcb_randr_output_t* outputs     = xcb_randr_get_screen_resources_current_outputs(screenResourcesReply.get());
-    const int           outputCount = xcb_randr_get_screen_resources_current_outputs_length(screenResourcesReply.get());
+    RandrOutput* outputs     = GetScreenResourcesCurrentOutputs(screenResourcesReply.get());
+    const int    outputCount = GetScreenResourcesCurrentOutputsLength(screenResourcesReply.get());
 
     if (outputCount == 0)
       return Err(DracError(NotFound, "No outputs found"));
@@ -316,21 +314,21 @@ namespace {
     Vec<Display> displays;
     int          primaryIndex = -1;
 
-    const ReplyGuard<xcb_randr_get_output_primary_reply_t> primaryOutputReply(
-      xcb_randr_get_output_primary_reply(conn.get(), xcb_randr_get_output_primary(conn.get(), screen->root), nullptr)
+    const ReplyGuard<RandrGetOutputPrimaryReply> primaryOutputReply(
+      GetOutputPrimaryReply(conn.get(), GetOutputPrimary(conn.get(), screen->root), nullptr)
     );
-    const xcb_randr_output_t primaryOutput = primaryOutputReply ? primaryOutputReply->output : XCB_NONE;
+    const RandrOutput primaryOutput = primaryOutputReply ? primaryOutputReply->output : NONE;
 
     for (int i = 0; i < outputCount; ++i) {
-      const ReplyGuard<xcb_randr_get_output_info_reply_t> outputInfoReply(
-        xcb_randr_get_output_info_reply(conn.get(), xcb_randr_get_output_info(conn.get(), *std::next(outputs, i), XCB_CURRENT_TIME), nullptr)
+      const ReplyGuard<RandrGetOutputInfoReply> outputInfoReply(
+        GetOutputInfoReply(conn.get(), GetOutputInfo(conn.get(), *std::next(outputs, i), CURRENT_TIME), nullptr)
       );
 
-      if (!outputInfoReply || outputInfoReply->crtc == XCB_NONE)
+      if (!outputInfoReply || outputInfoReply->crtc == NONE)
         continue;
 
-      const ReplyGuard<xcb_randr_get_crtc_info_reply_t> crtcInfoReply(
-        xcb_randr_get_crtc_info_reply(conn.get(), xcb_randr_get_crtc_info(conn.get(), outputInfoReply->crtc, XCB_CURRENT_TIME), nullptr)
+      const ReplyGuard<RandrGetCrtcInfoReply> crtcInfoReply(
+        GetCrtcInfoReply(conn.get(), GetCrtcInfo(conn.get(), outputInfoReply->crtc, CURRENT_TIME), nullptr)
       );
 
       if (!crtcInfoReply)
@@ -338,10 +336,10 @@ namespace {
 
       u16 refreshRate = 0;
 
-      if (crtcInfoReply->mode != XCB_NONE) {
-        xcb_randr_mode_info_t*         modeInfo  = nullptr;
-        xcb_randr_mode_info_iterator_t modesIter = xcb_randr_get_screen_resources_current_modes_iterator(screenResourcesReply.get());
-        for (; modesIter.rem; xcb_randr_mode_info_next(&modesIter)) {
+      if (crtcInfoReply->mode != NONE) {
+        RandrModeInfo*        modeInfo  = nullptr;
+        RandrModeInfoIterator modesIter = GetScreenResourcesCurrentModesIterator(screenResourcesReply.get());
+        for (; modesIter.rem; ModeInfoNext(&modesIter)) {
           if (modesIter.data->id == crtcInfoReply->mode) {
             modeInfo = modesIter.data;
             break;
@@ -389,39 +387,39 @@ namespace {
     if (!screen)
       return Err(DracError(ApiUnavailable, "Failed to get X root screen"));
 
-    const ReplyGuard<xcb_randr_get_output_primary_reply_t> primaryOutputReply(
-      xcb_randr_get_output_primary_reply(conn.get(), xcb_randr_get_output_primary(conn.get(), screen->root), nullptr)
+    const ReplyGuard<RandrGetOutputPrimaryReply> primaryOutputReply(
+      GetOutputPrimaryReply(conn.get(), GetOutputPrimary(conn.get(), screen->root), nullptr)
     );
 
-    const xcb_randr_output_t primaryOutput = primaryOutputReply ? primaryOutputReply->output : XCB_NONE;
+    const RandrOutput primaryOutput = primaryOutputReply ? primaryOutputReply->output : NONE;
 
-    if (primaryOutput == XCB_NONE)
+    if (primaryOutput == NONE)
       return Err(DracError(NotFound, "No primary output found"));
 
-    const ReplyGuard<xcb_randr_get_output_info_reply_t> outputInfoReply(
-      xcb_randr_get_output_info_reply(conn.get(), xcb_randr_get_output_info(conn.get(), primaryOutput, XCB_CURRENT_TIME), nullptr)
+    const ReplyGuard<RandrGetOutputInfoReply> outputInfoReply(
+      GetOutputInfoReply(conn.get(), GetOutputInfo(conn.get(), primaryOutput, CURRENT_TIME), nullptr)
     );
-    if (!outputInfoReply || outputInfoReply->crtc == XCB_NONE)
+    if (!outputInfoReply || outputInfoReply->crtc == NONE)
       return Err(DracError(NotFound, "Failed to get output info for primary display"));
 
-    const ReplyGuard<xcb_randr_get_crtc_info_reply_t> crtcInfoReply(
-      xcb_randr_get_crtc_info_reply(conn.get(), xcb_randr_get_crtc_info(conn.get(), outputInfoReply->crtc, XCB_CURRENT_TIME), nullptr)
+    const ReplyGuard<RandrGetCrtcInfoReply> crtcInfoReply(
+      GetCrtcInfoReply(conn.get(), GetCrtcInfo(conn.get(), outputInfoReply->crtc, CURRENT_TIME), nullptr)
     );
     if (!crtcInfoReply)
       return Err(DracError(NotFound, "Failed to get CRTC info for primary display"));
 
     u16 refreshRate = 0;
-    if (crtcInfoReply->mode != XCB_NONE) {
-      const ReplyGuard<xcb_randr_get_screen_resources_current_reply_t> screenResourcesReply(
-        xcb_randr_get_screen_resources_current_reply(
-          conn.get(), xcb_randr_get_screen_resources_current(conn.get(), screen->root), nullptr
+    if (crtcInfoReply->mode != NONE) {
+      const ReplyGuard<RandrGetScreenResourcesCurrentReply> screenResourcesReply(
+        GetScreenResourcesCurrentReply(
+          conn.get(), GetScreenResourcesCurrent(conn.get(), screen->root), nullptr
         )
       );
 
       if (screenResourcesReply) {
-        xcb_randr_mode_info_t*         modeInfo  = nullptr;
-        xcb_randr_mode_info_iterator_t modesIter = xcb_randr_get_screen_resources_current_modes_iterator(screenResourcesReply.get());
-        for (; modesIter.rem; xcb_randr_mode_info_next(&modesIter)) {
+        RandrModeInfo*        modeInfo  = nullptr;
+        RandrModeInfoIterator modesIter = GetScreenResourcesCurrentModesIterator(screenResourcesReply.get());
+        for (; modesIter.rem; ModeInfoNext(&modesIter)) {
           if (modesIter.data->id == crtcInfoReply->mode) {
             modeInfo = modesIter.data;
             break;
@@ -486,12 +484,17 @@ namespace {
 
     auto* callbackData = static_cast<WaylandCallbackData*>(data);
 
-    wl_output* output = static_cast<wl_output*>(wl_registry_bind(registry, objectId, &wl_output_interface, std::min(version, 2U)));
+    auto* output = static_cast<Wayland::Output*>(Wayland::BindRegistry(
+      registry,
+      objectId,
+      &Wayland::wl_output_interface,
+      std::min(version, 2U)
+    ));
 
     if (!output)
       return;
 
-    const static wl_output_listener OUTPUT_LISTENER = {
+    const static Wayland::OutputListener OUTPUT_LISTENER = {
       .geometry    = wayland_output_geometry,
       .mode        = wayland_output_mode,
       .done        = wayland_output_done,
@@ -501,15 +504,15 @@ namespace {
     };
 
     callbackData->outputs.push_back({ objectId, 0, 0, 0 });
-    wl_output_add_listener(output, &OUTPUT_LISTENER, data);
+    Wayland::AddOutputListener(output, &OUTPUT_LISTENER, data);
   }
 
   void wayland_registry_removal(void* /*data*/, wl_registry* /*registry*/, u32 /*id*/) {}
 
   struct WaylandPrimaryDisplayData {
-    wl_output* output = nullptr;
-    Display    display;
-    bool       done = false;
+    Wayland::Output* output = nullptr;
+    Display          display;
+    bool             done = false;
   };
 
   fn wayland_primary_mode(void* data, wl_output* /*output*/, u32 flags, i32 width, i32 height, i32 refresh) -> void {
@@ -541,11 +544,18 @@ namespace {
 
     displayData->display.id        = name;
     displayData->display.isPrimary = true;
-    displayData->output            = static_cast<wl_output*>(wl_registry_bind(registry, name, &wl_output_interface, std::min(version, 2U)));
+
+    displayData->output = static_cast<Wayland::Output*>(Wayland::BindRegistry(
+      registry,
+      name,
+      &Wayland::wl_output_interface,
+      std::min(version, 2U)
+    ));
+
     if (!displayData->output)
       return;
 
-    const static wl_output_listener LISTENER = {
+    const static Wayland::OutputListener LISTENER = {
       .geometry    = wayland_primary_geometry,
       .mode        = wayland_primary_mode,
       .done        = wayland_primary_done,
@@ -554,7 +564,7 @@ namespace {
       .description = nullptr
     };
 
-    wl_output_add_listener(displayData->output, &LISTENER, data);
+    Wayland::AddOutputListener(displayData->output, &LISTENER, data);
   }
 
   void wayland_primary_registry_remover(void* /*data*/, wl_registry* /*registry*/, u32 /*id*/) {}
@@ -564,23 +574,23 @@ namespace {
     if (!display)
       return Err(DracError(ApiUnavailable, "Failed to connect to Wayland display"));
 
-    wl_registry* registry = wl_display_get_registry(display.get());
+    Wayland::Registry* registry = display.registry();
 
     if (!registry)
       return Err(DracError(ApiUnavailable, "Failed to get Wayland registry"));
 
     WaylandCallbackData callbackData;
 
-    const static wl_registry_listener REGISTRY_LISTENER = {
+    const static Wayland::RegistryListener REGISTRY_LISTENER = {
       .global        = wayland_registry_handler,
       .global_remove = wayland_registry_removal,
     };
 
-    if (wl_registry_add_listener(registry, &REGISTRY_LISTENER, &callbackData) < 0)
+    if (Wayland::AddRegistryListener(registry, &REGISTRY_LISTENER, &callbackData) < 0)
       return Err(DracError(ApiUnavailable, "Failed to add registry listener"));
 
-    wl_display_roundtrip(display.get());
-    wl_display_roundtrip(display.get());
+    display.roundtrip();
+    display.roundtrip();
 
     Vec<Display> displays;
 
@@ -601,24 +611,25 @@ namespace {
 
   fn GetWaylandPrimaryDisplay() -> Result<Display> {
     const Wayland::DisplayGuard display;
+
     if (!display)
       return Err(DracError(ApiUnavailable, "Failed to connect to Wayland display"));
 
-    wl_registry* registry = wl_display_get_registry(display.get());
+    Wayland::Registry* registry = display.registry();
     if (!registry)
       return Err(DracError(ApiUnavailable, "Failed to get Wayland registry"));
 
-    WaylandPrimaryDisplayData         data {};
-    const static wl_registry_listener LISTENER = { .global = wayland_primary_registry, .global_remove = wayland_primary_registry_remover };
+    WaylandPrimaryDisplayData              data {};
+    const static Wayland::RegistryListener LISTENER = { .global = wayland_primary_registry, .global_remove = wayland_primary_registry_remover };
 
-    wl_registry_add_listener(registry, &LISTENER, &data);
+    Wayland::AddRegistryListener(registry, &LISTENER, &data);
 
-    wl_display_roundtrip(display.get());
-    wl_display_roundtrip(display.get());
+    display.roundtrip();
+    display.roundtrip();
 
     if (data.output)
-      wl_output_destroy(data.output);
-    wl_registry_destroy(registry);
+      Wayland::DestroyOutput(data.output);
+    Wayland::DestroyRegistry(registry);
 
     if (data.done)
       return data.display;
@@ -712,34 +723,35 @@ namespace {
 } // namespace
 
 namespace draconis::core::system {
+  using draconis::utils::cache::CacheManager, draconis::utils::cache::CachePolicy;
   using draconis::utils::env::GetEnv;
 
-  fn GetOSVersion(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+  fn GetOSVersion(CacheManager& cache) -> Result<String> {
     return cache.getOrSet<String>("linux_os_version", []() -> Result<String> {
-        std::ifstream file("/etc/os-release");
+      std::ifstream file("/etc/os-release");
 
-        if (!file)
-            return Err(DracError(NotFound, std::format("Failed to open /etc/os-release")));
+      if (!file)
+        return Err(DracError(NotFound, std::format("Failed to open /etc/os-release")));
 
-        String               line;
-        constexpr StringView prefix = "PRETTY_NAME=";
+      String               line;
+      constexpr StringView prefix = "PRETTY_NAME=";
 
-        while (std::getline(file, line)) {
-            if (StringView(line).starts_with(prefix)) {
-                String value = line.substr(prefix.size());
+      while (std::getline(file, line)) {
+        if (StringView(line).starts_with(prefix)) {
+          String value = line.substr(prefix.size());
 
-                if ((value.length() >= 2 && value.front() == '"' && value.back() == '"') ||
-                    (value.length() >= 2 && value.front() == '\'' && value.back() == '\''))
-                    value = value.substr(1, value.length() - 2);
+          if ((value.length() >= 2 && value.front() == '"' && value.back() == '"') ||
+              (value.length() >= 2 && value.front() == '\'' && value.back() == '\''))
+            value = value.substr(1, value.length() - 2);
 
-                if (value.empty())
-                    return Err(DracError(ParseError, std::format("PRETTY_NAME value is empty or only quotes in /etc/os-release")));
+          if (value.empty())
+            return Err(DracError(ParseError, std::format("PRETTY_NAME value is empty or only quotes in /etc/os-release")));
 
-                return String(value);
-            }
+          return String(value);
         }
+      }
 
-        return Err(DracError(NotFound, "PRETTY_NAME line not found in /etc/os-release"));
+      return Err(DracError(NotFound, "PRETTY_NAME line not found in /etc/os-release"));
     });
   }
 
@@ -753,7 +765,7 @@ namespace draconis::core::system {
       return Err(DracError(InternalError, "sysinfo.mem_unit is 0, cannot calculate memory"));
 
     return ResourceUsage {
-      .usedBytes  = (info.totalram - info.freeram) * info.mem_unit,
+      .usedBytes  = (info.totalram - info.freeram - info.bufferram) * info.mem_unit,
       .totalBytes = info.totalram * info.mem_unit,
     };
   }
@@ -887,255 +899,252 @@ namespace draconis::core::system {
   #else
     return Err(DracError(NotSupported, "DBus support not available"));
   #endif
-
-    return Err(DracError(NotFound, "No media player found or an unknown error occurred"));
   }
 
-  fn GetWindowManager(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+  fn GetWindowManager(CacheManager& cache) -> Result<String> {
   #if !defined(HAVE_WAYLAND) && !defined(HAVE_XCB)
     return Err(DracError(NotSupported, "Wayland or XCB support not available"));
   #endif
 
     return cache.getOrSet<String>("linux_wm", [&]() -> Result<String> {
-        if (GetEnv("WAYLAND_DISPLAY"))
-            return GetWaylandCompositor();
+      if (GetEnv("WAYLAND_DISPLAY"))
+        return GetWaylandCompositor();
 
-        if (GetEnv("DISPLAY"))
-            return GetX11WindowManager();
+      if (GetEnv("DISPLAY"))
+        return GetX11WindowManager();
 
-        return Err(DracError(NotFound, "No display server detected"));
+      return Err(DracError(NotFound, "No display server detected"));
     });
   }
 
-  fn GetDesktopEnvironment(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+  fn GetDesktopEnvironment(CacheManager& cache) -> Result<String> {
     return cache.getOrSet<String>("linux_desktop_environment", []() -> Result<String> {
-        Result<PCStr> xdgEnvResult = GetEnv("XDG_CURRENT_DESKTOP");
+      Result<PCStr> xdgEnvResult = GetEnv("XDG_CURRENT_DESKTOP");
 
-        if (xdgEnvResult) {
-            String xdgDesktopSz = String(*xdgEnvResult);
+      if (xdgEnvResult) {
+        String xdgDesktopSz = String(*xdgEnvResult);
 
-            if (const usize colonPos = xdgDesktopSz.find(':'); colonPos != String::npos)
-                xdgDesktopSz.resize(colonPos);
+        if (const usize colonPos = xdgDesktopSz.find(':'); colonPos != String::npos)
+          xdgDesktopSz.resize(colonPos);
 
-            return xdgDesktopSz;
-        }
+        return xdgDesktopSz;
+      }
 
-        Result<PCStr> desktopSessionResult = GetEnv("DESKTOP_SESSION");
+      Result<PCStr> desktopSessionResult = GetEnv("DESKTOP_SESSION");
 
-        if (desktopSessionResult)
-            return *desktopSessionResult;
+      if (desktopSessionResult)
+        return *desktopSessionResult;
 
-        return Err(desktopSessionResult.error());
+      return Err(desktopSessionResult.error());
     });
   }
 
-  fn GetShell(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+  fn GetShell(CacheManager& cache) -> Result<String> {
     return cache.getOrSet<String>("linux_shell", []() -> Result<String> {
-        // clang-format off
-        return GetEnv("SHELL")
-            .transform([](String shellPath) -> String {
-                constexpr Array<Pair<StringView, StringView>, 5> shellMap {{
-                    { "/usr/bin/bash", "Bash" },
-                    { "/usr/bin/zsh", "Zsh" },
-                    { "/usr/bin/fish", "Fish" },
-                    { "/usr/bin/nu", "Nushell" },
-                    { "/usr/bin/sh", "SH" },
-                }};
+      return GetEnv("SHELL")
+        .transform([](String shellPath) -> String {
+          // clang-format off
+          constexpr Array<Pair<StringView, StringView>, 5> shellMap {{
+            { "/usr/bin/bash",    "Bash" },
+            {  "/usr/bin/zsh",     "Zsh" },
+            { "/usr/bin/fish",    "Fish" },
+            {   "/usr/bin/nu", "Nushell" },
+            {   "/usr/bin/sh",      "SH" },
+          }};
+          // clang-format on
 
-                for (const auto& [exe, name] : shellMap)
-                    if (shellPath == exe)
-                        return String(name);
+          for (const auto& [exe, name] : shellMap)
+            if (shellPath == exe)
+              return String(name);
 
-                if (const usize lastSlash = shellPath.find_last_of('/'); lastSlash != String::npos)
-                    return shellPath.substr(lastSlash + 1);
-                return shellPath;
-            })
-            .transform([](const String& shellPath) -> String {
-                return shellPath;
-            });
-        // clang-format on
+          if (const usize lastSlash = shellPath.find_last_of('/'); lastSlash != String::npos)
+            return shellPath.substr(lastSlash + 1);
+
+          return shellPath;
+        })
+        .transform([](const String& shellPath) -> String {
+          return shellPath;
+        });
     });
   }
 
-  fn GetHost(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+  fn GetHost(CacheManager& cache) -> Result<String> {
     return cache.getOrSet<String>("linux_host", []() -> Result<String> {
-        constexpr PCStr primaryPath  = "/sys/class/dmi/id/product_family";
-        constexpr PCStr fallbackPath = "/sys/class/dmi/id/product_name";
+      constexpr PCStr primaryPath  = "/sys/class/dmi/id/product_family";
+      constexpr PCStr fallbackPath = "/sys/class/dmi/id/product_name";
 
-        fn readFirstLine = [&](const String& path) -> Result<String> {
-            std::ifstream file(path);
-            String        line;
+      fn readFirstLine = [&](const String& path) -> Result<String> {
+        std::ifstream file(path);
+        String        line;
 
-            if (!file)
-                return Err(DracError(NotFound, std::format("Failed to open DMI product identifier file '{}'", path)));
+        if (!file)
+          return Err(DracError(NotFound, std::format("Failed to open DMI product identifier file '{}'", path)));
 
-            if (!std::getline(file, line) || line.empty())
-                return Err(DracError(ParseError, std::format("DMI product identifier file ('{}') is empty", path)));
+        if (!std::getline(file, line) || line.empty())
+          return Err(DracError(ParseError, std::format("DMI product identifier file ('{}') is empty", path)));
 
-            return line;
-        };
+        return line;
+      };
 
-        Result<String> primaryResult = readFirstLine(primaryPath);
+      Result<String> primaryResult = readFirstLine(primaryPath);
 
-        if (primaryResult)
-            return primaryResult;
+      if (primaryResult)
+        return primaryResult;
 
-        DracError primaryError = primaryResult.error();
+      DracError primaryError = primaryResult.error();
 
-        Result<String> fallbackResult = readFirstLine(fallbackPath);
+      Result<String> fallbackResult = readFirstLine(fallbackPath);
 
-        if (fallbackResult)
-            return fallbackResult;
+      if (fallbackResult)
+        return fallbackResult;
 
-        DracError fallbackError = fallbackResult.error();
+      DracError fallbackError = fallbackResult.error();
 
-        return Err(DracError(
-            InternalError,
-            std::format(
-                "Failed to get host identifier. Primary ('{}'): {}. Fallback ('{}'): {}",
-                primaryPath,
-                primaryError.message,
-                fallbackPath,
-                fallbackError.message
-            )
-        ));
+      return Err(DracError(
+        InternalError,
+        std::format(
+          "Failed to get host identifier. Primary ('{}'): {}. Fallback ('{}'): {}",
+          primaryPath,
+          primaryError.message,
+          fallbackPath,
+          fallbackError.message
+        )
+      ));
     });
   }
 
-  fn GetCPUModel(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+  fn GetCPUModel(CacheManager& cache) -> Result<String> {
     return cache.getOrSet<String>("linux_cpu_model", []() -> Result<String> {
-        Array<u32, 4>   cpuInfo;
-        Array<char, 49> brandString = { 0 };
+      Array<u32, 4>   cpuInfo;
+      Array<char, 49> brandString = { 0 };
 
-        __get_cpuid(0x80000000, cpuInfo.data(), &cpuInfo[1], &cpuInfo[2], &cpuInfo[3]);
-        const u32 maxFunction = cpuInfo[0];
+      __get_cpuid(0x80000000, cpuInfo.data(), &cpuInfo[1], &cpuInfo[2], &cpuInfo[3]);
+      const u32 maxFunction = cpuInfo[0];
 
-        if (maxFunction < 0x80000004)
-            return Err(DracError(NotSupported, "CPU does not support brand string"));
+      if (maxFunction < 0x80000004)
+        return Err(DracError(NotSupported, "CPU does not support brand string"));
 
-        for (u32 i = 0; i < 3; ++i) {
-            __get_cpuid(0x80000002 + i, cpuInfo.data(), &cpuInfo[1], &cpuInfo[2], &cpuInfo[3]);
-            std::memcpy(&brandString.at(i * 16), cpuInfo.data(), sizeof(cpuInfo));
-        }
+      for (u32 i = 0; i < 3; ++i) {
+        __get_cpuid(0x80000002 + i, cpuInfo.data(), &cpuInfo[1], &cpuInfo[2], &cpuInfo[3]);
+        std::memcpy(&brandString.at(i * 16), cpuInfo.data(), sizeof(cpuInfo));
+      }
 
-        std::string result(brandString.data());
+      std::string result(brandString.data());
 
-        result.erase(result.find_last_not_of(" \t\n\r") + 1);
+      result.erase(result.find_last_not_of(" \t\n\r") + 1);
 
-        if (result.empty())
-            return Err(DracError(InternalError, "Failed to get CPU model string via CPUID"));
+      if (result.empty())
+        return Err(DracError(InternalError, "Failed to get CPU model string via CPUID"));
 
-        return result;
+      return result;
     });
   }
 
-  fn GetCPUCores(draconis::utils::cache::CacheManager& cache) -> Result<CPUCores> {
+  fn GetCPUCores(CacheManager& cache) -> Result<CPUCores> {
     return cache.getOrSet<CPUCores>("linux_cpu_cores", []() -> Result<CPUCores> {
-        u32 eax = 0, ebx = 0, ecx = 0, edx = 0;
+      u32 eax = 0, ebx = 0, ecx = 0, edx = 0;
 
-        __get_cpuid(0x0, &eax, &ebx, &ecx, &edx);
-        const u32 maxLeaf   = eax;
-        const u32 vendorEbx = ebx;
+      __get_cpuid(0x0, &eax, &ebx, &ecx, &edx);
+      const u32 maxLeaf   = eax;
+      const u32 vendorEbx = ebx;
 
-        u32 logicalCores  = 0;
-        u32 physicalCores = 0;
+      u32 logicalCores  = 0;
+      u32 physicalCores = 0;
 
-        if (maxLeaf >= 0xB) {
-            u32 threadsPerCore = 0;
-            for (u32 subleaf = 0;; ++subleaf) {
-                __get_cpuid_count(0xB, subleaf, &eax, &ebx, &ecx, &edx);
-                if (ebx == 0)
-                    break;
+      if (maxLeaf >= 0xB) {
+        u32 threadsPerCore = 0;
+        for (u32 subleaf = 0;; ++subleaf) {
+          __get_cpuid_count(0xB, subleaf, &eax, &ebx, &ecx, &edx);
+          if (ebx == 0)
+            break;
 
-                const u32 levelType         = (ecx >> 8) & 0xFF;
-                const u32 processorsAtLevel = ebx & 0xFFFF;
+          const u32 levelType         = (ecx >> 8) & 0xFF;
+          const u32 processorsAtLevel = ebx & 0xFFFF;
 
-                if (levelType == 1) // SMT (Hyper-Threading) level
-                    threadsPerCore = processorsAtLevel;
+          if (levelType == 1) // SMT (Hyper-Threading) level
+            threadsPerCore = processorsAtLevel;
 
-                if (levelType == 2) // Core level
-                    logicalCores = processorsAtLevel;
-            }
-
-            if (logicalCores > 0 && threadsPerCore > 0)
-                physicalCores = logicalCores / threadsPerCore;
+          if (levelType == 2) // Core level
+            logicalCores = processorsAtLevel;
         }
 
-        if (physicalCores == 0 || logicalCores == 0) {
-            __get_cpuid(0x1, &eax, &ebx, &ecx, &edx);
-            logicalCores                 = (ebx >> 16) & 0xFF;
-            const bool hasHyperthreading = (edx & (1 << 28)) != 0;
+        if (logicalCores > 0 && threadsPerCore > 0)
+          physicalCores = logicalCores / threadsPerCore;
+      }
 
-            if (hasHyperthreading) {
-                constexpr u32 vendorIntel = 0x756e6547; // "Genu"ine"Intel"
-                constexpr u32 vendorAmd   = 0x68747541; // "Auth"entic"AMD"
+      if (physicalCores == 0 || logicalCores == 0) {
+        __get_cpuid(0x1, &eax, &ebx, &ecx, &edx);
+        logicalCores                 = (ebx >> 16) & 0xFF;
+        const bool hasHyperthreading = (edx & (1 << 28)) != 0;
 
-                if (vendorEbx == vendorIntel && maxLeaf >= 0x4) {
-                    __get_cpuid_count(0x4, 0, &eax, &ebx, &ecx, &edx);
-                    physicalCores = ((eax >> 26) & 0x3F) + 1;
-                } else if (vendorEbx == vendorAmd) {
-                    __get_cpuid(0x80000000, &eax, &ebx, &ecx, &edx); // Get max extended leaf
-                    if (eax >= 0x80000008) {
-                        __get_cpuid(0x80000008, &eax, &ebx, &ecx, &edx);
-                        physicalCores = (ecx & 0xFF) + 1;
-                    }
-                }
-            } else {
-                physicalCores = logicalCores;
+        if (hasHyperthreading) {
+          constexpr u32 vendorIntel = 0x756e6547; // "Genu"ine"Intel"
+          constexpr u32 vendorAmd   = 0x68747541; // "Auth"entic"AMD"
+
+          if (vendorEbx == vendorIntel && maxLeaf >= 0x4) {
+            __get_cpuid_count(0x4, 0, &eax, &ebx, &ecx, &edx);
+            physicalCores = ((eax >> 26) & 0x3F) + 1;
+          } else if (vendorEbx == vendorAmd) {
+            __get_cpuid(0x80000000, &eax, &ebx, &ecx, &edx); // Get max extended leaf
+            if (eax >= 0x80000008) {
+              __get_cpuid(0x80000008, &eax, &ebx, &ecx, &edx);
+              physicalCores = (ecx & 0xFF) + 1;
             }
+          }
+        } else {
+          physicalCores = logicalCores;
         }
+      }
 
-        if (physicalCores == 0 && logicalCores > 0)
-            physicalCores = logicalCores;
+      if (physicalCores == 0 && logicalCores > 0)
+        physicalCores = logicalCores;
 
-        if (physicalCores == 0 || logicalCores == 0)
-            return Err(DracError(InternalError, "Failed to determine core counts via CPUID"));
+      if (physicalCores == 0 || logicalCores == 0)
+        return Err(DracError(InternalError, "Failed to determine core counts via CPUID"));
 
-        return CPUCores(static_cast<u16>(physicalCores), static_cast<u16>(logicalCores));
-    });
+      return CPUCores(static_cast<u16>(physicalCores), static_cast<u16>(logicalCores)); }, CachePolicy::neverExpire());
   }
 
-  fn GetGPUModel(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+  fn GetGPUModel(CacheManager& cache) -> Result<String> {
     return cache.getOrSet<String>("linux_gpu_model", []() -> Result<String> {
-        const fs::path pciPath = "/sys/bus/pci/devices";
+      const fs::path pciPath = "/sys/bus/pci/devices";
 
-        if (!fs::exists(pciPath))
-            return Err(DracError(NotFound, "PCI device path '/sys/bus/pci/devices' not found."));
+      if (!fs::exists(pciPath))
+        return Err(DracError(NotFound, "PCI device path '/sys/bus/pci/devices' not found."));
 
-        // clang-format off
-        const Array<Pair<StringView, StringView>, 3> fallbackVendorMap = {{
-            { "0x1002",    "AMD" },
-            { "0x10de", "NVIDIA" },
-            { "0x8086",  "Intel" }
-        }};
-        // clang-format on
+      const Array<Pair<StringView, StringView>, 3> fallbackVendorMap = {
+        {
+         { "0x1002", "AMD" },
+         { "0x10de", "NVIDIA" },
+         { "0x8086", "Intel" },
+         }
+      };
 
-        for (const fs::directory_entry& entry : fs::directory_iterator(pciPath)) {
-            if (Result<String> classIdRes = ReadSysFile(entry.path() / "class"); !classIdRes || !classIdRes->starts_with("0x03"))
-                continue;
+      for (const fs::directory_entry& entry : fs::directory_iterator(pciPath)) {
+        if (Result<String> classIdRes = ReadSysFile(entry.path() / "class"); !classIdRes || !classIdRes->starts_with("0x03"))
+          continue;
 
-            Result<String> vendorIdRes = ReadSysFile(entry.path() / "vendor");
-            Result<String> deviceIdRes = ReadSysFile(entry.path() / "device");
+        Result<String> vendorIdRes = ReadSysFile(entry.path() / "vendor");
+        Result<String> deviceIdRes = ReadSysFile(entry.path() / "device");
 
-            if (vendorIdRes && deviceIdRes) {
-                auto [vendor, device] = LookupPciNames(*vendorIdRes, *deviceIdRes);
+        if (vendorIdRes && deviceIdRes) {
+          auto [vendor, device] = LookupPciNames(*vendorIdRes, *deviceIdRes);
 
-                if (!vendor.empty() && !device.empty())
-                    return CleanGpuModelName(std::move(vendor), std::move(device));
-            }
-
-            if (vendorIdRes) {
-                const auto* iter = std::ranges::find_if(fallbackVendorMap, [&](const auto& pair) {
-                    return pair.first == *vendorIdRes;
-                });
-
-                if (iter != fallbackVendorMap.end())
-                    return String(iter->second);
-            }
+          if (!vendor.empty() && !device.empty())
+            return CleanGpuModelName(std::move(vendor), std::move(device));
         }
 
-        return Err(DracError(NotFound, "No compatible GPU found in /sys/bus/pci/devices."));
-    }, draconis::utils::cache::CachePolicy::NeverExpire());
+        if (vendorIdRes) {
+          const auto* iter = std::ranges::find_if(fallbackVendorMap, [&](const auto& pair) {
+            return pair.first == *vendorIdRes;
+          });
+
+          if (iter != fallbackVendorMap.end())
+            return String(iter->second);
+        }
+      }
+
+      return Err(DracError(NotFound, "No compatible GPU found in /sys/bus/pci/devices.")); }, CachePolicy::neverExpire());
   }
 
   fn GetUptime() -> Result<std::chrono::seconds> {
@@ -1147,17 +1156,17 @@ namespace draconis::core::system {
     return std::chrono::seconds(info.uptime);
   }
 
-  fn GetKernelVersion(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+  fn GetKernelVersion(CacheManager& cache) -> Result<String> {
     return cache.getOrSet<String>("linux_kernel_version", []() -> Result<String> {
-        utsname uts;
+      utsname uts;
 
-        if (uname(&uts) == -1)
-            return Err(DracError(InternalError, "uname call failed"));
+      if (uname(&uts) == -1)
+        return Err(DracError(InternalError, "uname call failed"));
 
-        if (std::strlen(uts.release) == 0)
-            return Err(DracError(ParseError, "uname returned null kernel release"));
+      if (std::strlen(uts.release) == 0)
+        return Err(DracError(ParseError, "uname returned null kernel release"));
 
-        return String(uts.release);
+      return String(uts.release);
     });
   }
 
@@ -1242,20 +1251,15 @@ namespace draconis::core::system {
       interface.isUp       = ifa->ifa_flags & IFF_UP;
       interface.isLoopback = ifa->ifa_flags & IFF_LOOPBACK;
 
-      // Get IPv4 details
       if (ifa->ifa_addr->sa_family == AF_INET) {
         Array<char, NI_MAXHOST> host = {};
         if (getnameinfo(ifa->ifa_addr, sizeof(sockaddr_in), host.data(), host.size(), nullptr, 0, NI_NUMERICHOST) == 0)
           interface.ipv4Address = String(host.data());
-      }
-      // Get IPv6 details
-      else if (ifa->ifa_addr->sa_family == AF_INET6) {
+      } else if (ifa->ifa_addr->sa_family == AF_INET6) {
         Array<char, NI_MAXHOST> host = {};
         if (getnameinfo(ifa->ifa_addr, sizeof(sockaddr_in6), host.data(), host.size(), nullptr, 0, NI_NUMERICHOST) == 0)
           interface.ipv6Address = String(host.data());
-      }
-      // Get MAC address (AF_PACKET on Linux)
-      else if (ifa->ifa_addr->sa_family == AF_PACKET) {
+      } else if (ifa->ifa_addr->sa_family == AF_PACKET) {
         auto* sll = reinterpret_cast<sockaddr_ll*>(ifa->ifa_addr);
 
         if (sll && sll->sll_halen == 6) {
@@ -1286,117 +1290,112 @@ namespace draconis::core::system {
     // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
   }
 
-  fn GetPrimaryNetworkInterface(draconis::utils::cache::CacheManager& cache) -> Result<NetworkInterface> {
+  fn GetPrimaryNetworkInterface(CacheManager& cache) -> Result<NetworkInterface> {
     return cache.getOrSet<NetworkInterface>("linux_primary_network_interface", []() -> Result<NetworkInterface> {
-        // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) - This requires a lot of casts and there's no good way to avoid them.
-        // First, try to find the default route to determine the primary interface
-        String primaryInterfaceName;
+      // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) - This requires a lot of casts and there's no good way to avoid them.
+      // First, try to find the default route to determine the primary interface
+      String primaryInterfaceName;
 
-        // Read the routing table from /proc/net/route
-        std::ifstream routeFile("/proc/net/route");
-        if (routeFile.is_open()) {
-            String line;
-            // Skip header line
-            std::getline(routeFile, line);
+      // Read the routing table from /proc/net/route
+      std::ifstream routeFile("/proc/net/route");
+      if (routeFile.is_open()) {
+        String line;
+        // Skip header line
+        std::getline(routeFile, line);
 
-            while (std::getline(routeFile, line)) {
-                std::istringstream iss(line);
-                String             iface, dest, gateway, flags, refcnt, use, metric, mask, mtu, window, irtt;
+        while (std::getline(routeFile, line)) {
+          std::istringstream iss(line);
+          String             iface, dest, gateway, flags, refcnt, use, metric, mask, mtu, window, irtt;
 
-                if (iss >> iface >> dest >> gateway >> flags >> refcnt >> use >> metric >> mask >> mtu >> window >> irtt) {
-                    // Check if this is the default route (destination is 00000000)
-                    if (dest == "00000000") {
-                        primaryInterfaceName = iface;
-                        break;
-                    }
-                }
+          if (iss >> iface >> dest >> gateway >> flags >> refcnt >> use >> metric >> mask >> mtu >> window >> irtt) {
+            // Check if this is the default route (destination is 00000000)
+            if (dest == "00000000") {
+              primaryInterfaceName = iface;
+              break;
             }
+          }
         }
+      }
 
-        // If we couldn't find the primary interface from routing table, try to find the first non-loopback interface
-        if (primaryInterfaceName.empty()) {
-            ifaddrs* ifaddrList = nullptr;
-            if (getifaddrs(&ifaddrList) == -1)
-                return Err(DracError(InternalError, "getifaddrs failed"));
-
-            UniquePointer<ifaddrs, decltype(&freeifaddrs)> ifaddrsDeleter(ifaddrList, &freeifaddrs);
-
-            for (ifaddrs* ifa = ifaddrList; ifa != nullptr; ifa = ifa->ifa_next) {
-                if (ifa->ifa_addr == nullptr)
-                    continue;
-
-                const String interfaceName = String(ifa->ifa_name);
-                const bool   isUp          = ifa->ifa_flags & IFF_UP;
-                const bool   isLoopback    = ifa->ifa_flags & IFF_LOOPBACK;
-
-                // Find the first non-loopback interface that is up
-                if (isUp && !isLoopback) {
-                    primaryInterfaceName = interfaceName;
-                    break;
-                }
-            }
-        }
-
-        if (primaryInterfaceName.empty())
-            return Err(DracError(NotFound, "Could not determine primary interface name"));
-
-        // Now get the detailed information for the primary interface
+      // If we couldn't find the primary interface from routing table, try to find the first non-loopback interface
+      if (primaryInterfaceName.empty()) {
         ifaddrs* ifaddrList = nullptr;
         if (getifaddrs(&ifaddrList) == -1)
-            return Err(DracError(InternalError, "getifaddrs failed"));
+          return Err(DracError(InternalError, "getifaddrs failed"));
 
         UniquePointer<ifaddrs, decltype(&freeifaddrs)> ifaddrsDeleter(ifaddrList, &freeifaddrs);
 
-        NetworkInterface primaryInterface;
-        primaryInterface.name = primaryInterfaceName;
-        bool foundDetails     = false;
-
         for (ifaddrs* ifa = ifaddrList; ifa != nullptr; ifa = ifa->ifa_next) {
-            // Skip any entries that don't match our primary interface name
-            if (ifa->ifa_addr == nullptr || primaryInterfaceName != ifa->ifa_name)
-                continue;
+          if (ifa->ifa_addr == nullptr)
+            continue;
 
-            foundDetails = true;
+          const String interfaceName = String(ifa->ifa_name);
+          const bool   isUp          = ifa->ifa_flags & IFF_UP;
+          const bool   isLoopback    = ifa->ifa_flags & IFF_LOOPBACK;
 
-            // Set flags
-            primaryInterface.isUp       = ifa->ifa_flags & IFF_UP;
-            primaryInterface.isLoopback = ifa->ifa_flags & IFF_LOOPBACK;
-
-            // Get IPv4 details
-            if (ifa->ifa_addr->sa_family == AF_INET) {
-                Array<char, NI_MAXHOST> host = {};
-                if (getnameinfo(ifa->ifa_addr, sizeof(sockaddr_in), host.data(), host.size(), nullptr, 0, NI_NUMERICHOST) == 0)
-                    primaryInterface.ipv4Address = String(host.data());
-            }
-            // Get IPv6 details
-            else if (ifa->ifa_addr->sa_family == AF_INET6) {
-                Array<char, NI_MAXHOST> host = {};
-                if (getnameinfo(ifa->ifa_addr, sizeof(sockaddr_in6), host.data(), host.size(), nullptr, 0, NI_NUMERICHOST) == 0)
-                    primaryInterface.ipv6Address = String(host.data());
-            }
-            // Get MAC address (AF_PACKET on Linux)
-            else if (ifa->ifa_addr->sa_family == AF_PACKET) {
-                auto* sll = reinterpret_cast<sockaddr_ll*>(ifa->ifa_addr);
-
-                if (sll && sll->sll_halen == 6) {
-                    primaryInterface.macAddress = std::format(
-                        "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-                        sll->sll_addr[0],
-                        sll->sll_addr[1],
-                        sll->sll_addr[2],
-                        sll->sll_addr[3],
-                        sll->sll_addr[4],
-                        sll->sll_addr[5]
-                    );
-                }
-            }
+          // Find the first non-loopback interface that is up
+          if (isUp && !isLoopback) {
+            primaryInterfaceName = interfaceName;
+            break;
+          }
         }
+      }
 
-        if (!foundDetails)
-            return Err(DracError(NotFound, "Found primary interface name, but could not find its details via getifaddrs"));
+      if (primaryInterfaceName.empty())
+        return Err(DracError(NotFound, "Could not determine primary interface name"));
 
-        return primaryInterface;
-        // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+      // Now get the detailed information for the primary interface
+      ifaddrs* ifaddrList = nullptr;
+      if (getifaddrs(&ifaddrList) == -1)
+        return Err(DracError(InternalError, "getifaddrs failed"));
+
+      UniquePointer<ifaddrs, decltype(&freeifaddrs)> ifaddrsDeleter(ifaddrList, &freeifaddrs);
+
+      NetworkInterface primaryInterface;
+      primaryInterface.name = primaryInterfaceName;
+      bool foundDetails     = false;
+
+      for (ifaddrs* ifa = ifaddrList; ifa != nullptr; ifa = ifa->ifa_next) {
+        // Skip any entries that don't match our primary interface name
+        if (ifa->ifa_addr == nullptr || primaryInterfaceName != ifa->ifa_name)
+          continue;
+
+        foundDetails = true;
+
+        // Set flags
+        primaryInterface.isUp       = ifa->ifa_flags & IFF_UP;
+        primaryInterface.isLoopback = ifa->ifa_flags & IFF_LOOPBACK;
+
+        if (ifa->ifa_addr->sa_family == AF_INET) {
+          Array<char, NI_MAXHOST> host = {};
+          if (getnameinfo(ifa->ifa_addr, sizeof(sockaddr_in), host.data(), host.size(), nullptr, 0, NI_NUMERICHOST) == 0)
+            primaryInterface.ipv4Address = String(host.data());
+        } else if (ifa->ifa_addr->sa_family == AF_INET6) {
+          Array<char, NI_MAXHOST> host = {};
+          if (getnameinfo(ifa->ifa_addr, sizeof(sockaddr_in6), host.data(), host.size(), nullptr, 0, NI_NUMERICHOST) == 0)
+            primaryInterface.ipv6Address = String(host.data());
+        } else if (ifa->ifa_addr->sa_family == AF_PACKET) {
+          auto* sll = reinterpret_cast<sockaddr_ll*>(ifa->ifa_addr);
+
+          if (sll && sll->sll_halen == 6) {
+            primaryInterface.macAddress = std::format(
+              "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+              sll->sll_addr[0],
+              sll->sll_addr[1],
+              sll->sll_addr[2],
+              sll->sll_addr[3],
+              sll->sll_addr[4],
+              sll->sll_addr[5]
+            );
+          }
+        }
+      }
+
+      if (!foundDetails)
+        return Err(DracError(NotFound, "Found primary interface name, but could not find its details via getifaddrs"));
+
+      return primaryInterface;
+      // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
     });
   }
 
@@ -1465,61 +1464,54 @@ namespace draconis::core::system {
 
   #ifdef DRAC_ENABLE_PACKAGECOUNT
 namespace draconis::services::packages {
-  fn CountApk() -> Result<u64> {
-    
+  using draconis::utils::cache::CacheManager;
 
+  fn CountApk(CacheManager& cache) -> Result<u64> {
     const String   pmID      = "apk";
     const fs::path apkDbPath = "/lib/apk/db/installed";
-    const String   cacheKey  = "pkg_count_" + pmID;
 
-    if (Result<u64> cachedCountResult = GetValidCache<u64>(cacheKey))
-      return *cachedCountResult;
-    else
-      debug_at(cachedCountResult.error());
+    return cache.getOrSet<u64>(std::format("pkg_count_{}", pmID), [&]() -> Result<u64> {
+      if (std::error_code fsErrCode; !fs::exists(apkDbPath, fsErrCode)) {
+        if (fsErrCode) {
+          warn_log("Filesystem error checking for Apk DB at '{}': {}", apkDbPath.string(), fsErrCode.message());
+          return Err(DracError(IoError, "Filesystem error checking Apk DB: " + fsErrCode.message()));
+        }
 
-    if (std::error_code fsErrCode; !fs::exists(apkDbPath, fsErrCode)) {
-      if (fsErrCode) {
-        warn_log("Filesystem error checking for Apk DB at '{}': {}", apkDbPath.string(), fsErrCode.message());
-        return Err(DracError(IoError, "Filesystem error checking Apk DB: " + fsErrCode.message()));
+        return Err(DracError(NotFound, std::format("Apk database path '{}' does not exist", apkDbPath.string())));
       }
 
-      return Err(DracError(NotFound, std::format("Apk database path '{}' does not exist", apkDbPath.string())));
-    }
+      std::ifstream file(apkDbPath);
+      if (!file.is_open())
+        return Err(DracError(IoError, std::format("Failed to open Apk database file '{}'", apkDbPath.string())));
 
-    std::ifstream file(apkDbPath);
-    if (!file.is_open())
-      return Err(DracError(IoError, std::format("Failed to open Apk database file '{}'", apkDbPath.string())));
+      u64 count = 0;
 
-    u64 count = 0;
+      try {
+        String line;
 
-    try {
-      String line;
+        while (std::getline(file, line))
+          if (line.empty())
+            count++;
+      } catch (const std::ios_base::failure& e) {
+        return Err(DracError(
+          IoError,
+          std::format("Error reading Apk database file '{}': {}", apkDbPath.string(), e.what())
+        ));
+      }
 
-      while (std::getline(file, line))
-        if (line.empty())
-          count++;
-    } catch (const std::ios_base::failure& e) {
-      return Err(DracError(
-        IoError,
-        std::format("Error reading Apk database file '{}': {}", apkDbPath.string(), e.what())
-      ));
-    }
+      if (file.bad())
+        return Err(DracError(IoError, std::format("IO error while reading Apk database file '{}'", apkDbPath.string())));
 
-    if (file.bad())
-      return Err(DracError(IoError, std::format("IO error while reading Apk database file '{}'", apkDbPath.string())));
-
-    if (Result writeResult = WriteCache(cacheKey, count); !writeResult)
-      debug_at(writeResult.error());
-
-    return count;
+      return count;
+    });
   }
 
-  fn CountDpkg() -> Result<u64> {
-    return GetCountFromDirectory("dpkg", fs::current_path().root_path() / "var" / "lib" / "dpkg" / "info", String(".list"));
+  fn CountDpkg(CacheManager& cache) -> Result<u64> {
+    return GetCountFromDirectory(cache, "dpkg", fs::current_path().root_path() / "var" / "lib" / "dpkg" / "info", String(".list"));
   }
 
-  fn CountMoss() -> Result<u64> {
-    Result<u64> countResult = GetCountFromDb("moss", "/.moss/db/install", "SELECT COUNT(*) FROM meta");
+  fn CountMoss(CacheManager& cache) -> Result<u64> {
+    Result<u64> countResult = GetCountFromDb(cache, "moss", "/.moss/db/install", "SELECT COUNT(*) FROM meta");
 
     if (countResult)
       if (*countResult > 0)
@@ -1528,16 +1520,16 @@ namespace draconis::services::packages {
     return countResult;
   }
 
-  fn CountPacman() -> Result<u64> {
-    return GetCountFromDirectory("pacman", fs::current_path().root_path() / "var" / "lib" / "pacman" / "local", true);
+  fn CountPacman(CacheManager& cache) -> Result<u64> {
+    return GetCountFromDirectory(cache, "pacman", fs::current_path().root_path() / "var" / "lib" / "pacman" / "local", true);
   }
 
-  fn CountRpm() -> Result<u64> {
-    return GetCountFromDb("rpm", "/var/lib/rpm/rpmdb.sqlite", "SELECT COUNT(*) FROM Installtid");
+  fn CountRpm(CacheManager& cache) -> Result<u64> {
+    return GetCountFromDb(cache, "rpm", "/var/lib/rpm/rpmdb.sqlite", "SELECT COUNT(*) FROM Installtid");
   }
 
     #ifdef HAVE_PUGIXML
-  fn CountXbps() -> Result<u64> {
+  fn CountXbps(CacheManager& cache) -> Result<u64> {
     const CStr xbpsDbPath = "/var/db/xbps";
 
     if (!fs::exists(xbpsDbPath))

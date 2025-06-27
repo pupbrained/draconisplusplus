@@ -13,9 +13,19 @@ namespace Wayland {
     using draconis::utils::types::i32;
     using draconis::utils::types::None;
     using draconis::utils::types::PCStr;
+    using draconis::utils::types::u32;
   } // namespace
 
-  using Display = wl_display;
+  using Display          = wl_display;
+  using Registry         = wl_registry;
+  using Output           = wl_output;
+  using RegistryListener = wl_registry_listener;
+  using OutputListener   = wl_output_listener;
+  using Interface        = wl_interface;
+
+  inline const Interface wl_output_interface = ::wl_output_interface;
+
+  constexpr u32 OUTPUT_MODE_CURRENT = WL_OUTPUT_MODE_CURRENT;
 
   /**
    * @brief Connect to a Wayland display
@@ -52,6 +62,81 @@ namespace Wayland {
    */
   inline fn GetFd(Display* display) -> i32 {
     return wl_display_get_fd(display);
+  }
+
+  /**
+   * @brief Get the registry for a Wayland display
+   *
+   * @param display The Wayland display object
+   * @return The registry for the Wayland display
+   */
+  inline fn GetRegistry(Display* display) -> Registry* {
+    return wl_display_get_registry(display);
+  }
+
+  /**
+   * @brief Add a listener to a Wayland registry
+   *
+   * @param registry The Wayland registry object
+   * @param listener The listener to add
+   * @param data The data to pass to the listener
+   * @return 0 on success, -1 on failure
+   */
+  inline fn AddRegistryListener(Registry* registry, const RegistryListener* listener, void* data) -> i32 {
+    return wl_registry_add_listener(registry, listener, data);
+  }
+
+  /**
+   * @brief Process Wayland events
+   *
+   * @param display The Wayland display object
+   * @return The number of events dispatched
+   */
+  inline fn Roundtrip(Display* display) -> i32 {
+    return wl_display_roundtrip(display);
+  }
+
+  /**
+   * @brief Bind to a Wayland object
+   *
+   * @param registry The Wayland registry object
+   * @param name The name of the object to bind to
+   * @param interface The interface to bind to
+   * @param version The version of the interface to bind to
+   * @return A pointer to the bound object
+   */
+  inline fn BindRegistry(Registry* registry, const u32 name, const Interface* interface, const u32 version) -> void* {
+    return wl_registry_bind(registry, name, interface, version);
+  }
+
+  /**
+   * @brief Add a listener to a Wayland output
+   *
+   * @param output The Wayland output object
+   * @param listener The listener to add
+   * @param data The data to pass to the listener
+   * @return 0 on success, -1 on failure
+   */
+  inline fn AddOutputListener(Output* output, const OutputListener* listener, void* data) -> i32 {
+    return wl_output_add_listener(output, listener, data);
+  }
+
+  /**
+   * @brief Destroy a Wayland output
+   *
+   * @param output The Wayland output object
+   */
+  inline fn DestroyOutput(Output* output) -> void {
+    wl_output_destroy(output);
+  }
+
+  /**
+   * @brief Destroy a Wayland registry
+   *
+   * @param registry The Wayland registry object
+   */
+  inline fn DestroyRegistry(Registry* registry) -> void {
+    wl_registry_destroy(registry);
   }
 
   /**
@@ -175,6 +260,24 @@ namespace Wayland {
      */
     [[nodiscard]] fn fd() const -> i32 {
       return GetFd(m_display);
+    }
+
+    /**
+     * @brief Get the registry for the Wayland display
+     *
+     * @return The registry for the Wayland display
+     */
+    [[nodiscard]] fn registry() const -> Registry* {
+      return GetRegistry(m_display);
+    }
+
+    /**
+     * @brief Process Wayland events
+     *
+     * @return The number of events dispatched
+     */
+    fn roundtrip() const -> i32 {
+      return Roundtrip(m_display);
     }
   };
 } // namespace Wayland

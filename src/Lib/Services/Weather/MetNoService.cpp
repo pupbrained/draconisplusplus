@@ -4,7 +4,6 @@
 
   #include "Drac++/Utils/CacheManager.hpp"
   #include "Drac++/Utils/Error.hpp"
-  #include "Drac++/Utils/Logging.hpp"
   #include "Drac++/Utils/Types.hpp"
 
   #include "DataTransferObjects.hpp"
@@ -16,17 +15,16 @@ using draconis::utils::error::DracError;
 using enum draconis::utils::error::DracErrorCode;
 using draconis::services::weather::MetNoService;
 using draconis::services::weather::Report;
-using draconis::services::weather::Unit;
-using draconis::services::weather::s_cacheManager;
+using draconis::services::weather::UnitSystem;
 
-MetNoService::MetNoService(const f64 lat, const f64 lon, const Unit units)
+MetNoService::MetNoService(const f64 lat, const f64 lon, const UnitSystem units)
   : m_lat(lat), m_lon(lon), m_units(units) {}
 
 fn MetNoService::getWeatherInfo() const -> Result<Report> {
   using glz::error_ctx, glz::read, glz::error_code;
 
-  return s_cacheManager->getOrSet<Report>(
-    "metno_weather", // Key for MetNo weather data
+  return GetCacheManager()->getOrSet<Report>(
+    "metno_weather",
     [&]() -> Result<Report> {
       String responseBuffer;
 
@@ -60,7 +58,7 @@ fn MetNoService::getWeatherInfo() const -> Result<Report> {
 
       f64 temp = data.instant.details.airTemperature;
 
-      if (m_units == Unit::IMPERIAL)
+      if (m_units == UnitSystem::IMPERIAL)
         temp = temp * 9.0 / 5.0 + 32.0;
 
       String symbolCode = data.next1Hours ? data.next1Hours->summary.symbolCode : "";

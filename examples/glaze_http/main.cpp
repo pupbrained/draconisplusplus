@@ -21,6 +21,7 @@
 #include <Drac++/Core/System.hpp>
 #include <Drac++/Services/Weather.hpp>
 
+#include <Drac++/Utils/CacheManager.hpp>
 #include <Drac++/Utils/Definitions.hpp>
 #include <Drac++/Utils/Error.hpp>
 #include <Drac++/Utils/Logging.hpp>
@@ -132,7 +133,7 @@ fn main() -> i32 {
 
 #if DRAC_ENABLE_WEATHER
   {
-    GetState().weatherService = CreateWeatherService(Provider::METNO, Coords(40.71427, -74.00597), Unit::IMPERIAL);
+    GetState().weatherService = CreateWeatherService(Provider::METNO, Coords(40.71427, -74.00597), UnitSystem::IMPERIAL);
 
     if (!GetState().weatherService)
       error_log("Error: Failed to initialize WeatherService.");
@@ -174,6 +175,8 @@ fn main() -> i32 {
 
     SystemInfo sysInfo;
 
+    draconis::utils::cache::CacheManager cacheManager;
+
     {
       using namespace draconis::core::system;
       using matchit::impl::Overload;
@@ -214,14 +217,14 @@ fn main() -> i32 {
 #endif
       };
 
-      addProperty("OS Version", GetOSVersion());
-      addProperty("Kernel Version", GetKernelVersion());
-      addProperty("Host", GetHost());
-      addProperty("Shell", GetShell());
-      addProperty("Desktop Environment", GetDesktopEnvironment());
-      addProperty("Window Manager", GetWindowManager());
-      addProperty("CPU Model", GetCPUModel());
-      addProperty("GPU Model", GetGPUModel());
+      addProperty("OS Version", GetOSVersion(cacheManager));
+      addProperty("Kernel Version", GetKernelVersion(cacheManager));
+      addProperty("Host", GetHost(cacheManager));
+      addProperty("Shell", GetShell(cacheManager));
+      addProperty("Desktop Environment", GetDesktopEnvironment(cacheManager));
+      addProperty("Window Manager", GetWindowManager(cacheManager));
+      addProperty("CPU Model", GetCPUModel(cacheManager));
+      addProperty("GPU Model", GetGPUModel(cacheManager));
       addProperty("Memory", GetMemInfo());
       addProperty("Disk Usage", GetDiskUsage());
 #if DRAC_ENABLE_NOWPLAYING
@@ -283,8 +286,7 @@ fn main() -> i32 {
         .header("Expires", "0")
         .body(*result);
     else {
-      String errorString = glz::format_error(result.error(), *htmlTemplate);
-      error_log("Failed to render stencil template:\n{}", errorString);
+      error_log("Failed to render stencil template:\n{}", glz::format_error(result.error(), *htmlTemplate));
       res.status(500).body("Internal Server Error: Template rendering failed.");
     }
   });

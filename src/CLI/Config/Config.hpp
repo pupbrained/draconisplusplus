@@ -120,7 +120,7 @@ namespace draconis::config {
   struct Weather {
     draconis::services::weather::Location                          location; ///< Location for weather data, can be a city name or coordinates.
     draconis::utils::types::Option<draconis::utils::types::String> apiKey;   ///< API key for the weather service.
-    draconis::services::weather::Unit                              units;    ///< Units for temperature, either "metric" or "imperial".
+    draconis::services::weather::UnitSystem                        units;    ///< Units for temperature, either "metric" or "imperial".
 
     bool                                                          enabled      = false;   ///< Flag to enable or disable the Weather feature.
     bool                                                          showTownName = false;   ///< Flag to show the town name in the output.
@@ -156,8 +156,8 @@ namespace draconis::config {
       String unitsStr      = tbl["units"].value_or("metric");
 
       match(unitsStr)(
-        is | "metric"   = [&]() { weather.units = Unit::METRIC; },
-        is | "imperial" = [&]() { weather.units = Unit::IMPERIAL; },
+        is | "metric"   = [&]() { weather.units = UnitSystem::METRIC; },
+        is | "imperial" = [&]() { weather.units = UnitSystem::IMPERIAL; },
         is | _          = [&]() { SET_ERROR("Invalid units: '{}'. Accepted values are 'metric' and 'imperial'.", unitsStr); }
       );
 

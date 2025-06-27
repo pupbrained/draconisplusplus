@@ -4,6 +4,7 @@
 #include <Drac++/Core/System.hpp>
 #include <Drac++/Services/Packages.hpp>
 
+#include <Drac++/Utils/CacheManager.hpp>
 #include <Drac++/Utils/Error.hpp>
 #include <Drac++/Utils/Logging.hpp>
 #include <Drac++/Utils/Types.hpp>
@@ -206,7 +207,7 @@ fn main() -> i32 {
 
   vk::ApplicationInfo appInfo("Vulkan Example", 1, "Draconis++ Example", 1, VK_API_VERSION_1_3);
 
-  u32   glfwExtensionCount = 0;
+  u32    glfwExtensionCount = 0;
   PCStr* glfwExtensions     = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
   Vec<PCStr> extensions;
@@ -408,6 +409,8 @@ fn main() -> i32 {
   Result<MediaInfo> nowPlaying;
 #endif
 
+  draconis::utils::cache::CacheManager cacheManager;
+
   while (!glfwWindowShouldClose(window)) {
     glfwPollEvents();
 
@@ -416,18 +419,18 @@ fn main() -> i32 {
       using namespace draconis::core::system;
       using namespace draconis::services::packages;
 
-      host          = GetHost();
-      kernelVersion = GetKernelVersion();
-      osVersion     = GetOSVersion();
-      cpuModel      = GetCPUModel();
-      gpuModel      = GetGPUModel();
+      host          = GetHost(cacheManager);
+      kernelVersion = GetKernelVersion(cacheManager);
+      osVersion     = GetOSVersion(cacheManager);
+      cpuModel      = GetCPUModel(cacheManager);
+      gpuModel      = GetGPUModel(cacheManager);
       memInfo       = GetMemInfo();
-      desktopEnv    = GetDesktopEnvironment();
-      windowMgr     = GetWindowManager();
+      desktopEnv    = GetDesktopEnvironment(cacheManager);
+      windowMgr     = GetWindowManager(cacheManager);
       diskUsage     = GetDiskUsage();
-      shell         = GetShell();
+      shell         = GetShell(cacheManager);
 #if DRAC_ENABLE_PACKAGECOUNT
-      packageCount = GetTotalCount(Manager::CARGO);
+      packageCount = GetTotalCount(cacheManager, Manager::CARGO);
 #endif
 #if DRAC_ENABLE_NOWPLAYING
       nowPlaying = GetNowPlaying();

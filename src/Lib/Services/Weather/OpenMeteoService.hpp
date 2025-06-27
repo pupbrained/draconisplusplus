@@ -9,13 +9,13 @@
 namespace draconis::services::weather {
   class OpenMeteoService final : public IWeatherService {
    public:
-    OpenMeteoService(utils::types::f64 lat, utils::types::f64 lon, Unit units);
+    OpenMeteoService(utils::types::f64 lat, utils::types::f64 lon, UnitSystem units);
     [[nodiscard]] fn getWeatherInfo() const -> utils::types::Result<Report> override;
 
    private:
     utils::types::f64 m_lat;
     utils::types::f64 m_lon;
-    Unit              m_units;
+    UnitSystem        m_units;
   };
 } // namespace draconis::services::weather
 

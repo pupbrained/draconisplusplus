@@ -8,11 +8,15 @@
   #include <variant>
 
   #include "../Utils/CacheManager.hpp"
-#include "../Utils/Error.hpp"
-#include "../Utils/Types.hpp"
+  #include "../Utils/Error.hpp"
+  #include "../Utils/Types.hpp"
 
 namespace draconis::services::weather {
-  inline draconis::utils::types::UniquePointer<draconis::utils::cache::CacheManager> s_cacheManager = nullptr;
+  inline fn GetCacheManager() -> draconis::utils::types::UniquePointer<draconis::utils::cache::CacheManager>& {
+    static draconis::utils::types::UniquePointer<draconis::utils::cache::CacheManager> CacheManager;
+    return CacheManager;
+  }
+
   /**
    * @brief Specifies the weather service provider.
    * @see config::DRAC_WEATHER_PROVIDER in `config(.example).hpp`.
@@ -27,7 +31,7 @@ namespace draconis::services::weather {
    * @brief Specifies the unit system for weather information.
    * @see config::DRAC_WEATHER_UNIT in `config(.example).hpp`.
    */
-  enum class Unit : utils::types::u8 {
+  enum class UnitSystem : utils::types::u8 {
     METRIC,   ///< Metric units (Celsius, kph, etc.).
     IMPERIAL, ///< Imperial units (Fahrenheit, mph, etc.).
   };
@@ -67,7 +71,7 @@ namespace draconis::services::weather {
     IWeatherService() = default;
   };
 
-  fn CreateWeatherService(Provider provider, const Location& location, Unit units, const utils::types::Option<utils::types::String>& apiKey = utils::types::None) -> utils::types::UniquePointer<IWeatherService>;
+  fn CreateWeatherService(Provider provider, const Location& location, UnitSystem units, const utils::types::Option<utils::types::String>& apiKey = utils::types::None) -> utils::types::UniquePointer<IWeatherService>;
 } // namespace draconis::services::weather
 
 template <>
@@ -84,15 +88,15 @@ struct glz::meta<draconis::services::weather::Report> {
 }; // namespace glz
 
 template <>
-struct std::formatter<draconis::services::weather::Unit> {
+struct std::formatter<draconis::services::weather::UnitSystem> {
   static constexpr auto parse(std::format_parse_context& ctx) {
     return ctx.begin();
   }
 
-  static fn format(draconis::services::weather::Unit unit, std::format_context& ctx) {
+  static fn format(draconis::services::weather::UnitSystem unit, std::format_context& ctx) {
     using matchit::match, matchit::is, matchit::_;
 
-    return std::format_to(ctx.out(), "{}", match(unit)(is | draconis::services::weather::Unit::METRIC = "metric", is | draconis::services::weather::Unit::IMPERIAL = "imperial"));
+    return std::format_to(ctx.out(), "{}", match(unit)(is | draconis::services::weather::UnitSystem::METRIC = "metric", is | draconis::services::weather::UnitSystem::IMPERIAL = "imperial"));
   }
 };
 

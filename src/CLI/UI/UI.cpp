@@ -249,7 +249,7 @@ namespace draconis::ui {
     if (weather) {
       const auto& [temperature, townName, description] = *weather;
 
-      PCStr tempUnit = config.weather.units == services::weather::Unit::METRIC ? "C" : "F";
+      PCStr tempUnit = config.weather.units == services::weather::UnitSystem::METRIC ? "C" : "F";
 
       initialRows.push_back(
         {

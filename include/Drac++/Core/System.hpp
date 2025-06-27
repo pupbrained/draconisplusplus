@@ -7,10 +7,11 @@
 
 #pragma once
 
+#include "../Utils/CacheManager.hpp"
+#include "../Utils/DataTypes.hpp"
 #include "../Utils/Definitions.hpp"
 #include "../Utils/Error.hpp"
 #include "../Utils/Types.hpp"
-#include "../Utils/CacheManager.hpp"
 
 namespace draconis::core::system {
   namespace {

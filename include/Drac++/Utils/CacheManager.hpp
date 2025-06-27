@@ -7,12 +7,11 @@
 #include <optional>
 #include <unordered_map>
 
-#include <Drac++/Utils/Env.hpp>
-#include <Drac++/Utils/Error.hpp>
-#include <Drac++/Utils/Logging.hpp>
-#include <Drac++/Utils/Types.hpp>
-
-#include "Caching.hpp"
+#include "DataTypes.hpp"
+#include "Definitions.hpp"
+#include "Env.hpp"
+#include "Error.hpp"
+#include "Logging.hpp"
 
 // Add glaze serialization support for custom types
 namespace glz {
@@ -70,6 +69,25 @@ namespace glz {
 } // namespace glz
 
 namespace draconis::utils::cache {
+  // Defines where the cache data should be stored on disk.
+  enum class CacheLocation : draconis::utils::types::u8 {
+    InMemory,      // Volatile, lost on app exit. Fastest.
+    TempDirectory, // Persists until next reboot or system cleanup.
+    Persistent     // Stored in a user-level cache dir (e.g., ~/.cache).
+  };
+
+  // Defines the caching strategy for an item.
+  struct CachePolicy {
+    CacheLocation        location = CacheLocation::Persistent;
+    std::chrono::seconds ttl      = std::chrono::hours(24); // Default to 24 hours.
+
+    // A static helper for a policy that never expires.
+    static auto neverExpire() -> CachePolicy {
+      // 10 years in seconds - large enough to be effectively "never expire" but safe for time_point arithmetic
+      return { .location = CacheLocation::Persistent, .ttl = std::chrono::hours(24 * 365 * 10) };
+    }
+  };
+
   using draconis::utils::types::Result;
   using draconis::utils::types::String;
   using draconis::utils::types::u64;
@@ -95,25 +113,27 @@ namespace draconis::utils::cache {
       if (auto iter = m_inMemoryCache.find(key); iter != m_inMemoryCache.end()) {
         CacheEntry<T> entry;
         if (glz::read_beve(entry, iter->second.first) == glz::error_code::none) {
-          auto expiry_tp = std::chrono::system_clock::time_point(std::chrono::seconds(entry.expires));
-          if (std::chrono::system_clock::now() < expiry_tp) {
+          auto expiryTp = std::chrono::system_clock::time_point(std::chrono::seconds(entry.expires));
+
+          if (std::chrono::system_clock::now() < expiryTp)
             return entry.data;
-          }
         }
       }
 
       // 2. Check filesystem cache
       const auto filePath = getCacheFilePath(key, policy.location);
+
       if (std::filesystem::exists(filePath)) {
         std::ifstream ifs(filePath, std::ios::binary);
         if (ifs) {
           std::string   fileContents((std::istreambuf_iterator<char>(ifs)), {});
           CacheEntry<T> entry;
           if (glz::read_beve(entry, fileContents) == glz::error_code::none) {
-            auto expiry_tp = std::chrono::system_clock::time_point(std::chrono::seconds(entry.expires));
-            if (std::chrono::system_clock::now() < expiry_tp) {
+            auto expiryTp = std::chrono::system_clock::time_point(std::chrono::seconds(entry.expires));
+
+            if (std::chrono::system_clock::now() < expiryTp) {
               // Load into in-memory cache
-              m_inMemoryCache[key] = { fileContents, expiry_tp };
+              m_inMemoryCache[key] = { fileContents, expiryTp };
               return entry.data;
             }
           }
@@ -129,19 +149,17 @@ namespace draconis::utils::cache {
       }
 
       // 4. Store in cache
-      u64 expiry_ts = std::chrono::duration_cast<std::chrono::seconds>(
-                        (std::chrono::system_clock::now() + policy.ttl).time_since_epoch()
-      )
-                        .count();
+      u64 expiryTs = std::chrono::duration_cast<std::chrono::seconds>((std::chrono::system_clock::now() + policy.ttl).time_since_epoch()).count();
+
       CacheEntry<T> newEntry {
         .data    = *fetchedResult,
-        .expires = expiry_ts
+        .expires = expiryTs
       };
 
       std::string binaryBuffer;
       glz::write_beve(newEntry, binaryBuffer);
 
-      m_inMemoryCache[key] = { binaryBuffer, std::chrono::system_clock::time_point(std::chrono::seconds(expiry_ts)) };
+      m_inMemoryCache[key] = { binaryBuffer, std::chrono::system_clock::time_point(std::chrono::seconds(expiryTs)) };
 
       if (policy.location != CacheLocation::InMemory) {
         std::filesystem::create_directories(filePath.parent_path());

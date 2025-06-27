@@ -11,18 +11,18 @@
 using namespace draconis::utils::types;
 
 namespace draconis::services::weather {
-  fn CreateWeatherService(const Provider provider, const Location& location, Unit units, const Option<String>& apiKey) -> UniquePointer<IWeatherService> {
-    if (s_cacheManager == nullptr) {
-      s_cacheManager = std::make_unique<draconis::utils::cache::CacheManager>();
-      // Set a default cache policy for weather data (e.g., 15 minutes, persistent)
-      s_cacheManager->setGlobalPolicy({draconis::utils::cache::CacheLocation::Persistent, std::chrono::minutes(15)});
+  fn CreateWeatherService(const Provider provider, const Location& location, UnitSystem units, const Option<String>& apiKey) -> UniquePointer<IWeatherService> {
+    if (GetCacheManager() == nullptr) {
+      GetCacheManager() = std::make_unique<draconis::utils::cache::CacheManager>();
+      GetCacheManager()->setGlobalPolicy({ .location = draconis::utils::cache::CacheLocation::Persistent, .ttl = std::chrono::minutes(15) });
     }
+
     assert(provider == Provider::OPENWEATHERMAP || provider == Provider::OPENMETEO || provider == Provider::METNO);
     assert(apiKey.has_value() || provider != Provider::OPENWEATHERMAP);
 
     switch (provider) {
       case Provider::OPENWEATHERMAP:
-        return std::make_unique<OpenWeatherMapService>(std::get<String>(location), *apiKey, units);
+        return std::make_unique<OpenWeatherMapService>(location, *apiKey, units);
       case Provider::OPENMETEO:
         return std::make_unique<OpenMeteoService>(std::get<Coords>(location).lat, std::get<Coords>(location).lon, units);
       case Provider::METNO:

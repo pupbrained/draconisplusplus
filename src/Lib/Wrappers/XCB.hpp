@@ -2,7 +2,8 @@
 
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__)
 
-  #include <xcb/xcb.h> // XCB library
+  #include <xcb/randr.h> // XCB RandR extension
+  #include <xcb/xcb.h>   // XCB library
 
   #include <Drac++/Utils/Definitions.hpp>
   #include <Drac++/Utils/Types.hpp>
@@ -29,7 +30,25 @@ namespace XCB {
   using GetPropCookie = xcb_get_property_cookie_t;
   using GetPropReply  = xcb_get_property_reply_t;
 
-  constexpr Atom ATOM_WINDOW = XCB_ATOM_WINDOW; ///< Window atom
+  using RandrOutput                          = xcb_randr_output_t;
+  using RandrCrtc                            = xcb_randr_crtc_t;
+  using RandrModeInfo                        = xcb_randr_mode_info_t;
+  using RandrModeInfoIterator                = xcb_randr_mode_info_iterator_t;
+  using QueryExtensionCookie                 = xcb_query_extension_cookie_t;
+  using QueryExtensionReply                  = xcb_query_extension_reply_t;
+  using RandrGetScreenResourcesCurrentCookie = xcb_randr_get_screen_resources_current_cookie_t;
+  using RandrGetScreenResourcesCurrentReply  = xcb_randr_get_screen_resources_current_reply_t;
+  using RandrGetOutputPrimaryCookie          = xcb_randr_get_output_primary_cookie_t;
+  using RandrGetOutputPrimaryReply           = xcb_randr_get_output_primary_reply_t;
+  using RandrGetOutputInfoCookie             = xcb_randr_get_output_info_cookie_t;
+  using RandrGetOutputInfoReply              = xcb_randr_get_output_info_reply_t;
+  using RandrGetCrtcInfoCookie               = xcb_randr_get_crtc_info_cookie_t;
+  using RandrGetCrtcInfoReply                = xcb_randr_get_crtc_info_reply_t;
+  using Timestamp                            = xcb_timestamp_t;
+
+  constexpr Atom      ATOM_WINDOW  = XCB_ATOM_WINDOW;  ///< Window atom
+  constexpr Timestamp CURRENT_TIME = XCB_CURRENT_TIME; ///< Current time for XCB requests
+  constexpr u32       NONE         = XCB_NONE;         ///< None value for XCB requests
 
   /**
    * @brief Enum representing different types of connection errors
@@ -175,6 +194,163 @@ namespace XCB {
    */
   inline fn GetPropertyValue(const GetPropReply* reply) -> void* {
     return xcb_get_property_value(reply);
+  }
+
+  /**
+   * @brief Query an XCB extension
+   *
+   * @param conn The connection object
+   * @param len The length of the extension name
+   * @param name The name of the extension
+   * @return The cookie for the extension query
+   */
+  inline fn QueryExtension(Connection* conn, const u16 len, PCStr name) -> QueryExtensionCookie {
+    return xcb_query_extension(conn, len, name);
+  }
+
+  /**
+   * @brief Get the reply for an XCB extension query
+   *
+   * @param conn The connection object
+   * @param cookie The cookie for the extension query
+   * @param err The pointer to the generic error
+   * @return The reply for the extension query
+   */
+  inline fn GetQueryExtensionReply(Connection* conn, const QueryExtensionCookie cookie, GenericError** err) -> QueryExtensionReply* {
+    return xcb_query_extension_reply(conn, cookie, err);
+  }
+
+  /**
+   * @brief Get the current screen resources
+   *
+   * @param conn The connection object
+   * @param window The window
+   * @return The cookie for the screen resources query
+   */
+  inline fn GetScreenResourcesCurrent(Connection* conn, const Window window) -> RandrGetScreenResourcesCurrentCookie {
+    return xcb_randr_get_screen_resources_current(conn, window);
+  }
+
+  /**
+   * @brief Get the reply for the current screen resources
+   *
+   * @param conn The connection object
+   * @param cookie The cookie for the screen resources query
+   * @param err The pointer to the generic error
+   * @return The reply for the screen resources query
+   */
+  inline fn GetScreenResourcesCurrentReply(Connection* conn, const RandrGetScreenResourcesCurrentCookie cookie, GenericError** err) -> RandrGetScreenResourcesCurrentReply* {
+    return xcb_randr_get_screen_resources_current_reply(conn, cookie, err);
+  }
+
+  /**
+   * @brief Get the outputs from the screen resources reply
+   *
+   * @param reply The reply for the screen resources query
+   * @return The outputs from the screen resources reply
+   */
+  inline fn GetScreenResourcesCurrentOutputs(const RandrGetScreenResourcesCurrentReply* reply) -> RandrOutput* {
+    return xcb_randr_get_screen_resources_current_outputs(reply);
+  }
+
+  /**
+   * @brief Get the length of the outputs from the screen resources reply
+   *
+   * @param reply The reply for the screen resources query
+   * @return The length of the outputs from the screen resources reply
+   */
+  inline fn GetScreenResourcesCurrentOutputsLength(const RandrGetScreenResourcesCurrentReply* reply) -> i32 {
+    return xcb_randr_get_screen_resources_current_outputs_length(reply);
+  }
+
+  /**
+   * @brief Get the modes iterator from the screen resources reply
+   *
+   * @param reply The reply for the screen resources query
+   * @return The modes iterator from the screen resources reply
+   */
+  inline fn GetScreenResourcesCurrentModesIterator(const RandrGetScreenResourcesCurrentReply* reply) -> RandrModeInfoIterator {
+    return xcb_randr_get_screen_resources_current_modes_iterator(reply);
+  }
+
+  /**
+   * @brief Get the next mode info from the modes iterator
+   *
+   * @param iter The modes iterator
+   */
+  inline fn ModeInfoNext(RandrModeInfoIterator* iter) -> void {
+    xcb_randr_mode_info_next(iter);
+  }
+
+  /**
+   * @brief Get the primary output
+   *
+   * @param conn The connection object
+   * @param window The window
+   * @return The cookie for the primary output query
+   */
+  inline fn GetOutputPrimary(Connection* conn, const Window window) -> RandrGetOutputPrimaryCookie {
+    return xcb_randr_get_output_primary(conn, window);
+  }
+
+  /**
+   * @brief Get the reply for the primary output
+   *
+   * @param conn The connection object
+   * @param cookie The cookie for the primary output query
+   * @param err The pointer to the generic error
+   * @return The reply for the primary output query
+   */
+  inline fn GetOutputPrimaryReply(Connection* conn, const RandrGetOutputPrimaryCookie cookie, GenericError** err) -> RandrGetOutputPrimaryReply* {
+    return xcb_randr_get_output_primary_reply(conn, cookie, err);
+  }
+
+  /**
+   * @brief Get the output info
+   *
+   * @param conn The connection object
+   * @param output The output
+   * @param timestamp The timestamp
+   * @return The cookie for the output info query
+   */
+  inline fn GetOutputInfo(Connection* conn, const RandrOutput output, const Timestamp timestamp) -> RandrGetOutputInfoCookie {
+    return xcb_randr_get_output_info(conn, output, timestamp);
+  }
+
+  /**
+   * @brief Get the reply for the output info
+   *
+   * @param conn The connection object
+   * @param cookie The cookie for the output info query
+   * @param err The pointer to the generic error
+   * @return The reply for the output info query
+   */
+  inline fn GetOutputInfoReply(Connection* conn, const RandrGetOutputInfoCookie cookie, GenericError** err) -> RandrGetOutputInfoReply* {
+    return xcb_randr_get_output_info_reply(conn, cookie, err);
+  }
+
+  /**
+   * @brief Get the CRTC info
+   *
+   * @param conn The connection object
+   * @param crtc The CRTC
+   * @param timestamp The timestamp
+   * @return The cookie for the CRTC info query
+   */
+  inline fn GetCrtcInfo(Connection* conn, const RandrCrtc crtc, const Timestamp timestamp) -> RandrGetCrtcInfoCookie {
+    return xcb_randr_get_crtc_info(conn, crtc, timestamp);
+  }
+
+  /**
+   * @brief Get the reply for the CRTC info
+   *
+   * @param conn The connection object
+   * @param cookie The cookie for the CRTC info query
+   * @param err The pointer to the generic error
+   * @return The reply for the CRTC info query
+   */
+  inline fn GetCrtcInfoReply(Connection* conn, const RandrGetCrtcInfoCookie cookie, GenericError** err) -> RandrGetCrtcInfoReply* {
+    return xcb_randr_get_crtc_info_reply(conn, cookie, err);
   }
 
   /**
