@@ -131,6 +131,10 @@ if get_option('enable_nowplaying') == true
   add_project_arguments('-DDRAC_ENABLE_NOWPLAYING', language: ['cpp'])
 endif
 
+if get_option('enable_caching') == true
+  add_project_arguments('-DDRAC_ENABLE_CACHING', language: ['cpp'])
+endif
+
 if get_option('enable_weather') == true
   lib_deps += dependency('libcurl', include_type: 'system', static: true)
   add_project_arguments('-DDRAC_ENABLE_WEATHER', language: ['cpp'])

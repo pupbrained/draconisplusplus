@@ -73,6 +73,7 @@ namespace draconis::utils::cache {
       Fn<Result<T>()>     fetcher,
       Option<CachePolicy> overridePolicy = None
     ) -> Result<T> {
+#ifdef ENABLE_CACHING
       const CachePolicy& policy = overridePolicy.value_or(m_globalPolicy);
 
       // 1. Check in-memory cache
@@ -138,6 +139,11 @@ namespace draconis::utils::cache {
       }
 
       return fetchedResult;
+#else
+      (void)key;
+      (void)overridePolicy;
+      return fetcher();
+#endif
     }
 
    private:

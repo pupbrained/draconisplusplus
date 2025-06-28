@@ -44,6 +44,10 @@ option('precompiled_config', type: 'boolean', value: false)
 # Description: Enable nowplaying functionality.
 option('enable_nowplaying', type: 'boolean', value: true)
 
+# Option: enable_caching
+# Description: Enable caching functionality.
+option('enable_caching', type: 'boolean', value: true)
+
 # Option: enable_weather
 # Description: Enable fetching weather data.
 option('enable_weather', type: 'boolean', value: true)
