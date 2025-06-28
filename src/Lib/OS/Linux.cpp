@@ -274,7 +274,7 @@ namespace {
     return String(nameData, length);
   }
 
-  fn GetX11Displays() -> Result<Vec<Display>> {
+  fn GetX11Displays() -> Result<Vec<Output>> {
     using namespace XCB;
 
     DisplayGuard conn;
@@ -311,8 +311,8 @@ namespace {
     if (outputCount == 0)
       return Err(DracError(NotFound, "No outputs found"));
 
-    Vec<Display> displays;
-    int          primaryIndex = -1;
+    Vec<Output> displays;
+    int         primaryIndex = -1;
 
     const ReplyGuard<RandrGetOutputPrimaryReply> primaryOutputReply(
       GetOutputPrimaryReply(conn.get(), GetOutputPrimary(conn.get(), screen->root), nullptr)
@@ -356,7 +356,7 @@ namespace {
 
       displays.emplace_back(
         *std::next(outputs, i),
-        Display::Resolution { .width = crtcInfoReply->width, .height = crtcInfoReply->height },
+        Output::Resolution { .width = crtcInfoReply->width, .height = crtcInfoReply->height },
         refreshRate,
         isPrimary
       );
@@ -376,7 +376,7 @@ namespace {
     return displays;
   }
 
-  fn GetX11PrimaryDisplay() -> Result<Display> {
+  fn GetX11PrimaryDisplay() -> Result<Output> {
     using namespace XCB;
 
     DisplayGuard conn;
@@ -430,9 +430,9 @@ namespace {
       }
     }
 
-    return Display(
+    return Output(
       primaryOutput,
-      Display::Resolution { .width = crtcInfoReply->width, .height = crtcInfoReply->height },
+      Output::Resolution { .width = crtcInfoReply->width, .height = crtcInfoReply->height },
       refreshRate,
       true
     );
@@ -511,7 +511,7 @@ namespace {
 
   struct WaylandPrimaryDisplayData {
     Wayland::Output* output = nullptr;
-    Display          display;
+    Output           display;
     bool             done = false;
   };
 
@@ -569,7 +569,7 @@ namespace {
 
   void wayland_primary_registry_remover(void* /*data*/, wl_registry* /*registry*/, u32 /*id*/) {}
 
-  fn GetWaylandDisplays() -> Result<Vec<Display>> {
+  fn GetWaylandDisplays() -> Result<Vec<Output>> {
     const Wayland::DisplayGuard display;
     if (!display)
       return Err(DracError(ApiUnavailable, "Failed to connect to Wayland display"));
@@ -592,13 +592,13 @@ namespace {
     display.roundtrip();
     display.roundtrip();
 
-    Vec<Display> displays;
+    Vec<Output> displays;
 
     for (const WaylandCallbackData::Inner& output : callbackData.outputs)
       if (output.width > 0 && output.height > 0)
         displays.emplace_back(
           output.id,
-          Display::Resolution { .width = static_cast<u16>(output.width), .height = static_cast<u16>(output.height) },
+          Output::Resolution { .width = static_cast<u16>(output.width), .height = static_cast<u16>(output.height) },
           output.refreshRate / 1000,
           displays.empty()
         );
@@ -609,7 +609,7 @@ namespace {
     return displays;
   }
 
-  fn GetWaylandPrimaryDisplay() -> Result<Display> {
+  fn GetWaylandPrimaryDisplay() -> Result<Output> {
     const Wayland::DisplayGuard display;
 
     if (!display)
@@ -1182,9 +1182,9 @@ namespace draconis::core::system {
     };
   }
 
-  fn GetDisplays() -> Result<Vec<Display>> {
+  fn GetOutputs() -> Result<Vec<Output>> {
     if (GetEnv("WAYLAND_DISPLAY")) {
-      Result<Vec<Display>> displays = GetWaylandDisplays();
+      Result<Vec<Output>> displays = GetWaylandDisplays();
 
       if (displays)
         return displays;
@@ -1193,7 +1193,7 @@ namespace draconis::core::system {
     }
 
     if (GetEnv("DISPLAY")) {
-      Result<Vec<Display>> displays = GetX11Displays();
+      Result<Vec<Output>> displays = GetX11Displays();
 
       if (displays)
         return displays;
@@ -1204,9 +1204,9 @@ namespace draconis::core::system {
     return Err(DracError(NotFound, "No display server detected"));
   }
 
-  fn GetPrimaryDisplay() -> Result<Display> {
+  fn GetPrimaryOutput() -> Result<Output> {
     if (GetEnv("WAYLAND_DISPLAY")) {
-      Result<Display> display = GetWaylandPrimaryDisplay();
+      Result<Output> display = GetWaylandPrimaryDisplay();
 
       if (display)
         return display;
@@ -1215,7 +1215,7 @@ namespace draconis::core::system {
     }
 
     if (GetEnv("DISPLAY")) {
-      Result<Display> display = GetX11PrimaryDisplay();
+      Result<Output> display = GetX11PrimaryDisplay();
 
       if (display)
         return display;

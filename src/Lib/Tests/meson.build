@@ -1,7 +1,7 @@
 # ----------------- #
 #  Test Files      #
 # ----------------- #
-test_sources = files('CoreTypesTest.cpp', 'LoggingUtilsTest.cpp')
+test_sources = files('CoreTypesTest.cpp', 'LoggingUtilsTest.cpp', 'CacheManagerTest.cpp')
 
 if get_option('enable_packagecount')
   test_sources += files('PackageCountingIntegrationTest.cpp', 'PackageCountingMockTest.cpp')

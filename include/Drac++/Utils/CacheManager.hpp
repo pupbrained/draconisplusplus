@@ -1,6 +1,5 @@
 #pragma once
 
-#include <__msvc_chrono.hpp>
 #include <chrono>
 #include <filesystem>
 #include <glaze/glaze.hpp>
@@ -73,35 +72,61 @@ namespace draconis::utils::cache {
       Fn<Result<T>()>     fetcher,
       Option<CachePolicy> overridePolicy = None
     ) -> Result<T> {
-#ifdef ENABLE_CACHING
+#ifdef DRAC_ENABLE_CACHING
       const CachePolicy& policy = overridePolicy.value_or(m_globalPolicy);
 
       // 1. Check in-memory cache
-      if (auto iter = m_inMemoryCache.find(key); iter != m_inMemoryCache.end())
+      if (auto iter = m_inMemoryCache.find(key); iter != m_inMemoryCache.end()) {
+        info_log("Found key '{}' in memory cache", key);
         if (
           CacheEntry<T> entry; glz::read_beve(entry, iter->second.first) == glz::error_code::none &&
-          (!entry.expires.has_value() || !policy.ttl.has_value() || system_clock::now() < system_clock::time_point(seconds(*entry.expires)))
-        )
+          (!entry.expires.has_value() || system_clock::now() < system_clock::time_point(seconds(*entry.expires)))
+        ) {
+          info_log("Key '{}' is valid in memory cache, returning cached data", key);
           return entry.data;
+        } else {
+          auto now   = system_clock::now();
+          auto nowTs = duration_cast<seconds>(now.time_since_epoch()).count();
+          if (CacheEntry<T> entry; glz::read_beve(entry, iter->second.first) == glz::error_code::none) {
+            info_log("Key '{}' is expired in memory cache. Now: {}, Expires: {}", key, nowTs, entry.expires.value_or(0));
+          } else {
+            info_log("Key '{}' is expired in memory cache (failed to read entry)", key);
+          }
+        }
+      } else {
+        info_log("Key '{}' not found in memory cache", key);
+      }
 
       // 2. Check filesystem cache
       const Option<fs::path> filePath = getCacheFilePath(key, policy.location);
 
-      if (filePath && fs::exists(*filePath))
+      if (filePath && fs::exists(*filePath)) {
+        info_log("Found cache file for key '{}' at: {}", key, filePath->string());
         if (std::ifstream ifs(*filePath, std::ios::binary); ifs) {
           std::string fileContents((std::istreambuf_iterator<char>(ifs)), {});
 
           CacheEntry<T> entry;
 
-          if (glz::read_beve(entry, fileContents) == glz::error_code::none)
-            if (!entry.expires.has_value() || !policy.ttl.has_value() || system_clock::now() < system_clock::time_point(seconds(*entry.expires))) {
+          if (glz::read_beve(entry, fileContents) == glz::error_code::none) {
+            if (!entry.expires.has_value() || system_clock::now() < system_clock::time_point(seconds(*entry.expires))) {
+              info_log("Key '{}' is valid in filesystem cache, returning cached data", key);
               system_clock::time_point expiryTp = entry.expires.has_value() ? system_clock::time_point(seconds(*entry.expires)) : system_clock::time_point::max();
 
               m_inMemoryCache[key] = { fileContents, expiryTp };
 
               return entry.data;
+            } else {
+              info_log("Key '{}' is expired in filesystem cache", key);
             }
+          } else {
+            info_log("Key '{}' failed to read from filesystem cache", key);
+          }
+        } else {
+          info_log("Key '{}' failed to open filesystem cache file", key);
         }
+      } else {
+        info_log("No cache file found for key '{}'", key);
+      }
 
       // 3. Cache miss: call fetcher
       debug_log("Cache miss for key: {}. Calling fetcher.", key);
@@ -115,8 +140,12 @@ namespace draconis::utils::cache {
 
       // 4. Store in cache
       Option<u64> expiryTs;
-      if (policy.ttl.has_value())
-        expiryTs = duration_cast<seconds>((system_clock::now() + *policy.ttl).time_since_epoch()).count();
+      if (policy.ttl.has_value()) {
+        auto now        = system_clock::now();
+        auto expiryTime = now + *policy.ttl;
+        expiryTs        = duration_cast<seconds>(expiryTime.time_since_epoch()).count();
+        info_log("Storing cache entry for key '{}' with TTL {}ms, expiry timestamp: {}", key, policy.ttl->count(), *expiryTs);
+      }
 
       CacheEntry<T> newEntry {
         .data    = *fetchedResult,
@@ -154,19 +183,24 @@ namespace draconis::utils::cache {
     static fn getCacheFilePath(const String& key, const CacheLocation location) -> Option<fs::path> {
       using matchit::match, matchit::is, matchit::_;
 
-      Option<fs::path> cacheDir = match(location)(
-        is | CacheLocation::TempDirectory = Some(fs::temp_directory_path()),
-#ifdef __APPLE__
-        is | CacheLocation::Persistent = Some(std::format("{}/Library/Caches/draconis++", draconis::utils::env::GetEnv("HOME").value_or("."))),
-#else
-        is | CacheLocation::Persistent = Some(std::format("{}/.cache/draconis++", draconis::utils::env::GetEnv("HOME").value_or("."))),
-#endif
-        is | _ = None
-      );
+      Option<fs::path> cacheDir = None;
 
-      if (cacheDir.has_value()) {
-        fs::create_directories(cacheDir.value());
-        return cacheDir.value() / key;
+      if (location == CacheLocation::InMemory)
+        return None; // In-memory cache does not have a file path
+
+      if (location == CacheLocation::TempDirectory)
+        return Some(fs::temp_directory_path() / key);
+
+      if (location == CacheLocation::Persistent)
+#ifdef __APPLE__
+        return Some(std::format("{}/Library/Caches/draconis++/{}", draconis::utils::env::GetEnv("HOME").value_or("."), key));
+#else
+        return Some(std::format("{}/.cache/draconis++/{}", draconis::utils::env::GetEnv("HOME").value_or("."), key));
+#endif
+
+      if (cacheDir) {
+        fs::create_directories(*cacheDir);
+        return *cacheDir / key;
       }
 
       return None;

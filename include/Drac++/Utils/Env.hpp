@@ -4,15 +4,17 @@
   #include <stdlib.h> // NOLINT(*-deprecated-headers)
 #endif
 
+#include <cstdlib>
+
 #include "Definitions.hpp"
 #include "Error.hpp"
 #include "Types.hpp"
 
 namespace draconis::utils::env {
   namespace {
-    using types::PCStr;
     using types::Err;
     using types::i32;
+    using types::PCStr;
     using types::Result;
     using types::UniquePointer;
     using types::usize;
@@ -54,13 +56,38 @@ namespace draconis::utils::env {
 #endif
   }
 
+  /**
+   * @brief Safely sets an environment variable.
+   * @param name The name of the environment variable to set.
+   * @param value The value to set the environment variable to.
+   */
+  inline fn SetEnv(const PCStr name, const PCStr value) -> void {
+#ifdef _WIN32
+    _putenv_s(name, value);
+#else
+    setenv(name, value, 1);
+#endif
+  }
+
+  /**
+   * @brief Safely unsets an environment variable.
+   * @param name The name of the environment variable to unset.
+   */
+  inline fn UnsetEnv(const PCStr name) -> void {
+#ifdef _WIN32
+    _putenv_s(name, "");
+#else
+    unsetenv(name);
+#endif
+  }
+
 #ifdef _WIN32
   /**
    * @brief Safely retrieves an environment variable as a wstring.
    * @param name The name of the environment variable to retrieve.
    * @return A Result containing the value of the environment variable as a wstring.
    */
-  [[nodiscard]] inline fn GetEnvW(const wchar_t* name) -> Result<wchar_t*> {
+  [[nodiscard]] inline fn GetEnvW(const PWCStr name) -> Result<PWCStr> {
     wchar_t* rawPtr     = nullptr;
     usize    bufferSize = 0;
 
@@ -76,5 +103,23 @@ namespace draconis::utils::env {
 
     return ptrManager.get();
   }
+
+  /**
+   * @brief Safely sets an environment variable with a wstring value.
+   * @param name The name of the environment variable to set.
+   * @param value The value to set the environment variable to.
+   */
+  inline fn SetEnvW(const PWCStr name, const PWCStr value) -> void {
+    _wputenv_s(name, value);
+  }
+
+  /**
+   * @brief Safely unsets an environment variable with a wstring name.
+   * @param name The name of the environment variable to unset.
+   */
+  inline fn UnsetEnvW(const PWCStr name) -> void {
+    _wputenv_s(name, L"");
+  }
 #endif
+
 } // namespace draconis::utils::env
