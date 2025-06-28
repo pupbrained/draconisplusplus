@@ -118,11 +118,8 @@
             else let
               vulkanDir = "${pkgs.mesa}/share/vulkan/icd.d";
               vulkanFiles = builtins.filter (file: builtins.match ".*\\.json$" file != null) (builtins.attrNames (builtins.readDir vulkanDir));
-              vulkanPaths = nixpkgs.lib.concatStringsSep ":" (map (file: "${vulkanDir}/${file}") vulkanFiles);
             in
-              if stdenv.hostPlatform.isx86_64
-              then "${pkgs.linuxPackages_latest.nvidia_x11_beta}/share/vulkan/icd.d/nvidia_icd.x86_64.json:${vulkanPaths}"
-              else vulkanPaths;
+              nixpkgs.lib.concatStringsSep ":" (map (file: "${vulkanDir}/${file}") vulkanFiles);
 
           shellHook =
             pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
