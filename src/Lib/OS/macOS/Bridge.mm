@@ -76,8 +76,8 @@ namespace draconis::core::system::macOS {
             const NSString* const artist = [information objectForKey:@"kMRMediaRemoteNowPlayingInfoArtist"];
 
             result = MediaInfo(
-              title ? Option([title UTF8String]) : None,
-              artist ? Option([artist UTF8String]) : None
+              title ? Some([title UTF8String]) : None,
+              artist ? Some([artist UTF8String]) : None
             );
           }
 

@@ -80,7 +80,7 @@ namespace draconis::core::system {
     // Use batch operations for related information
     Future<Result<String>>               desktopEnvFut     = std::async(async, [&cache]() { return GetDesktopEnvironment(cache); });
     Future<Result<String>>               windowMgrFut      = std::async(async, [&cache]() { return GetWindowManager(cache); });
-    Future<Result<Display>>              primaryDisplayFut = std::async(async, &GetPrimaryDisplay);
+    Future<Result<Output>>               primaryDisplayFut = std::async(async, &GetPrimaryOutput);
     Future<Result<String>>               osFut             = std::async(async, [&cache]() { return GetOSVersion(cache); });
     Future<Result<String>>               kernelFut         = std::async(async, [&cache]() { return GetKernelVersion(cache); });
     Future<Result<String>>               hostFut           = std::async(async, [&cache]() { return GetHost(cache); });

@@ -17,12 +17,12 @@ namespace draconis::core::system {
   namespace {
     using utils::types::Battery;
     using utils::types::CPUCores;
-    using utils::types::Display;
     using utils::types::f64;
     using utils::types::Frequencies;
     using utils::types::i64;
     using utils::types::MediaInfo;
     using utils::types::NetworkInterface;
+    using utils::types::Output;
     using utils::types::ResourceUsage;
     using utils::types::Result;
     using utils::types::String;
@@ -495,8 +495,8 @@ namespace draconis::core::system {
   fn GetUptime() -> Result<std::chrono::seconds>;
 
   /**
-   * @brief Fetches the displays.
-   * @return The displays.
+   * @brief Fetches the outputs.
+   * @return The outputs.
    *
    * @details Obtained differently depending on the platform:
    *  - Windows: `GetDisplayConfigBufferSizes`
@@ -513,23 +513,23 @@ namespace draconis::core::system {
    * #include <Drac++/Core/System.hpp>
    *
    * int main() {
-   *   Result<Array<Display, 16>> displays = draconis::core::system::GetDisplays();
+   *   Result<Array<Output, 16>> outputs = draconis::core::system::GetOutputs();
    *
-   *   if (displays.has_value()) {
-   *     std::println("Displays: {}", displays.value().size());
+   *   if (outputs.has_value()) {
+   *     std::println("Outputs: {}", outputs.value().size());
    *   } else {
-   *     std::println("Failed to get displays: {}", displays.error().message());
+   *     std::println("Failed to get outputs: {}", outputs.error().message());
    *   }
    *
    *   return 0;
    * }
    * @endcode
    */
-  fn GetDisplays() -> Result<Vec<Display>>;
+  fn GetOutputs() -> Result<Vec<Output>>;
 
   /**
-   * @brief Fetches the primary display.
-   * @return The primary display.
+   * @brief Fetches the primary output.
+   * @return The primary output.
    *
    * @details Obtained differently depending on the platform:
    *  - Windows: `GetDisplayConfigBufferSizes`
@@ -546,19 +546,19 @@ namespace draconis::core::system {
    * #include <Drac++/Core/System.hpp>
    *
    * int main() {
-   *   Result<Display> primaryDisplay = draconis::core::system::GetPrimaryDisplay();
+   *   Result<Output> primaryOutput = draconis::core::system::GetPrimaryOutput();
    *
-   *   if (primaryDisplay.has_value()) {
-   *     std::println("Primary display: {}", primaryDisplay.value().name);
+   *   if (primaryOutput.has_value()) {
+   *     std::println("Primary output: {}", primaryOutput.value().name);
    *   } else {
-   *     std::println("Failed to get primary display: {}", primaryDisplay.error().message());
+   *     std::println("Failed to get primary output: {}", primaryOutput.error().message());
    *   }
    *
    *   return 0;
    * }
    * @endcode
    */
-  fn GetPrimaryDisplay() -> Result<Display>;
+  fn GetPrimaryOutput() -> Result<Output>;
 
   /**
    * @brief Fetches the network interfaces.

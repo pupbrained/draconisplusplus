@@ -31,6 +31,8 @@
   #include <winrt/Windows.System.Profile.h>         // winrt::Windows::System::Profile::AnalyticsInfo
   #include <winuser.h>                              // EnumDisplayMonitors, GetMonitorInfoW, MonitorFromWindow, EnumDisplaySettingsW
 
+  #include "Drac++/Core/System.hpp"
+
   // Core Winsock headers
   #include <winsock2.h> // AF_INET, AF_UNSPEC, sockaddr_in
   #include <ws2tcpip.h> // inet_ntop, inet_pton
@@ -47,8 +49,6 @@
   #include "Drac++/Utils/Env.hpp"
   #include "Drac++/Utils/Error.hpp"
   #include "Drac++/Utils/Types.hpp"
-
-  #include "Draconis/Core/System.hpp"
 
 namespace {
   using draconis::utils::error::DracError;
@@ -831,59 +831,59 @@ namespace draconis::core::system {
 
   fn GetGPUModel(CacheManager& cache) -> Result<String> {
     return cache.getOrSet<String>("windows_gpu_model", []() -> Result<String> {
-        // Used to create and enumerate DirectX graphics interfaces.
-        IDXGIFactory* pFactory = nullptr;
+      // Used to create and enumerate DirectX graphics interfaces.
+      IDXGIFactory* pFactory = nullptr;
 
       // The __uuidof operator is a Microsoft-specific extension that gets the GUID of a COM interface.
       // It's required by CreateDXGIFactory. The pragma below disables the compiler warning about this
       // non-standard extension, as its use is necessary here.
   #pragma clang diagnostic push
   #pragma clang diagnostic ignored "-Wlanguage-extension-token"
-        // NOLINTNEXTLINE(*-pro-type-reinterpret-cast) - CreateDXGIFactory needs a void** parameter, not an IDXGIFactory**.
-        if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), reinterpret_cast<void**>(&pFactory))))
-            return Err(DracError(PlatformSpecific, "Failed to create DXGI Factory"));
+      // NOLINTNEXTLINE(*-pro-type-reinterpret-cast) - CreateDXGIFactory needs a void** parameter, not an IDXGIFactory**.
+      if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), reinterpret_cast<void**>(&pFactory))))
+        return Err(DracError(PlatformSpecific, "Failed to create DXGI Factory"));
   #pragma clang diagnostic pop
 
-        // Attempt to get the first adapter.
-        IDXGIAdapter* pAdapter = nullptr;
+      // Attempt to get the first adapter.
+      IDXGIAdapter* pAdapter = nullptr;
 
-        // 0 = primary adapter/GPU
-        if (pFactory->EnumAdapters(0, &pAdapter) == DXGI_ERROR_NOT_FOUND) {
-            // Clean up factory.
-            pFactory->Release();
+      // 0 = primary adapter/GPU
+      if (pFactory->EnumAdapters(0, &pAdapter) == DXGI_ERROR_NOT_FOUND) {
+        // Clean up factory.
+        pFactory->Release();
 
-            return Err(DracError(NotFound, "No DXGI adapters found"));
-        }
+        return Err(DracError(NotFound, "No DXGI adapters found"));
+      }
 
-        // Get the adapter description.
-        DXGI_ADAPTER_DESC desc {};
+      // Get the adapter description.
+      DXGI_ADAPTER_DESC desc {};
 
-        if (FAILED(pAdapter->GetDesc(&desc))) {
-            // Make sure to release the adapter and factory if GetDesc fails.
-            pAdapter->Release();
-            pFactory->Release();
-
-            return Err(DracError(PlatformSpecific, "Failed to get adapter description"));
-        }
-
-        // The DirectX description is a wide string.
-        // We have to convert it to a UTF-8 string.
-        Array<CStr, 128> gpuName {};
-
-        WideCharToMultiByte(CP_UTF8, 0, desc.Description, -1, gpuName.data(), gpuName.size(), nullptr, nullptr);
-
-        // Clean up resources.
+      if (FAILED(pAdapter->GetDesc(&desc))) {
+        // Make sure to release the adapter and factory if GetDesc fails.
         pAdapter->Release();
         pFactory->Release();
 
-        return gpuName.data(); }, draconis::utils::cache::CachePolicy::NeverExpire());
+        return Err(DracError(PlatformSpecific, "Failed to get adapter description"));
+      }
+
+      // The DirectX description is a wide string.
+      // We have to convert it to a UTF-8 string.
+      Array<CStr, 128> gpuName {};
+
+      WideCharToMultiByte(CP_UTF8, 0, desc.Description, -1, gpuName.data(), gpuName.size(), nullptr, nullptr);
+
+      // Clean up resources.
+      pAdapter->Release();
+      pFactory->Release();
+
+      return gpuName.data(); }, draconis::utils::cache::CachePolicy::neverExpire());
   }
 
   fn GetUptime() -> Result<std::chrono::seconds> {
     return std::chrono::seconds(GetTickCount64() / 1000);
   }
 
-  fn GetDisplays() -> Result<Vec<Display>> {
+  fn GetOutputs() -> Result<Vec<Output>> {
     UINT32 pathCount = 0;
     UINT32 modeCount = 0;
 
@@ -896,8 +896,8 @@ namespace draconis::core::system {
     if (QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, &pathCount, paths.data(), &modeCount, modes.data(), nullptr) != ERROR_SUCCESS)
       return Err(DracError(PlatformSpecific, "QueryDisplayConfig failed to retrieve display data"));
 
-    Vec<Display> displays;
-    displays.reserve(pathCount);
+    Vec<Output> outputs;
+    outputs.reserve(pathCount);
 
     // NOLINTBEGIN(*-pro-type-union-access)
     for (const auto& path : paths) {
@@ -907,34 +907,26 @@ namespace draconis::core::system {
         if (mode.infoType != DISPLAYCONFIG_MODE_INFO_TYPE_TARGET)
           continue;
 
-        Display display;
-
-        display.id = path.targetInfo.id;
-
-        display.resolution.width  = mode.targetMode.targetVideoSignalInfo.activeSize.cx;
-        display.resolution.height = mode.targetMode.targetVideoSignalInfo.activeSize.cy;
-
-        if (const DISPLAYCONFIG_VIDEO_SIGNAL_INFO& timing = mode.targetMode.targetVideoSignalInfo;
-            timing.totalSize.cx != 0 && timing.totalSize.cy != 0)
-          display.refreshRate = static_cast<u16>(std::round(static_cast<double>(timing.pixelRate) / (timing.totalSize.cx * timing.totalSize.cy)));
-        else
-          display.refreshRate = 0;
-
-        display.isPrimary = (path.flags & DISPLAYCONFIG_PATH_ACTIVE) != 0;
-
-        displays.push_back(display);
+        outputs.emplace_back(Output(
+          path.targetInfo.id,
+          { .width = mode.targetMode.targetVideoSignalInfo.activeSize.cx, .height = mode.targetMode.targetVideoSignalInfo.activeSize.cy },
+          mode.targetMode.targetVideoSignalInfo.totalSize.cx != 0 && mode.targetMode.targetVideoSignalInfo.totalSize.cy != 0
+            ? static_cast<f64>(mode.targetMode.targetVideoSignalInfo.pixelRate) / (mode.targetMode.targetVideoSignalInfo.totalSize.cx * mode.targetMode.targetVideoSignalInfo.totalSize.cy)
+            : 0,
+          (path.flags & DISPLAYCONFIG_PATH_ACTIVE) != 0
+        ));
       }
     }
     // NOLINTEND(*-pro-type-union-access)
 
-    if (displays.empty())
+    if (outputs.empty())
       return Err(DracError(NotFound, "No active displays found with QueryDisplayConfig"));
 
-    return displays;
+    return outputs;
   }
 
-  fn GetPrimaryDisplay() -> Result<Display> {
-    const HMONITOR primaryMonitor = MonitorFromWindow(nullptr, MONITOR_DEFAULTTOPRIMARY);
+  fn GetPrimaryOutput() -> Result<Output> {
+    HMONITOR primaryMonitor = MonitorFromWindow(nullptr, MONITOR_DEFAULTTOPRIMARY);
 
     if (!primaryMonitor)
       return Err(DracError(PlatformSpecific, "Failed to get a handle to the primary monitor"));
@@ -952,14 +944,12 @@ namespace draconis::core::system {
     if (!EnumDisplaySettingsW(monitorInfo.szDevice, ENUM_CURRENT_SETTINGS, &devMode))
       return Err(DracError(PlatformSpecific, "EnumDisplaySettingsW failed for the primary monitor"));
 
-    Display display;
-    display.id                = 0;
-    display.resolution.width  = static_cast<u16>(devMode.dmPelsWidth);
-    display.resolution.height = static_cast<u16>(devMode.dmPelsHeight);
-    display.refreshRate       = static_cast<u16>(devMode.dmDisplayFrequency);
-    display.isPrimary         = true;
-
-    return display;
+    return Output(
+      0,
+      { .width = devMode.dmPelsWidth, .height = devMode.dmPelsHeight },
+      devMode.dmDisplayFrequency,
+      true
+    );
   }
 
   fn GetNetworkInterfaces() -> Result<Vec<NetworkInterface>> {
@@ -1014,7 +1004,7 @@ namespace draconis::core::system {
             iface.ipv4Address = strBuffer.data();
         }
 
-      interfaces.push_back(iface);
+      interfaces.emplace_back(iface);
     }
 
     return interfaces;
@@ -1107,7 +1097,7 @@ namespace draconis::core::system {
       return Err(DracError(NotFound, "Battery status unknown"));
 
     // 255 means unknown, so we'll map it to None.
-    const Option<u8> percentage = (powerStatus.BatteryLifePercent == 255) ? None : Option(powerStatus.BatteryLifePercent);
+    const Option<u8> percentage = (powerStatus.BatteryLifePercent == 255) ? None : Some(powerStatus.BatteryLifePercent);
 
     // The catch-all should only ever need to cover 255 but using it regardless is safer.
     const Battery::Status status = match(powerStatus.ACLineStatus)(
@@ -1122,7 +1112,7 @@ namespace draconis::core::system {
       percentage,
       powerStatus.BatteryFullLifeTime == static_cast<DWORD>(-1)
         ? None
-        : Option(std::chrono::seconds(powerStatus.BatteryFullLifeTime))
+        : Some(std::chrono::seconds(powerStatus.BatteryFullLifeTime))
     );
   }
 } // namespace draconis::core::system
@@ -1132,63 +1122,69 @@ namespace draconis::services::packages {
   using draconis::utils::env::GetEnvW;
   using helpers::GetDirCount;
 
-  fn CountChocolatey() -> Result<u64> {
-    // C:\ProgramData\chocolatey is the default installation directory.
-    WString chocoPath = L"C:\\ProgramData\\chocolatey";
+  fn CountChocolatey(CacheManager& cache) -> Result<u64> {
+    return cache.getOrSet<u64>("windows_chocolatey_count", []() -> Result<u64> {
+      // C:\ProgramData\chocolatey is the default installation directory.
+      WString chocoPath = L"C:\\ProgramData\\chocolatey";
 
-    // If the ChocolateyInstall environment variable is set, use that instead.
-    // Most of the time it's set to C:\ProgramData\chocolatey, but it can be overridden.
-    if (const Result<WCStr*> chocoEnv = GetEnvW(L"ChocolateyInstall"); chocoEnv)
-      chocoPath = *chocoEnv;
+      // If the ChocolateyInstall environment variable is set, use that instead.
+      // Most of the time it's set to C:\ProgramData\chocolatey, but it can be overridden.
+      if (const Result<WCStr*> chocoEnv = GetEnvW(L"ChocolateyInstall"); chocoEnv)
+        chocoPath = *chocoEnv;
 
-    // The lib directory contains the package metadata.
-    chocoPath.append(L"\\lib");
+      // The lib directory contains the package metadata.
+      chocoPath.append(L"\\lib");
 
-    // Get the number of directories in the lib directory.
-    // This corresponds to the number of packages installed.
-    if (Result<u64> dirCount = GetDirCount(chocoPath))
-      return *dirCount;
+      // Get the number of directories in the lib directory.
+      // This corresponds to the number of packages installed.
+      if (Result<u64> dirCount = GetDirCount(chocoPath))
+        return *dirCount;
 
-    return Err(DracError(NotFound, "Failed to get Chocolatey package count"));
+      return Err(DracError(NotFound, "Failed to get Chocolatey package count"));
+    });
   }
 
-  fn CountScoop() -> Result<u64> {
-    WString scoopAppsPath;
+  fn CountScoop(CacheManager& cache) -> Result<u64> {
+    return cache.getOrSet<u64>("windows_scoop_count", []() -> Result<u64> {
+      WString scoopAppsPath;
 
-    // The SCOOP environment variable should be used first if it's set.
-    if (const Result<WCStr*> scoopEnv = GetEnvW(L"SCOOP"); scoopEnv) {
-      scoopAppsPath = *scoopEnv;
-      scoopAppsPath.append(L"\\apps");
-    } else if (const Result<WCStr*> userProfile = GetEnvW(L"USERPROFILE"); userProfile) {
-      // Otherwise, we can try finding the scoop folder in the user's home directory.
-      scoopAppsPath = *userProfile;
-      scoopAppsPath.append(L"\\scoop\\apps");
-    } else {
-      // The user likely doesn't have scoop installed if neither of those other methods work.
-      return Err(DracError(NotFound, "Could not determine Scoop installation directory (SCOOP and USERPROFILE environment variables not found)"));
-    }
+      // The SCOOP environment variable should be used first if it's set.
+      if (const Result<WCStr*> scoopEnv = GetEnvW(L"SCOOP"); scoopEnv) {
+        scoopAppsPath = *scoopEnv;
+        scoopAppsPath.append(L"\\apps");
+      } else if (const Result<WCStr*> userProfile = GetEnvW(L"USERPROFILE"); userProfile) {
+        // Otherwise, we can try finding the scoop folder in the user's home directory.
+        scoopAppsPath = *userProfile;
+        scoopAppsPath.append(L"\\scoop\\apps");
+      } else {
+        // The user likely doesn't have scoop installed if neither of those other methods work.
+        return Err(DracError(NotFound, "Could not determine Scoop installation directory (SCOOP and USERPROFILE environment variables not found)"));
+      }
 
-    // Get the number of directories in the apps directory.
-    // This corresponds to the number of packages installed.
-    if (Result<u64> dirCount = GetDirCount(scoopAppsPath))
-      return *dirCount;
+      // Get the number of directories in the apps directory.
+      // This corresponds to the number of packages installed.
+      if (Result<u64> dirCount = GetDirCount(scoopAppsPath))
+        return *dirCount;
 
-    return Err(DracError(NotFound, "Failed to get Scoop package count"));
+      return Err(DracError(NotFound, "Failed to get Scoop package count"));
+    });
   }
 
-  fn CountWinGet() -> Result<u64> {
-    try {
-      using winrt::Windows::Management::Deployment::PackageManager;
+  fn CountWinGet(CacheManager& cache) -> Result<u64> {
+    return cache.getOrSet<u64>("windows_winget_count", []() -> Result<u64> {
+      try {
+        using winrt::Windows::Management::Deployment::PackageManager;
 
-      // The only good way to get the number of packages installed via winget is using WinRT.
-      // It's a bit slow, but it's still faster than shelling out to the command line.
-      // FindPackagesForUser returns an iterator to the first package, so we can use std::ranges::distance to get the
-      // number of packages.
-      return std::ranges::distance(PackageManager().FindPackagesForUser(L""));
-    } catch (const winrt::hresult_error& e) {
-      // Make sure to catch any errors that WinRT might throw.
-      return Err(DracError(e));
-    }
+        // The only good way to get the number of packages installed via winget is using WinRT.
+        // It's a bit slow, but it's still faster than shelling out to the command line.
+        // FindPackagesForUser returns an iterator to the first package, so we can use std::ranges::distance to get the
+        // number of packages.
+        return std::ranges::distance(PackageManager().FindPackagesForUser(L""));
+      } catch (const winrt::hresult_error& e) {
+        // Make sure to catch any errors that WinRT might throw.
+        return Err(DracError(e));
+      }
+    });
   }
 } // namespace draconis::services::packages
   #endif // DRAC_ENABLE_PACKAGECOUNT

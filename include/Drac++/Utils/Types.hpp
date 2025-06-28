@@ -10,6 +10,7 @@
 #pragma once
 
 #include <array>         // std::array (Array)
+#include <functional>    // std::function (Fn)
 #include <future>        // std::future (Future)
 #include <map>           // std::map (Map)
 #include <memory>        // std::shared_ptr and std::unique_ptr (SharedPointer, UniquePointer)
@@ -199,13 +200,6 @@ namespace draconis::utils::types {
   using RawPointer = void*;
 
   /**
-   * @brief Alias for std::nullopt_t.
-   *
-   * Represents an empty optional value.
-   */
-  inline constexpr std::nullopt_t None = std::nullopt;
-
-  /**
    * @brief Alias for std::optional<Tp>.
    *
    * Represents a value that may or may not be present.
@@ -213,6 +207,26 @@ namespace draconis::utils::types {
    */
   template <typename Tp>
   using Option = std::optional<Tp>;
+
+  /**
+   * @brief Alias for std::nullopt_t.
+   *
+   * Represents an empty optional value.
+   */
+  inline constexpr std::nullopt_t None = std::nullopt;
+
+  /**
+   * @brief Helper function to create an Option with a value.
+   *
+   * Creates an Option containing the given value.
+   * @tparam Tp The type of the value.
+   * @param value The value to wrap in an Option.
+   * @return An Option containing the value.
+   */
+  template <typename Tp>
+  constexpr auto Some(Tp&& value) -> Option<std::remove_reference_t<Tp>> {
+    return std::make_optional<std::remove_reference_t<Tp>>(std::forward<Tp>(value));
+  }
 
   /**
    * @brief Alias for std::array<Tp, sz>.
@@ -299,4 +313,13 @@ namespace draconis::utils::types {
    */
   template <typename Tp>
   using Future = std::future<Tp>;
+
+  /**
+   * @brief Alias for std::function<Tp>.
+   *
+   * Represents a callable object.
+   * @tparam Tp The return type of the callable.
+   */
+  template <typename Tp>
+  using Fn = std::function<Tp>;
 } // namespace draconis::utils::types

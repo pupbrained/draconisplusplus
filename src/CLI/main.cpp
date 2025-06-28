@@ -42,11 +42,12 @@ using draconis::services::weather::Report;
 #endif
 
 namespace {
+  fn PrintDoctorReport(
 #if DRAC_ENABLE_WEATHER
-  fn PrintDoctorReport(const SystemInfo& data, const Result<Report>& weather) -> void {
-#else
-  fn PrintDoctorReport(const SystemInfo& data) -> void {
+    const Result<Report>& weather,
 #endif
+    const SystemInfo& data
+  ) -> void {
     Vec<Pair<String, DracError>> failures;
 
     constexpr u8 totalPossibleReadouts = 10
@@ -128,7 +129,6 @@ namespace {
     std::cout << std::flush;
 #endif
   }
-
 } // namespace
 
 fn main(const i32 argc, char* argv[]) -> i32 try {
@@ -188,11 +188,10 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
   CacheManager cache;
   cache.setGlobalPolicy({ .location = draconis::utils::cache::CacheLocation::Persistent, .ttl = std::chrono::hours(12) });
 
-  if (Result<CPUCores> cpuCores = GetCPUCores(cache)) {
+  if (Result<CPUCores> cpuCores = GetCPUCores(cache))
     debug_log("CPU cores: {} physical, {} logical", cpuCores->physical, cpuCores->logical);
-  } else {
+  else
     debug_at(cpuCores.error());
-  }
 
   if (Result<NetworkInterface> networkInterface = GetPrimaryNetworkInterface(cache)) {
     debug_log("Network interface: {}", networkInterface->name);
@@ -200,9 +199,8 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
     debug_log("Network interface MAC address: {}", networkInterface->macAddress.value_or("N/A"));
     debug_log("Network interface is up: {}", networkInterface->isUp);
     debug_log("Network interface is loopback: {}", networkInterface->isLoopback);
-  } else {
+  } else
     debug_at(networkInterface.error());
-  }
 
   if (Result<Battery> battery = GetBatteryInfo()) {
     using matchit::match, matchit::is, matchit::_;
@@ -224,9 +222,8 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
       debug_log("Battery time remaining: {}", SecondsToFormattedDuration(battery->timeRemaining.value()));
     else
       debug_log("Battery time remaining: N/A");
-  } else {
+  } else
     debug_at(battery.error());
-  }
 
   {
     using namespace ftxui;
@@ -241,45 +238,44 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
       debug_log("Display resolution: {}x{}", data.primaryDisplay->resolution.width, data.primaryDisplay->resolution.height);
       debug_log("Display refresh rate: {}Hz", data.primaryDisplay->refreshRate);
       debug_log("Display is primary: {}", data.primaryDisplay->isPrimary);
-    } else {
+    } else
       debug_at(data.primaryDisplay.error());
-    }
 
 #if DRAC_ENABLE_WEATHER
     Result<Report> weatherReport;
 
-    if (config.weather.enabled && config.weather.service == nullptr) {
+    if (config.weather.enabled && config.weather.service == nullptr)
       weatherReport = Err(DracError(Other, "Weather service is not configured"));
-    } else if (config.weather.enabled) {
+    else if (config.weather.enabled)
       weatherReport = config.weather.service->getWeatherInfo();
-    } else {
-      debug_log("Weather is disabled");
+    else
       weatherReport = Err(DracError(ApiUnavailable, "Weather is disabled"));
-    }
 #endif
 
     if (doctorMode) {
+      PrintDoctorReport(
 #if DRAC_ENABLE_WEATHER
-      PrintDoctorReport(data, weatherReport);
-#else
-      PrintDoctorReport(data);
+        weatherReport,
 #endif
+        data
+      );
+
       return EXIT_SUCCESS;
     }
 
     Element document;
 
 #if DRAC_ENABLE_WEATHER
-    if (weatherReport) {
-      document = CreateUI(config, data, *weatherReport);
-    } else {
-      if (weatherReport.error().code != ApiUnavailable)
-        error_at(weatherReport.error());
+    Option<Report> weatherOption = None;
 
-      document = CreateUI(config, data, None);
-    }
+    if (weatherReport)
+      weatherOption = *weatherReport;
+    else if (weatherReport.error().code != ApiUnavailable)
+      error_at(weatherReport.error());
+
+    document = CreateUI(config, data, weatherOption);
 #else
-    document = CreateUI(config, data, None);
+    document = CreateUI(config, data);
 #endif
 
     Screen screen = Screen::Create(Full(), Fit(document));

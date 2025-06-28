@@ -88,25 +88,25 @@ namespace draconis::utils::types {
   };
 
   /**
-   * @struct Display
-   * @brief Represents a display device.
+   * @struct Output
+   * @brief Represents a display or monitor device.
    *
-   * Used to report the display device.
+   * Used to report the display or monitor device.
    */
-  struct Display {
-    u32 id; ///< Display ID.
+  struct Output {
+    usize id; ///< Output ID.
 
     struct Resolution {
-      u16 width;  ///< Width in pixels.
-      u16 height; ///< Height in pixels.
-    } resolution; ///< Resolution in pixels.
+      usize width;  ///< Width in pixels.
+      usize height; ///< Height in pixels.
+    } resolution;   ///< Resolution in pixels.
 
-    u16  refreshRate; ///< Refresh rate in Hz.
+    f64  refreshRate; ///< Refresh rate in Hz.
     bool isPrimary;   ///< Whether the display is the primary display.
 
-    Display() = default;
+    Output() = default;
 
-    Display(const u32 identifier, const Resolution resolution, const u16 refreshRate, const bool isPrimary)
+    Output(const usize identifier, const Resolution resolution, const f64 refreshRate, const bool isPrimary)
       : id(identifier), resolution(resolution), refreshRate(refreshRate), isPrimary(isPrimary) {}
   };
 
