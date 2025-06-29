@@ -77,31 +77,18 @@ namespace draconis::utils::cache {
 
       // 1. Check in-memory cache
       if (auto iter = m_inMemoryCache.find(key); iter != m_inMemoryCache.end()) {
-        info_log("Found key '{}' in memory cache", key);
         if (
           CacheEntry<T> entry; glz::read_beve(entry, iter->second.first) == glz::error_code::none &&
           (!entry.expires.has_value() || system_clock::now() < system_clock::time_point(seconds(*entry.expires)))
         ) {
-          info_log("Key '{}' is valid in memory cache, returning cached data", key);
           return entry.data;
-        } else {
-          auto now   = system_clock::now();
-          auto nowTs = duration_cast<seconds>(now.time_since_epoch()).count();
-          if (CacheEntry<T> entry; glz::read_beve(entry, iter->second.first) == glz::error_code::none) {
-            info_log("Key '{}' is expired in memory cache. Now: {}, Expires: {}", key, nowTs, entry.expires.value_or(0));
-          } else {
-            info_log("Key '{}' is expired in memory cache (failed to read entry)", key);
-          }
         }
-      } else {
-        info_log("Key '{}' not found in memory cache", key);
       }
 
       // 2. Check filesystem cache
       const Option<fs::path> filePath = getCacheFilePath(key, policy.location);
 
       if (filePath && fs::exists(*filePath)) {
-        info_log("Found cache file for key '{}' at: {}", key, filePath->string());
         if (std::ifstream ifs(*filePath, std::ios::binary); ifs) {
           std::string fileContents((std::istreambuf_iterator<char>(ifs)), {});
 
@@ -109,32 +96,20 @@ namespace draconis::utils::cache {
 
           if (glz::read_beve(entry, fileContents) == glz::error_code::none) {
             if (!entry.expires.has_value() || system_clock::now() < system_clock::time_point(seconds(*entry.expires))) {
-              info_log("Key '{}' is valid in filesystem cache, returning cached data", key);
               system_clock::time_point expiryTp = entry.expires.has_value() ? system_clock::time_point(seconds(*entry.expires)) : system_clock::time_point::max();
 
               m_inMemoryCache[key] = { fileContents, expiryTp };
 
               return entry.data;
-            } else {
-              info_log("Key '{}' is expired in filesystem cache", key);
             }
-          } else {
-            info_log("Key '{}' failed to read from filesystem cache", key);
           }
-        } else {
-          info_log("Key '{}' failed to open filesystem cache file", key);
         }
-      } else {
-        info_log("No cache file found for key '{}'", key);
       }
 
       // 3. Cache miss: call fetcher
-      debug_log("Cache miss for key: {}. Calling fetcher.", key);
-
       Result<T> fetchedResult = fetcher();
 
       if (!fetchedResult) {
-        error_log("Fetcher for key: {} returned an error: {}", key, fetchedResult.error().message);
         return fetchedResult;
       }
 
@@ -144,7 +119,6 @@ namespace draconis::utils::cache {
         auto now        = system_clock::now();
         auto expiryTime = now + *policy.ttl;
         expiryTs        = duration_cast<seconds>(expiryTime.time_since_epoch()).count();
-        info_log("Storing cache entry for key '{}' with TTL {}ms, expiry timestamp: {}", key, policy.ttl->count(), *expiryTs);
       }
 
       CacheEntry<T> newEntry {
