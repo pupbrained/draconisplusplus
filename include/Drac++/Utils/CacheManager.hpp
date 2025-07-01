@@ -8,21 +8,22 @@
 #include "Definitions.hpp"
 #include "Env.hpp"
 #include "Error.hpp"
-#include "Logging.hpp"
 
 namespace draconis::utils::cache {
   namespace {
-    using draconis::utils::types::Fn;
-    using draconis::utils::types::None;
-    using draconis::utils::types::Option;
-    using draconis::utils::types::Pair;
-    using draconis::utils::types::Result;
-    using draconis::utils::types::Some;
-    using draconis::utils::types::String;
-    using draconis::utils::types::u64;
-    using draconis::utils::types::u8;
-    using draconis::utils::types::UniquePointer;
-    using draconis::utils::types::UnorderedMap;
+    using types::Fn;
+    using types::LockGuard;
+    using types::Mutex;
+    using types::None;
+    using types::Option;
+    using types::Pair;
+    using types::Result;
+    using types::Some;
+    using types::String;
+    using types::u64;
+    using types::u8;
+    using types::UniquePointer;
+    using types::UnorderedMap;
 
     using std::chrono::days;
     using std::chrono::duration_cast;
@@ -73,6 +74,8 @@ namespace draconis::utils::cache {
       Option<CachePolicy> overridePolicy = None
     ) -> Result<T> {
 #ifdef DRAC_ENABLE_CACHING
+      LockGuard lock(m_cacheMutex);
+
       const CachePolicy& policy = overridePolicy.value_or(m_globalPolicy);
 
       // 1. Check in-memory cache
@@ -153,6 +156,8 @@ namespace draconis::utils::cache {
     CachePolicy m_globalPolicy;
 
     UnorderedMap<String, Pair<String, system_clock::time_point>> m_inMemoryCache;
+
+    Mutex m_cacheMutex;
 
     static fn getCacheFilePath(const String& key, const CacheLocation location) -> Option<fs::path> {
       using matchit::match, matchit::is, matchit::_;
