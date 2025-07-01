@@ -995,7 +995,7 @@ namespace argparse {
       m_default_value_repr = details::repr(value);
 
       if constexpr (std::is_convertible_v<T, StringView>)
-        m_default_value_str = String { StringView { value } };
+        m_default_value_str = String(value);
       else if constexpr (std::is_same_v<T, bool>)
         m_default_value_str = value ? "true" : "false";
       else if constexpr (details::can_invoke_to_string<T>::value)
@@ -1012,8 +1012,10 @@ namespace argparse {
      */
     fn default_value(const char* value) -> Argument& {
       using draconis::utils::types::String;
-
-      return default_value(String(value));
+      m_default_value_str  = String(value);
+      m_default_value_repr = details::repr(String(value));
+      m_default_value      = String(value);
+      return *this;
     }
 
     /**
@@ -1530,9 +1532,17 @@ namespace argparse {
         m_choices = std::unordered_set<String> {};
 
       if constexpr (std::is_convertible_v<T, StringView>)
-        m_choices.value().insert(String(StringView { std::forward<T>(choice) }));
+        m_choices.value().insert(String(std::forward<T>(choice)));
       else if constexpr (details::can_invoke_to_string<T>::value)
         m_choices.value().insert(std::to_string(std::forward<T>(choice)));
+    }
+
+    /**
+     * @brief Add a choice to the list of allowed values (const char* overload)
+     * @param choice The value to add as a choice
+     */
+    fn add_choice(const char* choice) -> void {
+      add_choice(draconis::utils::types::String(choice));
     }
 
     /**
