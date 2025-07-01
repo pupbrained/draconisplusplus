@@ -144,12 +144,6 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
     ArgumentParser parser("draconis", DRAC_VERSION);
 
     parser
-      .add_argument("--log-level")
-      .help("Set the log level")
-      .default_value("info")
-      .choices("debug", "info", "warn", "error");
-
-    parser
       .add_argument("-V", "--verbose")
       .help("Enable verbose logging. Overrides --log-level.")
       .flag();
@@ -172,7 +166,7 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
       using enum draconis::utils::logging::LogLevel;
 
       const bool     verbose     = parser.get<bool>("-V").value_or(false) || parser.get<bool>("--verbose").value_or(false);
-      Result<String> logLevelStr = verbose ? "debug" : parser.get<String>("--log-level");
+      Result<String> logLevelStr = verbose ? "debug" : "info";
 
       const LogLevel minLevel = match(logLevelStr)(
         is | "debug" = Debug,
