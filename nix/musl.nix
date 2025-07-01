@@ -2,6 +2,7 @@
   pkgs,
   nixpkgs,
   self,
+  lib,
   ...
 }: let
   muslPkgs = import nixpkgs {
@@ -71,6 +72,7 @@
     glaze
     (mkOverridden "cmake" gtest)
     llvmPackages_20.libcxx
+    magic-enum
     openssl
     sqlite
     wayland
@@ -96,14 +98,14 @@
       version = "0.1.0";
       src = self;
 
-      nativeBuildInputs =
-        (with muslPkgs; [
+      nativeBuildInputs = with pkgs;
+        [
           cmake
           meson
           ninja
           pkg-config
         ]
-        ++ pkgs.lib.optional stdenv.isLinux xxd);
+        ++ lib.optional stdenv.isLinux xxd;
 
       mesonFlags = [
         "-Dbuild_for_musl=true"

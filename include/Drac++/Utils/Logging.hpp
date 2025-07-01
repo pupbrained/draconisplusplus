@@ -174,6 +174,71 @@ namespace draconis::utils::logging {
   }
 
   /**
+   * @brief Helper function to print formatted text with automatic std::print/std::cout selection
+   * @tparam Args Parameter pack for format arguments
+   * @param fmt The format string
+   * @param args The arguments for the format string
+   */
+  template <typename... Args>
+  inline fn Print(std::format_string<Args...> fmt, Args&&... args) {
+#ifdef __cpp_lib_print
+    std::print(fmt, std::forward<Args>(args)...);
+#else
+    std::cout << std::format(fmt, std::forward<Args>(args)...);
+#endif
+  }
+
+  /**
+   * @brief Helper function to print pre-formatted text with automatic std::print/std::cout selection
+   * @param text The pre-formatted text to print
+   */
+  inline fn Print(const StringView text) {
+#ifdef __cpp_lib_print
+    std::print("{}", text);
+#else
+    std::cout << text;
+#endif
+  }
+
+  /**
+   * @brief Helper function to print formatted text with newline with automatic std::print/std::cout selection
+   * @tparam Args Parameter pack for format arguments
+   * @param fmt The format string
+   * @param args The arguments for the format string
+   */
+  template <typename... Args>
+  inline fn Println(std::format_string<Args...> fmt, Args&&... args) {
+#ifdef __cpp_lib_print
+    std::println(fmt, std::forward<Args>(args)...);
+#else
+    std::cout << std::format(fmt, std::forward<Args>(args)...) << '\n';
+#endif
+  }
+
+  /**
+   * @brief Helper function to print pre-formatted text with newline with automatic std::print/std::cout selection
+   * @param text The pre-formatted text to print
+   */
+  inline fn Println(const StringView text) {
+#ifdef __cpp_lib_print
+    std::println("{}", text);
+#else
+    std::cout << text << '\n';
+#endif
+  }
+
+  /**
+   * @brief Helper function to print just a newline with automatic std::print/std::cout selection
+   */
+  inline fn Println() {
+#ifdef __cpp_lib_print
+    std::println();
+#else
+    std::cout << '\n';
+#endif
+  }
+
+  /**
    * @brief Logs a message with the specified log level, source location, and format string.
    * @tparam Args Parameter pack for format arguments.
    * @param level The log level (DEBUG, INFO, WARN, ERROR).
@@ -233,27 +298,15 @@ namespace draconis::utils::logging {
       message
     );
 
-#ifdef __cpp_lib_print
-    std::print("{}", mainLogLine);
-#else
-    std::cout << mainLogLine;
-#endif
+    Println(mainLogLine);
 
 #ifndef NDEBUG
     const String fileLine      = std::format(LogLevelConst::FILE_LINE_FORMAT, path(loc.file_name()).lexically_normal().string(), loc.line());
     const String fullDebugLine = std::format("{}{}", LogLevelConst::DEBUG_LINE_PREFIX, fileLine);
-  #ifdef __cpp_lib_print
-    std::print("\n{}", Italic(Colorize(fullDebugLine, LogLevelConst::DEBUG_INFO_COLOR)));
-  #else
-    std::cout << '\n'
-              << Italic(Colorize(fullDebugLine, LogLevelConst::DEBUG_INFO_COLOR));
-  #endif
-#endif
-
-#ifdef __cpp_lib_print
-    std::println("{}", LogLevelConst::RESET_CODE);
+    Print(Italic(Colorize(fullDebugLine, LogLevelConst::DEBUG_INFO_COLOR)));
+    Println(LogLevelConst::RESET_CODE);
 #else
-    std::cout << LogLevelConst::RESET_CODE << '\n';
+    Print(LogLevelConst::RESET_CODE);
 #endif
   }
 

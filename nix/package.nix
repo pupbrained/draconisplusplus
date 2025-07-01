@@ -1,5 +1,6 @@
 {
   pkgs,
+  lib,
   self,
   ...
 }: let
@@ -30,6 +31,7 @@
       curl
       ftxui
       gtest
+      magic-enum
       sqlitecpp
       (tomlplusplus.overrideAttrs {
         doCheck = false;
@@ -38,12 +40,12 @@
     ++ darwinPkgs
     ++ linuxPkgs;
 
-  darwinPkgs = pkgs.lib.optionals stdenv.isDarwin (with pkgs.pkgsStatic; [
+  darwinPkgs = lib.optionals stdenv.isDarwin (with pkgs.pkgsStatic; [
     libiconv
     apple-sdk_15
   ]);
 
-  linuxPkgs = pkgs.lib.optionals stdenv.isLinux (with pkgs;
+  linuxPkgs = lib.optionals stdenv.isLinux (with pkgs;
     [
       valgrind
     ]
@@ -66,19 +68,20 @@
       version = "0.1.0";
       src = self;
 
-      nativeBuildInputs = with pkgs; ([
+      nativeBuildInputs = with pkgs;
+        [
           cmake
           meson
           ninja
           pkg-config
         ]
-        ++ pkgs.lib.optional stdenv.isLinux xxd);
+        ++ lib.optional stdenv.isLinux xxd;
 
       buildInputs = deps;
 
       mesonFlags = [
         "-Dbuild_examples=false"
-        (pkgs.lib.optionalString stdenv.isLinux "-Duse_linked_pci_ids=true")
+        (lib.optionalString stdenv.isLinux "-Duse_linked_pci_ids=true")
       ];
 
       configurePhase = ''
@@ -86,7 +89,7 @@
       '';
 
       buildPhase =
-        pkgs.lib.optionalString stdenv.isLinux ''
+        lib.optionalString stdenv.isLinux ''
           cp ${pkgs.pciutils}/share/pci.ids pci.ids
           chmod +w pci.ids
           objcopy -I binary -O default pci.ids pci_ids.o

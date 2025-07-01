@@ -108,7 +108,10 @@ includes_dep = declare_dependency(include_directories: [project_public_includes,
 # --------------------- #
 #  Dependencies Config  #
 # --------------------- #
-lib_deps = [includes_dep]
+lib_deps = [
+  includes_dep,
+  dependency('magic_enum', include_type: 'system', static: true, fallback: ['magic_enum', 'magic_enum_dep'])
+]
 fs = import('fs')
 
 if get_option('use_linked_pci_ids') == true

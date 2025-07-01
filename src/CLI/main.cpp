@@ -1,4 +1,3 @@
-#include <argparse.hpp>            // argparse::ArgumentParser
 #include <cstdlib>                 // EXIT_FAILURE, EXIT_SUCCESS
 #include <ftxui/dom/elements.hpp>  // ftxui::{Element, hbox, vbox, text, separator, filler, etc.}
 #include <ftxui/dom/node.hpp>      // ftxui::{Render}
@@ -6,18 +5,13 @@
 #include <matchit.hpp>             // matchit::{match, is, _}
 
 #include <Drac++/Core/System.hpp>
-
-#ifdef __cpp_lib_print
-  #include <print> // std::print
-#else
-  #include <iostream> // std::cout
-#endif
-
 #include <Drac++/Services/Packages.hpp>
+
 #if DRAC_ENABLE_WEATHER
   #include <Drac++/Services/Weather.hpp>
 #endif
 
+#include <Drac++/Utils/ArgumentParser.hpp>
 #include <Drac++/Utils/CacheManager.hpp>
 #include <Drac++/Utils/Definitions.hpp>
 #include <Drac++/Utils/Error.hpp>
@@ -29,11 +23,12 @@
 #include "UI/UI.hpp"
 
 using namespace draconis::utils::types;
+using namespace draconis::utils::logging;
 using namespace draconis::core::system;
 using namespace draconis::config;
 using namespace draconis::ui;
-using draconis::utils::cache::CacheManager;
 
+using draconis::utils::cache::CacheManager;
 using draconis::utils::error::DracError;
 using enum draconis::utils::error::DracErrorCode;
 
@@ -104,11 +99,7 @@ namespace {
       failures.size() == 1 ? "" : "s"
     );
 
-#ifdef __cpp_lib_print
-    std::println("{}", summary);
-#else
-    std::cout << summary;
-#endif
+    Print(summary);
 
     for (const auto& [readout, err] : failures) {
       const String failureLine = std::format(
@@ -118,16 +109,10 @@ namespace {
         err.code
       );
 
-#ifdef __cpp_lib_print
-      std::println("{}", failureLine);
-#else
-      std::cout << failureLine;
-#endif
+      Print(failureLine);
     }
 
-#ifndef __cpp_lib_print
-    std::cout << std::flush;
-#endif
+    // Flush is handled automatically by the Print function
   }
 } // namespace
 
@@ -139,41 +124,36 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
   bool doctorMode = false;
 
   {
-    using argparse::ArgumentParser;
+    using draconis::utils::argparse::ArgumentParser;
 
     ArgumentParser parser("draconis", DRAC_VERSION);
 
     parser
-      .add_argument("-V", "--verbose")
+      .addArgument({ "-V", "--verbose" })
       .help("Enable verbose logging. Overrides --log-level.")
       .flag();
 
     parser
-      .add_argument("-d", "--doctor")
+      .addArgument({ "-d", "--doctor" })
       .help("Reports any failed readouts and their error messages.")
       .flag();
 
-    if (Result result = parser.parse_args(argc, argv); !result) {
+    parser
+      .addArgument({ "--log-level" })
+      .help("Set the minimum log level. Defaults to info.")
+      .defaultValue(LogLevel::Info);
+
+    if (Result result = parser.parseArgs(std::span(argv, static_cast<usize>(argc))); !result) {
       error_at(result.error());
       return EXIT_FAILURE;
     }
 
-    doctorMode = parser.get<bool>("-d").value_or(false) || parser.get<bool>("--doctor").value_or(false);
+    doctorMode = parser.get<bool>("-d") || parser.get<bool>("--doctor");
 
     {
-      using draconis::utils::logging::LogLevel;
-      using matchit::match, matchit::is, matchit::_;
-      using enum draconis::utils::logging::LogLevel;
+      const bool verbose = parser.get<bool>("-V") || parser.get<bool>("--verbose");
 
-      const bool     verbose     = parser.get<bool>("-V").value_or(false) || parser.get<bool>("--verbose").value_or(false);
-      Result<String> logLevelStr = verbose ? "debug" : "info";
-
-      const LogLevel minLevel = match(logLevelStr)(
-        is | "debug" = Debug,
-        is | "info"  = Info,
-        is | "warn"  = Warn,
-        is | "error" = Error
-      );
+      LogLevel minLevel = verbose ? LogLevel::Debug : parser.getEnum<LogLevel>("--log-level");
 
       SetRuntimeLogLevel(minLevel);
     }
@@ -279,11 +259,7 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
 
   // Running the program as part of the shell's startup will cut
   // off the last line of output, so we need to add a newline here.
-#ifdef __cpp_lib_print
-  std::println();
-#else
-  std::cout << '\n';
-#endif
+  Println();
 
   return EXIT_SUCCESS;
 } catch (const Exception& e) {

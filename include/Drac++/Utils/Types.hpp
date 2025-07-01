@@ -275,7 +275,7 @@ namespace draconis::utils::types {
    * @tparam Val The value type.
    */
   template <typename Key, typename Val>
-  using Map = std::map<Key, Val>;
+  using Map = std::map<Key, Val, std::less<>>;
 
   /**
    * @brief Alias for std::unordered_map<Key, Val>.

@@ -13,7 +13,9 @@
     treefmt-nix,
     utils,
     ...
-  }:
+  }: let
+    lib = nixpkgs.lib;
+  in
     {homeModules.default = import ./nix/module.nix {inherit self;};}
     // utils.lib.eachDefaultSystem (
       system: let
@@ -59,6 +61,7 @@
             curl
             ftxui
             libunistring
+            magic-enum
             sqlitecpp
             (tomlplusplus.overrideAttrs {
               doCheck = false;
@@ -81,7 +84,7 @@
             wayland
           ]));
 
-        draconisPkgs = import ./nix {inherit nixpkgs self system;};
+        draconisPkgs = import ./nix {inherit nixpkgs self system lib;};
       in {
         packages = draconisPkgs;
         checks = draconisPkgs;
