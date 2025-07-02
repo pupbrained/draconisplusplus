@@ -97,7 +97,6 @@
               llvmPackages.clang-tools
               cmake
               include-what-you-use
-              lldb
               hyperfine
               meson
               ninja

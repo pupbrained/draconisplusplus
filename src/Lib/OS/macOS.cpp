@@ -35,8 +35,6 @@
 
 using namespace draconis::utils::types;
 
-using draconis::utils::env::GetEnv;
-using draconis::utils::error::DracError;
 using enum draconis::utils::error::DracErrorCode;
 
 namespace {
@@ -46,12 +44,12 @@ namespace {
     const usize height = CGDisplayPixelsHigh(displayID);
 
     if (width == 0 || height == 0)
-      return Err(DracError(PlatformSpecific, "Failed to get display resolution."));
+      ERR_FMT(UnavailableFeature, "CGDisplayPixelsWide/High returned 0 for displayID {} (no display or API unavailable)", displayID);
 
     // Get the current display mode to find the refresh rate
     CGDisplayModeRef currentMode = CGDisplayCopyDisplayMode(displayID);
     if (currentMode == nullptr)
-      return Err(DracError(PlatformSpecific, "Failed to get display mode."));
+      ERR_FMT(UnavailableFeature, "CGDisplayCopyDisplayMode failed for displayID {} (no display mode available)", displayID);
 
     f64 refreshRate = CGDisplayModeGetRefreshRate(currentMode);
 
@@ -98,14 +96,14 @@ namespace draconis::core::system {
     // Make sure the page size is set.
     if (PageSize == 0)
       if (host_page_size(HostPort, &PageSize) != KERN_SUCCESS)
-        return Err(DracError("Failed to get page size"));
+        ERR(ResourceExhausted, "host_page_size failed to get page size (Mach API unavailable or resource exhausted)");
 
     u64   totalMem = 0;
     usize size     = sizeof(totalMem);
 
     // "hw.memsize" is the standard key for getting the total memory size from the system.
     if (sysctlbyname("hw.memsize", &totalMem, &size, nullptr, 0) == -1)
-      return Err(DracError("Failed to get total memory info"));
+      ERR_FMT(ResourceExhausted, "sysctlbyname('hw.memsize') failed: {}", std::system_category().message(errno));
 
     vm_statistics64_data_t vmStats;
     mach_msg_type_number_t infoCount = sizeof(vmStats) / sizeof(natural_t);
@@ -115,7 +113,7 @@ namespace draconis::core::system {
     // Mach API, which expects a generic `host_info64_t` pointer.
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     if (host_statistics64(HostPort, HOST_VM_INFO64, reinterpret_cast<host_info64_t>(&vmStats), &infoCount) != KERN_SUCCESS)
-      return Err(DracError("Failed to get memory statistics"));
+      ERR(ResourceExhausted, "host_statistics64 failed to get memory statistics (Mach API unavailable or resource exhausted)");
 
     // Calculate "used" memory based on the statistics returned by host_statistics64.
     // - active_count: Memory that is actively being used by the process.
@@ -133,15 +131,15 @@ namespace draconis::core::system {
   }
 
   fn GetOSVersion(draconis::utils::cache::CacheManager& cache) -> Result<String> {
-    return cache.getOrSet<String>("macos_os_version", []() -> Result<String> {
-      return macOS::GetOSVersion();
-    });
+    return cache.getOrSet<String>("macos_os_version", macOS::GetOSVersion);
   }
 
   fn GetDesktopEnvironment(draconis::utils::cache::CacheManager& cache) -> Result<String> {
-    return cache.getOrSet<String>("macos_desktop_environment", []() -> Result<String> {
-      return "Aqua";
-    });
+    // macOS doesn't really have the concept of a desktop environment,
+    // and an immediate return doesn't need caching.
+    (void)cache;
+
+    return "Aqua";
   }
 
   fn GetWindowManager(draconis::utils::cache::CacheManager& cache) -> Result<String> {
@@ -159,21 +157,18 @@ namespace draconis::core::system {
       usize len = 0;
 
       if (sysctl(request.data(), request.size(), nullptr, &len, nullptr, 0) == -1)
-        return Err(DracError("sysctl size query failed for KERN_PROC_ALL"));
+        ERR(ResourceExhausted, "sysctl size query failed for KERN_PROC_ALL (process list unavailable or resource exhausted)");
 
       if (len == 0)
-        return Err(DracError(NotFound, "sysctl for KERN_PROC_ALL returned zero length"));
+        ERR(NotFound, "sysctl for KERN_PROC_ALL returned zero length (no processes found, feature not present)");
 
       Vec<char> buf(len);
 
       if (sysctl(request.data(), request.size(), buf.data(), &len, nullptr, 0) == -1)
-        return Err(DracError("sysctl data fetch failed for KERN_PROC_ALL"));
+        ERR(ResourceExhausted, "sysctl data fetch failed for KERN_PROC_ALL (process list unavailable or resource exhausted)");
 
       if (len % sizeof(kinfo_proc) != 0)
-        return Err(DracError(
-          PlatformSpecific,
-          std::format("sysctl returned size {} which is not a multiple of kinfo_proc size {}", len, sizeof(kinfo_proc))
-        ));
+        ERR_FMT(CorruptedData, "sysctl returned size {} which is not a multiple of kinfo_proc size {} (corrupt process list)", len, sizeof(kinfo_proc));
 
       usize count = len / sizeof(kinfo_proc);
 
@@ -182,32 +177,42 @@ namespace draconis::core::system {
 
       for (const kinfo_proc& procInfo : processes)
         for (const StringView& wmName : knownWms)
-          if (std::ranges::equal(StringView(procInfo.kp_proc.p_comm), wmName, [](char chrA, char chrB) {
-                return std::tolower(static_cast<unsigned char>(chrA)) == std::tolower(static_cast<unsigned char>(chrB));
-              })) {
+          if (
+            std::ranges::equal(
+              StringView(procInfo.kp_proc.p_comm),
+              wmName,
+              [](char chrA, char chrB) {
+                return std::tolower(chrA) == std::tolower(chrB);
+              }
+            )
+          )
             return String(wmName);
-          }
 
       return "Quartz";
     });
   }
 
   fn GetKernelVersion(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    // clang-format off
     return cache.getOrSet<String>("macos_kernel", []() -> Result<String> {
       Array<char, 256> kernelVersion {};
       usize            kernelVersionLen = kernelVersion.size();
+
       if (sysctlbyname("kern.osrelease", kernelVersion.data(), &kernelVersionLen, nullptr, 0) == -1)
-        return Err(DracError("Failed to get kernel version"));
+        ERR_FMT(ResourceExhausted, "sysctlbyname('kern.osrelease') failed: {}", std::system_category().message(errno));
+
       return String(kernelVersion.data());
-    });
+    }, draconis::utils::cache::CachePolicy::neverExpire());
+    // clang-format on
   }
 
   fn GetHost(draconis::utils::cache::CacheManager& cache) -> Result<String> {
     return cache.getOrSet<String>("macos_host", []() -> Result<String> {
       Array<char, 256> hwModel {};
       usize            hwModelLen = hwModel.size();
+
       if (sysctlbyname("hw.model", hwModel.data(), &hwModelLen, nullptr, 0) == -1)
-        return Err(DracError("Failed to get host info"));
+        ERR_FMT(ResourceExhausted, "sysctlbyname('hw.model') failed: {}", std::system_category().message(errno));
 
       // taken from https://github.com/fastfetch-cli/fastfetch/blob/dev/src/detection/host/host_mac.c
       // shortened a lot of the entries to remove unnecessary info
@@ -361,57 +366,69 @@ namespace draconis::core::system {
       };
 
       const auto iter = MODEL_NAME_BY_HW_MODEL.find(hwModel.data());
+
       if (iter == MODEL_NAME_BY_HW_MODEL.end())
-        return Err(DracError("Failed to get host info"));
+        ERR_FMT(UnavailableFeature, "Unknown hardware model: {} (feature not present)", hwModel.data());
 
       return String(iter->second);
     });
   }
 
   fn GetCPUModel(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    // clang-format off
     return cache.getOrSet<String>("macos_cpu_model", []() -> Result<String> {
       Array<char, 256> cpuModel {};
       usize            cpuModelLen = cpuModel.size();
+
       if (sysctlbyname("machdep.cpu.brand_string", cpuModel.data(), &cpuModelLen, nullptr, 0) == -1)
-        return Err(DracError("Failed to get CPU model"));
+        ERR_FMT(ResourceExhausted, "sysctlbyname('machdep.cpu.brand_string') failed: {}", std::system_category().message(errno));
+
       return String(cpuModel.data());
-    });
+    }, draconis::utils::cache::CachePolicy::neverExpire());
+    // clang-format on
   }
 
   fn GetCPUCores(draconis::utils::cache::CacheManager& cache) -> Result<CPUCores> {
+    // clang-format off
     return cache.getOrSet<CPUCores>("macos_cpu_cores", []() -> Result<CPUCores> {
       u32   physicalCores = 0;
       u32   logicalCores  = 0;
       usize size          = sizeof(u32);
 
       if (sysctlbyname("hw.physicalcpu", &physicalCores, &size, nullptr, 0) == -1)
-        return Err(DracError("sysctlbyname for hw.physicalcpu failed"));
+        ERR_FMT(ResourceExhausted, "sysctlbyname('hw.physicalcpu') failed: {}", std::system_category().message(errno));
 
       size = sizeof(u32);
 
       if (sysctlbyname("hw.logicalcpu", &logicalCores, &size, nullptr, 0) == -1)
-        return Err(DracError("sysctlbyname for hw.logicalcpu failed"));
+        ERR_FMT(ResourceExhausted, "sysctlbyname('hw.logicalcpu') failed: {}", std::system_category().message(errno));
 
       debug_log("Physical cores: {}", physicalCores);
       debug_log("Logical cores: {}", logicalCores);
 
       return CPUCores(physicalCores, logicalCores);
-    });
+    }, draconis::utils::cache::CachePolicy::neverExpire());
+    // clang-format on
   }
 
   fn GetGPUModel(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+    // clang-format off
     return cache.getOrSet<String>("macos_gpu", []() -> Result<String> {
-        const Result<String> gpuModel = macOS::GetGPUModel();
-        if (!gpuModel)
-            return Err(DracError("Failed to get GPU model"));
-        return *gpuModel; }, draconis::utils::cache::CachePolicy::neverExpire());
+      const Result<String> gpuModel = macOS::GetGPUModel();
+
+      if (!gpuModel)
+        ERR(UnavailableFeature, "macOS::GetGPUModel() failed: GPU model unavailable (no GPU present)");
+
+      return *gpuModel;
+    }, draconis::utils::cache::CachePolicy::neverExpire());
+    // clang-format on
   }
 
   fn GetDiskUsage() -> Result<ResourceUsage> {
     struct statvfs vfs;
 
     if (statvfs("/", &vfs) != 0)
-      return Err(DracError("Failed to get disk usage"));
+      ERR_FMT(ResourceExhausted, "statvfs('/') failed: {}", std::system_category().message(errno));
 
     return ResourceUsage {
       .usedBytes  = (vfs.f_blocks - vfs.f_bfree) * vfs.f_frsize,
@@ -421,18 +438,18 @@ namespace draconis::core::system {
 
   fn GetShell(draconis::utils::cache::CacheManager& cache) -> Result<String> {
     return cache.getOrSet<String>("macos_shell", []() -> Result<String> {
-      if (const Result<String> shellPath = GetEnv("SHELL")) {
+      if (const Result<String> shellPath = draconis::utils::env::GetEnv("SHELL")) {
         // clang-format off
-            constexpr Array<Pair<StringView, StringView>, 8> shellMap {{
-                { "bash", "Bash"      },
-                { "zsh",  "Zsh"       },
-                { "ksh",  "KornShell" },
-                { "fish", "Fish"      },
-                { "tcsh", "TCsh"      },
-                { "csh",  "Csh"       },
-                { "sh",   "Sh"        },
-                { "nu",   "NuShell"   },
-            }};
+        constexpr Array<Pair<StringView, StringView>, 8> shellMap {{
+            { "bash", "Bash"      },
+            { "zsh",  "Zsh"       },
+            { "ksh",  "KornShell" },
+            { "fish", "Fish"      },
+            { "tcsh", "TCsh"      },
+            { "csh",  "Csh"       },
+            { "sh",   "Sh"        },
+            { "nu",   "NuShell"   },
+        }};
         // clang-format on
 
         for (const auto& [exe, name] : shellMap)
@@ -441,7 +458,8 @@ namespace draconis::core::system {
 
         return *shellPath;
       }
-      return Err(DracError(NotFound, "Could not find SHELL environment variable"));
+
+      ERR(ConfigurationError, "Could not find SHELL environment variable (SHELL not set in environment)");
     });
   }
 
@@ -454,7 +472,7 @@ namespace draconis::core::system {
     usize          len = sizeof(boottime);
 
     if (sysctl(mib.data(), mib.size(), &boottime, &len, nullptr, 0) == -1)
-      return Err(DracError("Failed to get system boot time using sysctl"));
+      ERR(ResourceExhausted, "sysctl(CTL_KERN, KERN_BOOTTIME) failed: system boot time unavailable or resource exhausted");
 
     const system_clock::time_point bootTimepoint = system_clock::from_time_t(boottime.tv_sec);
 
@@ -471,15 +489,15 @@ namespace draconis::core::system {
     u32 displayCount = 0;
 
     if (CGGetOnlineDisplayList(0, nullptr, &displayCount) != kCGErrorSuccess)
-      return Err(DracError(ApiUnavailable, "Failed to get display count."));
+      ERR(UnavailableFeature, "CGGetOnlineDisplayList failed to get display count (CoreGraphics API unavailable or no displays)");
 
     if (displayCount == 0)
-      return Err(DracError(NotFound, "No displays found"));
+      ERR(UnavailableFeature, "No displays found (displayCount == 0, feature not present)");
 
     Vec<CGDirectDisplayID> displayIDs(displayCount);
 
     if (CGGetOnlineDisplayList(displayCount, displayIDs.data(), &displayCount) != kCGErrorSuccess)
-      return Err(DracError(ApiUnavailable, "Failed to get display list."));
+      ERR(UnavailableFeature, "CGGetOnlineDisplayList failed to get display list (CoreGraphics API unavailable or no displays)");
 
     Vec<Output> displays;
     displays.reserve(displayCount);
@@ -498,12 +516,12 @@ namespace draconis::core::system {
       usize         len = 0;
 
       if (sysctl(mib.data(), mib.size(), nullptr, &len, nullptr, 0) == -1)
-        return Err(DracError("sysctl(1) failed to get routing table size"));
+        ERR(ResourceExhausted, "sysctl(CTL_NET, PF_ROUTE, ...) failed to get routing table size (network API unavailable or resource exhausted)");
 
       Vec<char> buf(len);
 
       if (sysctl(mib.data(), mib.size(), buf.data(), &len, nullptr, 0) == -1)
-        return Err(DracError("sysctl(2) failed to get routing table dump"));
+        ERR(ResourceExhausted, "sysctl(CTL_NET, PF_ROUTE, ...) failed to get routing table dump (network API unavailable or resource exhausted)");
 
       String primaryInterfaceName;
       for (usize offset = 0; offset < len;) {
@@ -526,11 +544,11 @@ namespace draconis::core::system {
       }
 
       if (primaryInterfaceName.empty())
-        return Err(DracError(NotFound, "Could not determine primary interface name from routing table."));
+        ERR(UnavailableFeature, "Could not determine primary interface name from routing table (no default route found, feature not present)");
 
       ifaddrs* ifaddrList = nullptr;
       if (getifaddrs(&ifaddrList) == -1)
-        return Err(DracError("getifaddrs failed"));
+        ERR_FMT(ResourceExhausted, "getifaddrs() failed: {} (resource exhausted or API unavailable)", std::system_category().message(errno));
 
       UniquePointer<ifaddrs, decltype(&freeifaddrs)> ifaddrsDeleter(ifaddrList, &freeifaddrs);
 
@@ -576,7 +594,7 @@ namespace draconis::core::system {
       }
 
       if (!foundDetails)
-        return Err(DracError(NotFound, "Found primary interface name, but could not find its details via getifaddrs."));
+        ERR_FMT(UnavailableFeature, "Found primary interface name '{}' but could not find its details via getifaddrs (feature not present)", primaryInterfaceName);
 
       return primaryInterface;
       // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
@@ -587,7 +605,7 @@ namespace draconis::core::system {
     // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) - This requires a lot of casts and there's no good way to avoid them.
     ifaddrs* ifaddrList = nullptr;
     if (getifaddrs(&ifaddrList) == -1)
-      return Err(DracError("getifaddrs failed"));
+      ERR_FMT(ResourceExhausted, "getifaddrs() failed: {} (resource exhausted or API unavailable)", std::system_category().message(errno));
 
     UniquePointer<ifaddrs, decltype(&freeifaddrs)> ifaddrsDeleter(ifaddrList, &freeifaddrs);
 
@@ -641,7 +659,7 @@ namespace draconis::core::system {
       interfaces.push_back(pair.second);
 
     if (interfaces.empty())
-      return Err(DracError(NotFound, "No network interfaces found"));
+      ERR(UnavailableFeature, "No network interfaces found (getifaddrs returned empty list, feature not present)");
 
     return interfaces;
     // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
@@ -656,7 +674,7 @@ namespace draconis::core::system {
     CFTypeRef powerSourcesInfo = IOPSCopyPowerSourcesInfo();
 
     if (powerSourcesInfo == nullptr)
-      return Err(DracError(NotFound, "Could not get power source information from IOKit."));
+      ERR(UnavailableFeature, "IOPSCopyPowerSourcesInfo() returned nullptr (IOKit unavailable or no power sources/feature not present)");
 
     // RAII to ensure the CF object is released.
     const UniquePointer<const Unit, decltype(&CFRelease)> powerSourcesInfoDeleter(powerSourcesInfo, &CFRelease);
@@ -709,7 +727,7 @@ namespace draconis::core::system {
     }
 
     // If the loop finishes without finding an internal battery.
-    return Err(DracError(NotFound, "No internal battery found."));
+    ERR(UnavailableFeature, "No internal battery found (no IOPSInternalBatteryType in power sources, feature not present)");
   }
 } // namespace draconis::core::system
 
@@ -729,7 +747,7 @@ namespace draconis::services::packages {
       for (const fs::path& cellarPath : cellarPaths) {
         if (std::error_code errc; !fs::exists(cellarPath, errc) || errc) {
           if (errc && errc != std::errc::no_such_file_or_directory)
-            return Err(DracError(errc));
+            ERR_FMT(ResourceExhausted, "fs::exists('{}') failed: {} (resource exhausted or API unavailable)", cellarPath.string(), errc.message());
 
           continue;
         }
@@ -747,7 +765,7 @@ namespace draconis::services::packages {
       }
 
       if (count == 0)
-        return Err(DracError(NotFound, "No Homebrew packages found in any Cellar directory"));
+        ERR(NotFound, "No Homebrew packages found in any Cellar directory");
 
       return count;
     });

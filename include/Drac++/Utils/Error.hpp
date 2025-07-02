@@ -30,19 +30,24 @@ namespace draconis::utils {
      * @brief Error codes for general OS-level operations.
      */
     enum class DracErrorCode : u8 {
-      ApiUnavailable,   ///< A required OS service/API is unavailable or failed unexpectedly at runtime.
-      InternalError,    ///< An error occurred within the application's OS abstraction code logic.
-      InvalidArgument,  ///< An invalid argument was passed to a function or method.
-      IoError,          ///< General I/O error (filesystem, pipes, etc.).
-      NetworkError,     ///< A network-related error occurred (e.g., DNS resolution, connection failure).
-      NotFound,         ///< A required resource (file, registry key, device, API endpoint) was not found.
-      NotSupported,     ///< The requested operation is not supported on this platform, version, or configuration.
-      Other,            ///< A generic or unclassified error originating from the OS or an external library.
-      OutOfMemory,      ///< The system ran out of memory or resources to complete the operation.
-      ParseError,       ///< Failed to parse data obtained from the OS (e.g., file content, API output).
-      PermissionDenied, ///< Insufficient permissions to perform the operation.
-      PlatformSpecific, ///< An unmapped error specific to the underlying OS platform occurred (check message).
-      Timeout,          ///< An operation timed out (e.g., waiting for IPC reply).
+      ApiUnavailable,     ///< A required OS service/API is unavailable or failed unexpectedly at runtime.
+      InternalError,      ///< An error occurred within the application's OS abstraction code logic.
+      InvalidArgument,    ///< An invalid argument was passed to a function or method.
+      IoError,            ///< General I/O error (filesystem, pipes, etc.).
+      NetworkError,       ///< A network-related error occurred (e.g., DNS resolution, connection failure).
+      NotFound,           ///< A required resource (file, registry key, device, API endpoint) was not found.
+      NotSupported,       ///< The requested operation is not supported on this platform, version, or configuration.
+      Other,              ///< A generic or unclassified error originating from the OS or an external library.
+      OutOfMemory,        ///< The system ran out of memory or resources to complete the operation.
+      ParseError,         ///< Failed to parse data obtained from the OS (e.g., file content, API output).
+      PermissionDenied,   ///< Insufficient permissions to perform the operation.
+      PlatformSpecific,   ///< An unmapped error specific to the underlying OS platform occurred (check message).
+      Timeout,            ///< An operation timed out (e.g., waiting for IPC reply).
+      ResourceExhausted,  ///< System resource limit reached (not memory).
+      CorruptedData,      ///< Data present but corrupt or inconsistent.
+      UnavailableFeature, ///< Feature not present on this hardware/OS.
+      ConfigurationError, ///< Configuration or environment issue.
+      PermissionRequired, ///< Operation requires elevated privileges.
     };
 
     /**
@@ -150,23 +155,31 @@ namespace std {
       using matchit::match, matchit::is, matchit::or_, matchit::_;
 
       draconis::utils::types::StringView name = match(code)(
-        is | ApiUnavailable   = "ApiUnavailable",
-        is | InternalError    = "InternalError",
-        is | InvalidArgument  = "InvalidArgument",
-        is | IoError          = "IoError",
-        is | NetworkError     = "NetworkError",
-        is | NotFound         = "NotFound",
-        is | NotSupported     = "NotSupported",
-        is | Other            = "Other",
-        is | OutOfMemory      = "OutOfMemory",
-        is | ParseError       = "ParseError",
-        is | PermissionDenied = "PermissionDenied",
-        is | PlatformSpecific = "PlatformSpecific",
-        is | Timeout          = "Timeout",
-        is | _                = "Unknown"
+        is | ApiUnavailable     = "ApiUnavailable",
+        is | InternalError      = "InternalError",
+        is | InvalidArgument    = "InvalidArgument",
+        is | IoError            = "IoError",
+        is | NetworkError       = "NetworkError",
+        is | NotFound           = "NotFound",
+        is | NotSupported       = "NotSupported",
+        is | Other              = "Other",
+        is | OutOfMemory        = "OutOfMemory",
+        is | ParseError         = "ParseError",
+        is | PermissionDenied   = "PermissionDenied",
+        is | PlatformSpecific   = "PlatformSpecific",
+        is | Timeout            = "Timeout",
+        is | ResourceExhausted  = "ResourceExhausted",
+        is | CorruptedData      = "CorruptedData",
+        is | UnavailableFeature = "UnavailableFeature",
+        is | ConfigurationError = "ConfigurationError",
+        is | PermissionRequired = "PermissionRequired",
+        is | _                  = "Unknown"
       );
 
       return formatter<draconis::utils::types::StringView>::format(name, ctx);
     }
   };
 } // namespace std
+
+#define ERR(errc, msg)          return ::draconis::utils::types::Err(::draconis::utils::error::DracError(errc, msg))
+#define ERR_FMT(errc, fmt, ...) return ::draconis::utils::types::Err(::draconis::utils::error::DracError(errc, std::format(fmt, __VA_ARGS__)))

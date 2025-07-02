@@ -25,18 +25,18 @@
 namespace fs = std::filesystem;
 
 using namespace draconis::utils::types;
-using draconis::utils::error::DracError;
+using draconis::utils::cache::CacheManager;
 using enum draconis::utils::error::DracErrorCode;
 
 namespace {
   constexpr const char* CACHE_KEY_PREFIX = "pkg_count_";
 
   fn GetCountFromDirectoryImpl(
-    draconis::utils::cache::CacheManager& cache,
-    const String&                         pmId,
-    const fs::path&                       dirPath,
-    const Option<String>&                 fileExtensionFilter,
-    const bool                            subtractOne
+    CacheManager&         cache,
+    const String&         pmId,
+    const fs::path&       dirPath,
+    const Option<String>& fileExtensionFilter,
+    const bool            subtractOne
   ) -> Result<u64> {
     return cache.getOrSet<u64>(std::format("{}{}", CACHE_KEY_PREFIX, pmId), [&]() -> Result<u64> {
       std::error_code fsErrCode;
@@ -45,12 +45,9 @@ namespace {
 
       if (!fs::is_directory(dirPath, fsErrCode)) {
         if (fsErrCode && fsErrCode != std::errc::no_such_file_or_directory)
-          return Err(DracError(
-            IoError,
-            std::format("Filesystem error checking if '{}' is a directory: {}", dirPath.string(), fsErrCode.message())
-          ));
+          ERR_FMT(ResourceExhausted, "Filesystem error checking if '{}' is a directory: {} (resource exhausted or API unavailable)", dirPath.string(), fsErrCode.message());
 
-        return Err(DracError(NotFound, std::format("{} path is not a directory: {}", pmId, dirPath.string())));
+        ERR_FMT(NotFound, "{} path is not a directory: {}", pmId, dirPath.string());
       }
 
       fsErrCode.clear();
@@ -67,7 +64,7 @@ namespace {
         );
 
         if (fsErrCode)
-          return Err(DracError(IoError, std::format("Failed to create iterator for {} directory '{}': {}", pmId, dirPath.string(), fsErrCode.message())));
+          ERR_FMT(ResourceExhausted, "Failed to create iterator for {} directory '{}': {} (resource exhausted or API unavailable)", pmId, dirPath.string(), fsErrCode.message());
 
         if (hasFilter) {
           for (const fs::directory_entry& entry : dirIter) {
@@ -87,14 +84,11 @@ namespace {
           }
         }
       } catch (const fs::filesystem_error& fsCatchErr) {
-        return Err(DracError(
-          IoError,
-          std::format("Filesystem error during {} directory iteration: {}", pmId, fsCatchErr.what())
-        ));
+        ERR_FMT(ResourceExhausted, "Filesystem error during {} directory iteration: {} (resource exhausted or API unavailable)", pmId, fsCatchErr.what());
       } catch (const Exception& exc) {
-        return Err(DracError(InternalError, exc.what()));
+        ERR_FMT(InternalError, "Internal error during {} directory iteration: {}", pmId, exc.what());
       } catch (...) {
-        return Err(DracError(Other, std::format("Unknown error iterating {} directory", pmId)));
+        ERR_FMT(Other, "Unknown error iterating {} directory (unexpected exception)", pmId);
       }
 
       if (subtractOne && count > 0)
@@ -108,40 +102,40 @@ namespace {
 
 namespace draconis::services::packages {
   fn GetCountFromDirectory(
-    draconis::utils::cache::CacheManager& cache,
-    const String&                         pmId,
-    const fs::path&                       dirPath,
-    const String&                         fileExtensionFilter,
-    const bool                            subtractOne
+    CacheManager&   cache,
+    const String&   pmId,
+    const fs::path& dirPath,
+    const String&   fileExtensionFilter,
+    const bool      subtractOne
   ) -> Result<u64> {
     return GetCountFromDirectoryImpl(cache, pmId, dirPath, fileExtensionFilter, subtractOne);
   }
 
-  fn GetCountFromDirectory(draconis::utils::cache::CacheManager& cache, const String& pmId, const fs::path& dirPath, const String& fileExtensionFilter) -> Result<u64> {
+  fn GetCountFromDirectory(CacheManager& cache, const String& pmId, const fs::path& dirPath, const String& fileExtensionFilter) -> Result<u64> {
     return GetCountFromDirectoryImpl(cache, pmId, dirPath, fileExtensionFilter, false);
   }
 
-  fn GetCountFromDirectory(draconis::utils::cache::CacheManager& cache, const String& pmId, const fs::path& dirPath, const bool subtractOne) -> Result<u64> {
+  fn GetCountFromDirectory(CacheManager& cache, const String& pmId, const fs::path& dirPath, const bool subtractOne) -> Result<u64> {
     return GetCountFromDirectoryImpl(cache, pmId, dirPath, None, subtractOne);
   }
 
-  fn GetCountFromDirectory(draconis::utils::cache::CacheManager& cache, const String& pmId, const fs::path& dirPath) -> Result<u64> {
+  fn GetCountFromDirectory(CacheManager& cache, const String& pmId, const fs::path& dirPath) -> Result<u64> {
     return GetCountFromDirectoryImpl(cache, pmId, dirPath, None, false);
   }
 
   #if !defined(__serenity__) && !defined(_WIN32)
   fn GetCountFromDb(
-    draconis::utils::cache::CacheManager& cache,
-    const String&                         pmId,
-    const fs::path&                       dbPath,
-    const String&                         countQuery
+    CacheManager&   cache,
+    const String&   pmId,
+    const fs::path& dbPath,
+    const String&   countQuery
   ) -> Result<u64> {
     return cache.getOrSet<u64>(std::format("{}{}", CACHE_KEY_PREFIX, pmId), [&]() -> Result<u64> {
       u64 count = 0;
 
       try {
         if (std::error_code existsErr; !fs::exists(dbPath, existsErr) || existsErr)
-          return Err(DracError(NotFound, std::format("{} database not found at '{}'", pmId, dbPath.string())));
+          ERR_FMT(NotFound, "{} database not found at '{}' (file does not exist or access denied)", pmId, dbPath.string());
 
         const SQLite::Database database(dbPath.string(), SQLite::OPEN_READONLY);
 
@@ -149,23 +143,17 @@ namespace draconis::services::packages {
           const i64 countInt64 = queryStmt.getColumn(0).getInt64();
 
           if (countInt64 < 0)
-            return Err(DracError(ParseError, std::format("Negative count returned by {} DB COUNT query.", pmId)));
+            ERR_FMT(CorruptedData, "Negative count returned by {} DB COUNT query (corrupt database data)", pmId);
 
           count = static_cast<u64>(countInt64);
         } else
-          return Err(DracError(ParseError, std::format("No rows returned by {} DB COUNT query.", pmId)));
+          ERR_FMT(ParseError, "No rows returned by {} DB COUNT query (empty result set)", pmId);
       } catch (const SQLite::Exception& e) {
-        error_log("SQLite error occurred accessing {} DB '{}': {}", pmId, dbPath.string(), e.what());
-
-        return Err(DracError(ApiUnavailable, std::format("Failed to query {} database: {}", pmId, dbPath.string())));
+        ERR_FMT(ApiUnavailable, "SQLite error occurred accessing {} database '{}': {}", pmId, dbPath.string(), e.what());
       } catch (const Exception& e) {
-        error_log("Standard exception accessing {} DB '{}': {}", pmId, dbPath.string(), e.what());
-
-        return Err(DracError(InternalError, e.what()));
+        ERR_FMT(InternalError, "Standard exception accessing {} database '{}': {}", pmId, dbPath.string(), e.what());
       } catch (...) {
-        error_log("Unknown error occurred accessing {} DB '{}'", pmId, dbPath.string());
-
-        return Err(DracError(Other, std::format("Unknown error occurred accessing {} DB", pmId)));
+        ERR_FMT(Other, "Unknown error occurred accessing {} database (unexpected exception)", pmId);
       }
 
       return count;
@@ -175,20 +163,20 @@ namespace draconis::services::packages {
 
   #if defined(__linux__) && defined(HAVE_PUGIXML)
   fn GetCountFromPlist(
-    draconis::utils::cache::CacheManager& cache,
-    const String&                         pmId,
-    const fs::path&                       plistPath
+    CacheManager&   cache,
+    const String&   pmId,
+    const fs::path& plistPath
   ) -> Result<u64> {
     return cache.getOrSet<u64>(std::format("{}{}", CACHE_KEY_PREFIX, pmId), [&]() -> Result<u64> {
       xml_document doc;
 
       if (const xml_parse_result result = doc.load_file(plistPath.c_str()); !result)
-        return Err(DracError(DracErrorCode::ParseError, std::format("Failed to parse plist file '{}': {}", plistPath.string(), result.description())));
+        ERR_FMT(ParseError, "Failed to parse plist file '{}': {} (malformed XML)", plistPath.string(), result.description());
 
       const xml_node dict = doc.child("plist").child("dict");
 
       if (!dict)
-        return Err(DracError(DracErrorCode::ParseError, std::format("No <dict> in plist file '{}'.", plistPath.string())));
+        ERR_FMT(CorruptedData, "No <dict> element found in plist file '{}' (corrupt plist structure)", plistPath.string());
 
       u64              count           = 0;
       const StringView alternativesKey = "_XBPS_ALTERNATIVES_";
@@ -221,7 +209,7 @@ namespace draconis::services::packages {
       }
 
       if (count == 0)
-        return Err(DracError(DracErrorCode::NotFound, std::format("No installed packages found in plist file '{}'.", plistPath.string())));
+        ERR_FMT(NotFound, "No installed packages found in plist file '{}' (empty package list)", plistPath.string());
 
       return count;
     });
@@ -229,12 +217,12 @@ namespace draconis::services::packages {
   #endif // __linux__
 
   #if defined(__linux__) || defined(__APPLE__)
-  fn CountNix(draconis::utils::cache::CacheManager& cache) -> Result<u64> {
+  fn CountNix(CacheManager& cache) -> Result<u64> {
     return GetCountFromDb(cache, "nix", "/nix/var/nix/db/db.sqlite", "SELECT COUNT(path) FROM ValidPaths WHERE sigs IS NOT NULL");
   }
   #endif // __linux__ || __APPLE__
 
-  fn CountCargo(draconis::utils::cache::CacheManager& cache) -> Result<u64> {
+  fn CountCargo(CacheManager& cache) -> Result<u64> {
     using draconis::utils::env::GetEnv;
 
     fs::path cargoPath {};
@@ -245,12 +233,12 @@ namespace draconis::services::packages {
       cargoPath = fs::path(*homeDir) / ".cargo" / "bin";
 
     if (cargoPath.empty() || !fs::exists(cargoPath))
-      return Err(DracError(NotFound, "Could not find cargo directory"));
+      ERR(ConfigurationError, "Could not find cargo directory (CARGO_HOME or ~/.cargo/bin not configured)");
 
     return GetCountFromDirectory(cache, "cargo", cargoPath);
   }
 
-  fn GetTotalCount(draconis::utils::cache::CacheManager& cache, const Manager enabledPackageManagers) -> Result<u64> {
+  fn GetTotalCount(CacheManager& cache, const Manager enabledPackageManagers) -> Result<u64> {
   #if DRAC_PRECOMPILED_CONFIG
     #if DRAC_ENABLE_PACKAGECOUNT
     Vec<Future<Result<u64>>> futures;
@@ -293,9 +281,9 @@ namespace draconis::services::packages {
     addFutureIfEnabled(Manager::CARGO, CountCargo);
 
     if (futures.empty())
-      return Err(DracError(NotFound, "No enabled package managers for this platform in precompiled config."));
+      ERR(UnavailableFeature, "No enabled package managers for this platform in precompiled config (feature not available)");
     #else
-    return Err(DracError(NotSupported, "Package counting disabled by precompiled configuration."));
+    ERR(NotSupported, "Package counting disabled by precompiled configuration (feature not supported)");
     #endif
   #else
     #ifdef __linux__
@@ -384,15 +372,15 @@ namespace draconis::services::packages {
               is | _                                           = [&] -> Unit { error_at(result.error()); }
             );
         } catch (const Exception& exc) {
-          error_log("Caught exception while getting package count future: {}", exc.what());
+          error_log("Exception while getting package count future: {}", exc.what());
         } catch (...) {
-          error_log("Caught unknown exception while getting package count future.");
+          error_log("Unknown exception while getting package count future (unexpected exception)");
         }
       }
     }
 
     if (!oneSucceeded && totalCount == 0)
-      return Err(DracError(NotFound, "No package managers found or none reported counts."));
+      ERR(UnavailableFeature, "No package managers found or none reported counts (feature not available)");
 
     return totalCount;
   }
