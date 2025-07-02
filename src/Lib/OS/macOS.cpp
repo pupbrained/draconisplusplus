@@ -29,7 +29,6 @@
   #include <Drac++/Utils/Env.hpp>
   #include <Drac++/Utils/Error.hpp>
   #include <Drac++/Utils/Logging.hpp>
-  #include <Drac++/Utils/Shell.hpp>
   #include <Drac++/Utils/Types.hpp>
 
   #include "OS/macOS/Bridge.hpp"
@@ -41,7 +40,7 @@ using draconis::utils::error::DracError;
 using enum draconis::utils::error::DracErrorCode;
 
 namespace {
-  fn getDisplayInfoById(CGDirectDisplayID displayID) -> Result<Display> {
+  fn getDisplayInfoById(CGDirectDisplayID displayID) -> Result<Output> {
     // Get display resolution
     const usize width  = CGDisplayPixelsWide(displayID);
     const usize height = CGDisplayPixelsHigh(displayID);
@@ -62,7 +61,7 @@ namespace {
     // Check if this is the main display
     const bool isPrimary = displayID == CGMainDisplayID();
 
-    return Display(
+    return Output(
       displayID,
       { .width = static_cast<u16>(width), .height = static_cast<u16>(height) },
       static_cast<u16>(refreshRate),
@@ -405,7 +404,7 @@ namespace draconis::core::system {
         const Result<String> gpuModel = macOS::GetGPUModel();
         if (!gpuModel)
             return Err(DracError("Failed to get GPU model"));
-        return *gpuModel; }, draconis::utils::cache::CachePolicy::NeverExpire());
+        return *gpuModel; }, draconis::utils::cache::CachePolicy::neverExpire());
   }
 
   fn GetDiskUsage() -> Result<ResourceUsage> {
@@ -464,11 +463,11 @@ namespace draconis::core::system {
     return duration_cast<seconds>(now - bootTimepoint);
   }
 
-  fn GetPrimaryDisplay() -> Result<Display> {
+  fn GetPrimaryOutput() -> Result<Output> {
     return getDisplayInfoById(CGMainDisplayID());
   }
 
-  fn GetDisplays() -> Result<Vec<Display>> {
+  fn GetOutputs() -> Result<Vec<Output>> {
     u32 displayCount = 0;
 
     if (CGGetOnlineDisplayList(0, nullptr, &displayCount) != kCGErrorSuccess)
@@ -482,11 +481,11 @@ namespace draconis::core::system {
     if (CGGetOnlineDisplayList(displayCount, displayIDs.data(), &displayCount) != kCGErrorSuccess)
       return Err(DracError(ApiUnavailable, "Failed to get display list."));
 
-    Vec<Display> displays;
+    Vec<Output> displays;
     displays.reserve(displayCount);
 
     for (const CGDirectDisplayID displayID : displayIDs)
-      if (Result<Display> display = getDisplayInfoById(displayID); display)
+      if (Result<Output> display = getDisplayInfoById(displayID); display)
         displays.push_back(*display);
 
     return displays;
