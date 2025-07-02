@@ -16,13 +16,17 @@ namespace DBus {
   namespace {
     using draconis::utils::error::DracError;
     using draconis::utils::error::DracErrorCode;
+    using enum draconis::utils::error::DracErrorCode;
+
     using draconis::utils::types::Err;
     using draconis::utils::types::i32;
     using draconis::utils::types::None;
     using draconis::utils::types::Option;
+    using draconis::utils::types::RawPointer;
     using draconis::utils::types::Result;
     using draconis::utils::types::String;
     using draconis::utils::types::u32;
+    using draconis::utils::types::Unit;
   } // namespace
 
   /**
@@ -137,11 +141,11 @@ namespace DBus {
      * @param code The DracErrorCode to use if the D-Bus error is set.
      * @return A DracError representing the D-Bus error, or an internal error if called when no D-Bus error is set.
      */
-    [[nodiscard]] fn toDracError(const DracErrorCode code = DracErrorCode::PlatformSpecific) const -> DracError {
+    [[nodiscard]] fn toDracError(const DracErrorCode code = PlatformSpecific) const -> DracError {
       if (isSet())
         return { code, std::format("D-Bus Error: {} ({})", message(), name()) };
 
-      return { DracErrorCode::InternalError, "Attempted to convert non-set ErrorGuard" };
+      return { InternalError, "Attempted to convert non-set ErrorGuard" };
     }
   };
 
@@ -177,7 +181,7 @@ namespace DBus {
      *
      * @note This function is unsafe and should not be called directly.
      */
-    fn getBasic(void* value) -> void {
+    fn getBasic(RawPointer value) -> Unit {
       if (m_isValid)
         dbus_message_iter_get_basic(&m_iter, value);
     }
@@ -250,7 +254,7 @@ namespace DBus {
         const char* strPtr = nullptr;
 
         // ReSharper disable once CppRedundantCastExpression
-        getBasic(static_cast<void*>(&strPtr));
+        getBasic(static_cast<RawPointer>(&strPtr));
 
         if (strPtr)
           return String(strPtr);
@@ -371,7 +375,7 @@ namespace DBus {
       DBusMessage* rawMsg = dbus_message_new_method_call(destination, path, interface, method);
 
       if (!rawMsg)
-        return Err(DracError(DracErrorCode::OutOfMemory, "dbus_message_new_method_call failed (allocation failed?)"));
+        return Err(DracError(OutOfMemory, "dbus_message_new_method_call failed (allocation failed?)"));
 
       return Message(rawMsg);
     }
@@ -390,7 +394,7 @@ namespace DBus {
 
       if constexpr (std::is_convertible_v<DecayedT, const char*>) {
         const char* valuePtr = static_cast<const char*>(std::forward<T>(arg));
-        return dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, static_cast<const void*>(&valuePtr));
+        return dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, static_cast<const RawPointer>(&valuePtr));
       } else {
         static_assert(!sizeof(T*), "Unsupported type passed to appendArgs");
         return false;
@@ -477,7 +481,7 @@ namespace DBus {
       -> Result<Message> {
       if (!m_conn || !message.get())
         return Err(
-          DracError(DracErrorCode::InvalidArgument, "Invalid connection or message provided to sendWithReplyAndBlock")
+          DracError(InvalidArgument, "Invalid connection or message provided to sendWithReplyAndBlock")
         );
 
       Error        err;
@@ -487,21 +491,21 @@ namespace DBus {
       if (err.isSet()) {
         if (const char* errName = err.name()) {
           if (strcmp(errName, DBUS_ERROR_TIMEOUT) == 0 || strcmp(errName, DBUS_ERROR_NO_REPLY) == 0)
-            return Err(err.toDracError(DracErrorCode::Timeout));
+            return Err(err.toDracError(Timeout));
 
           if (strcmp(errName, DBUS_ERROR_SERVICE_UNKNOWN) == 0)
-            return Err(err.toDracError(DracErrorCode::NotFound));
+            return Err(err.toDracError(NotFound));
 
           if (strcmp(errName, DBUS_ERROR_ACCESS_DENIED) == 0)
-            return Err(err.toDracError(DracErrorCode::PermissionDenied));
+            return Err(err.toDracError(PermissionDenied));
         }
 
-        return Err(err.toDracError(DracErrorCode::PlatformSpecific));
+        return Err(err.toDracError(PlatformSpecific));
       }
 
       if (!rawReply)
         return Err(DracError(
-          DracErrorCode::ApiUnavailable,
+          ApiUnavailable,
           "dbus_connection_send_with_reply_and_block returned null without setting error (likely timeout or "
           "disconnected)"
         ));
@@ -519,10 +523,10 @@ namespace DBus {
       DBusConnection* rawConn = dbus_bus_get(bus_type, err.get());
 
       if (err.isSet())
-        return Err(err.toDracError(DracErrorCode::ApiUnavailable));
+        return Err(err.toDracError(ApiUnavailable));
 
       if (!rawConn)
-        return Err(DracError(DracErrorCode::ApiUnavailable, "dbus_bus_get returned null without setting error"));
+        return Err(DracError(ApiUnavailable, "dbus_bus_get returned null without setting error"));
 
       return Connection(rawConn);
     }

@@ -334,20 +334,19 @@ namespace {
       if (!crtcInfoReply)
         continue;
 
-      u16 refreshRate = 0;
+      f64 refreshRate = 0;
 
       if (crtcInfoReply->mode != NONE) {
         RandrModeInfo*        modeInfo  = nullptr;
         RandrModeInfoIterator modesIter = GetScreenResourcesCurrentModesIterator(screenResourcesReply.get());
-        for (; modesIter.rem; ModeInfoNext(&modesIter)) {
+        for (; modesIter.rem; ModeInfoNext(&modesIter))
           if (modesIter.data->id == crtcInfoReply->mode) {
             modeInfo = modesIter.data;
             break;
           }
-        }
 
         if (modeInfo && modeInfo->htotal > 0 && modeInfo->vtotal > 0)
-          refreshRate = static_cast<u16>(round(static_cast<f64>(modeInfo->dot_clock) / (static_cast<f64>(modeInfo->htotal) * static_cast<f64>(modeInfo->vtotal))));
+          refreshRate = static_cast<f64>(modeInfo->dot_clock) / (static_cast<f64>(modeInfo->htotal) * static_cast<f64>(modeInfo->vtotal));
       }
 
       bool isPrimary = (*std::next(outputs, i) == primaryOutput);
@@ -363,15 +362,13 @@ namespace {
     }
 
     // If no display was marked as primary, set the first one as primary
-    if (primaryIndex == -1 && !displays.empty()) {
+    if (primaryIndex == -1 && !displays.empty())
       displays[0].isPrimary = true;
-    } else if (primaryIndex > 0) {
+    else if (primaryIndex > 0)
       // Ensure only one display is marked as primary
-      for (int i = 0; i < static_cast<int>(displays.size()); ++i) {
+      for (int i = 0; i < static_cast<int>(displays.size()); ++i)
         if (i != primaryIndex)
           displays[i].isPrimary = false;
-      }
-    }
 
     return displays;
   }
@@ -408,7 +405,7 @@ namespace {
     if (!crtcInfoReply)
       return Err(DracError(NotFound, "Failed to get CRTC info for primary display"));
 
-    u16 refreshRate = 0;
+    f64 refreshRate = 0;
     if (crtcInfoReply->mode != NONE) {
       const ReplyGuard<RandrGetScreenResourcesCurrentReply> screenResourcesReply(
         GetScreenResourcesCurrentReply(
@@ -426,7 +423,7 @@ namespace {
           }
         }
         if (modeInfo && modeInfo->htotal > 0 && modeInfo->vtotal > 0)
-          refreshRate = static_cast<u16>(round(static_cast<f64>(modeInfo->dot_clock) / (static_cast<f64>(modeInfo->htotal) * static_cast<f64>(modeInfo->vtotal))));
+          refreshRate = static_cast<f64>(modeInfo->dot_clock) / (static_cast<f64>(modeInfo->htotal) * static_cast<f64>(modeInfo->vtotal));
       }
     }
 
@@ -450,16 +447,16 @@ namespace {
   #ifdef HAVE_WAYLAND
   struct WaylandCallbackData {
     struct Inner {
-      u32 id;
-      u32 width;
-      u32 height;
-      u32 refreshRate;
+      usize id;
+      usize width;
+      usize height;
+      f64   refreshRate;
     };
 
     Vec<Inner> outputs;
   };
 
-  void wayland_output_mode(void* data, wl_output* /*output*/, u32 flags, i32 width, i32 height, i32 refresh) {
+  fn wayland_output_mode(RawPointer data, wl_output* /*output*/, u32 flags, i32 width, i32 height, i32 refresh) -> Unit {
     if (!(flags & WL_OUTPUT_MODE_CURRENT))
       return;
 
@@ -474,11 +471,11 @@ namespace {
     }
   }
 
-  void wayland_output_geometry(void* /*data*/, wl_output* /*output*/, i32 /*x*/, i32 /*y*/, i32 /*physical_width*/, i32 /*physical_height*/, i32 /*subpixel*/, const char* /*make*/, const char* /*model*/, i32 /*transform*/) {}
-  void wayland_output_done(void* /*data*/, wl_output* /*output*/) {}
-  void wayland_output_scale(void* /*data*/, wl_output* /*output*/, i32 /*factor*/) {}
+  fn wayland_output_geometry(RawPointer /*data*/, wl_output* /*output*/, i32 /*x*/, i32 /*y*/, i32 /*physical_width*/, i32 /*physical_height*/, i32 /*subpixel*/, const char* /*make*/, const char* /*model*/, i32 /*transform*/) -> Unit {}
+  fn wayland_output_done(RawPointer /*data*/, wl_output* /*output*/) -> Unit {}
+  fn wayland_output_scale(RawPointer /*data*/, wl_output* /*output*/, i32 /*factor*/) -> Unit {}
 
-  void wayland_registry_handler(void* data, wl_registry* registry, u32 objectId, const char* interface, u32 version) {
+  fn wayland_registry_handler(RawPointer data, wl_registry* registry, u32 objectId, const char* interface, u32 version) -> Unit {
     if (std::strcmp(interface, "wl_output") != 0)
       return;
 
@@ -507,7 +504,7 @@ namespace {
     Wayland::AddOutputListener(output, &OUTPUT_LISTENER, data);
   }
 
-  void wayland_registry_removal(void* /*data*/, wl_registry* /*registry*/, u32 /*id*/) {}
+  fn wayland_registry_removal(RawPointer /*data*/, wl_registry* /*registry*/, u32 /*id*/) -> Unit {}
 
   struct WaylandPrimaryDisplayData {
     Wayland::Output* output = nullptr;
@@ -515,7 +512,7 @@ namespace {
     bool             done = false;
   };
 
-  fn wayland_primary_mode(void* data, wl_output* /*output*/, u32 flags, i32 width, i32 height, i32 refresh) -> void {
+  fn wayland_primary_mode(RawPointer data, wl_output* /*output*/, u32 flags, i32 width, i32 height, i32 refresh) -> Unit {
     if (!(flags & WL_OUTPUT_MODE_CURRENT))
       return;
 
@@ -524,20 +521,20 @@ namespace {
     if (displayData->done)
       return;
 
-    displayData->display.resolution  = { .width = static_cast<u16>(width), .height = static_cast<u16>(height) };
+    displayData->display.resolution  = { .width = static_cast<usize>(width), .height = static_cast<usize>(height) };
     displayData->display.refreshRate = refresh > 0 ? refresh / 1000 : 0;
   }
 
-  void wayland_primary_done(void* data, wl_output* /*wl_output*/) {
+  fn wayland_primary_done(RawPointer data, wl_output* /*wl_output*/) -> Unit {
     auto* displayData = static_cast<WaylandPrimaryDisplayData*>(data);
     if (displayData->display.resolution.width > 0)
       displayData->done = true;
   }
 
-  fn wayland_primary_geometry(void* /*data*/, wl_output* /*output*/, i32 /*x*/, i32 /*y*/, i32 /*physical_width*/, i32 /*physical_height*/, i32 /*subpixel*/, const char* /*make*/, const char* /*model*/, i32 /*transform*/) -> void {}
-  fn wayland_primary_scale(void* /*data*/, wl_output* /*output*/, i32 /*factor*/) -> void {}
+  fn wayland_primary_geometry(RawPointer /*data*/, wl_output* /*output*/, i32 /*x*/, i32 /*y*/, i32 /*physical_width*/, i32 /*physical_height*/, i32 /*subpixel*/, const char* /*make*/, const char* /*model*/, i32 /*transform*/) -> Unit {}
+  fn wayland_primary_scale(RawPointer /*data*/, wl_output* /*output*/, i32 /*factor*/) -> Unit {}
 
-  void wayland_primary_registry(void* data, wl_registry* registry, u32 name, const char* interface, u32 version) {
+  fn wayland_primary_registry(RawPointer data, wl_registry* registry, u32 name, const char* interface, u32 version) -> Unit {
     auto* displayData = static_cast<WaylandPrimaryDisplayData*>(data);
     if (displayData->output != nullptr || strcmp(interface, "wl_output") != 0)
       return;
@@ -567,7 +564,7 @@ namespace {
     Wayland::AddOutputListener(displayData->output, &LISTENER, data);
   }
 
-  void wayland_primary_registry_remover(void* /*data*/, wl_registry* /*registry*/, u32 /*id*/) {}
+  fn wayland_primary_registry_remover(RawPointer /*data*/, wl_registry* /*registry*/, u32 /*id*/) -> Unit {}
 
   fn GetWaylandDisplays() -> Result<Vec<Output>> {
     const Wayland::DisplayGuard display;
@@ -598,8 +595,8 @@ namespace {
       if (output.width > 0 && output.height > 0)
         displays.emplace_back(
           output.id,
-          Output::Resolution { .width = static_cast<u16>(output.width), .height = static_cast<u16>(output.height) },
-          output.refreshRate / 1000,
+          Output::Resolution { .width = output.width, .height = output.height },
+          output.refreshRate / 1000.0,
           displays.empty()
         );
 
@@ -629,6 +626,7 @@ namespace {
 
     if (data.output)
       Wayland::DestroyOutput(data.output);
+
     Wayland::DestroyRegistry(registry);
 
     if (data.done)

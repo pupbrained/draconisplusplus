@@ -9,8 +9,14 @@
 
 using namespace testing;
 using namespace draconis::services::packages;
-using draconis::utils::error::DracErrorCode;
-using draconis::utils::types::Result, draconis::utils::types::String, draconis::utils::types::u64, draconis::utils::types::i32;
+using namespace draconis::utils;
+
+using error::DracErrorCode;
+using types::i32;
+using types::Result;
+using types::String;
+using types::u64;
+using types::Unit;
 
 namespace fs = std::filesystem;
 
@@ -18,26 +24,26 @@ namespace fs = std::filesystem;
 
 class PackageCountingIntegrationTest : public Test {
  public:
-  fs::path mTestDir;
-  draconis::utils::cache::CacheManager mCacheManager;
+  fs::path            mTestDir;
+  cache::CacheManager mCacheManager;
 
  protected:
-  void SetUp() override {
+  fn SetUp() -> Unit override {
     mTestDir = fs::temp_directory_path() / "draconis_pkg_test";
     fs::create_directories(mTestDir);
-    mCacheManager.setGlobalPolicy({.location = draconis::utils::cache::CacheLocation::TempDirectory});
+    mCacheManager.setGlobalPolicy({ .location = cache::CacheLocation::TempDirectory });
   }
 
-  void TearDown() override {
+  fn TearDown() -> Unit override {
     fs::remove_all(mTestDir);
   }
 
-  static void CreateTestFile(const fs::path& path, const String& content = "") {
+  static fn CreateTestFile(const fs::path& path, const String& content = "") -> Unit {
     std::ofstream file(path);
     file << content;
   }
 
-  static void CreateTestDir(const fs::path& path) {
+  static fn CreateTestDir(const fs::path& path) -> Unit {
     fs::create_directories(path);
   }
 };

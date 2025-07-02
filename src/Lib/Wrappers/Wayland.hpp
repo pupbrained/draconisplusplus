@@ -13,7 +13,10 @@ namespace Wayland {
     using draconis::utils::types::i32;
     using draconis::utils::types::None;
     using draconis::utils::types::PCStr;
+    using draconis::utils::types::RawPointer;
+    using draconis::utils::types::StringView;
     using draconis::utils::types::u32;
+    using draconis::utils::types::Unit;
   } // namespace
 
   using Display          = wl_display;
@@ -46,9 +49,9 @@ namespace Wayland {
    * This function disconnects from a Wayland display.
    *
    * @param display The Wayland display object to disconnect from
-   * @return void
+   * @return Unit
    */
-  inline fn Disconnect(Display* display) -> void {
+  inline fn Disconnect(Display* display) -> Unit {
     wl_display_disconnect(display);
   }
 
@@ -82,7 +85,7 @@ namespace Wayland {
    * @param data The data to pass to the listener
    * @return 0 on success, -1 on failure
    */
-  inline fn AddRegistryListener(Registry* registry, const RegistryListener* listener, void* data) -> i32 {
+  inline fn AddRegistryListener(Registry* registry, const RegistryListener* listener, RawPointer data) -> i32 {
     return wl_registry_add_listener(registry, listener, data);
   }
 
@@ -105,7 +108,7 @@ namespace Wayland {
    * @param version The version of the interface to bind to
    * @return A pointer to the bound object
    */
-  inline fn BindRegistry(Registry* registry, const u32 name, const Interface* interface, const u32 version) -> void* {
+  inline fn BindRegistry(Registry* registry, const u32 name, const Interface* interface, const u32 version) -> RawPointer {
     return wl_registry_bind(registry, name, interface, version);
   }
 
@@ -117,7 +120,7 @@ namespace Wayland {
    * @param data The data to pass to the listener
    * @return 0 on success, -1 on failure
    */
-  inline fn AddOutputListener(Output* output, const OutputListener* listener, void* data) -> i32 {
+  inline fn AddOutputListener(Output* output, const OutputListener* listener, RawPointer data) -> i32 {
     return wl_output_add_listener(output, listener, data);
   }
 
@@ -126,7 +129,7 @@ namespace Wayland {
    *
    * @param output The Wayland output object
    */
-  inline fn DestroyOutput(Output* output) -> void {
+  inline fn DestroyOutput(Output* output) -> Unit {
     wl_output_destroy(output);
   }
 
@@ -135,7 +138,7 @@ namespace Wayland {
    *
    * @param registry The Wayland registry object
    */
-  inline fn DestroyRegistry(Registry* registry) -> void {
+  inline fn DestroyRegistry(Registry* registry) -> Unit {
     wl_registry_destroy(registry);
   }
 
@@ -156,10 +159,7 @@ namespace Wayland {
      * establishes a connection to the Wayland display.
      */
     DisplayGuard() {
-      wl_log_set_handler_client([](PCStr fmt, va_list args) -> void {
-        using draconis::utils::types::i32;
-        using draconis::utils::types::StringView;
-
+      wl_log_set_handler_client([](PCStr fmt, va_list args) -> Unit {
         va_list argsCopy;
         va_copy(argsCopy, args);
         i32 size = std::vsnprintf(nullptr, 0, fmt, argsCopy);

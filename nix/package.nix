@@ -17,13 +17,13 @@
   deps = with pkgs;
     [
       ((glaze.override {enableAvx2 = hostPlatform.isx86;}).overrideAttrs rec {
-        version = "5.5.0";
+        version = "5.5.2";
 
         src = pkgs.fetchFromGitHub {
           owner = "stephenberry";
           repo = "glaze";
           tag = "v${version}";
-          hash = "sha256-HC8R1wyNySVhuTZczdbiHkQ8STTXA/1GJLKdTXN9VAo=";
+          hash = "sha256-TuSnFxRpc3XyaBHrQX4EzLOpVE1OKvmOvceCjdOki1M=";
         };
       })
     ]

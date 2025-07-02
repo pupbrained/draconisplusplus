@@ -128,7 +128,7 @@ namespace draconis::utils {
      * @tparam Tp The type of the success value.
      * @tparam Er The type of the error value.
      */
-    template <typename Tp = void, typename Er = error::DracError>
+    template <typename Tp = Unit, typename Er = error::DracError>
     using Result = std::expected<Tp, Er>;
 
     /**

@@ -28,7 +28,7 @@ using draconis::utils::error::DracError;
 using enum draconis::utils::error::DracErrorCode;
 
 namespace {
-  fn cleanupSwapChain(const vk::Device device, Vec<vk::ImageView>& swapChainImageViews, const vk::CommandPool commandPool, Vec<vk::CommandBuffer>& commandBuffers) -> void {
+  fn cleanupSwapChain(const vk::Device device, Vec<vk::ImageView>& swapChainImageViews, const vk::CommandPool commandPool, Vec<vk::CommandBuffer>& commandBuffers) -> Unit {
     if (!commandBuffers.empty()) {
       device.freeCommandBuffers(commandPool, commandBuffers);
       commandBuffers.clear();
@@ -328,8 +328,6 @@ fn main() -> i32 {
 
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
-  ImGuiIO& imguiIO = ImGui::GetIO();
-  (void)imguiIO;
   ImGui::StyleColorsDark();
 
   ImGui_ImplGlfw_InitForVulkan(window, true);

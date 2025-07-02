@@ -660,7 +660,7 @@ namespace draconis::core::system {
       return Err(DracError(NotFound, "Could not get power source information from IOKit."));
 
     // RAII to ensure the CF object is released.
-    const UniquePointer<const void, decltype(&CFRelease)> powerSourcesInfoDeleter(powerSourcesInfo, &CFRelease);
+    const UniquePointer<const Unit, decltype(&CFRelease)> powerSourcesInfoDeleter(powerSourcesInfo, &CFRelease);
 
     // The snapshot is an array of power sources.
     const auto* const powerSourcesList = static_cast<CFArrayRef>(powerSourcesInfo);

@@ -36,6 +36,7 @@ namespace draconis::utils::argparse {
     using types::String;
     using types::StringView;
     using types::UniquePointer;
+    using types::Unit;
     using types::usize;
     using types::Vec;
   } // namespace
@@ -299,7 +300,7 @@ namespace draconis::utils::argparse {
     /**
      * @brief Mark this argument as used.
      */
-    fn markUsed() -> void {
+    fn markUsed() -> Unit {
       m_isUsed = true;
 
       if (m_isFlag)
@@ -465,7 +466,7 @@ namespace draconis::utils::argparse {
     /**
      * @brief Print help message.
      */
-    fn printHelp() const -> void {
+    fn printHelp() const -> Unit {
       std::ostringstream usageStream;
       usageStream << "Usage: " << m_programName;
 

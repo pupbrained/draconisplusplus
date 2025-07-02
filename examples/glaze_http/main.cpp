@@ -183,20 +183,20 @@ fn main() -> i32 {
       using enum draconis::utils::error::DracErrorCode;
 
       fn addProperty = Overload {
-        [&](const String& name, const Result<String>& result) -> void {
+        [&](const String& name, const Result<String>& result) -> Unit {
           if (result)
             sysInfo.properties.emplace_back(name, *result);
           else if (result.error().code != NotSupported)
             sysInfo.properties.emplace_back(name, result.error());
         },
-        [&](const String& name, const Result<ResourceUsage>& result) -> void {
+        [&](const String& name, const Result<ResourceUsage>& result) -> Unit {
           if (result)
             sysInfo.properties.emplace_back(name, std::format("{} / {}", BytesToGiB(result->usedBytes), BytesToGiB(result->totalBytes)));
           else
             sysInfo.properties.emplace_back(name, result.error());
         },
 #if DRAC_ENABLE_NOWPLAYING
-        [&](const String& name, const Result<MediaInfo>& result) -> void {
+        [&](const String& name, const Result<MediaInfo>& result) -> Unit {
           if (result)
             sysInfo.properties.emplace_back(name, std::format("{} - {}", result->title.value_or("Unknown Title"), result->artist.value_or("Unknown Artist")));
           else if (result.error().code == NotFound)
@@ -206,7 +206,7 @@ fn main() -> i32 {
         },
 #endif
 #if DRAC_ENABLE_WEATHER
-        [&](const String& name, const Result<Report>& result) -> void {
+        [&](const String& name, const Result<Report>& result) -> Unit {
           if (result)
             sysInfo.properties.emplace_back(name, std::format("{}°F, {}", std::lround(result->temperature), result->description));
           else if (result.error().code == NotFound)

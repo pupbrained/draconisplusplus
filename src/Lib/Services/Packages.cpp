@@ -256,7 +256,7 @@ namespace draconis::services::packages {
     Vec<Future<Result<u64>>> futures;
     futures.reserve(16);
 
-    fn addFutureIfEnabled = [&futures, &cache, enabledPackageManagers]<typename T>(const Manager manager, T&& countFunc) -> void {
+    fn addFutureIfEnabled = [&futures, &cache, enabledPackageManagers]<typename T>(const Manager manager, T&& countFunc) -> Unit {
       if (HasPackageManager(enabledPackageManagers, manager))
         futures.emplace_back(std::async(std::launch::async, std::forward<T>(countFunc), std::ref(cache)));
     };
@@ -380,8 +380,8 @@ namespace draconis::services::packages {
             oneSucceeded = true;
           } else
             match(result.error().code)(
-              is | or_(NotFound, ApiUnavailable, NotSupported) = [&] -> void { debug_at(result.error()); },
-              is | _                                           = [&] -> void { error_at(result.error()); }
+              is | or_(NotFound, ApiUnavailable, NotSupported) = [&] -> Unit { debug_at(result.error()); },
+              is | _                                           = [&] -> Unit { error_at(result.error()); }
             );
         } catch (const Exception& exc) {
           error_log("Caught exception while getting package count future: {}", exc.what());

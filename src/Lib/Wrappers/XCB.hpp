@@ -13,9 +13,11 @@ namespace XCB {
     using draconis::utils::types::i32;
     using draconis::utils::types::None;
     using draconis::utils::types::PCStr;
+    using draconis::utils::types::RawPointer;
     using draconis::utils::types::u16;
     using draconis::utils::types::u32;
     using draconis::utils::types::u8;
+    using draconis::utils::types::Unit;
   } // namespace
 
   using Connection = xcb_connection_t;
@@ -90,7 +92,7 @@ namespace XCB {
    *
    * @param conn The connection object to disconnect from
    */
-  inline fn Disconnect(Connection* conn) -> void {
+  inline fn Disconnect(Connection* conn) -> Unit {
     xcb_disconnect(conn);
   }
 
@@ -192,7 +194,7 @@ namespace XCB {
    * @param reply The reply for the property
    * @return The value for the property
    */
-  inline fn GetPropertyValue(const GetPropReply* reply) -> void* {
+  inline fn GetPropertyValue(const GetPropReply* reply) -> RawPointer {
     return xcb_get_property_value(reply);
   }
 
@@ -278,7 +280,7 @@ namespace XCB {
    *
    * @param iter The modes iterator
    */
-  inline fn ModeInfoNext(RandrModeInfoIterator* iter) -> void {
+  inline fn ModeInfoNext(RandrModeInfoIterator* iter) -> Unit {
     xcb_randr_mode_info_next(iter);
   }
 

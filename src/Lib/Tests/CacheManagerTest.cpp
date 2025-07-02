@@ -8,17 +8,22 @@
 #include "gtest/gtest.h"
 
 using namespace testing;
-using draconis::utils::cache::CacheLocation;
-using draconis::utils::cache::CacheManager;
-using draconis::utils::cache::CachePolicy;
-using draconis::utils::error::DracError;
-using draconis::utils::error::DracErrorCode;
-using draconis::utils::types::Err;
-using draconis::utils::types::i32;
-using draconis::utils::types::Option;
-using draconis::utils::types::PCStr;
-using draconis::utils::types::Result;
-using draconis::utils::types::String;
+using namespace draconis::utils;
+
+using cache::CacheLocation;
+using cache::CacheManager;
+using cache::CachePolicy;
+
+using error::DracError;
+using error::DracErrorCode;
+
+using types::Err;
+using types::i32;
+using types::Option;
+using types::PCStr;
+using types::Result;
+using types::String;
+using types::Unit;
 
 namespace fs = std::filesystem;
 using namespace std::chrono_literals;
@@ -30,7 +35,7 @@ class CacheManagerTest : public Test {
   Result<PCStr> m_originalHome;
   // NOLINTEND(*-non-private-member-variables-in-classes)
 
-  void SetUp() override {
+  fn SetUp() -> Unit override {
     // Ensure we have a clean test environment
     m_testDir = fs::temp_directory_path() / "draconis_cache_test";
 
@@ -46,17 +51,17 @@ class CacheManagerTest : public Test {
       fs::remove(tempKeyFile);
 
     // Set environment variable for test
-    m_originalHome = draconis::utils::env::GetEnv("HOME");
+    m_originalHome = env::GetEnv("HOME");
 
-    draconis::utils::env::SetEnv("HOME", m_testDir.c_str());
+    env::SetEnv("HOME", m_testDir.c_str());
   }
 
-  void TearDown() override {
+  fn TearDown() -> Unit override {
     // Restore original environment
     if (m_originalHome)
-      draconis::utils::env::SetEnv("HOME", *m_originalHome);
+      env::SetEnv("HOME", *m_originalHome);
     else
-      draconis::utils::env::UnsetEnv("HOME");
+      env::UnsetEnv("HOME");
 
     // Clean up test directory
     if (fs::exists(m_testDir))

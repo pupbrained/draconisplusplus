@@ -15,7 +15,6 @@
 
 #pragma once
 
-#include <../include/Drac++/Utils/Definitions.hpp>
 #include <algorithm>
 #include <any>
 #include <array>
@@ -44,7 +43,7 @@ namespace matchit {
     };
 
     template <typename Value, typename... Patterns>
-    constexpr fn matchPatterns(Value&& value, const Patterns&... patterns);
+    constexpr auto matchPatterns(Value&& value, const Patterns&... patterns);
 
     template <typename Value, bool byRef>
     class MatchHelper {
@@ -59,7 +58,7 @@ namespace matchit {
         : mValue { std::forward<V>(value) } {}
 
       template <typename... PatternPair>
-      constexpr fn operator()(const PatternPair&... patterns) {
+      constexpr auto operator()(const PatternPair&... patterns) {
         return matchPatterns(std::forward<ValueRefT>(mValue), patterns...);
       }
 
@@ -68,12 +67,12 @@ namespace matchit {
     };
 
     template <typename Value>
-    constexpr fn match(Value&& value) {
+    constexpr auto match(Value&& value) {
       return MatchHelper<Value, true> { std::forward<Value>(value) };
     }
 
     template <typename First, typename... Values>
-    constexpr fn match(First&& first, Values&&... values) {
+    constexpr auto match(First&& first, Values&&... values) {
       auto result = std::forward_as_tuple(std::forward<First>(first), std::forward<Values>(values)...);
       return MatchHelper<decltype(result), false> { std::forward<decltype(result)>(result) };
     }
@@ -85,24 +84,24 @@ namespace matchit {
     };
 
     template <typename T>
-    constexpr fn nullary(const T& t) {
+    constexpr auto nullary(const T& t) {
       return Nullary<T> { t };
     }
 
     template <typename T>
     class Id;
     template <typename T>
-    constexpr fn expr(Id<T>& id) {
+    constexpr auto expr(Id<T>& id) {
       return nullary([&] { return *id; });
     }
 
     template <typename T>
-    constexpr fn expr(const T& v) {
+    constexpr auto expr(const T& v) {
       return nullary([&] { return v; });
     }
 
     template <typename T>
-    constexpr fn toNullary(T&& v) {
+    constexpr auto toNullary(T&& v) {
       if constexpr (std::is_invocable_v<std::decay_t<T>>)
         return std::forward<T>(v);
       else
@@ -114,7 +113,7 @@ namespace matchit {
     class EvalTraits {
      public:
       template <typename... Args>
-      constexpr static fn evalImpl(const T& v, const Args&... /*unused*/) -> decltype(auto) {
+      constexpr static auto evalImpl(const T& v, const Args&... /*unused*/) -> decltype(auto) {
         return v;
       }
     };
@@ -122,7 +121,7 @@ namespace matchit {
     template <typename T>
     class EvalTraits<Nullary<T>> {
      public:
-      constexpr static fn evalImpl(const Nullary<T>& e) -> decltype(auto) {
+      constexpr static auto evalImpl(const Nullary<T>& e) -> decltype(auto) {
         return e();
       }
     };
@@ -131,7 +130,7 @@ namespace matchit {
     template <typename T>
     class EvalTraits<Id<T>> {
      public:
-      constexpr static fn evalImpl(const Id<T>& id) -> decltype(auto) {
+      constexpr static auto evalImpl(const Id<T>& id) -> decltype(auto) {
         return *id;
       }
     };
@@ -147,7 +146,7 @@ namespace matchit {
     class EvalTraits<Unary<T>> {
      public:
       template <typename Arg>
-      constexpr static fn evalImpl(const Unary<T>& e, const Arg& arg) -> decltype(auto) {
+      constexpr static auto evalImpl(const Unary<T>& e, const Arg& arg) -> decltype(auto) {
         return e(arg);
       }
     };
@@ -157,13 +156,13 @@ namespace matchit {
     class EvalTraits<Wildcard> {
      public:
       template <typename Arg>
-      constexpr static fn evalImpl(const Wildcard& /*unused*/, const Arg& arg) -> decltype(auto) {
+      constexpr static auto evalImpl(const Wildcard& /*unused*/, const Arg& arg) -> decltype(auto) {
         return arg;
       }
     };
 
     template <typename T, typename... Args>
-    constexpr fn evaluate_(const T& t, const Args&... args) -> decltype(auto) {
+    constexpr auto evaluate_(const T& t, const Args&... args) -> decltype(auto) {
       return EvalTraits<T>::evalImpl(t, args...);
     }
 
@@ -181,7 +180,7 @@ namespace matchit {
 
 #define UN_OP_FOR_NULLARY(op)                        \
   template <typename T>                              \
-  constexpr fn operator op(T const& t)               \
+  constexpr auto operator op(T const& t)             \
     requires isNullaryOrIdV<T>                       \
   {                                                  \
     return nullary([&] { return op evaluate_(t); }); \
@@ -189,7 +188,7 @@ namespace matchit {
 
 #define BIN_OP_FOR_NULLARY(op)                                    \
   template <typename T, typename U>                               \
-  constexpr fn operator op(T const& t, U const& u)                \
+  constexpr auto operator op(T const& t, U const& u)              \
     requires isNullaryOrIdV<T> || isNullaryOrIdV<U>               \
   {                                                               \
     return nullary([&] { return evaluate_(t) op evaluate_(u); }); \
@@ -233,13 +232,13 @@ namespace matchit {
 
     // unary is an alias of meet.
     template <typename T>
-    constexpr fn unary(T&& t) {
+    constexpr auto unary(T&& t) {
       return meet(std::forward<T>(t));
     }
 
 #define UN_OP_FOR_UNARY(op)                                                   \
   template <typename T>                                                       \
-  constexpr fn operator op(T const& t)                                        \
+  constexpr auto operator op(T const& t)                                      \
     requires isUnaryOrWildcardV<T>                                            \
   {                                                                           \
     return unary([&](auto&& arg) constexpr { return op evaluate_(t, arg); }); \
@@ -247,7 +246,7 @@ namespace matchit {
 
 #define BIN_OP_FOR_UNARY(op)                                                                    \
   template <typename T, typename U>                                                             \
-  constexpr fn operator op(T const& t, U const& u)                                              \
+  constexpr auto operator op(T const& t, U const& u)                                            \
     requires isUnaryOrWildcardV<T> || isUnaryOrWildcardV<U>                                     \
   {                                                                                             \
     return unary([&](auto&& arg) constexpr { return evaluate_(t, arg) op evaluate_(u, arg); }); \
@@ -287,7 +286,7 @@ namespace matchit {
       constexpr Subrange(const Subrange& other)
         : mBegin { other.begin() }, mEnd { other.end() } {}
 
-      fn operator=(const Subrange& other)->Subrange& {
+      auto operator=(const Subrange& other) -> Subrange& {
         if (this == &other)
           return *this;
 
@@ -297,21 +296,21 @@ namespace matchit {
         return *this;
       }
 
-      [[nodiscard]] fn size() const -> size_t {
+      [[nodiscard]] auto size() const -> size_t {
         return static_cast<size_t>(std::distance(mBegin, mEnd));
       }
 
-      [[nodiscard]] fn begin() const {
+      [[nodiscard]] auto begin() const {
         return mBegin;
       }
 
-      [[nodiscard]] fn end() const {
+      [[nodiscard]] auto end() const {
         return mEnd;
       }
     };
 
     template <typename I, typename S>
-    constexpr fn makeSubrange(I begin, S end) {
+    constexpr auto makeSubrange(I begin, S end) {
       return Subrange<I, S> { begin, end };
     }
 
@@ -343,13 +342,13 @@ namespace matchit {
       Subrange<typename IterUnderlyingType<RangeType>::beginT, typename IterUnderlyingType<RangeType>::endT>;
 
     template <typename I, typename S>
-    fn operator==(const Subrange<I, S>& lhs, const Subrange<I, S>& rhs)->bool {
+    auto operator==(const Subrange<I, S>& lhs, const Subrange<I, S>& rhs) -> bool {
       using std::operator==;
       return lhs.size() == rhs.size() && std::equal(lhs.begin(), lhs.end(), rhs.begin());
     }
 
     template <typename K1, typename V1, typename K2, typename V2>
-    constexpr fn operator==(const std::pair<K1, V1>& t, const std::pair<K2, V2>& u) {
+    constexpr auto operator==(const std::pair<K1, V1>& t, const std::pair<K2, V2>& u) {
       return t.first == u.first && t.second == u.second;
     }
 
@@ -398,14 +397,14 @@ namespace matchit {
 
     namespace detail {
       template <std::size_t start, class Tuple, std::size_t... I>
-      constexpr fn subtupleImpl(Tuple&& t, std::index_sequence<I...> /*unused*/) -> decltype(auto) {
+      constexpr auto subtupleImpl(Tuple&& t, std::index_sequence<I...> /*unused*/) -> decltype(auto) {
         return std::forward_as_tuple(get<start + I>(std::forward<Tuple>(t))...);
       }
     } // namespace detail
 
     // [start, end)
     template <std::size_t start, std::size_t end, class Tuple>
-    constexpr fn subtuple(Tuple&& t) -> decltype(auto) {
+    constexpr auto subtuple(Tuple&& t) -> decltype(auto) {
       constexpr size_t tupleSize = std::tuple_size_v<std::remove_reference_t<Tuple>>;
       static_assert(start <= end);
       static_assert(end <= tupleSize);
@@ -413,27 +412,27 @@ namespace matchit {
     }
 
     template <std::size_t start, class Tuple>
-    constexpr fn drop(Tuple&& t) -> decltype(auto) {
+    constexpr auto drop(Tuple&& t) -> decltype(auto) {
       constexpr size_t tupleSize = std::tuple_size_v<std::remove_reference_t<Tuple>>;
       static_assert(start <= tupleSize);
       return subtuple<start, tupleSize>(std::forward<Tuple>(t));
     }
 
     template <std::size_t len, class Tuple>
-    constexpr fn take(Tuple&& t) -> decltype(auto) {
+    constexpr auto take(Tuple&& t) -> decltype(auto) {
       constexpr size_t tupleSize = std::tuple_size_v<std::remove_reference_t<Tuple>>;
       static_assert(len <= tupleSize);
       return subtuple<0, len>(std::forward<Tuple>(t));
     }
 
     template <class F, class Tuple>
-    constexpr fn apply_(F&& f, Tuple&& t) -> decltype(auto) {
+    constexpr auto apply_(F&& f, Tuple&& t) -> decltype(auto) {
       return std::apply(std::forward<F>(f), drop<0>(std::forward<Tuple>(t)));
     }
 
     // as constexpr
     template <class F, class... Args>
-    constexpr fn invoke_(F&& f, Args&&... args) noexcept(std::is_nothrow_invocable_v<F, Args...>) -> std::invoke_result_t<F, Args...> {
+    constexpr auto invoke_(F&& f, Args&&... args) noexcept(std::is_nothrow_invocable_v<F, Args...>) -> std::invoke_result_t<F, Args...> {
       return std::apply(std::forward<F>(f), std::forward_as_tuple(std::forward<Args>(args)...));
     }
 
@@ -508,11 +507,11 @@ namespace matchit {
 
      public:
       template <typename T>
-      constexpr fn emplace_back(T&& t) -> void {
+      constexpr auto emplace_back(T&& t) -> void {
         mMemHolder[mSize] = std::forward<T>(t);
         ++mSize;
       }
-      constexpr fn back() -> ElementT& {
+      constexpr auto back() -> ElementT& {
         return mMemHolder[mSize - 1];
       }
     };
@@ -530,7 +529,7 @@ namespace matchit {
     };
 
     template <typename Value, typename Pattern, typename ConctextT>
-    constexpr fn matchPattern(Value&& value, const Pattern& pattern, int32_t depth, ConctextT& context) {
+    constexpr auto matchPattern(Value&& value, const Pattern& pattern, int32_t depth, ConctextT& context) {
       const auto result  = PatternTraits<Pattern>::matchPatternImpl(std::forward<Value>(value), pattern, depth, context);
       const auto process = result ? IdProcess::kCONFIRM : IdProcess::kCANCEL;
       processId(pattern, depth, process);
@@ -547,11 +546,11 @@ namespace matchit {
         : mPattern { pattern }, mHandler { func } {}
 
       template <typename Value, typename ContextT>
-      constexpr fn matchValue(Value&& value, ContextT& context) const -> bool {
+      constexpr auto matchValue(Value&& value, ContextT& context) const -> bool {
         return matchPattern(std::forward<Value>(value), mPattern, /*depth*/ 0, context);
       }
 
-      constexpr fn execute() const {
+      constexpr auto execute() const {
         return mHandler();
       }
 
@@ -570,7 +569,7 @@ namespace matchit {
     };
 
     template <typename Pred>
-    constexpr fn when(Pred&& pred) {
+    constexpr auto when(Pred&& pred) {
       auto p = toNullary(std::forward<Pred>(pred));
       return When<decltype(p)> { p };
     }
@@ -582,13 +581,13 @@ namespace matchit {
         : mPattern { pattern } {}
 
       template <typename Func>
-      constexpr fn operator=(Func&& func) { // NOLINT(misc-unconventional-assign-operator, cppcoreguidelines-c-copy-assignment-signature)
+      constexpr auto operator=(Func&& func) { // NOLINT(misc-unconventional-assign-operator, cppcoreguidelines-c-copy-assignment-signature)
         auto f = toNullary(std::forward<Func>(func));
         return PatternPair<Pattern, decltype(f)> { mPattern, f };
       }
 
       template <typename Pred>
-      constexpr fn operator|(const When<Pred>& w) {
+      constexpr auto operator|(const When<Pred>& w) {
         return PatternHelper<PostCheck<Pattern, Pred>>(PostCheck(mPattern, w.mPred));
       }
 
@@ -600,7 +599,7 @@ namespace matchit {
     class Ds;
 
     template <typename... Patterns>
-    constexpr fn ds(const Patterns&... patterns) -> Ds<Patterns...>;
+    constexpr auto ds(const Patterns&... patterns) -> Ds<Patterns...>;
 
     template <typename Pattern>
     class OooBinder;
@@ -609,17 +608,17 @@ namespace matchit {
      public:
       template <typename Pattern>
       // ReSharper disable once CppDFAUnreachableFunctionCall
-      constexpr fn operator|(const Pattern& p) const->PatternHelper<Pattern> {
+      constexpr auto operator|(const Pattern& p) const -> PatternHelper<Pattern> {
         return PatternHelper<Pattern> { p };
       }
 
       template <typename T>
-      constexpr fn operator|(const T* p) const->PatternHelper<const T*> {
+      constexpr auto operator|(const T* p) const -> PatternHelper<const T*> {
         return PatternHelper<const T*> { p };
       }
 
       template <typename Pattern>
-      constexpr fn operator|(const OooBinder<Pattern>& p) const->PatternHelper<Pattern> {
+      constexpr auto operator|(const OooBinder<Pattern>& p) const -> PatternHelper<Pattern> {
         return operator|(ds(p));
       }
     };
@@ -635,7 +634,7 @@ namespace matchit {
       constexpr static int nbIdV = 0;
 
       template <typename Value, typename ContextT>
-      constexpr static fn matchPatternImpl(Value&& value, const Pattern& pattern, int32_t /* depth */, ContextT& /*context*/) -> bool {
+      constexpr static auto matchPatternImpl(Value&& value, const Pattern& pattern, int32_t /* depth */, ContextT& /*context*/) -> bool {
         return pattern == std::forward<Value>(value);
       }
       constexpr static void processIdImpl(const Pattern& /*unused*/, int32_t /*depth*/, IdProcess /*unused*/) {}
@@ -656,10 +655,10 @@ namespace matchit {
       constexpr static int nbIdV = 0;
 
       template <typename Value, typename ContextT>
-      constexpr static fn matchPatternImpl(Value&& /*unused*/, const Pattern& /*unused*/, int32_t /*unused*/, ContextT& /*unused*/) -> bool {
+      constexpr static auto matchPatternImpl(Value&& /*unused*/, const Pattern& /*unused*/, int32_t /*unused*/, ContextT& /*unused*/) -> bool {
         return true;
       }
-      constexpr static fn processIdImpl(const Pattern& /*unused*/, int32_t /*depth*/, IdProcess /*unused*/) -> void {}
+      constexpr static auto processIdImpl(const Pattern& /*unused*/, int32_t /*depth*/, IdProcess /*unused*/) -> void {}
     };
 
     template <typename... Patterns>
@@ -667,7 +666,7 @@ namespace matchit {
      public:
       constexpr explicit Or(const Patterns&... patterns)
         : mPatterns { patterns... } {}
-      constexpr fn patterns() const -> const std::tuple<InternalPatternT<Patterns>...>& {
+      constexpr auto patterns() const -> const std::tuple<InternalPatternT<Patterns>...>& {
         return mPatterns;
       }
 
@@ -676,7 +675,7 @@ namespace matchit {
     };
 
     template <typename... Patterns>
-    constexpr fn or_(const Patterns&... patterns) -> Or<Patterns...> {
+    constexpr auto or_(const Patterns&... patterns) -> Or<Patterns...> {
       return Or<Patterns...> { patterns... };
     }
 
@@ -690,7 +689,7 @@ namespace matchit {
       constexpr static int nbIdV = (PatternTraits<Patterns>::nbIdV + ... + 0);
 
       template <typename Value, typename ContextT>
-      constexpr static fn matchPatternImpl(Value&& value, const Or<Patterns...>& orPat, int32_t depth, ContextT& context) -> bool {
+      constexpr static auto matchPatternImpl(Value&& value, const Or<Patterns...>& orPat, int32_t depth, ContextT& context) -> bool {
         constexpr uint64_t patSize = sizeof...(Patterns);
         return std::apply(
                  [&value, depth, &context](const auto&... patterns) {
@@ -715,7 +714,7 @@ namespace matchit {
     };
 
     template <typename Pred>
-    constexpr fn meet(const Pred& pred) -> Meet<Pred> {
+    constexpr auto meet(const Pred& pred) -> Meet<Pred> {
       return Meet<Pred> { pred };
     }
 
@@ -728,11 +727,11 @@ namespace matchit {
       constexpr static int nbIdV = 0;
 
       template <typename Value, typename ContextT>
-      constexpr static fn matchPatternImpl(Value&& value, const Meet<Pred>& meetPat, int32_t /* depth */, ContextT& /*unused*/) -> bool {
+      constexpr static auto matchPatternImpl(Value&& value, const Meet<Pred>& meetPat, int32_t /* depth */, ContextT& /*unused*/) -> bool {
         return meetPat(std::forward<Value>(value));
       }
 
-      constexpr static fn processIdImpl(const Meet<Pred>& /*unused*/, int32_t /*depth*/, IdProcess /*unused*/) -> void {}
+      constexpr static auto processIdImpl(const Meet<Pred>& /*unused*/, int32_t /*depth*/, IdProcess /*unused*/) -> void {}
     };
 
     template <typename Unary, typename Pattern>
@@ -741,10 +740,10 @@ namespace matchit {
       constexpr App(Unary&& unary, const Pattern& pattern)
         : mUnary { std::move(unary) }, mPattern { pattern } {}
 
-      [[nodiscard]] constexpr fn unary() const -> const Unary& {
+      [[nodiscard]] constexpr auto unary() const -> const Unary& {
         return mUnary;
       }
-      [[nodiscard]] constexpr fn pattern() const -> const InternalPatternT<Pattern>& {
+      [[nodiscard]] constexpr auto pattern() const -> const InternalPatternT<Pattern>& {
         return mPattern;
       }
 
@@ -754,7 +753,7 @@ namespace matchit {
     };
 
     template <typename Unary, typename Pattern>
-    constexpr fn app(Unary&& unary, const Pattern& pattern) -> App<Unary, Pattern> {
+    constexpr auto app(Unary&& unary, const Pattern& pattern) -> App<Unary, Pattern> {
       return { std::forward<Unary>(unary), pattern };
     }
 
@@ -783,7 +782,7 @@ namespace matchit {
       constexpr static int nbIdV = PatternTraits<Pattern>::nbIdV;
 
       template <typename Value, typename ContextT>
-      constexpr static fn matchPatternImpl(Value&& value, const App<Unary, Pattern>& appPat, const int32_t depth, ContextT& context) -> bool {
+      constexpr static auto matchPatternImpl(Value&& value, const App<Unary, Pattern>& appPat, const int32_t depth, ContextT& context) -> bool {
         if constexpr (std::is_same_v<AppResultCurTuple<Value>, std::tuple<>>) {
           return matchPattern(
             std::forward<AppResult<Value>>(invoke_(appPat.unary(), std::forward<Value>(value))), appPat.pattern(), depth + 1, context
@@ -795,7 +794,7 @@ namespace matchit {
         }
       }
 
-      constexpr static fn processIdImpl(const App<Unary, Pattern>& appPat, int32_t depth, IdProcess idProcess) -> void {
+      constexpr static auto processIdImpl(const App<Unary, Pattern>& appPat, int32_t depth, IdProcess idProcess) -> void {
         return processId(appPat.pattern(), depth, idProcess);
       }
     };
@@ -806,7 +805,7 @@ namespace matchit {
       constexpr explicit And(const Patterns&... patterns)
         : mPatterns { patterns... } {}
 
-      constexpr fn patterns() const -> const std::tuple<InternalPatternT<Patterns>...>& {
+      constexpr auto patterns() const -> const std::tuple<InternalPatternT<Patterns>...>& {
         return mPatterns;
       }
 
@@ -815,7 +814,7 @@ namespace matchit {
     };
 
     template <typename... Patterns>
-    constexpr fn and_(const Patterns&... patterns) -> And<Patterns...> {
+    constexpr auto and_(const Patterns&... patterns) -> And<Patterns...> {
       return { patterns... };
     }
 
@@ -838,7 +837,7 @@ namespace matchit {
       constexpr static int nbIdV = (PatternTraits<Patterns>::nbIdV + ... + 0);
 
       template <typename Value, typename ContextT>
-      constexpr static fn matchPatternImpl(Value&& value, const And<Patterns...>& andPat, int32_t depth, ContextT& context) -> bool {
+      constexpr static auto matchPatternImpl(Value&& value, const And<Patterns...>& andPat, int32_t depth, ContextT& context) -> bool {
         constexpr uint64_t patSize    = sizeof...(Patterns);
         const auto         exceptLast = std::apply(
           [&value, depth, &context](const auto&... patterns) {
@@ -868,7 +867,7 @@ namespace matchit {
      public:
       explicit Not(const Pattern& pattern)
         : mPattern { pattern } {}
-      [[nodiscard]] constexpr fn pattern() const -> const InternalPatternT<Pattern>& {
+      [[nodiscard]] constexpr auto pattern() const -> const InternalPatternT<Pattern>& {
         return mPattern;
       }
 
@@ -877,7 +876,7 @@ namespace matchit {
     };
 
     template <typename Pattern>
-    constexpr fn not_(const Pattern& pattern) -> Not<Pattern> {
+    constexpr auto not_(const Pattern& pattern) -> Not<Pattern> {
       return { pattern };
     }
 
@@ -890,7 +889,7 @@ namespace matchit {
       constexpr static int nbIdV = PatternTraits<Pattern>::nbIdV;
 
       template <typename Value, typename ContextT>
-      constexpr static fn matchPatternImpl(Value&& value, const Not<Pattern>& notPat, const int32_t depth, ContextT& context) -> bool {
+      constexpr static auto matchPatternImpl(Value&& value, const Not<Pattern>& notPat, const int32_t depth, ContextT& context) -> bool {
         return !matchPattern(std::forward<Value>(value), notPat.pattern(), depth + 1, context);
       }
 
@@ -934,7 +933,7 @@ namespace matchit {
     };
 
     template <typename... Ts>
-    constexpr fn overload(Ts&&... ts) -> Overload<Ts...> {
+    constexpr auto overload(Ts&&... ts) -> Overload<Ts...> {
       return { std::forward<Ts>(ts)... };
     }
 
@@ -946,7 +945,7 @@ namespace matchit {
     template <typename Type>
     class IdTraits {
      public:
-      constexpr static fn equal(const Type& lhs, const Type& rhs) -> bool {
+      constexpr static auto equal(const Type& lhs, const Type& rhs) -> bool {
         return lhs == rhs;
       }
     };
@@ -961,7 +960,7 @@ namespace matchit {
      public:
       constexpr IdBlockBase() = default;
 
-      [[nodiscard]] constexpr fn variant() -> ValueVariant<Type>& {
+      [[nodiscard]] constexpr auto variant() -> ValueVariant<Type>& {
         return mVariant;
       }
 
@@ -985,7 +984,7 @@ namespace matchit {
     template <typename Type>
     class IdBlock : public IdBlockBase<Type> {
      public:
-      [[nodiscard]] constexpr fn hasValue() const -> bool {
+      [[nodiscard]] constexpr auto hasValue() const -> bool {
         return std::visit(
           overload(
             [](const Type&) { return true; },
@@ -996,7 +995,7 @@ namespace matchit {
         );
       }
 
-      [[nodiscard]] constexpr fn get() const -> decltype(auto) {
+      [[nodiscard]] constexpr auto get() const -> decltype(auto) {
         return std::visit(
           overload(
             [](const Type& v) -> Type { return v; },
@@ -1015,14 +1014,14 @@ namespace matchit {
     template <typename Type>
     class IdBlock<Type&> : public IdBlockBase<Type&> {
      public:
-      [[nodiscard]] constexpr fn hasValue() const -> bool {
+      [[nodiscard]] constexpr auto hasValue() const -> bool {
         return std::visit(
           overload([](Type*) { return true; }, [](const std::monostate&) { return false; }),
           IdBlockBase<Type&>::mVariant
         );
       }
 
-      [[nodiscard]] constexpr fn get() -> decltype(auto) {
+      [[nodiscard]] constexpr auto get() -> decltype(auto) {
         return std::visit(
           overload(
             [](Type* v) -> Type& {
@@ -1041,7 +1040,7 @@ namespace matchit {
     template <typename Type>
     class IdBlock<Type&&> : public IdBlockBase<Type&&> {
      public:
-      [[nodiscard]] constexpr fn hasValue() const -> bool {
+      [[nodiscard]] constexpr auto hasValue() const -> bool {
         return std::visit(
           overload(
             [](const Type&) { return true; }, [](Type*) { return true; }, [](const std::monostate&) { return false; }
@@ -1050,7 +1049,7 @@ namespace matchit {
         );
       }
 
-      [[nodiscard]] constexpr fn get() -> decltype(auto) {
+      [[nodiscard]] constexpr auto get() -> decltype(auto) {
         return std::visit(
           overload(
             [](Type& v) -> Type& { return v; },
@@ -1071,13 +1070,13 @@ namespace matchit {
     class IdUtil {
      public:
       template <typename Value>
-      constexpr static fn bindValue(ValueVariant<Type>& v, Value&& value, std::false_type /* StorePointer */) {
+      constexpr static auto bindValue(ValueVariant<Type>& v, Value&& value, std::false_type /* StorePointer */) {
         // for constexpr
         v = ValueVariant<Type> { std::forward<Value>(value) };
       }
 
       template <typename Value>
-      constexpr static fn bindValue(ValueVariant<Type>& v, Value&& value, std::true_type /* StorePointer */) {
+      constexpr static auto bindValue(ValueVariant<Type>& v, Value&& value, std::true_type /* StorePointer */) {
         v = ValueVariant<Type> { &std::forward<Value>(value) };
       }
     };
@@ -1089,7 +1088,7 @@ namespace matchit {
       using BlockVT  = std::variant<BlockT, BlockT*>;
       BlockVT mBlock = BlockT {};
 
-      [[nodiscard]] constexpr fn internalValue() const -> decltype(auto) {
+      [[nodiscard]] constexpr auto internalValue() const -> decltype(auto) {
         return block().get();
       }
 
@@ -1101,16 +1100,16 @@ namespace matchit {
 
       // non-const to inform users not to mark Id as const.
       template <typename Pattern>
-      constexpr fn at(Pattern&& pattern) -> decltype(auto) {
+      constexpr auto at(Pattern&& pattern) -> decltype(auto) {
         return and_(std::forward<Pattern>(pattern), *this);
       }
 
       // non-const to inform users not to mark Id as const.
-      constexpr fn at(const Ooo& /*unused*/) -> OooBinder<Type> {
+      constexpr auto at(const Ooo& /*unused*/) -> OooBinder<Type> {
         return OooBinder<Type> { *this };
       }
 
-      [[nodiscard]] constexpr fn block() const -> BlockT& {
+      [[nodiscard]] constexpr auto block() const -> BlockT& {
         return std::visit(
           overload([](BlockT& v) -> BlockT& { return v; }, [](BlockT* p) -> BlockT& { return *p; }),
           mBlock
@@ -1118,7 +1117,7 @@ namespace matchit {
       }
 
       template <typename Value>
-      constexpr fn matchValue(Value&& v) const -> bool {
+      constexpr auto matchValue(Value&& v) const -> bool {
         if (hasValue())
           return IdTraits<std::decay_t<Type>>::equal(internalValue(), v);
 
@@ -1126,25 +1125,25 @@ namespace matchit {
         return true;
       }
 
-      constexpr fn reset(int32_t depth) const -> void {
+      constexpr auto reset(int32_t depth) const -> void {
         return block().reset(depth);
       }
 
-      constexpr fn confirm(int32_t depth) const -> void {
+      constexpr auto confirm(int32_t depth) const -> void {
         return block().confirm(depth);
       }
 
-      [[nodiscard]] constexpr fn hasValue() const -> bool {
+      [[nodiscard]] constexpr auto hasValue() const -> bool {
         return block().hasValue();
       }
 
       // non-const to inform users not to mark Id as const.
-      [[nodiscard]] constexpr fn get() -> decltype(auto) {
+      [[nodiscard]] constexpr auto get() -> decltype(auto) {
         return block().get();
       }
 
       // non-const to inform users not to mark Id as const.
-      [[nodiscard]] constexpr fn operator*()->decltype(auto) {
+      [[nodiscard]] constexpr auto operator*() -> decltype(auto) {
         return get();
       }
     };
@@ -1158,11 +1157,11 @@ namespace matchit {
       constexpr static bool nbIdV = true;
 
       template <typename Value, typename ContextT>
-      constexpr static fn matchPatternImpl(Value&& value, const Id<Type>& idPat, int32_t /* depth */, ContextT& /*unused*/) -> bool {
+      constexpr static auto matchPatternImpl(Value&& value, const Id<Type>& idPat, int32_t /* depth */, ContextT& /*unused*/) -> bool {
         return idPat.matchValue(std::forward<Value>(value));
       }
 
-      constexpr static fn processIdImpl(const Id<Type>& idPat, int32_t depth, const IdProcess idProcess) -> void {
+      constexpr static auto processIdImpl(const Id<Type>& idPat, int32_t depth, const IdProcess idProcess) -> void {
         switch (idProcess) {
           case IdProcess::kCANCEL:  idPat.reset(depth); break;
           case IdProcess::kCONFIRM: idPat.confirm(depth); break;
@@ -1176,7 +1175,7 @@ namespace matchit {
       constexpr explicit Ds(const Patterns&... patterns)
         : mPatterns { patterns... } {}
 
-      [[nodiscard]] constexpr fn patterns() const -> const auto& {
+      [[nodiscard]] constexpr auto patterns() const -> const auto& {
         return mPatterns;
       }
 
@@ -1187,7 +1186,7 @@ namespace matchit {
     };
 
     template <typename... Patterns>
-    constexpr fn ds(const Patterns&... patterns) -> Ds<Patterns...> {
+    constexpr auto ds(const Patterns&... patterns) -> Ds<Patterns...> {
       return Ds<Patterns...> { patterns... };
     }
 
@@ -1199,7 +1198,7 @@ namespace matchit {
       explicit OooBinder(const Id<T>& id)
         : mId { id } {}
 
-      [[nodiscard]] constexpr fn binder() const -> decltype(auto) {
+      [[nodiscard]] constexpr auto binder() const -> decltype(auto) {
         return mId;
       }
     };
@@ -1207,7 +1206,7 @@ namespace matchit {
     class Ooo {
      public:
       template <typename T>
-      constexpr fn operator()(Id<T> id) const->OooBinder<T> {
+      constexpr auto operator()(Id<T> id) const -> OooBinder<T> {
         return OooBinder<T> { id };
       }
     };
@@ -1223,11 +1222,11 @@ namespace matchit {
       constexpr static bool nbIdV = false;
 
       template <typename Value, typename ContextT>
-      constexpr static fn matchPatternImpl(Value&& /*unused*/, Ooo /*unused*/, int32_t /*depth*/, ContextT& /*unused*/) -> bool {
+      constexpr static auto matchPatternImpl(Value&& /*unused*/, Ooo /*unused*/, int32_t /*depth*/, ContextT& /*unused*/) -> bool {
         return true;
       }
 
-      constexpr static fn processIdImpl(Ooo /*unused*/, int32_t /*depth*/, IdProcess /*unused*/) -> void {}
+      constexpr static auto processIdImpl(Ooo /*unused*/, int32_t /*depth*/, IdProcess /*unused*/) -> void {}
     };
 
     template <typename Pattern>
@@ -1239,11 +1238,11 @@ namespace matchit {
       constexpr static bool nbIdV = PatternTraits<Pattern>::nbIdV;
 
       template <typename Value, typename ContextT>
-      constexpr static fn matchPatternImpl(Value&& value, const OooBinder<Pattern>& oooBinderPat, const int32_t depth, ContextT& context) {
+      constexpr static auto matchPatternImpl(Value&& value, const OooBinder<Pattern>& oooBinderPat, const int32_t depth, ContextT& context) {
         return matchPattern(std::forward<Value>(value), oooBinderPat.binder(), depth + 1, context);
       }
 
-      constexpr static fn processIdImpl(const OooBinder<Pattern>& oooBinderPat, int32_t depth, IdProcess idProcess) -> void {
+      constexpr static auto processIdImpl(const OooBinder<Pattern>& oooBinderPat, int32_t depth, IdProcess idProcess) -> void {
         processId(oooBinderPat.binder(), depth, idProcess);
       }
     };
@@ -1272,12 +1271,12 @@ namespace matchit {
     static_assert(nbOooOrBinderV<int32_t&, const Ooo&, const char*, Wildcard, const Ooo> == 2);
 
     template <typename Tuple, std::size_t... I>
-    constexpr fn findOooIdxImpl(std::index_sequence<I...> /*unused*/) -> std::size_t {
+    constexpr auto findOooIdxImpl(std::index_sequence<I...> /*unused*/) -> std::size_t {
       return ((isOooOrBinderV<decltype(get<I>(std::declval<Tuple>()))> ? I : 0) + ...);
     }
 
     template <typename Tuple>
-    constexpr fn findOooIdx() -> std::size_t {
+    constexpr auto findOooIdx() -> std::size_t {
       return findOooIdxImpl<Tuple>(std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<Tuple>>> {});
     }
 
@@ -1289,8 +1288,8 @@ namespace matchit {
     using std::get;
 
     template <std::size_t valueStartIdx, std::size_t patternStartIdx, std::size_t... I, typename ValueTuple, typename PatternTuple, typename ContextT>
-    constexpr fn matchPatternMultipleImpl(ValueTuple&& valueTuple, PatternTuple&& patternTuple, const int32_t depth, ContextT& context, std::index_sequence<I...> /*unused*/) -> decltype(auto) {
-      const fn func = [&]<typename T>(T&& value, auto&& pattern) { return matchPattern(std::forward<T>(value), pattern, depth + 1, context); };
+    constexpr auto matchPatternMultipleImpl(ValueTuple&& valueTuple, PatternTuple&& patternTuple, const int32_t depth, ContextT& context, std::index_sequence<I...> /*unused*/) -> decltype(auto) {
+      const auto func = [&]<typename T>(T&& value, auto&& pattern) { return matchPattern(std::forward<T>(value), pattern, depth + 1, context); };
 
       static_cast<void>(func);
 
@@ -1298,15 +1297,15 @@ namespace matchit {
     }
 
     template <std::size_t valueStartIdx, std::size_t patternStartIdx, std::size_t size, typename ValueTuple, typename PatternTuple, typename ContextT>
-    constexpr fn matchPatternMultiple(ValueTuple&& valueTuple, PatternTuple&& patternTuple, int32_t depth, ContextT& context) -> decltype(auto) {
+    constexpr auto matchPatternMultiple(ValueTuple&& valueTuple, PatternTuple&& patternTuple, int32_t depth, ContextT& context) -> decltype(auto) {
       return matchPatternMultipleImpl<valueStartIdx, patternStartIdx>(
         std::forward<ValueTuple>(valueTuple), std::forward<PatternTuple>(patternTuple), depth, context, std::make_index_sequence<size> {}
       );
     }
 
     template <std::size_t patternStartIdx, std::size_t... I, typename RangeBegin, typename PatternTuple, typename ContextT>
-    constexpr fn matchPatternRangeImpl(RangeBegin&& rangeBegin, PatternTuple&& patternTuple, const int32_t depth, ContextT& context, std::index_sequence<I...> /*unused*/) -> decltype(auto) {
-      const fn func = [&]<typename T>(T&& value, auto&& pattern) { return matchPattern(std::forward<T>(value), pattern, depth + 1, context); };
+    constexpr auto matchPatternRangeImpl(RangeBegin&& rangeBegin, PatternTuple&& patternTuple, const int32_t depth, ContextT& context, std::index_sequence<I...> /*unused*/) -> decltype(auto) {
+      const auto func = [&]<typename T>(T&& value, auto&& pattern) { return matchPattern(std::forward<T>(value), pattern, depth + 1, context); };
 
       static_cast<void>(func);
 
@@ -1320,7 +1319,7 @@ namespace matchit {
     }
 
     template <std::size_t patternStartIdx, std::size_t size, typename ValueRangeBegin, typename PatternTuple, typename ContextT>
-    constexpr fn matchPatternRange(
+    constexpr auto matchPatternRange(
       ValueRangeBegin&& valueRangeBegin,
       PatternTuple&&    patternTuple,
       int32_t           depth,
@@ -1477,7 +1476,7 @@ namespace matchit {
       constexpr static size_t nbIdV = (PatternTraits<Patterns>::nbIdV + ... + 0);
 
       template <typename ValueTuple, typename ContextT>
-      constexpr static fn matchPatternImpl(ValueTuple&& valueTuple, const Ds<Patterns...>& dsPat, int32_t depth, ContextT& context)
+      constexpr static auto matchPatternImpl(ValueTuple&& valueTuple, const Ds<Patterns...>& dsPat, int32_t depth, ContextT& context)
         -> bool
         requires(isTupleLikeV<ValueTuple>)
       {
@@ -1521,7 +1520,7 @@ namespace matchit {
       }
 
       template <typename ValueRange, typename ContextT>
-      constexpr static fn matchPatternImpl(ValueRange&& valueRange, const Ds<Patterns...>& dsPat, int32_t depth, ContextT& context)
+      constexpr static auto matchPatternImpl(ValueRange&& valueRange, const Ds<Patterns...>& dsPat, int32_t depth, ContextT& context)
         -> bool
         requires(!isTupleLikeV<ValueRange> && isRangeV<ValueRange>)
       {
@@ -1562,7 +1561,7 @@ namespace matchit {
         return false;
       }
 
-      constexpr static fn processIdImpl(const Ds<Patterns...>& dsPat, int32_t depth, IdProcess idProcess) -> void {
+      constexpr static auto processIdImpl(const Ds<Patterns...>& dsPat, int32_t depth, IdProcess idProcess) -> void {
         return std::apply(
           [depth, idProcess](auto&&... patterns) { return (processId(patterns, depth, idProcess), ...); },
           dsPat.patterns()
@@ -1579,11 +1578,11 @@ namespace matchit {
      public:
       constexpr explicit PostCheck(const Pattern& pattern, const Pred& pred)
         : mPattern { pattern }, mPred { pred } {}
-      [[nodiscard]] constexpr fn check() const -> bool {
+      [[nodiscard]] constexpr auto check() const -> bool {
         return mPred();
       }
 
-      constexpr fn pattern() const -> const Pattern& {
+      constexpr auto pattern() const -> const Pattern& {
         return mPattern;
       }
 
@@ -1599,7 +1598,7 @@ namespace matchit {
       using AppResultTuple = typename PatternTraits<Pattern>::template AppResultTuple<Value>;
 
       template <typename Value, typename ContextT>
-      constexpr static fn matchPatternImpl(
+      constexpr static auto matchPatternImpl(
         Value&&                         value,
         const PostCheck<Pattern, Pred>& postCheck,
         const int32_t                   depth,
@@ -1608,14 +1607,14 @@ namespace matchit {
         return matchPattern(std::forward<Value>(value), postCheck.pattern(), depth + 1, context) && postCheck.check();
       }
 
-      constexpr static fn processIdImpl(const PostCheck<Pattern, Pred>& postCheck, int32_t depth, IdProcess idProcess) -> void {
+      constexpr static auto processIdImpl(const PostCheck<Pattern, Pred>& postCheck, int32_t depth, IdProcess idProcess) -> void {
         processId(postCheck.pattern(), depth, idProcess);
       }
     };
 
     static_assert(std::is_same_v<PatternTraits<Wildcard>::AppResultTuple<int32_t>, std::tuple<>>);
     static_assert(std::is_same_v<PatternTraits<int32_t>::AppResultTuple<int32_t>, std::tuple<>>);
-    constexpr fn x = [](auto&& t) { return t; };
+    constexpr auto x = [](auto&& t) { return t; };
     static_assert(std::is_same_v<PatternTraits<App<decltype(x), Wildcard>>::AppResultTuple<std::array<int32_t, 3>>, std::tuple<std::array<int32_t, 3>>>);
 
     static_assert(PatternTraits<And<App<decltype(x), Wildcard>>>::nbIdV == 0);
@@ -1625,7 +1624,7 @@ namespace matchit {
     static_assert(PatternTraits<Or<Wildcard, float>>::nbIdV == 0);
 
     template <typename Value, typename... PatternPairs>
-    constexpr fn matchPatterns(Value&& value, const PatternPairs&... patterns) {
+    constexpr auto matchPatterns(Value&& value, const PatternPairs&... patterns) {
       using RetType   = typename PatternPairsRetType<PatternPairs...>::RetType;
       using TypeTuple = decltype(std::tuple_cat(
         std::declval<typename PatternTraits<typename PatternPairs::PatternT>::template AppResultTuple<Value>>()...
@@ -1633,7 +1632,7 @@ namespace matchit {
 
       // expression, has return value.
       if constexpr (!std::is_same_v<RetType, void>) {
-        constexpr fn func = [](const auto& pattern, auto&& val, RetType& result) constexpr -> bool {
+        constexpr auto func = [](const auto& pattern, auto&& val, RetType& result) constexpr -> bool {
           if (auto context = typename ContextTrait<TypeTuple>::ContextT {};
               pattern.matchValue(std::forward<Value>(val), context)) {
             result = pattern.execute();
@@ -1653,7 +1652,7 @@ namespace matchit {
         static_cast<void>(matched);
         return result;
       } else {
-        const fn func = [](const auto& pattern, auto&& val) -> bool {
+        const auto func = [](const auto& pattern, auto&& val) -> bool {
           if (auto context = typename ContextTrait<TypeTuple>::ContextT {};
               pattern.matchValue(std::forward<Value>(val), context)) {
             pattern.execute();
@@ -1668,12 +1667,12 @@ namespace matchit {
     }
 
     template <typename T>
-    constexpr fn cast = [](auto&& input) { return static_cast<T>(input); };
+    constexpr auto cast = [](auto&& input) { return static_cast<T>(input); };
 
-    constexpr fn deref = [](auto&& x) -> decltype(*x)& { return *x; };
-    constexpr fn some  = [](const auto pat) { return and_(app(cast<bool>, true), app(deref, pat)); };
+    constexpr auto deref = [](auto&& x) -> decltype(*x)& { return *x; };
+    constexpr auto some  = [](const auto pat) { return and_(app(cast<bool>, true), app(deref, pat)); };
 
-    constexpr fn none = app(cast<bool>, false);
+    constexpr auto none = app(cast<bool>, false);
 
     template <typename Value, typename Variant, typename = std::void_t<>>
     struct ViaGetIf : std::false_type {};
@@ -1694,7 +1693,7 @@ namespace matchit {
 
      public:
       template <typename Variant>
-      constexpr fn operator()(Variant&& v) const
+      constexpr auto operator()(Variant&& v) const
         requires(viaGetIfV<T, std::decay_t<Variant>>)
       {
         return get_if<T>(std::addressof(std::forward<Variant>(v)));
@@ -1702,7 +1701,7 @@ namespace matchit {
 
       // template to disable implicit cast to std::any
       template <typename A>
-      constexpr fn operator()(A&& a) const
+      constexpr auto operator()(A&& a) const
         requires(std::is_same_v<std::decay_t<A>, std::any>)
       {
         return std::any_cast<T>(std::addressof(std::forward<A>(a)));
@@ -1710,7 +1709,7 @@ namespace matchit {
 
       // cast to base class
       template <typename D>
-      constexpr fn operator()(const D& d) const->decltype(static_cast<const T*>(std::addressof(d)))
+      constexpr auto operator()(const D& d) const -> decltype(static_cast<const T*>(std::addressof(d)))
         requires(!viaGetIfV<T, D> && std::is_base_of_v<T, D>)
       {
         return static_cast<const T*>(std::addressof(d));
@@ -1719,7 +1718,7 @@ namespace matchit {
       // No way to handle rvalue to save copy in this class. Need to define some in another way to handle this.
       // cast to base class
       template <typename D>
-      constexpr fn operator()(D& d) const->decltype(static_cast<T*>(std::addressof(d)))
+      constexpr auto operator()(D& d) const -> decltype(static_cast<T*>(std::addressof(d)))
         requires(!viaGetIfV<T, D> && std::is_base_of_v<T, D>)
       {
         return static_cast<T*>(std::addressof(d));
@@ -1727,7 +1726,7 @@ namespace matchit {
 
       // cast to derived class
       template <typename B>
-      constexpr fn operator()(const B& b) const->decltype(dynamic_cast<const T*>(std::addressof(b)))
+      constexpr auto operator()(const B& b) const -> decltype(dynamic_cast<const T*>(std::addressof(b)))
         requires(!viaGetIfV<T, B> && std::is_base_of_v<B, T>)
       {
         return dynamic_cast<const T*>(std::addressof(b));
@@ -1735,17 +1734,17 @@ namespace matchit {
 
       // cast to derived class
       template <typename B>
-      constexpr fn operator()(B& b) const->decltype(dynamic_cast<T*>(std::addressof(b)))
+      constexpr auto operator()(B& b) const -> decltype(dynamic_cast<T*>(std::addressof(b)))
         requires(!viaGetIfV<T, B> && std::is_base_of_v<B, T>)
       {
         return dynamic_cast<T*>(std::addressof(b));
       }
 
-      constexpr fn operator()(const T& b) const {
+      constexpr auto operator()(const T& b) const {
         return std::addressof(b);
       }
 
-      constexpr fn operator()(T& b) const {
+      constexpr auto operator()(T& b) const {
         return std::addressof(b);
       }
     };
@@ -1757,23 +1756,23 @@ namespace matchit {
     constexpr AsPointer<T> asPointer;
 
     template <typename T>
-    constexpr fn as = [](const auto pat) { return app(asPointer<T>, some(pat)); };
+    constexpr auto as = [](const auto pat) { return app(asPointer<T>, some(pat)); };
 
     template <typename Value, typename Pattern>
-    constexpr fn matched(Value&& v, Pattern&& p) {
+    constexpr auto matched(Value&& v, Pattern&& p) {
       return match(std::forward<Value>(v))(
         is | std::forward<Pattern>(p) = [] { return true; }, is | _ = [] { return false; }
       );
     }
 
-    constexpr fn dsVia = [](auto... members) {
+    constexpr auto dsVia = [](auto... members) {
       return [members...](auto... pats) { return and_(app(members, pats)...); };
     };
 
     template <typename T>
-    constexpr fn asDsVia = [](auto... members) { return [members...](auto... pats) { return as<T>(and_(app(members, pats)...)); }; };
+    constexpr auto asDsVia = [](auto... members) { return [members...](auto... pats) { return as<T>(and_(app(members, pats)...)); }; };
 
-    constexpr fn in = [](const auto& first, const auto& last) {
+    constexpr auto in = [](const auto& first, const auto& last) {
       return meet([=](auto&& v) { return first <= v && v <= last; });
     };
   } // namespace impl

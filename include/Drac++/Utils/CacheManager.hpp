@@ -23,6 +23,7 @@ namespace draconis::utils::cache {
     using types::u64;
     using types::u8;
     using types::UniquePointer;
+    using types::Unit;
     using types::UnorderedMap;
 
     using std::chrono::days;
@@ -57,7 +58,7 @@ namespace draconis::utils::cache {
    public:
     CacheManager() : m_globalPolicy { .location = CacheLocation::Persistent, .ttl = days(1) } {}
 
-    fn setGlobalPolicy(const CachePolicy& policy) -> void {
+    fn setGlobalPolicy(const CachePolicy& policy) -> Unit {
       m_globalPolicy = policy;
     }
 

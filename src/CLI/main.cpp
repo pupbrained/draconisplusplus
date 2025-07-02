@@ -42,7 +42,7 @@ namespace {
     const Result<Report>& weather,
 #endif
     const SystemInfo& data
-  ) -> void {
+  ) -> Unit {
     Vec<Pair<String, DracError>> failures;
 
     constexpr u8 totalPossibleReadouts = 10
@@ -210,7 +210,7 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
     if (data.primaryDisplay) {
       debug_log("Display ID: {}", data.primaryDisplay->id);
       debug_log("Display resolution: {}x{}", data.primaryDisplay->resolution.width, data.primaryDisplay->resolution.height);
-      debug_log("Display refresh rate: {}Hz", data.primaryDisplay->refreshRate);
+      debug_log("Display refresh rate: {:.2f}Hz", data.primaryDisplay->refreshRate);
       debug_log("Display is primary: {}", data.primaryDisplay->isPrimary);
     } else
       debug_at(data.primaryDisplay.error());

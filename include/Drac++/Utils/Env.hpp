@@ -17,6 +17,7 @@ namespace draconis::utils::env {
     using types::PCStr;
     using types::Result;
     using types::UniquePointer;
+    using types::Unit;
     using types::usize;
 
     using error::DracError;
@@ -61,7 +62,7 @@ namespace draconis::utils::env {
    * @param name The name of the environment variable to set.
    * @param value The value to set the environment variable to.
    */
-  inline fn SetEnv(const PCStr name, const PCStr value) -> void {
+  inline fn SetEnv(const PCStr name, const PCStr value) -> Unit {
 #ifdef _WIN32
     _putenv_s(name, value);
 #else
@@ -73,7 +74,7 @@ namespace draconis::utils::env {
    * @brief Safely unsets an environment variable.
    * @param name The name of the environment variable to unset.
    */
-  inline fn UnsetEnv(const PCStr name) -> void {
+  inline fn UnsetEnv(const PCStr name) -> Unit {
 #ifdef _WIN32
     _putenv_s(name, "");
 #else
@@ -109,7 +110,7 @@ namespace draconis::utils::env {
    * @param name The name of the environment variable to set.
    * @param value The value to set the environment variable to.
    */
-  inline fn SetEnvW(const PWCStr name, const PWCStr value) -> void {
+  inline fn SetEnvW(const PWCStr name, const PWCStr value) -> Unit {
     _wputenv_s(name, value);
   }
 
@@ -117,7 +118,7 @@ namespace draconis::utils::env {
    * @brief Safely unsets an environment variable with a wstring name.
    * @param name The name of the environment variable to unset.
    */
-  inline fn UnsetEnvW(const PWCStr name) -> void {
+  inline fn UnsetEnvW(const PWCStr name) -> Unit {
     _wputenv_s(name, L"");
   }
 #endif
