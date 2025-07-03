@@ -92,9 +92,9 @@ class CacheManagerTest : public Test {
   }
 };
 
+// Default constructor should not throw
 TEST_F(CacheManagerTest, DefaultConstructor) {
   CacheManager cache;
-  // Default constructor should not throw
 }
 
 // Basic memory cache tests

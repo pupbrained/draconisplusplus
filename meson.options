@@ -18,17 +18,32 @@ option('use_linked_pci_ids', type: 'boolean', value: false)
 # Option: use_pugixml
 # Description: Use pugixml to parse XBPS package metadata on Void Linux.
 # Note: This is required for package count functionality on Void Linux.
-option('use_pugixml', type: 'boolean', value: false)
+option(
+  'use_pugixml',
+  type: 'feature',
+  value: 'auto',
+  description: 'Use pugixml to parse XBPS package metadata on Void Linux',
+)
 
 # Option: use_xcb
 # Description: Use libxcb to get the X11 window manager.
 # Note: This is required for getting the X11 window manager on Linux and BSD systems.
-option('use_xcb', type: 'boolean', value: true)
+option(
+  'use_xcb',
+  type: 'feature',
+  value: 'enabled',
+  description: 'Use libxcb to get the X11 window manager',
+)
 
 # Option: use_wayland
 # Description: Use libwayland to get the Wayland compositor.
 # Note: This is required for getting the Wayland compositor on Linux and BSD systems.
-option('use_wayland', type: 'boolean', value: true)
+option(
+  'use_wayland',
+  type: 'feature',
+  value: 'enabled',
+  description: 'Use libwayland to get the Wayland compositor',
+)
 
 # Option: precompiled_config
 # Description: Use a C++ header file for precompiled application configuration.
@@ -42,19 +57,39 @@ option('precompiled_config', type: 'boolean', value: false)
 
 # Option: enable_nowplaying
 # Description: Enable nowplaying functionality.
-option('enable_nowplaying', type: 'boolean', value: true)
+option(
+  'enable_nowplaying',
+  type: 'feature',
+  value: 'enabled',
+  description: 'Enable nowplaying functionality',
+)
 
 # Option: enable_caching
 # Description: Enable caching functionality.
-option('enable_caching', type: 'boolean', value: true)
+option(
+  'enable_caching',
+  type: 'feature',
+  value: 'enabled',
+  description: 'Enable caching functionality',
+)
 
 # Option: enable_weather
 # Description: Enable fetching weather data.
-option('enable_weather', type: 'boolean', value: true)
+option(
+  'enable_weather',
+  type: 'feature',
+  value: 'enabled',
+  description: 'Enable fetching weather data',
+)
 
 # Option: enable_packagecount
 # Description: Enable getting package count.
-option('enable_packagecount', type: 'boolean', value: true)
+option(
+  'enable_packagecount',
+  type: 'feature',
+  value: 'enabled',
+  description: 'Enable getting package count',
+)
 
 # Option: build_examples
 # Description: Build example programs.

@@ -11,7 +11,7 @@ using namespace testing;
 using namespace draconis::services::packages;
 using namespace draconis::utils;
 
-using error::DracErrorCode;
+using enum error::DracErrorCode;
 using types::i32;
 using types::Result;
 using types::String;
@@ -89,18 +89,18 @@ TEST_F(PackageCountingIntegrationTest, GetCountFromDirectory_WithSubtractOne) {
 TEST_F(PackageCountingIntegrationTest, GetCountFromDirectory_NonexistentDirectory) {
   const auto result = GetCountFromDirectory(mCacheManager, "test_nonexistent", mTestDir / "nonexistent");
   EXPECT_FALSE(result);
-  EXPECT_EQ(result.error().code, DracErrorCode::NotFound);
+  EXPECT_EQ(result.error().code, NotFound);
 }
 
 TEST_F(PackageCountingIntegrationTest, GetTotalCount_NoManagers) {
   const auto result = GetTotalCount(mCacheManager, static_cast<Manager>(0));
   EXPECT_FALSE(result);
-  EXPECT_EQ(result.error().code, DracErrorCode::NotFound);
+  EXPECT_EQ(result.error().code, UnavailableFeature);
 }
 
 TEST_F(PackageCountingIntegrationTest, GetTotalCount_CargoOnly) {
   if (Result<u64> result = GetTotalCount(mCacheManager, Manager::CARGO); !result)
-    EXPECT_TRUE(result.error().code == DracErrorCode::NotFound || result.error().code == DracErrorCode::ApiUnavailable);
+    EXPECT_TRUE(result.error().code == NotFound || result.error().code == ApiUnavailable);
 }
 
 #if defined(__linux__) || defined(__APPLE__)
@@ -110,9 +110,8 @@ TEST_F(PackageCountingIntegrationTest, GetTotalCount_NixOnly) {
 
   // Assert
   // Note: This test might pass or fail depending on whether Nix is installed
-  if (!result) {
-    EXPECT_TRUE(result.error().code == DracErrorCode::NotFound || result.error().code == DracErrorCode::ApiUnavailable);
-  }
+  if (!result)
+    EXPECT_TRUE(result.error().code == NotFound || result.error().code == ApiUnavailable);
 }
 #endif
 
@@ -123,9 +122,8 @@ TEST_F(PackageCountingIntegrationTest, GetTotalCount_LinuxManagers) {
 
   // Assert
   // Note: This test might pass or fail depending on which package managers are installed
-  if (!result) {
-    EXPECT_TRUE(result.error().code == DracErrorCode::NotFound || result.error().code == DracErrorCode::ApiUnavailable);
-  }
+  if (!result)
+    EXPECT_TRUE(result.error().code == NotFound || result.error().code == ApiUnavailable);
 }
 #endif
 
@@ -136,16 +134,15 @@ TEST_F(PackageCountingIntegrationTest, GetTotalCount_MacManagers) {
 
   // Assert
   // Note: This test might pass or fail depending on which package managers are installed
-  if (!result) {
-    EXPECT_TRUE(result.error().code == DracErrorCode::NotFound || result.error().code == DracErrorCode::ApiUnavailable);
-  }
+  if (!result)
+    EXPECT_TRUE(result.error().code == NotFound || result.error().code == ApiUnavailable);
 }
 #endif
 
 #if defined(_WIN32)
 TEST_F(PackageCountingIntegrationTest, GetTotalCount_WindowsManagers) {
   if (Result<u64> result = GetTotalCount(mCacheManager, Manager::CARGO | Manager::WINGET | Manager::CHOCOLATEY); !result)
-    EXPECT_TRUE(result.error().code == DracErrorCode::NotFound || result.error().code == DracErrorCode::ApiUnavailable);
+    EXPECT_TRUE(result.error().code == NotFound || result.error().code == ApiUnavailable);
 }
 #endif
 

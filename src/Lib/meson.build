@@ -1,41 +1,52 @@
 # ------- #
 #  Files  #
 # ------- #
-lib_base_sources = []
 
-if get_option('enable_packagecount') == true
-  lib_base_sources += files('Services/Packages.cpp')
-endif
-
-if get_option('enable_weather') == true
-  lib_base_sources += files(
+# Structured source organization
+lib_sources = {
+  'base': files(),
+  'packages': files('Services/Packages.cpp'),
+  'weather': files(
     'Services/Weather/MetNoService.cpp',
     'Services/Weather/OpenMeteoService.cpp',
     'Services/Weather/OpenWeatherMapService.cpp',
     'Services/Weather/WeatherFactory.cpp',
     'Services/Weather/WeatherUtils.cpp',
-  )
+  ),
+}
+
+# Platform-specific sources
+platform_sources = {
+  'darwin': files('OS/macOS.cpp', 'OS/macOS/Bridge.mm'),
+  'dragonfly': files('OS/BSD.cpp'),
+  'freebsd': files('OS/BSD.cpp'),
+  'haiku': files('OS/Haiku.cpp'),
+  'linux': files('OS/Linux.cpp'),
+  'netbsd': files('OS/BSD.cpp'),
+  'serenity': files('OS/Serenity.cpp'),
+  'windows': files('OS/Windows.cpp'),
+}
+
+# Build final source list
+lib_all_sources = lib_sources['base']
+
+if get_option('enable_packagecount').enabled()
+  lib_all_sources += lib_sources['packages']
 endif
 
+if get_option('enable_weather').enabled()
+  lib_all_sources += lib_sources['weather']
+endif
+
+# Add platform sources
+lib_all_sources += platform_sources.get(host_system, files())
+
+# Link arguments
 link_args = []
 
 if get_option('use_linked_pci_ids') == true
   link_args += meson.project_source_root() / 'pci_ids.o'
 endif
-
-platform_sources = {
-  'darwin': ['OS/macOS.cpp', 'OS/macOS/Bridge.mm'],
-  'dragonfly': ['OS/BSD.cpp'],
-  'freebsd': ['OS/BSD.cpp'],
-  'haiku': ['OS/Haiku.cpp'],
-  'linux': ['OS/Linux.cpp'],
-  'netbsd': ['OS/BSD.cpp'],
-  'serenity': ['OS/Serenity.cpp'],
-  'windows': ['OS/Windows.cpp'],
-}
-
-lib_platform_sources = files(platform_sources.get(host_system, []))
-lib_all_sources = lib_base_sources + lib_platform_sources
 
 # ----------------- #
 #  Static Library   #
@@ -47,4 +58,8 @@ libdraconis = static_library(
   install: false,
 )
 
-draconis_dep = declare_dependency(link_with: libdraconis, dependencies: [includes_dep], link_args: link_args)
+draconis_dep = declare_dependency(
+  link_with: libdraconis,
+  dependencies: [includes_dep],
+  link_args: link_args,
+)

@@ -50,7 +50,21 @@ elif (host_system == 'linux' or host_system == 'darwin') and run_command(
   project_flag_defines += {'DRAC_NIX_BUILD': true}
 endif
 
-feature_defines = {
+# Feature detection
+feature_states = {}
+
+# Define which options are features vs booleans
+feature_options = [
+  'enable_nowplaying',
+  'enable_caching',
+  'enable_weather',
+  'enable_packagecount',
+  'use_xcb',
+  'use_wayland',
+  'use_pugixml',
+]
+
+foreach option, define : {
   'precompiled_config': 'DRAC_PRECOMPILED_CONFIG',
   'enable_nowplaying': 'DRAC_ENABLE_NOWPLAYING',
   'enable_caching': 'DRAC_ENABLE_CACHING',
@@ -61,11 +75,19 @@ feature_defines = {
   'use_wayland': 'DRAC_USE_WAYLAND',
   'use_pugixml': 'DRAC_USE_PUGIXML',
 }
+  opt_val = get_option(option)
 
-foreach option, define : feature_defines
-  if get_option(option) == true
+  # Check if this is a feature option
+  if option in feature_options
+    enabled = opt_val.enabled()
+  else
+    enabled = opt_val
+  endif
+
+  if enabled
     project_flag_defines += {define: true}
   endif
+  feature_states += {option: enabled}
 endforeach
 
 cpp_args = []
@@ -90,29 +112,30 @@ else
   cpp_args += '-std=c++26'
 endif
 
-common_flags = [
-  '-fno-strict-enums',
-  '-fvisibility=hidden',
-  '-fvisibility-inlines-hidden',
-  '-march=native',
-]
+# Check compiler arguments in groups
+cpp_args += cpp.get_supported_arguments(
+  [
+    # Common flags
+    '-fno-strict-enums',
+    '-fvisibility=hidden',
+    '-fvisibility-inlines-hidden',
+    '-march=native',
 
-warning_flags = [
-  '-Wno-c++17-extensions',
-  '-Wno-c++20-compat',
-  '-Wno-c++20-extensions',
-  '-Wno-c++98-compat-pedantic',
-  '-Wno-c++98-compat',
-  '-Wno-disabled-macro-expansion',
-  '-Wno-gnu-conditional-omitted-operand',
-  '-Wno-missing-prototypes',
-  '-Wno-padded',
-  '-Wno-pre-c++20-compat-pedantic',
-  '-Wno-unused-command-line-argument',
-  '-Wunused-function',
-]
-
-cpp_args += cpp.get_supported_arguments(common_flags, warning_flags)
+    # Warning flags
+    '-Wno-c++17-extensions',
+    '-Wno-c++20-compat',
+    '-Wno-c++20-extensions',
+    '-Wno-c++98-compat-pedantic',
+    '-Wno-c++98-compat',
+    '-Wno-disabled-macro-expansion',
+    '-Wno-gnu-conditional-omitted-operand',
+    '-Wno-missing-prototypes',
+    '-Wno-padded',
+    '-Wno-pre-c++20-compat-pedantic',
+    '-Wno-unused-command-line-argument',
+    '-Wunused-function',
+  ],
+)
 
 add_project_arguments(cpp_args, language: 'cpp')
 
@@ -142,7 +165,7 @@ lib_deps += dependency(
   static: true,
 )
 
-# Feature: Precompiled Config
+# Precompiled configuration
 if get_option('precompiled_config') == true
   config_hpp_path = meson.project_source_root() / 'config.hpp'
 
@@ -155,11 +178,11 @@ else
   lib_deps += dependency('tomlplusplus', include_type: 'system', static: true)
 endif
 
-if get_option('enable_weather') == true
+if feature_states['enable_weather']
   lib_deps += dependency('libcurl', include_type: 'system', static: true)
 endif
 
-if get_option('enable_packagecount') == true and host_system in ['darwin', 'linux']
+if feature_states['enable_packagecount'] and host_system in ['darwin', 'linux']
   lib_deps += dependency('SQLiteCpp')
 endif
 
@@ -186,7 +209,7 @@ elif host_system == 'windows'
     dependency('dxguid', native: true, required: true),
   ]
 elif host_system not in ['serenity', 'haiku']
-  lib_deps += dependency('dbus-1', required: get_option('enable_nowplaying'))
+  lib_deps += dependency('dbus-1', required: feature_states['enable_nowplaying'])
 
   lib_deps += dependency('xau', required: get_option('use_xcb'))
   lib_deps += dependency('xcb', required: get_option('use_xcb'))
@@ -231,3 +254,48 @@ endif
 if get_option('build_tests')
   subdir('src/Lib/Tests')
 endif
+
+# =========================== #
+#   Configuration Summaries   #
+# =========================== #
+summary(
+  {
+    'Weather support': feature_states['enable_weather'],
+    'Package counting': feature_states['enable_packagecount'],
+    'Now Playing': feature_states['enable_nowplaying'],
+    'Caching': feature_states['enable_caching'],
+    'Precompiled config': get_option('precompiled_config'),
+  },
+  section: 'Features',
+  bool_yn: true,
+)
+
+summary(
+  {
+    'XCB (X11)': feature_states.get('use_xcb', false),
+    'Wayland': feature_states.get('use_wayland', false),
+    'pugixml': feature_states.get('use_pugixml', false),
+    'Linked PCI IDs': feature_states.get('use_linked_pci_ids', false),
+  },
+  section: 'Platform Support',
+  bool_yn: true,
+)
+
+summary(
+  {
+    'Build examples': get_option('build_examples'),
+    'Build tests': get_option('build_tests'),
+  },
+  section: 'Build Options',
+  bool_yn: true,
+)
+
+summary(
+  {
+    'C++ Compiler': cpp.get_id(),
+    'Host system': host_system,
+    'Build type': get_option('buildtype'),
+    'Install prefix': get_option('prefix'),
+  },
+  section: 'System',
+)
