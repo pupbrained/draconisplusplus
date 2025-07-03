@@ -26,7 +26,6 @@
   #include <Drac++/Services/Packages.hpp>
 #endif
 
-#include <Drac++/Utils/Definitions.hpp>
 #include <Drac++/Utils/Types.hpp>
 
 namespace draconis::config {

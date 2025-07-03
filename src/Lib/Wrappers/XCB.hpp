@@ -1,11 +1,10 @@
 #pragma once
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__)
+#if DRAC_USE_XCB
 
   #include <xcb/randr.h> // XCB RandR extension
   #include <xcb/xcb.h>   // XCB library
 
-  #include <Drac++/Utils/Definitions.hpp>
   #include <Drac++/Utils/Types.hpp>
 
 namespace XCB {
@@ -519,4 +518,4 @@ namespace XCB {
   };
 } // namespace XCB
 
-#endif // __linux__ || __FreeBSD__ || __DragonFly__ || __NetBSD__
+#endif // DRAC_USE_XCB

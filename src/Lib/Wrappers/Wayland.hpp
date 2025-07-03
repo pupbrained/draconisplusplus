@@ -1,10 +1,9 @@
 #pragma once
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__)
+#if DRAC_USE_WAYLAND
 
   #include <wayland-client.h> // Wayland client library
 
-  #include <Drac++/Utils/Definitions.hpp>
   #include <Drac++/Utils/Logging.hpp>
   #include <Drac++/Utils/Types.hpp>
 
@@ -282,4 +281,4 @@ namespace Wayland {
   };
 } // namespace Wayland
 
-#endif // __linux__ || __FreeBSD__ || __DragonFly__ || __NetBSD__
+#endif // DRAC_USE_WAYLAND

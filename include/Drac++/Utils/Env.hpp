@@ -6,7 +6,6 @@
 
 #include <cstdlib>
 
-#include "Definitions.hpp"
 #include "Error.hpp"
 #include "Types.hpp"
 

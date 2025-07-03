@@ -1,6 +1,5 @@
 #include "Config.hpp"
 
-#include <Drac++/Utils/Definitions.hpp>
 #include <Drac++/Utils/Logging.hpp>
 
 #if !DRAC_PRECOMPILED_CONFIG

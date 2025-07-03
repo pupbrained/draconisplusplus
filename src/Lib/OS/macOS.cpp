@@ -25,7 +25,6 @@
   #include <Drac++/Services/Packages.hpp>
 
   #include <Drac++/Utils/CacheManager.hpp>
-  #include <Drac++/Utils/Definitions.hpp>
   #include <Drac++/Utils/Env.hpp>
   #include <Drac++/Utils/Error.hpp>
   #include <Drac++/Utils/Logging.hpp>

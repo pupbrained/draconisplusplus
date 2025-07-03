@@ -2,7 +2,6 @@
 
 #include <Drac++/Core/System.hpp>
 
-#include <Drac++/Utils/Definitions.hpp>
 #include <Drac++/Utils/Error.hpp>
 #include <Drac++/Utils/Logging.hpp>
 #include <Drac++/Utils/Types.hpp>

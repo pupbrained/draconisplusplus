@@ -10,7 +10,6 @@
     #define _DEFAULT_SOURCE // exposes timegm
   #endif
 
-  #include "Drac++/Utils/Definitions.hpp"
   #include "Drac++/Utils/Error.hpp"
   #include "Drac++/Utils/Types.hpp"
 

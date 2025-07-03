@@ -707,7 +707,7 @@ namespace draconis::core::system {
      * 1. Using __cpuid on x86/x86_64 platforms (much more direct and efficient).
      * 2. Reading from the registry on all platforms (slower, but more reliable).
      */
-  #if DRAC_ARCH_X86_64 || DRAC_ARCH_I686
+  #if DRAC_ARCH_X86_64 || DRAC_ARCH_X86
       {
         /*
          * The CPUID instruction is used to get the CPU model name on x86/x86_64 platforms.
@@ -752,7 +752,7 @@ namespace draconis::core::system {
             return result;
         }
       }
-  #endif // DRAC_ARCH_X86_64 || DRAC_ARCH_I686
+  #endif // DRAC_ARCH_X86_64 || DRAC_ARCH_X86
 
       {
         /*

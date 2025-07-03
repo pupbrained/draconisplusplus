@@ -1,6 +1,6 @@
 #pragma once
 
-#if defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__)
+#if (defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__)) && DRAC_ENABLE_NOWPLAYING
 
   #include <cstring>
   #include <dbus/dbus.h> // DBus Library
@@ -8,7 +8,6 @@
   #include <type_traits> // std::is_convertible_v
   #include <utility>     // std::exchange, std::forward
 
-  #include <Drac++/Utils/Definitions.hpp>
   #include <Drac++/Utils/Error.hpp>
   #include <Drac++/Utils/Types.hpp>
 
@@ -533,4 +532,4 @@ namespace DBus {
   };
 } // namespace DBus
 
-#endif // __linux__ || __FreeBSD__ || __DragonFly__ || __NetBSD__
+#endif // (__linux__ || __FreeBSD__ || __DragonFly__ || __NetBSD__) && DRAC_ENABLE_NOWPLAYING

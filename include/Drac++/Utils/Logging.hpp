@@ -17,7 +17,6 @@
   #include <source_location> // std::source_location
 #endif
 
-#include "Definitions.hpp"
 #include "Error.hpp"
 #include "Types.hpp"
 

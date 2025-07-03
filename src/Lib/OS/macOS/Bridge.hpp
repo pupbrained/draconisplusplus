@@ -12,7 +12,6 @@
 #ifdef __APPLE__
 
   #include <Drac++/Utils/DataTypes.hpp>
-  #include <Drac++/Utils/Definitions.hpp>
   #include <Drac++/Utils/Error.hpp>
   #include <Drac++/Utils/Types.hpp>
 

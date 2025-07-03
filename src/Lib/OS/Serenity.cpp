@@ -19,7 +19,6 @@
 #include <unordered_set>          // std::unordered_set
 
 #include "Services/PackageCounting.hpp"
-#include "Util/Definitions.hpp"
 #include "Util/Error.hpp"
 #include "Util/Env.hpp"
 #include "Util/Logging.hpp"

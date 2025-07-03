@@ -2,7 +2,6 @@
 #include <ftxui/dom/elements.hpp>  // ftxui::{Element, hbox, vbox, text, separator, filler, etc.}
 #include <ftxui/dom/node.hpp>      // ftxui::{Render}
 #include <ftxui/screen/screen.hpp> // ftxui::{Screen, Dimension::Full}
-#include <matchit.hpp>             // matchit::{match, is, _}
 
 #include <Drac++/Core/System.hpp>
 #include <Drac++/Services/Packages.hpp>
@@ -13,7 +12,6 @@
 
 #include <Drac++/Utils/ArgumentParser.hpp>
 #include <Drac++/Utils/CacheManager.hpp>
-#include <Drac++/Utils/Definitions.hpp>
 #include <Drac++/Utils/Error.hpp>
 #include <Drac++/Utils/Logging.hpp>
 #include <Drac++/Utils/Types.hpp>
@@ -28,7 +26,6 @@ using namespace draconis::core::system;
 using namespace draconis::config;
 using namespace draconis::ui;
 
-using draconis::utils::cache::CacheManager;
 using draconis::utils::error::DracError;
 using enum draconis::utils::error::DracErrorCode;
 
@@ -103,10 +100,10 @@ namespace {
 
     for (const auto& [readout, err] : failures) {
       const String failureLine = std::format(
-        "Readout \"{}\" failed: {} (code: {})\n",
+        "Readout \"{}\" failed: {} ({})\n",
         readout,
         err.message,
-        err.code
+        magic_enum::enum_name(err.code)
       );
 
       Print(failureLine);
@@ -143,24 +140,24 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
       .help("Set the minimum log level. Defaults to info.")
       .defaultValue(LogLevel::Info);
 
-    if (Result result = parser.parseArgs(std::span(argv, static_cast<usize>(argc))); !result) {
+    if (Result result = parser.parseArgs(Span(argv, static_cast<usize>(argc))); !result) {
       error_at(result.error());
       return EXIT_FAILURE;
     }
 
     doctorMode = parser.get<bool>("-d") || parser.get<bool>("--doctor");
 
-    {
-      const bool verbose = parser.get<bool>("-V") || parser.get<bool>("--verbose");
-
-      LogLevel minLevel = verbose ? LogLevel::Debug : parser.getEnum<LogLevel>("--log-level");
-
-      SetRuntimeLogLevel(minLevel);
-    }
+    SetRuntimeLogLevel(
+      parser.get<bool>("-V") || parser.get<bool>("--verbose")
+        ? LogLevel::Debug
+        : parser.getEnum<LogLevel>("--log-level")
+    );
   }
 
+  using draconis::utils::cache::CacheManager, draconis::utils::cache::CachePolicy;
+
   CacheManager cache;
-  cache.setGlobalPolicy({ .location = draconis::utils::cache::CacheLocation::Persistent, .ttl = std::chrono::hours(12) });
+  cache.setGlobalPolicy(CachePolicy::tempDirectory());
 
   if (Result<CPUCores> cpuCores = GetCPUCores(cache))
     debug_log("CPU cores: {} physical, {} logical", cpuCores->physical, cpuCores->logical);
@@ -177,18 +174,7 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
     debug_at(networkInterface.error());
 
   if (Result<Battery> battery = GetBatteryInfo()) {
-    using matchit::match, matchit::is, matchit::_;
-
-    debug_log(
-      "Battery status: {}",
-      match(battery->status)(
-        is | Battery::Status::Charging    = "Charging",
-        is | Battery::Status::Discharging = "Discharging",
-        is | Battery::Status::Full        = "Full",
-        is | Battery::Status::Unknown     = "Unknown",
-        is | Battery::Status::NotPresent  = "Not Present"
-      )
-    );
+    debug_log("Battery status: {}", magic_enum::enum_name(battery->status));
 
     debug_log("Battery percentage: {}%", battery->percentage.value_or(0));
 
@@ -202,7 +188,6 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
   {
     using namespace ftxui;
     using namespace ftxui::Dimension;
-    using matchit::match, matchit::is, matchit::_;
 
     const Config& config = Config::getInstance();
     SystemInfo    data(cache, config);
@@ -219,11 +204,11 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
     Result<Report> weatherReport;
 
     if (config.weather.enabled && config.weather.service == nullptr)
-      weatherReport = Err(DracError(Other, "Weather service is not configured"));
+      weatherReport = Err({ Other, "Weather service is not configured" });
     else if (config.weather.enabled)
       weatherReport = config.weather.service->getWeatherInfo();
     else
-      weatherReport = Err(DracError(ApiUnavailable, "Weather is disabled"));
+      weatherReport = Err({ ApiUnavailable, "Weather is disabled" });
 #endif
 
     if (doctorMode) {

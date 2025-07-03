@@ -3,7 +3,6 @@
 #include <curl/curl.h>
 #include <utility> // std::{exchange, move}
 
-#include <Drac++/Utils/Definitions.hpp>
 #include <Drac++/Utils/Error.hpp>
 #include <Drac++/Utils/Types.hpp>
 

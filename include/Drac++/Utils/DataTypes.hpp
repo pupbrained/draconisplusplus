@@ -58,7 +58,7 @@ namespace draconis::utils::types {
   };
 
   enum class CPUArch : u8 {
-    I686,    ///< x86 32-bit architecture.
+    X86,    ///< x86 32-bit architecture.
     X86_64,  ///< x86_64 64-bit architecture.
     ARM,     ///< 32-bit ARM architecture.
     AARCH64, ///< 64-bit ARM architecture (ARMv8-A).

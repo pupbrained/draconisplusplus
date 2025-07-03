@@ -5,7 +5,6 @@
   #include <filesystem> // std::filesystem::path
 
   #include "../Utils/CacheManager.hpp"
-  #include "../Utils/Definitions.hpp"
   #include "../Utils/Error.hpp"
   #include "../Utils/Types.hpp"
 

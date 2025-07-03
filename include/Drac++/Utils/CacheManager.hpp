@@ -5,9 +5,7 @@
 #include <glaze/glaze.hpp>
 
 #include "DataTypes.hpp"
-#include "Definitions.hpp"
 #include "Env.hpp"
-#include "Error.hpp"
 
 namespace draconis::utils::cache {
   namespace {
@@ -51,6 +49,10 @@ namespace draconis::utils::cache {
 
     static auto neverExpire() -> CachePolicy {
       return { .location = CacheLocation::Persistent, .ttl = None };
+    }
+
+    static auto tempDirectory() -> CachePolicy {
+      return { .location = CacheLocation::TempDirectory, .ttl = None };
     }
   };
 

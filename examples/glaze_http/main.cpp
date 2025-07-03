@@ -1,10 +1,11 @@
-#include <asio/error.hpp> // asio::error::operation_aborted
-#include <chrono>         // std::chrono::{minutes, steady_clock, time_point}
-#include <csignal>        // SIGINT, SIGTERM, SIG_ERR, std::signal
-#include <cstdlib>        // EXIT_FAILURE, EXIT_SUCCESS
-#include <filesystem>     // std::filesystem::{path, weakly_canonical}
-#include <fstream>        // std::ifstream
-#include <thread>         // std::jthread
+#include <asio/error.hpp>            // asio::error::operation_aborted
+#include <chrono>                    // std::chrono::{minutes, steady_clock, time_point}
+#include <csignal>                   // SIGINT, SIGTERM, SIG_ERR, std::signal
+#include <cstdlib>                   // EXIT_FAILURE, EXIT_SUCCESS
+#include <filesystem>                // std::filesystem::{path, weakly_canonical}
+#include <fstream>                   // std::ifstream
+#include <magic_enum/magic_enum.hpp> // magic_enum::enum_name
+#include <thread>                    // std::jthread
 
 #ifdef DELETE
   #undef DELETE
@@ -22,7 +23,6 @@
 #include <Drac++/Services/Weather.hpp>
 
 #include <Drac++/Utils/CacheManager.hpp>
-#include <Drac++/Utils/Definitions.hpp>
 #include <Drac++/Utils/Error.hpp>
 #include <Drac++/Utils/Logging.hpp>
 #include <Drac++/Utils/Types.hpp>
@@ -97,7 +97,7 @@ struct SystemProperty {
     : name(std::move(name)), value(std::move(value)) {}
 
   SystemProperty(String name, const DracError& err)
-    : name(std::move(name)), error(std::format("{} ({})", err.message, err.code)), hasError(true) {}
+    : name(std::move(name)), error(std::format("{} ({})", err.message, magic_enum::enum_name(err.code))), hasError(true) {}
 };
 
 struct SystemInfo {

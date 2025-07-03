@@ -34,7 +34,6 @@
 
   #include "Drac++/Utils/CacheManager.hpp"
   #include "Drac++/Utils/DataTypes.hpp"
-  #include "Drac++/Utils/Definitions.hpp"
   #include "Drac++/Utils/Env.hpp"
   #include "Drac++/Utils/Error.hpp"
   #include "Drac++/Utils/Logging.hpp"
@@ -99,7 +98,7 @@ namespace {
   fn ReadSysFile(const std::filesystem::path& path) -> Result<String> {
     std::ifstream file(path);
     if (!file.is_open())
-      return Err(DracError(NotFound, std::format("Failed to open sysfs file: {}", path.string())));
+      ERR_FMT(NotFound, "Failed to open sysfs file: {}", path.string());
 
     String line;
 
@@ -110,10 +109,10 @@ namespace {
       return line;
     }
 
-    return Err(DracError(ParseError, std::format("Failed to read from sysfs file: {}", path.string())));
+    ERR_FMT(IoError, "Failed to read from sysfs file: {}", path.string());
   }
 
-  #ifdef USE_LINKED_PCI_IDS
+  #ifdef DRAC_USE_LINKED_PCI_IDS
   extern "C" {
     extern const char _binary_pci_ids_start[];
     extern const char _binary_pci_ids_end[];
@@ -125,14 +124,14 @@ namespace {
     return LookupPciNamesFromStream(pciStream, vendor_id_in, device_id_in);
   }
   #else
-  fn FindPciIDsPath() -> const fs::path& {
-    const Array<fs::path, 3> known_paths = {
+  fn FindPciIDsPath() -> fs::path {
+    const Array<fs::path, 3> knownPaths = {
       "/usr/share/hwdata/pci.ids",
       "/usr/share/misc/pci.ids",
       "/usr/share/pci.ids"
     };
 
-    for (const auto& path : known_paths)
+    for (const auto& path : knownPaths)
       if (fs::exists(path)) {
         return path;
         break;
@@ -142,12 +141,12 @@ namespace {
   }
 
   fn LookupPciNamesFromFile(const StringView VendorIDIn, const StringView DeviceIDIn) -> Pair<String, String> {
-    const fs::path& pci_ids_path = FindPciIDsPath();
+    const fs::path& pciIdsPath = FindPciIDsPath();
 
-    if (pci_ids_path.empty())
+    if (pciIdsPath.empty())
       return { "", "" };
 
-    std::ifstream file(pci_ids_path);
+    std::ifstream file(pciIdsPath);
 
     if (!file)
       return { "", "" };
@@ -157,7 +156,7 @@ namespace {
   #endif
 
   fn LookupPciNames(const StringView vendorId, const StringView deviceId) -> Pair<String, String> {
-  #ifdef USE_LINKED_PCI_IDS
+  #ifdef DRAC_USE_LINKED_PCI_IDS
     return LookupPciNamesFromMemory(vendorId, deviceId);
   #else
     return LookupPciNamesFromFile(vendorId, deviceId);
@@ -187,7 +186,7 @@ namespace {
     return std::format("{} {}", vendor, device);
   }
 
-  #ifdef HAVE_XCB
+  #ifdef DRAC_USE_XCB
   fn GetX11WindowManager() -> Result<String> {
     using namespace XCB;
     using namespace matchit;
@@ -197,19 +196,17 @@ namespace {
 
     if (!conn)
       if (const i32 err = ConnectionHasError(conn.get()))
-        return Err(
-          DracError(
-            ApiUnavailable,
-            match(err)(
-              is | Generic         = "Stream/Socket/Pipe Error",
-              is | ExtNotSupported = "Extension Not Supported",
-              is | MemInsufficient = "Insufficient Memory",
-              is | ReqLenExceed    = "Request Length Exceeded",
-              is | ParseErr        = "Display String Parse Error",
-              is | InvalidScreen   = "Invalid Screen",
-              is | FdPassingFailed = "FD Passing Failed",
-              is | _               = std::format("Unknown Error Code ({})", err)
-            )
+        ERR(
+          ApiUnavailable,
+          match(err)(
+            is | Generic         = "Stream/Socket/Pipe Error",
+            is | ExtNotSupported = "Extension Not Supported",
+            is | MemInsufficient = "Insufficient Memory",
+            is | ReqLenExceed    = "Request Length Exceeded",
+            is | ParseErr        = "Display String Parse Error",
+            is | InvalidScreen   = "Invalid Screen",
+            is | FdPassingFailed = "FD Passing Failed",
+            is | _               = std::format("Unknown Error Code ({})", err)
           )
         );
 
@@ -217,7 +214,7 @@ namespace {
       const ReplyGuard<IntAtomReply> reply(InternAtomReply(conn.get(), InternAtom(conn.get(), 0, static_cast<u16>(name.size()), name.data()), nullptr));
 
       if (!reply)
-        return Err(DracError(PlatformSpecific, std::format("Failed to get X11 atom reply for '{}'", name)));
+        ERR_FMT(PlatformSpecific, "Failed to get X11 atom reply for '{}'", name);
 
       return reply->atom;
     };
@@ -236,7 +233,7 @@ namespace {
       if (!utf8StringAtom)
         error_log("Failed to get UTF8_STRING atom");
 
-      return Err(DracError(PlatformSpecific, "Failed to get X11 atoms"));
+      ERR(PlatformSpecific, "Failed to get X11 atoms");
     }
 
     const ReplyGuard<GetPropReply> wmWindowReply(GetPropertyReply(
@@ -247,7 +244,7 @@ namespace {
 
     if (!wmWindowReply || wmWindowReply->type != ATOM_WINDOW || wmWindowReply->format != 32 ||
         GetPropertyValueLength(wmWindowReply.get()) == 0)
-      return Err(DracError(NotFound, "Failed to get _NET_SUPPORTING_WM_CHECK property"));
+      ERR(NotFound, "Failed to get _NET_SUPPORTING_WM_CHECK property");
 
     const Window wmRootWindow = *static_cast<Window*>(GetPropertyValue(wmWindowReply.get()));
 
@@ -266,7 +263,7 @@ namespace {
     ));
 
     if (!wmNameReply || wmNameReply->type != *utf8StringAtom || GetPropertyValueLength(wmNameReply.get()) == 0)
-      return Err(DracError(NotFound, "Failed to get _NET_WM_NAME property"));
+      ERR(NotFound, "Failed to get _NET_WM_NAME property");
 
     const char* nameData = static_cast<const char*>(GetPropertyValue(wmNameReply.get()));
     const usize length   = GetPropertyValueLength(wmNameReply.get());
@@ -279,22 +276,22 @@ namespace {
 
     DisplayGuard conn;
     if (!conn)
-      return Err(DracError(ApiUnavailable, "Failed to connect to X server"));
+      ERR(ApiUnavailable, "Failed to connect to X server");
 
     const auto* setup = conn.setup();
     if (!setup)
-      return Err(DracError(ApiUnavailable, "Failed to get X server setup"));
+      ERR(ApiUnavailable, "Failed to get X server setup");
 
     const ReplyGuard<QueryExtensionReply> randrQueryReply(
       GetQueryExtensionReply(conn.get(), QueryExtension(conn.get(), std::strlen("RANDR"), "RANDR"), nullptr)
     );
 
     if (!randrQueryReply || !randrQueryReply->present)
-      return Err(DracError(NotSupported, "X server does not support RANDR extension"));
+      ERR(NotSupported, "X server does not support RANDR extension");
 
     Screen* screen = conn.rootScreen();
     if (!screen)
-      return Err(DracError(NotFound, "Failed to get X root screen"));
+      ERR(NotFound, "Failed to get X root screen");
 
     const ReplyGuard<RandrGetScreenResourcesCurrentReply> screenResourcesReply(
       GetScreenResourcesCurrentReply(
@@ -303,13 +300,13 @@ namespace {
     );
 
     if (!screenResourcesReply)
-      return Err(DracError(ApiUnavailable, "Failed to get screen resources"));
+      ERR(ApiUnavailable, "Failed to get screen resources");
 
     RandrOutput* outputs     = GetScreenResourcesCurrentOutputs(screenResourcesReply.get());
     const int    outputCount = GetScreenResourcesCurrentOutputsLength(screenResourcesReply.get());
 
     if (outputCount == 0)
-      return Err(DracError(NotFound, "No outputs found"));
+      return {};
 
     Vec<Output> displays;
     int         primaryIndex = -1;
@@ -378,11 +375,11 @@ namespace {
 
     DisplayGuard conn;
     if (!conn)
-      return Err(DracError(ApiUnavailable, "Failed to connect to X server"));
+      ERR(ApiUnavailable, "Failed to connect to X server");
 
     Screen* screen = conn.rootScreen();
     if (!screen)
-      return Err(DracError(ApiUnavailable, "Failed to get X root screen"));
+      ERR(NotFound, "Failed to get X root screen");
 
     const ReplyGuard<RandrGetOutputPrimaryReply> primaryOutputReply(
       GetOutputPrimaryReply(conn.get(), GetOutputPrimary(conn.get(), screen->root), nullptr)
@@ -391,19 +388,21 @@ namespace {
     const RandrOutput primaryOutput = primaryOutputReply ? primaryOutputReply->output : NONE;
 
     if (primaryOutput == NONE)
-      return Err(DracError(NotFound, "No primary output found"));
+      ERR(NotFound, "No primary output found");
 
     const ReplyGuard<RandrGetOutputInfoReply> outputInfoReply(
       GetOutputInfoReply(conn.get(), GetOutputInfo(conn.get(), primaryOutput, CURRENT_TIME), nullptr)
     );
+
     if (!outputInfoReply || outputInfoReply->crtc == NONE)
-      return Err(DracError(NotFound, "Failed to get output info for primary display"));
+      ERR(NotFound, "Failed to get output info for primary display");
 
     const ReplyGuard<RandrGetCrtcInfoReply> crtcInfoReply(
       GetCrtcInfoReply(conn.get(), GetCrtcInfo(conn.get(), outputInfoReply->crtc, CURRENT_TIME), nullptr)
     );
+
     if (!crtcInfoReply)
-      return Err(DracError(NotFound, "Failed to get CRTC info for primary display"));
+      ERR(NotFound, "Failed to get CRTC info for primary display");
 
     f64 refreshRate = 0;
     if (crtcInfoReply->mode != NONE) {
@@ -436,15 +435,15 @@ namespace {
   }
   #else
   fn GetX11WindowManager() -> Result<String> {
-    return Err(DracError(NotSupported, "XCB (X11) support not available"));
+    ERR(NotSupported, "XCB (X11) support not available");
   }
 
   fn GetX11Displays() -> Result<Vec<Display>> {
-    return Err(DracError(NotSupported, "XCB (X11) display support not available"));
+    ERR(NotSupported, "XCB (X11) display support not available");
   }
   #endif
 
-  #ifdef HAVE_WAYLAND
+  #ifdef DRAC_USE_WAYLAND
   struct WaylandCallbackData {
     struct Inner {
       usize id;
@@ -569,12 +568,12 @@ namespace {
   fn GetWaylandDisplays() -> Result<Vec<Output>> {
     const Wayland::DisplayGuard display;
     if (!display)
-      return Err(DracError(ApiUnavailable, "Failed to connect to Wayland display"));
+      ERR(ApiUnavailable, "Failed to connect to Wayland display");
 
     Wayland::Registry* registry = display.registry();
 
     if (!registry)
-      return Err(DracError(ApiUnavailable, "Failed to get Wayland registry"));
+      ERR(ApiUnavailable, "Failed to get Wayland registry");
 
     WaylandCallbackData callbackData;
 
@@ -584,7 +583,7 @@ namespace {
     };
 
     if (Wayland::AddRegistryListener(registry, &REGISTRY_LISTENER, &callbackData) < 0)
-      return Err(DracError(ApiUnavailable, "Failed to add registry listener"));
+      ERR(ApiUnavailable, "Failed to add registry listener");
 
     display.roundtrip();
     display.roundtrip();
@@ -601,7 +600,7 @@ namespace {
         );
 
     if (displays.empty())
-      return Err(DracError(NotFound, "No Wayland displays detected"));
+      return {};
 
     return displays;
   }
@@ -610,11 +609,11 @@ namespace {
     const Wayland::DisplayGuard display;
 
     if (!display)
-      return Err(DracError(ApiUnavailable, "Failed to connect to Wayland display"));
+      ERR(ApiUnavailable, "Failed to connect to Wayland display");
 
     Wayland::Registry* registry = display.registry();
     if (!registry)
-      return Err(DracError(ApiUnavailable, "Failed to get Wayland registry"));
+      ERR(ApiUnavailable, "Failed to get Wayland registry");
 
     WaylandPrimaryDisplayData              data {};
     const static Wayland::RegistryListener LISTENER = { .global = wayland_primary_registry, .global_remove = wayland_primary_registry_remover };
@@ -632,31 +631,31 @@ namespace {
     if (data.done)
       return data.display;
 
-    return Err(DracError(NotFound, "No primary Wayland display found"));
+    ERR(NotFound, "No primary Wayland display found");
   }
 
   fn GetWaylandCompositor() -> Result<String> {
     const Wayland::DisplayGuard display;
 
     if (!display)
-      return Err(DracError(NotFound, "Failed to connect to display (is Wayland running?)"));
+      ERR(ApiUnavailable, "Failed to connect to display (is Wayland running?)");
 
     const i32 fileDescriptor = display.fd();
     if (fileDescriptor < 0)
-      return Err(DracError(ApiUnavailable, "Failed to get Wayland file descriptor"));
+      ERR(ApiUnavailable, "Failed to get Wayland file descriptor");
 
     ucred     cred {};
     socklen_t len = sizeof(cred);
 
     if (getsockopt(fileDescriptor, SOL_SOCKET, SO_PEERCRED, &cred, &len) == -1)
-      return Err(DracError("Failed to get socket credentials (SO_PEERCRED)"));
+      ERR(ApiUnavailable, "Failed to get socket credentials (SO_PEERCRED)");
 
     Array<char, 128> exeLinkPathBuf {};
 
     auto [out, size] = std::format_to_n(exeLinkPathBuf.data(), exeLinkPathBuf.size() - 1, "/proc/{}/exe", cred.pid);
 
     if (out >= exeLinkPathBuf.data() + exeLinkPathBuf.size() - 1)
-      return Err(DracError(InternalError, "Failed to format /proc path (PID too large?)"));
+      ERR(InternalError, "Failed to format /proc path (PID too large?)");
 
     *out = '\0';
 
@@ -667,7 +666,7 @@ namespace {
     const isize bytesRead = readlink(exeLinkPath, exeRealPathBuf.data(), exeRealPathBuf.size() - 1);
 
     if (bytesRead == -1)
-      return Err(DracError(std::format("Failed to read link '{}'", exeLinkPath)));
+      ERR_FMT(IoError, "Failed to read link '{}'", exeLinkPath);
 
     exeRealPathBuf.at(bytesRead) = '\0';
 
@@ -690,7 +689,7 @@ namespace {
       compositorNameView = filenameView;
 
     if (compositorNameView.empty() || compositorNameView == "." || compositorNameView == "/")
-      return Err(DracError(NotFound, "Failed to get compositor name from path"));
+      ERR(ParseError, "Failed to get compositor name from path");
 
     if (constexpr StringView wrappedSuffix = "-wrapped"; compositorNameView.length() > 1 + wrappedSuffix.length() &&
         compositorNameView[0] == '.' && compositorNameView.ends_with(wrappedSuffix)) {
@@ -698,7 +697,7 @@ namespace {
         compositorNameView.substr(1, compositorNameView.length() - 1 - wrappedSuffix.length());
 
       if (cleanedView.empty())
-        return Err(DracError(NotFound, "Compositor name invalid after heuristic"));
+        ERR(ParseError, "Compositor name invalid after heuristic");
 
       return String(cleanedView);
     }
@@ -707,15 +706,15 @@ namespace {
   }
   #else
   fn GetWaylandDisplays() -> Result<Vec<Display>> {
-    return Err(DracError(NotSupported, "Wayland display support not available"));
+    ERR(NotSupported, "Wayland display support not available");
   }
 
   fn GetWaylandPrimaryDisplay() -> Result<Display> {
-    return Err(DracError(NotSupported, "Wayland display support not available"));
+    ERR(NotSupported, "Wayland display support not available");
   }
 
   fn GetWaylandCompositor() -> Result<String> {
-    return Err(DracError(NotSupported, "Wayland support not available"));
+    ERR(NotSupported, "Wayland support not available");
   }
   #endif
 } // namespace
@@ -728,8 +727,8 @@ namespace draconis::core::system {
     return cache.getOrSet<String>("linux_os_version", []() -> Result<String> {
       std::ifstream file("/etc/os-release");
 
-      if (!file)
-        return Err(DracError(NotFound, std::format("Failed to open /etc/os-release")));
+      if (!file.is_open())
+        ERR(NotFound, "Failed to open /etc/os-release");
 
       String               line;
       constexpr StringView prefix = "PRETTY_NAME=";
@@ -743,13 +742,13 @@ namespace draconis::core::system {
             value = value.substr(1, value.length() - 2);
 
           if (value.empty())
-            return Err(DracError(ParseError, std::format("PRETTY_NAME value is empty or only quotes in /etc/os-release")));
+            ERR(ParseError, "PRETTY_NAME value is empty or only quotes in /etc/os-release");
 
           return String(value);
         }
       }
 
-      return Err(DracError(NotFound, "PRETTY_NAME line not found in /etc/os-release"));
+      ERR(NotFound, "PRETTY_NAME line not found in /etc/os-release");
     });
   }
 
@@ -757,10 +756,10 @@ namespace draconis::core::system {
     struct sysinfo info;
 
     if (sysinfo(&info) != 0)
-      return Err(DracError("sysinfo call failed"));
+      ERR(ApiUnavailable, "sysinfo call failed");
 
     if (info.mem_unit == 0)
-      return Err(DracError(InternalError, "sysinfo.mem_unit is 0, cannot calculate memory"));
+      ERR(PlatformSpecific, "sysinfo.mem_unit is 0, cannot calculate memory");
 
     return ResourceUsage {
       .usedBytes  = (info.totalram - info.freeram - info.bufferram) * info.mem_unit,
@@ -769,12 +768,12 @@ namespace draconis::core::system {
   }
 
   fn GetNowPlaying() -> Result<MediaInfo> {
-  #ifdef HAVE_DBUS
+  #ifdef DRAC_ENABLE_NOWPLAYING
     using namespace DBus;
 
     Result<Connection> connectionResult = Connection::busGet(DBUS_BUS_SESSION);
     if (!connectionResult)
-      return Err(connectionResult.error());
+      ERR_FMT(ApiUnavailable, "Failed to get DBus session connection: {}", connectionResult.error().message);
 
     const Connection& connection = *connectionResult;
 
@@ -784,21 +783,19 @@ namespace draconis::core::system {
       Result<Message> listNamesResult =
         Message::newMethodCall("org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus", "ListNames");
       if (!listNamesResult)
-        return Err(listNamesResult.error());
+        ERR_FMT(ApiUnavailable, "Failed to get DBus ListNames message: {}", listNamesResult.error().message);
 
       Result<Message> listNamesReplyResult = connection.sendWithReplyAndBlock(*listNamesResult, 100);
       if (!listNamesReplyResult)
-        return Err(listNamesReplyResult.error());
+        ERR_FMT(ApiUnavailable, "Failed to send DBus ListNames message: {}", listNamesReplyResult.error().message);
 
       MessageIter iter = listNamesReplyResult->iterInit();
       if (!iter.isValid() || iter.getArgType() != DBUS_TYPE_ARRAY)
-        return Err(DracError(DracErrorCode::ParseError, "Invalid DBus ListNames reply format: Expected array"));
+        ERR(ParseError, "Invalid DBus ListNames reply format: Expected array");
 
       MessageIter subIter = iter.recurse();
       if (!subIter.isValid())
-        return Err(
-          DracError(DracErrorCode::ParseError, "Invalid DBus ListNames reply format: Could not recurse into array")
-        );
+        ERR(ParseError, "Invalid DBus ListNames reply format: Could not recurse into array");
 
       while (subIter.getArgType() != DBUS_TYPE_INVALID) {
         if (Option<String> name = subIter.getString())
@@ -812,45 +809,45 @@ namespace draconis::core::system {
     }
 
     if (!activePlayer)
-      return Err(DracError(DracErrorCode::NotFound, "No active MPRIS players found"));
+      ERR(NotFound, "No active MPRIS players found");
 
     Result<Message> msgResult = Message::newMethodCall(
       activePlayer->c_str(), "/org/mpris/MediaPlayer2", "org.freedesktop.DBus.Properties", "Get"
     );
 
     if (!msgResult)
-      return Err(msgResult.error());
+      ERR_FMT(ApiUnavailable, "Failed to create DBus Properties.Get message: {}", msgResult.error().message);
 
     Message& msg = *msgResult;
 
     if (!msg.appendArgs("org.mpris.MediaPlayer2.Player", "Metadata"))
-      return Err(DracError(DracErrorCode::InternalError, "Failed to append arguments to Properties.Get message"));
+      ERR(InternalError, "Failed to append arguments to Properties.Get message");
 
     Result<Message> replyResult = connection.sendWithReplyAndBlock(msg, 100);
 
     if (!replyResult)
-      return Err(replyResult.error());
+      ERR_FMT(ApiUnavailable, "Failed to send DBus Properties.Get message: {}", replyResult.error().message);
 
     Option<String> title  = None;
     Option<String> artist = None;
 
     MessageIter propIter = replyResult->iterInit();
     if (!propIter.isValid())
-      return Err(DracError(DracErrorCode::ParseError, "Properties.Get reply has no arguments or invalid iterator"));
+      ERR(ParseError, "Properties.Get reply has no arguments or invalid iterator");
 
     if (propIter.getArgType() != DBUS_TYPE_VARIANT)
-      return Err(DracError(DracErrorCode::ParseError, "Properties.Get reply argument is not a variant"));
+      ERR(ParseError, "Properties.Get reply argument is not a variant");
 
     MessageIter variantIter = propIter.recurse();
     if (!variantIter.isValid())
-      return Err(DracError(DracErrorCode::ParseError, "Could not recurse into variant"));
+      ERR(ParseError, "Could not recurse into variant");
 
     if (variantIter.getArgType() != DBUS_TYPE_ARRAY || variantIter.getElementType() != DBUS_TYPE_DICT_ENTRY)
-      return Err(DracError(DracErrorCode::ParseError, "Metadata variant content is not a dictionary array (a{sv})"));
+      ERR(ParseError, "Metadata variant content is not a dictionary array (a{sv})");
 
     MessageIter dictIter = variantIter.recurse();
     if (!dictIter.isValid())
-      return Err(DracError(DracErrorCode::ParseError, "Could not recurse into metadata dictionary array"));
+      ERR(ParseError, "Could not recurse into metadata dictionary array");
 
     while (dictIter.getArgType() == DBUS_TYPE_DICT_ENTRY) {
       MessageIter entryIter = dictIter.recurse();
@@ -895,13 +892,13 @@ namespace draconis::core::system {
 
     return MediaInfo(std::move(title), std::move(artist));
   #else
-    return Err(DracError(NotSupported, "DBus support not available"));
+    ERR(NotSupported, "DBus support not available");
   #endif
   }
 
   fn GetWindowManager(CacheManager& cache) -> Result<String> {
-  #if !defined(HAVE_WAYLAND) && !defined(HAVE_XCB)
-    return Err(DracError(NotSupported, "Wayland or XCB support not available"));
+  #if !defined(DRAC_USE_WAYLAND) && !defined(DRAC_USE_XCB)
+    ERR(NotSupported, "Wayland or XCB support not available");
   #endif
 
     return cache.getOrSet<String>("linux_wm", [&]() -> Result<String> {
@@ -911,7 +908,7 @@ namespace draconis::core::system {
       if (GetEnv("DISPLAY"))
         return GetX11WindowManager();
 
-      return Err(DracError(NotFound, "No display server detected"));
+      ERR(NotFound, "No display server detected");
     });
   }
 
@@ -933,7 +930,7 @@ namespace draconis::core::system {
       if (desktopSessionResult)
         return *desktopSessionResult;
 
-      return Err(desktopSessionResult.error());
+      ERR_FMT(ApiUnavailable, "Failed to get desktop session: {}", desktopSessionResult.error().message);
     });
   }
 
@@ -975,11 +972,15 @@ namespace draconis::core::system {
         std::ifstream file(path);
         String        line;
 
-        if (!file)
-          return Err(DracError(NotFound, std::format("Failed to open DMI product identifier file '{}'", path)));
+        if (!file.is_open()) {
+          if (errno == EACCES)
+            ERR_FMT(PermissionDenied, "Permission denied when opening DMI product identifier file '{}'", path);
+
+          ERR_FMT(NotFound, "Failed to open DMI product identifier file '{}'", path);
+        }
 
         if (!std::getline(file, line) || line.empty())
-          return Err(DracError(ParseError, std::format("DMI product identifier file ('{}') is empty", path)));
+          ERR_FMT(ParseError, "DMI product identifier file ('{}') is empty", path);
 
         return line;
       };
@@ -998,16 +999,14 @@ namespace draconis::core::system {
 
       DracError fallbackError = fallbackResult.error();
 
-      return Err(DracError(
-        InternalError,
-        std::format(
-          "Failed to get host identifier. Primary ('{}'): {}. Fallback ('{}'): {}",
-          primaryPath,
-          primaryError.message,
-          fallbackPath,
-          fallbackError.message
-        )
-      ));
+      ERR_FMT(
+        NotFound,
+        "Failed to get host identifier. Primary ('{}'): {}. Fallback ('{}'): {}",
+        primaryPath,
+        primaryError.message,
+        fallbackPath,
+        fallbackError.message
+      );
     });
   }
 
@@ -1020,7 +1019,7 @@ namespace draconis::core::system {
       const u32 maxFunction = cpuInfo[0];
 
       if (maxFunction < 0x80000004)
-        return Err(DracError(NotSupported, "CPU does not support brand string"));
+        ERR(NotSupported, "CPU does not support brand string");
 
       for (u32 i = 0; i < 3; ++i) {
         __get_cpuid(0x80000002 + i, cpuInfo.data(), &cpuInfo[1], &cpuInfo[2], &cpuInfo[3]);
@@ -1032,7 +1031,7 @@ namespace draconis::core::system {
       result.erase(result.find_last_not_of(" \t\n\r") + 1);
 
       if (result.empty())
-        return Err(DracError(InternalError, "Failed to get CPU model string via CPUID"));
+        ERR(InternalError, "Failed to get CPU model string via CPUID");
 
       return result;
     });
@@ -1098,7 +1097,7 @@ namespace draconis::core::system {
         physicalCores = logicalCores;
 
       if (physicalCores == 0 || logicalCores == 0)
-        return Err(DracError(InternalError, "Failed to determine core counts via CPUID"));
+        ERR(InternalError, "Failed to determine core counts via CPUID");
 
       return CPUCores(static_cast<u16>(physicalCores), static_cast<u16>(logicalCores)); }, CachePolicy::neverExpire());
   }
@@ -1108,15 +1107,15 @@ namespace draconis::core::system {
       const fs::path pciPath = "/sys/bus/pci/devices";
 
       if (!fs::exists(pciPath))
-        return Err(DracError(NotFound, "PCI device path '/sys/bus/pci/devices' not found."));
+        ERR(NotFound, "PCI device path '/sys/bus/pci/devices' not found.");
 
-      const Array<Pair<StringView, StringView>, 3> fallbackVendorMap = {
-        {
-         { "0x1002", "AMD" },
-         { "0x10de", "NVIDIA" },
-         { "0x8086", "Intel" },
-         }
-      };
+      // clang-format off
+      const Array<Pair<StringView, StringView>, 3> fallbackVendorMap = {{
+        { "0x1002", "AMD" },
+        { "0x10de", "NVIDIA" },
+        { "0x8086", "Intel" },
+      }};
+      // clang-format on
 
       for (const fs::directory_entry& entry : fs::directory_iterator(pciPath)) {
         if (Result<String> classIdRes = ReadSysFile(entry.path() / "class"); !classIdRes || !classIdRes->starts_with("0x03"))
@@ -1142,14 +1141,15 @@ namespace draconis::core::system {
         }
       }
 
-      return Err(DracError(NotFound, "No compatible GPU found in /sys/bus/pci/devices.")); }, CachePolicy::neverExpire());
+      ERR(NotFound, "No compatible GPU found in /sys/bus/pci/devices.");
+    });
   }
 
   fn GetUptime() -> Result<std::chrono::seconds> {
     struct sysinfo info;
 
     if (sysinfo(&info) != 0)
-      return Err(DracError(InternalError, "sysinfo call failed"));
+      ERR(InternalError, "sysinfo call failed");
 
     return std::chrono::seconds(info.uptime);
   }
@@ -1159,10 +1159,10 @@ namespace draconis::core::system {
       utsname uts;
 
       if (uname(&uts) == -1)
-        return Err(DracError(InternalError, "uname call failed"));
+        ERR(InternalError, "uname call failed");
 
       if (std::strlen(uts.release) == 0)
-        return Err(DracError(ParseError, "uname returned null kernel release"));
+        ERR(ParseError, "uname returned null kernel release");
 
       return String(uts.release);
     });
@@ -1172,7 +1172,7 @@ namespace draconis::core::system {
     struct statvfs stat;
 
     if (statvfs("/", &stat) == -1)
-      return Err(DracError(InternalError, "Failed to get filesystem stats for '/' (statvfs call failed)"));
+      ERR(InternalError, "Failed to get filesystem stats for '/' (statvfs call failed)");
 
     return ResourceUsage {
       .usedBytes  = (stat.f_blocks * stat.f_frsize) - (stat.f_bfree * stat.f_frsize),
@@ -1199,7 +1199,7 @@ namespace draconis::core::system {
       debug_at(displays.error());
     }
 
-    return Err(DracError(NotFound, "No display server detected"));
+    ERR(NotFound, "No display server detected");
   }
 
   fn GetPrimaryOutput() -> Result<Output> {
@@ -1221,14 +1221,14 @@ namespace draconis::core::system {
       debug_at(display.error());
     }
 
-    return Err(DracError(NotFound, "No display server detected"));
+    ERR(NotFound, "No display server detected");
   }
 
   fn GetNetworkInterfaces() -> Result<Vec<NetworkInterface>> {
     // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) - This requires a lot of casts and there's no good way to avoid them.
     ifaddrs* ifaddrList = nullptr;
     if (getifaddrs(&ifaddrList) == -1)
-      return Err(DracError(InternalError, "getifaddrs failed"));
+      ERR(InternalError, "getifaddrs failed");
 
     UniquePointer<ifaddrs, decltype(&freeifaddrs)> ifaddrsDeleter(ifaddrList, &freeifaddrs);
 
@@ -1282,7 +1282,7 @@ namespace draconis::core::system {
       interfaces.push_back(pair.second);
 
     if (interfaces.empty())
-      return Err(DracError(NotFound, "No network interfaces found"));
+      ERR(NotFound, "No network interfaces found");
 
     return interfaces;
     // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
@@ -1319,7 +1319,7 @@ namespace draconis::core::system {
       if (primaryInterfaceName.empty()) {
         ifaddrs* ifaddrList = nullptr;
         if (getifaddrs(&ifaddrList) == -1)
-          return Err(DracError(InternalError, "getifaddrs failed"));
+          ERR(InternalError, "getifaddrs failed");
 
         UniquePointer<ifaddrs, decltype(&freeifaddrs)> ifaddrsDeleter(ifaddrList, &freeifaddrs);
 
@@ -1340,12 +1340,12 @@ namespace draconis::core::system {
       }
 
       if (primaryInterfaceName.empty())
-        return Err(DracError(NotFound, "Could not determine primary interface name"));
+        ERR(NotFound, "Could not determine primary interface name");
 
       // Now get the detailed information for the primary interface
       ifaddrs* ifaddrList = nullptr;
       if (getifaddrs(&ifaddrList) == -1)
-        return Err(DracError(InternalError, "getifaddrs failed"));
+        ERR(InternalError, "getifaddrs failed");
 
       UniquePointer<ifaddrs, decltype(&freeifaddrs)> ifaddrsDeleter(ifaddrList, &freeifaddrs);
 
@@ -1390,7 +1390,7 @@ namespace draconis::core::system {
       }
 
       if (!foundDetails)
-        return Err(DracError(NotFound, "Found primary interface name, but could not find its details via getifaddrs"));
+        ERR(NotFound, "Found primary interface name, but could not find its details via getifaddrs");
 
       return primaryInterface;
       // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
@@ -1404,7 +1404,7 @@ namespace draconis::core::system {
     PCStr powerSupplyPath = "/sys/class/power_supply";
 
     if (!fs::exists(powerSupplyPath))
-      return Err(DracError(NotFound, "Power supply directory not found"));
+      ERR(NotFound, "Power supply directory not found");
 
     // Find the first battery device
     fs::path batteryPath;
@@ -1416,7 +1416,7 @@ namespace draconis::core::system {
       }
 
     if (batteryPath.empty())
-      return Err(DracError(NotFound, "No battery found in power supply directory"));
+      ERR(NotFound, "No battery found in power supply directory");
 
     // Read battery percentage
     Option<u8> percentage =
@@ -1472,15 +1472,15 @@ namespace draconis::services::packages {
       if (std::error_code fsErrCode; !fs::exists(apkDbPath, fsErrCode)) {
         if (fsErrCode) {
           warn_log("Filesystem error checking for Apk DB at '{}': {}", apkDbPath.string(), fsErrCode.message());
-          return Err(DracError(IoError, "Filesystem error checking Apk DB: " + fsErrCode.message()));
+          ERR_FMT(IoError, "Filesystem error checking Apk DB: {}", fsErrCode.message());
         }
 
-        return Err(DracError(NotFound, std::format("Apk database path '{}' does not exist", apkDbPath.string())));
+        ERR_FMT(NotFound, "Apk database path '{}' does not exist", apkDbPath.string());
       }
 
       std::ifstream file(apkDbPath);
       if (!file.is_open())
-        return Err(DracError(IoError, std::format("Failed to open Apk database file '{}'", apkDbPath.string())));
+        ERR(IoError, std::format("Failed to open Apk database file '{}'", apkDbPath.string()));
 
       u64 count = 0;
 
@@ -1491,14 +1491,11 @@ namespace draconis::services::packages {
           if (line.empty())
             count++;
       } catch (const std::ios_base::failure& e) {
-        return Err(DracError(
-          IoError,
-          std::format("Error reading Apk database file '{}': {}", apkDbPath.string(), e.what())
-        ));
+        ERR_FMT(IoError, "Error reading Apk database file '{}': {}", apkDbPath.string(), e.what());
       }
 
       if (file.bad())
-        return Err(DracError(IoError, std::format("IO error while reading Apk database file '{}'", apkDbPath.string())));
+        ERR_FMT(IoError, "IO error while reading Apk database file '{}'", apkDbPath.string());
 
       return count;
     });
@@ -1531,7 +1528,7 @@ namespace draconis::services::packages {
     const CStr xbpsDbPath = "/var/db/xbps";
 
     if (!fs::exists(xbpsDbPath))
-      return Err(DracError(NotFound, std::format("Xbps database path '{}' does not exist", xbpsDbPath)));
+      ERR_FMT(NotFound, "Xbps database path '{}' does not exist", xbpsDbPath);
 
     fs::path plistPath;
 
@@ -1542,7 +1539,7 @@ namespace draconis::services::packages {
       }
 
     if (plistPath.empty())
-      return Err(DracError(NotFound, "No Xbps database found"));
+      ERR(NotFound, "No Xbps database found");
 
     return GetCountFromPlist("xbps", plistPath);
   }
