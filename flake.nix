@@ -96,13 +96,10 @@
               bear
               llvmPackages.clang-tools
               cmake
-              include-what-you-use
               hyperfine
               meson
               ninja
-              nvfetcher
               pkg-config
-              unzip
 
               (writeScriptBin "build" "meson compile -C build")
               (writeScriptBin "clean" ("meson setup build --wipe -Dprecompiled_config=true" + lib.optionalString pkgs.stdenv.isLinux " -Duse_linked_pci_ids=true"))
