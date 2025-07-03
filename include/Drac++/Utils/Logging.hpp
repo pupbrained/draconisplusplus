@@ -1,11 +1,10 @@
 #pragma once
 
-#include <chrono>                 // std::chrono::{days, floor, seconds, system_clock}
-#include <ctime>                  // localtime_r/s, strftime, time_t, tm
-#include <filesystem>             // std::filesystem::path
-#include <format>                 // std::format
-#include <ftxui/screen/color.hpp> // ftxui::Color
-#include <utility>                // std::forward
+#include <chrono>     // std::chrono::{days, floor, seconds, system_clock}
+#include <ctime>      // localtime_r/s, strftime, time_t, tm
+#include <filesystem> // std::filesystem::path
+#include <format>     // std::format
+#include <utility>    // std::forward
 
 #ifdef __cpp_lib_print
   #include <print> // std::print
@@ -38,6 +37,31 @@ namespace draconis::utils::logging {
     return LogMutexInstance;
   }
 
+  enum class LogColor : u8 {
+    Black         = 0,
+    Red           = 1,
+    Green         = 2,
+    Yellow        = 3,
+    Blue          = 4,
+    Magenta       = 5,
+    Cyan          = 6,
+    White         = 7,
+    Gray          = 8,
+    BrightRed     = 9,
+    BrightGreen   = 10,
+    BrightYellow  = 11,
+    BrightBlue    = 12,
+    BrightMagenta = 13,
+    BrightCyan    = 14,
+    BrightWhite   = 15,
+  };
+
+  constexpr LogColor DEBUG_COLOR      = LogColor::Cyan;
+  constexpr LogColor INFO_COLOR       = LogColor::Green;
+  constexpr LogColor WARN_COLOR       = LogColor::Yellow;
+  constexpr LogColor ERROR_COLOR      = LogColor::Red;
+  constexpr LogColor DEBUG_INFO_COLOR = LogColor::White;
+
   struct LogLevelConst {
     // clang-format off
     static constexpr Array<StringView, 16> COLOR_CODE_LITERALS = {
@@ -58,12 +82,6 @@ namespace draconis::utils::logging {
     static constexpr StringView INFO_STR  = "INFO ";
     static constexpr StringView WARN_STR  = "WARN ";
     static constexpr StringView ERROR_STR = "ERROR";
-
-    static constexpr ftxui::Color::Palette16 DEBUG_COLOR      = ftxui::Color::Palette16::Cyan;
-    static constexpr ftxui::Color::Palette16 INFO_COLOR       = ftxui::Color::Palette16::Green;
-    static constexpr ftxui::Color::Palette16 WARN_COLOR       = ftxui::Color::Palette16::Yellow;
-    static constexpr ftxui::Color::Palette16 ERROR_COLOR      = ftxui::Color::Palette16::Red;
-    static constexpr ftxui::Color::Palette16 DEBUG_INFO_COLOR = ftxui::Color::Palette16::GrayLight;
 
     static constexpr PCStr TIMESTAMP_FORMAT = "%X";
     static constexpr PCStr LOG_FORMAT       = "{} {} {}";
@@ -101,7 +119,7 @@ namespace draconis::utils::logging {
    * @param color The FTXUI color
    * @return Styled string with ANSI codes
    */
-  inline fn Colorize(const StringView text, const ftxui::Color::Palette16& color) -> String {
+  inline fn Colorize(const StringView text, const LogColor color) -> String {
     return std::format("{}{}{}", LogLevelConst::COLOR_CODE_LITERALS.at(static_cast<usize>(color)), text, LogLevelConst::RESET_CODE);
   }
 
@@ -130,10 +148,10 @@ namespace draconis::utils::logging {
    */
   inline fn GetLevelInfo() -> const Array<String, 4>& {
     static const Array<String, 4> LEVEL_INFO_INSTANCE = {
-      Bold(Colorize(LogLevelConst::DEBUG_STR, LogLevelConst::DEBUG_COLOR)),
-      Bold(Colorize(LogLevelConst::INFO_STR, LogLevelConst::INFO_COLOR)),
-      Bold(Colorize(LogLevelConst::WARN_STR, LogLevelConst::WARN_COLOR)),
-      Bold(Colorize(LogLevelConst::ERROR_STR, LogLevelConst::ERROR_COLOR)),
+      Bold(Colorize(LogLevelConst::DEBUG_STR, DEBUG_COLOR)),
+      Bold(Colorize(LogLevelConst::INFO_STR, INFO_COLOR)),
+      Bold(Colorize(LogLevelConst::WARN_STR, WARN_COLOR)),
+      Bold(Colorize(LogLevelConst::ERROR_STR, ERROR_COLOR)),
     };
     return LEVEL_INFO_INSTANCE;
   }
@@ -143,15 +161,15 @@ namespace draconis::utils::logging {
    * @param level The log level
    * @return FTXUI color code
    */
-  constexpr fn GetLevelColor(const LogLevel level) -> ftxui::Color::Palette16 {
+  constexpr fn GetLevelColor(const LogLevel level) -> LogColor {
     using namespace matchit;
     using enum LogLevel;
 
     return match(level)(
-      is | Debug = LogLevelConst::DEBUG_COLOR,
-      is | Info  = LogLevelConst::INFO_COLOR,
-      is | Warn  = LogLevelConst::WARN_COLOR,
-      is | Error = LogLevelConst::ERROR_COLOR
+      is | Debug = DEBUG_COLOR,
+      is | Info  = INFO_COLOR,
+      is | Warn  = WARN_COLOR,
+      is | Error = ERROR_COLOR
     );
   }
 
@@ -292,7 +310,7 @@ namespace draconis::utils::logging {
 
     const String mainLogLine = std::format(
       LogLevelConst::LOG_FORMAT,
-      Colorize(String("[") + timestamp + "]", LogLevelConst::DEBUG_INFO_COLOR),
+      Colorize(String("[") + timestamp + "]", DEBUG_INFO_COLOR),
       GetLevelInfo().at(static_cast<usize>(level)),
       message
     );
@@ -302,7 +320,7 @@ namespace draconis::utils::logging {
 #ifndef NDEBUG
     const String fileLine      = std::format(LogLevelConst::FILE_LINE_FORMAT, path(loc.file_name()).lexically_normal().string(), loc.line());
     const String fullDebugLine = std::format("{}{}", LogLevelConst::DEBUG_LINE_PREFIX, fileLine);
-    Print(Italic(Colorize(fullDebugLine, LogLevelConst::DEBUG_INFO_COLOR)));
+    Print(Italic(Colorize(fullDebugLine, DEBUG_INFO_COLOR)));
     Println(LogLevelConst::RESET_CODE);
 #else
     Print(LogLevelConst::RESET_CODE);

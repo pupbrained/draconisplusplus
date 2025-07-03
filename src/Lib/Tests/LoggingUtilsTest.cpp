@@ -1,21 +1,25 @@
-#include <ftxui/screen/color.hpp> // ftxui::Color
-
 #include <Drac++/Utils/Logging.hpp>
 #include <Drac++/Utils/Types.hpp>
 
 #include "gtest/gtest.h"
 
 using namespace testing;
-using draconis::utils::logging::LogLevelConst, draconis::utils::logging::Colorize, draconis::utils::logging::Bold, draconis::utils::logging::Italic;
-using draconis::utils::types::String, draconis::utils::types::StringView, draconis::utils::types::i32;
+using draconis::utils::logging::Bold;
+using draconis::utils::logging::Colorize;
+using draconis::utils::logging::Italic;
+using draconis::utils::logging::LogColor;
+using draconis::utils::logging::LogLevelConst;
+using draconis::utils::types::i32;
+using draconis::utils::types::String;
+using draconis::utils::types::StringView;
 
 class LoggingUtilsTest : public Test {};
 
 TEST_F(LoggingUtilsTest, Colorize_RedText) {
-  constexpr StringView              textToColorize = "Hello, Red World!";
-  constexpr ftxui::Color::Palette16 color          = ftxui::Color::Palette16::Red;
-  const String                      expectedPrefix = String(LogLevelConst::COLOR_CODE_LITERALS.at(color));
-  const String                      expectedSuffix = String(LogLevelConst::RESET_CODE);
+  constexpr StringView textToColorize = "Hello, Red World!";
+  constexpr LogColor   color          = LogColor::Red;
+  const String         expectedPrefix = String(LogLevelConst::COLOR_CODE_LITERALS.at(static_cast<size_t>(color)));
+  const String         expectedSuffix = String(LogLevelConst::RESET_CODE);
 
   String colorizedText = Colorize(textToColorize, color);
 
@@ -26,10 +30,10 @@ TEST_F(LoggingUtilsTest, Colorize_RedText) {
 }
 
 TEST_F(LoggingUtilsTest, Colorize_BlueText) {
-  constexpr StringView              textToColorize = "Blue Sky";
-  constexpr ftxui::Color::Palette16 color          = ftxui::Color::Palette16::Blue;
-  const String                      expectedPrefix = String(LogLevelConst::COLOR_CODE_LITERALS.at(color));
-  const String                      expectedSuffix = String(LogLevelConst::RESET_CODE);
+  constexpr StringView textToColorize = "Blue Sky";
+  constexpr LogColor   color          = LogColor::Blue;
+  const String         expectedPrefix = String(LogLevelConst::COLOR_CODE_LITERALS.at(static_cast<size_t>(color)));
+  const String         expectedSuffix = String(LogLevelConst::RESET_CODE);
 
   String colorizedText = Colorize(textToColorize, color);
 
@@ -40,10 +44,10 @@ TEST_F(LoggingUtilsTest, Colorize_BlueText) {
 }
 
 TEST_F(LoggingUtilsTest, Colorize_EmptyText) {
-  constexpr StringView              textToColorize;
-  constexpr ftxui::Color::Palette16 color          = ftxui::Color::Palette16::Green;
-  const String                      expectedPrefix = String(LogLevelConst::COLOR_CODE_LITERALS.at(color));
-  const String                      expectedSuffix = String(LogLevelConst::RESET_CODE);
+  constexpr StringView textToColorize;
+  constexpr LogColor   color          = LogColor::Green;
+  const String         expectedPrefix = String(LogLevelConst::COLOR_CODE_LITERALS.at(static_cast<size_t>(color)));
+  const String         expectedSuffix = String(LogLevelConst::RESET_CODE);
 
   const String colorizedText = Colorize(textToColorize, color);
   const String expectedText  = expectedPrefix + String(textToColorize) + expectedSuffix;
@@ -93,10 +97,10 @@ TEST_F(LoggingUtilsTest, Italic_EmptyText) {
 }
 
 TEST_F(LoggingUtilsTest, Combined_BoldItalicRedText) {
-  constexpr StringView              textToStyle = "Styled Text";
-  constexpr ftxui::Color::Palette16 color       = ftxui::Color::Palette16::Magenta;
+  constexpr StringView textToStyle = "Styled Text";
+  constexpr LogColor   color       = LogColor::Magenta;
 
-  const String colorPrefix  = String(LogLevelConst::COLOR_CODE_LITERALS.at(color));
+  const String colorPrefix  = String(LogLevelConst::COLOR_CODE_LITERALS.at(static_cast<size_t>(color)));
   const String colorSuffix  = String(LogLevelConst::RESET_CODE);
   const String boldPrefix   = String(LogLevelConst::BOLD_START);
   const String boldSuffix   = String(LogLevelConst::BOLD_END);
