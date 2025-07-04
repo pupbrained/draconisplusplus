@@ -11,6 +11,10 @@
   #undef DELETE
 #endif
 
+#ifdef fn
+  #undef fn
+#endif
+
 #include <glaze/core/context.hpp>    // glz::error_ctx
 #include <glaze/core/meta.hpp>       // glz::{meta, detail::Object}
 #include <glaze/net/http_server.hpp> // glz::http_server
@@ -18,6 +22,10 @@
 #include <mutex>                     // std::{mutex, unique_lock}
 #include <optional>                  // std::optional
 #include <utility>                   // std::move
+
+#ifndef fn
+  #define fn auto
+#endif
 
 #include <Drac++/Core/System.hpp>
 #include <Drac++/Services/Weather.hpp>

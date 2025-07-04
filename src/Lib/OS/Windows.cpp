@@ -24,7 +24,7 @@
   #include <ranges>                                 // std::ranges::find_if, std::ranges::views::transform
   #include <sysinfoapi.h>                           // GetLogicalProcessorInformationEx, RelationProcessorCore, PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX, KAFFINITY
   #include <tlhelp32.h>                             // CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS
-  #include <winerror.h>                             // DXGI_ERROR_NOT_FOUND, ERROR_FILE_NOT_FOUND, ERROR_SUCCESS, FAILED, SUCCEEDED
+  #include <winerror.h>                             // DXGI_ERROR_NOT_FOUND, ERROR_FILE_NOT_FOUND, FAILE
   #include <winrt/Windows.Foundation.Collections.h> // winrt::Windows::Foundation::Collections::Map
   #include <winrt/Windows.Management.Deployment.h>  // winrt::Windows::Management::Deployment::PackageManager
   #include <winrt/Windows.Media.Control.h>          // winrt::Windows::Media::Control::MediaProperties
@@ -101,7 +101,7 @@ namespace {
       const i32 sizeNeeded = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), static_cast<int>(wstr.length()), nullptr, 0, nullptr, nullptr);
 
       if (sizeNeeded == 0)
-        return Err(DracError(PlatformSpecific, std::format("Failed to get buffer size for UTF-8 conversion. Error code: {}", GetLastError())));
+        ERR_FMT(InternalError, "Failed to get buffer size for UTF-8 conversion. Error code: {}", GetLastError());
 
       // Then make the buffer using that size...
       String result(sizeNeeded, 0);
@@ -111,7 +111,7 @@ namespace {
         WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), static_cast<int>(wstr.length()), result.data(), sizeNeeded, nullptr, nullptr);
 
       if (bytesConverted == 0)
-        return Err(DracError(PlatformSpecific, std::format("Failed to convert wide string to UTF-8. Error code: {}", GetLastError())));
+        ERR_FMT(InternalError, "Failed to convert wide string to UTF-8. Error code: {}", GetLastError());
 
       return result;
     }
@@ -131,7 +131,7 @@ namespace {
         if (GetLastError() == ERROR_FILE_NOT_FOUND)
           return 0;
 
-        return Err(DracError(PlatformSpecific, "FindFirstFileW failed"));
+        ERR(IoError, "FindFirstFileW failed");
       }
 
       u64 count = 0;
@@ -176,18 +176,21 @@ namespace {
             reinterpret_cast<LPBYTE>(registryBuffer.data()),
             &dataSizeInBytes
           );
-          status != ERROR_SUCCESS) {
+          FAILED(status)) {
         if (status == ERROR_FILE_NOT_FOUND)
-          return Err(DracError(NotFound, "Registry value not found"));
+          ERR(NotFound, "Registry value not found");
 
-        return Err(DracError(PlatformSpecific, "RegQueryValueExW failed with error code: " + std::to_string(status)));
+        if (status == ERROR_ACCESS_DENIED)
+          ERR(PermissionDenied, "Permission denied while reading registry value");
+
+        ERR_FMT(PlatformSpecific, "RegQueryValueExW failed with error code: {}", status);
       }
 
       // Ensure the retrieved value is a string.
       if (type == REG_SZ || type == REG_EXPAND_SZ)
         return WString(registryBuffer.data());
 
-      return Err(DracError(ParseError, "Registry value exists but is not a string type. Type is: " + std::to_string(type)));
+      ERR_FMT(ParseError, "Registry value exists but is not a string type. Type is: {}", type);
     }
 
   } // namespace helpers
@@ -199,10 +202,10 @@ namespace {
       HKEY m_hardwareConfigKey = nullptr;
 
       RegistryCache() {
-        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, LR"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", 0, KEY_READ, &m_currentVersionKey) != ERROR_SUCCESS)
+        if (FAILED(RegOpenKeyExW(HKEY_LOCAL_MACHINE, LR"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", 0, KEY_READ, &m_currentVersionKey)))
           m_currentVersionKey = nullptr;
 
-        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, LR"(SYSTEM\HardwareConfig\Current)", 0, KEY_READ, &m_hardwareConfigKey) != ERROR_SUCCESS)
+        if (FAILED(RegOpenKeyExW(HKEY_LOCAL_MACHINE, LR"(SYSTEM\HardwareConfig\Current)", 0, KEY_READ, &m_hardwareConfigKey)))
           m_hardwareConfigKey = nullptr;
       }
 
@@ -254,7 +257,7 @@ namespace {
 
       fn getBuildNumber() const -> Result<u64> {
         if (!m_versionData)
-          return Err(m_versionData.error());
+          ERR_FROM(m_versionData.error());
 
         return static_cast<u64>(m_versionData->buildNumber);
       }
@@ -301,7 +304,7 @@ namespace {
         } __except (GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH) {
           // If an access violation occurs, then the shared memory couldn't be properly read.
           // Set the version data to an error instead of crashing.
-          m_versionData = Err(DracError(PlatformSpecific, "Failed to read kernel version from KUSER_SHARED_DATA"));
+          m_versionData = Err(DracError(InternalError, "Failed to read kernel version from KUSER_SHARED_DATA"));
         }
   #pragma clang diagnostic pop
       }
@@ -333,7 +336,7 @@ namespace {
         // Use the Toolhelp32Snapshot API to get a snapshot of all running processes.
         HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
         if (hSnap == INVALID_HANDLE_VALUE)
-          return Err(DracError(PlatformSpecific, "Failed to create snapshot of processes"));
+          ERR(ApiUnavailable, "Failed to create snapshot of processes");
 
         // This structure must be initialized with its own size before use; it's a WinAPI requirement.
         PROCESSENTRY32W pe32;
@@ -395,10 +398,10 @@ namespace {
 
       // PID 0 (System Idle Process) is always the root process, and cannot have a parent.
       if (startPid == 0)
-        return Err(DracError(PlatformSpecific, "Start PID is 0"));
+        ERR(InvalidArgument, "Start PID cannot be 0");
 
-      if (!ProcessTreeCache::getInstance().initialize())
-        return Err(DracError(PlatformSpecific, "Failed to initialize process tree cache"));
+      if (const Result<> initialized = ProcessTreeCache::getInstance().initialize(); !initialized)
+        ERR_FROM(initialized.error());
 
       const UnorderedMap<DWORD, ProcessTreeCache::Data>& processMap = ProcessTreeCache::getInstance().getProcessMap();
 
@@ -429,7 +432,7 @@ namespace {
         depth++;
       }
 
-      return Err(DracError(NotFound, "Shell not found"));
+      ERR(NotFound, "Shell not found");
     }
   } // namespace shell
 } // namespace
@@ -448,7 +451,7 @@ namespace draconis::core::system {
     if (GlobalMemoryStatusEx(&memInfo))
       return ResourceUsage { .usedBytes = memInfo.ullTotalPhys - memInfo.ullAvailPhys, .totalBytes = memInfo.ullTotalPhys };
 
-    return Err(DracError(PlatformSpecific, std::format("GlobalMemoryStatusEx failed with error code {}", GetLastError())));
+    ERR_FMT(ApiUnavailable, "GlobalMemoryStatusEx failed with error code {}", GetLastError());
   }
 
   #if DRAC_ENABLE_NOWPLAYING
@@ -476,10 +479,10 @@ namespace draconis::core::system {
         return MediaInfo(winrt::to_string(mediaProperties.Title()), winrt::to_string(mediaProperties.Artist()));
       }
 
-      return Err(DracError(NotFound, "No media session found"));
+      ERR(NotFound, "No media session found");
     } catch (const winrt::hresult_error& e) {
       // Make sure to catch any errors that WinRT might throw.
-      return Err(DracError(e));
+      ERR_FMT(ApiUnavailable, "Failed to get media session: {}", winrt::to_string(e.message()));
     }
   }
   #endif // DRAC_ENABLE_NOWPLAYING
@@ -499,15 +502,15 @@ namespace draconis::core::system {
       HKEY currentVersionKey = registry.getCurrentVersionKey();
 
       if (!currentVersionKey)
-        return Err(DracError(NotFound, "Failed to open registry key"));
+        ERR(NotFound, "Failed to open registry key");
 
       Result<WString> productName = GetRegistryValue(currentVersionKey, PRODUCT_NAME);
 
       if (!productName)
-        return Err(productName.error());
+        ERR_FROM(productName.error());
 
       if (productName->empty())
-        return Err(DracError(NotFound, "ProductName not found in registry"));
+        ERR(NotFound, "ProductName not found in registry");
 
       // Build 22000+ of Windows are all considered Windows 11, so we can safely replace the product name
       // if it's currently "Windows 10" and the build number is greater than or equal to 22000.
@@ -527,12 +530,12 @@ namespace draconis::core::system {
       const Result<WString> displayVersion = GetRegistryValue(currentVersionKey, DISPLAY_VERSION);
 
       if (!displayVersion)
-        return Err(displayVersion.error());
+        ERR_FROM(displayVersion.error());
 
       const Result<String> productNameUTF8 = ConvertWStringToUTF8(*productName);
 
       if (!productNameUTF8)
-        return Err(productNameUTF8.error());
+        ERR_FROM(productNameUTF8.error());
 
       if (displayVersion->empty())
         return *productNameUTF8;
@@ -540,7 +543,7 @@ namespace draconis::core::system {
       const Result<String> displayVersionUTF8 = ConvertWStringToUTF8(*displayVersion);
 
       if (!displayVersionUTF8)
-        return Err(displayVersionUTF8.error());
+        ERR_FROM(displayVersionUTF8.error());
 
       return *productNameUTF8 + " " + *displayVersionUTF8;
     });
@@ -554,12 +557,12 @@ namespace draconis::core::system {
       HKEY hardwareConfigKey = registry.getHardwareConfigKey();
 
       if (!hardwareConfigKey)
-        return Err(DracError(NotFound, "Failed to open registry key"));
+        ERR(NotFound, "Failed to open registry key");
 
       const Result<WString> systemFamily = GetRegistryValue(hardwareConfigKey, SYSTEM_FAMILY);
 
       if (!systemFamily)
-        return Err(DracError(NotFound, "SystemFamily not found in registry"));
+        ERR(NotFound, "SystemFamily not found in registry");
 
       return ConvertWStringToUTF8(*systemFamily);
     });
@@ -571,7 +574,7 @@ namespace draconis::core::system {
       const Result<OsVersionCache::VersionData>& versionDataResult = OsVersionCache::getInstance().getVersionData();
 
       if (!versionDataResult)
-        return Err(versionDataResult.error());
+        ERR_FROM(versionDataResult.error());
 
       const auto& [majorVersion, minorVersion, buildNumber] = *versionDataResult;
 
@@ -582,7 +585,7 @@ namespace draconis::core::system {
   fn GetWindowManager(CacheManager& cache) -> Result<String> {
     return cache.getOrSet<String>("windows_wm", []() -> Result<String> {
       if (!cache::ProcessTreeCache::getInstance().initialize())
-        return Err(DracError(PlatformSpecific, "Failed to initialize process tree cache"));
+        ERR(PlatformSpecific, "Failed to initialize process tree cache");
 
       for (const auto& [parentPid, baseExeNameLower] : cache::ProcessTreeCache::getInstance().getProcessMap() | std::views::values) {
         const StringView processName = baseExeNameLower;
@@ -609,7 +612,7 @@ namespace draconis::core::system {
       const Result<u64> buildResult = OsVersionCache::getInstance().getBuildNumber();
 
       if (!buildResult)
-        return Err(buildResult.error());
+        ERR_FROM(buildResult.error());
 
       const u64 build = *buildResult;
 
@@ -671,7 +674,7 @@ namespace draconis::core::system {
         if (msysShell)
           return *msysShell;
 
-        return Err(msysShell.error());
+        ERR_FROM(msysShell.error());
       }
 
       // Normal windows shell environments don't set any environment variables we can check,
@@ -681,7 +684,7 @@ namespace draconis::core::system {
       if (windowsShell)
         return *windowsShell;
 
-      return Err(windowsShell.error());
+      ERR_FROM(windowsShell.error());
     });
   }
 
@@ -693,7 +696,7 @@ namespace draconis::core::system {
 
     // Get the disk usage for the C: drive.
     if (FAILED(GetDiskFreeSpaceExW(L"C:\\\\", nullptr, &totalBytes, &freeBytes)))
-      return Err(DracError(PlatformSpecific, "Failed to get disk usage"));
+      ERR(IoError, "Failed to get disk usage");
 
     // Calculate the used bytes by subtracting the free bytes from the total bytes.
     // QuadPart corresponds to the 64-bit integer in the union. (LowPart/HighPart are for the 32-bit integers.)
@@ -764,7 +767,7 @@ namespace draconis::core::system {
         HKEY hKey = nullptr;
 
         // This key contains information about the processor.
-        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        if (FAILED(RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", 0, KEY_READ, &hKey))) {
           // Get the processor name value from the registry key.
           Result<WString> processorNameW = GetRegistryValue(hKey, L"ProcessorNameString");
 
@@ -779,7 +782,7 @@ namespace draconis::core::system {
 
       // At this point, there's no other good method to get the CPU model on Windows.
       // Using WMI is useless because it just calls the same registry key we're already using.
-      return Err(DracError(NotFound, "All methods to get CPU model failed on this platform"));
+      ERR(NotFound, "All methods to get CPU model failed on this platform");
     });
   }
 
@@ -787,31 +790,18 @@ namespace draconis::core::system {
     return cache.getOrSet<CPUCores>("windows_cpu_cores", []() -> Result<CPUCores> {
       const DWORD logicalProcessors = GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
       if (logicalProcessors == 0)
-        return Err(
-          DracError(
-            PlatformSpecific,
-            std::format("GetActiveProcessorCount failed with error code {}", GetLastError())
-          )
-        );
+        ERR_FMT(ApiUnavailable, "GetActiveProcessorCount failed with error code {}", GetLastError());
 
       DWORD bufferSize = 0;
 
       if (GetLogicalProcessorInformationEx(RelationProcessorCore, nullptr, &bufferSize) == FALSE && GetLastError() != ERROR_INSUFFICIENT_BUFFER)
-        return Err(
-          DracError(
-            PlatformSpecific,
-            std::format("GetLogicalProcessorInformationEx (size query) failed with error code {}", GetLastError())
-          )
-        );
+        ERR_FMT(ApiUnavailable, "GetLogicalProcessorInformationEx (size query) failed with error code {}", GetLastError());
 
       Array<BYTE, 1024> buffer {};
 
       // NOLINTNEXTLINE(*-pro-type-reinterpret-cast)
       if (GetLogicalProcessorInformationEx(RelationProcessorCore, reinterpret_cast<PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX>(buffer.data()), &bufferSize) == FALSE)
-        return Err(DracError(
-          PlatformSpecific,
-          std::format("GetLogicalProcessorInformationEx (data retrieval) failed with error code {}", GetLastError())
-        ));
+        ERR_FMT(ApiUnavailable, "GetLogicalProcessorInformationEx (data retrieval) failed with error code {}", GetLastError());
 
       DWORD      physicalCores = 0;
       DWORD      offset        = 0;
@@ -841,7 +831,7 @@ namespace draconis::core::system {
   #pragma clang diagnostic ignored "-Wlanguage-extension-token"
       // NOLINTNEXTLINE(*-pro-type-reinterpret-cast) - CreateDXGIFactory needs a void** parameter, not an IDXGIFactory**.
       if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), reinterpret_cast<void**>(&pFactory))))
-        return Err(DracError(PlatformSpecific, "Failed to create DXGI Factory"));
+        ERR_FMT(ApiUnavailable, "Failed to create DXGI Factory: {}", GetLastError());
   #pragma clang diagnostic pop
 
       // Attempt to get the first adapter.
@@ -852,7 +842,7 @@ namespace draconis::core::system {
         // Clean up factory.
         pFactory->Release();
 
-        return Err(DracError(NotFound, "No DXGI adapters found"));
+        ERR(NotFound, "No DXGI adapters found");
       }
 
       // Get the adapter description.
@@ -863,7 +853,7 @@ namespace draconis::core::system {
         pAdapter->Release();
         pFactory->Release();
 
-        return Err(DracError(PlatformSpecific, "Failed to get adapter description"));
+        ERR_FMT(ApiUnavailable, "Failed to get adapter description: {}", GetLastError());
       }
 
       // The DirectX description is a wide string.
@@ -887,20 +877,20 @@ namespace draconis::core::system {
     UINT32 pathCount = 0;
     UINT32 modeCount = 0;
 
-    if (GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, &pathCount, &modeCount) != ERROR_SUCCESS)
-      return Err(DracError(PlatformSpecific, "GetDisplayConfigBufferSizes failed to get buffer sizes"));
+    if (FAILED(GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, &pathCount, &modeCount)))
+      ERR_FMT(ApiUnavailable, "GetDisplayConfigBufferSizes failed to get buffer sizes: {}", GetLastError());
 
     Vec<DISPLAYCONFIG_PATH_INFO> paths(pathCount);
     Vec<DISPLAYCONFIG_MODE_INFO> modes(modeCount);
 
-    if (QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, &pathCount, paths.data(), &modeCount, modes.data(), nullptr) != ERROR_SUCCESS)
-      return Err(DracError(PlatformSpecific, "QueryDisplayConfig failed to retrieve display data"));
+    if (FAILED(QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, &pathCount, paths.data(), &modeCount, modes.data(), nullptr)))
+      ERR_FMT(ApiUnavailable, "QueryDisplayConfig failed to retrieve display data: {}", GetLastError());
 
     Vec<Output> outputs;
     outputs.reserve(pathCount);
 
     // NOLINTBEGIN(*-pro-type-union-access)
-    for (const auto& path : paths) {
+    for (const DISPLAYCONFIG_PATH_INFO& path : paths) {
       if (path.flags & DISPLAYCONFIG_PATH_ACTIVE) {
         const DISPLAYCONFIG_MODE_INFO& mode = modes[path.targetInfo.modeInfoIdx];
 
@@ -920,36 +910,52 @@ namespace draconis::core::system {
     // NOLINTEND(*-pro-type-union-access)
 
     if (outputs.empty())
-      return Err(DracError(NotFound, "No active displays found with QueryDisplayConfig"));
+      ERR(NotFound, "No active displays found with QueryDisplayConfig");
 
     return outputs;
   }
 
   fn GetPrimaryOutput() -> Result<Output> {
-    HMONITOR primaryMonitor = MonitorFromWindow(nullptr, MONITOR_DEFAULTTOPRIMARY);
+    UINT32 pathCount = 0;
+    UINT32 modeCount = 0;
 
-    if (!primaryMonitor)
-      return Err(DracError(PlatformSpecific, "Failed to get a handle to the primary monitor"));
+    if (FAILED(GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, &pathCount, &modeCount)))
+      ERR_FMT(ApiUnavailable, "GetDisplayConfigBufferSizes failed to get buffer sizes: {}", GetLastError());
 
-    MONITORINFOEXW monitorInfo;
-    monitorInfo.cbSize = sizeof(MONITORINFOEXW);
+    Vec<DISPLAYCONFIG_PATH_INFO> paths(pathCount);
+    Vec<DISPLAYCONFIG_MODE_INFO> modes(modeCount);
 
-    if (!GetMonitorInfoW(primaryMonitor, &monitorInfo))
-      return Err(DracError(PlatformSpecific, "GetMonitorInfoW failed for the primary monitor"));
+    if (FAILED(QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, &pathCount, paths.data(), &modeCount, modes.data(), nullptr)))
+      ERR_FMT(ApiUnavailable, "QueryDisplayConfig failed to retrieve display data: {}", GetLastError());
 
-    DEVMODEW devMode;
-    devMode.dmSize        = sizeof(DEVMODEW);
-    devMode.dmDriverExtra = 0;
+    // NOLINTBEGIN(*-pro-type-union-access)
+    for (const DISPLAYCONFIG_PATH_INFO& path : paths) {
+      if (!(path.flags & DISPLAYCONFIG_PATH_ACTIVE))
+        continue;
 
-    if (!EnumDisplaySettingsW(monitorInfo.szDevice, ENUM_CURRENT_SETTINGS, &devMode))
-      return Err(DracError(PlatformSpecific, "EnumDisplaySettingsW failed for the primary monitor"));
+      const DISPLAYCONFIG_MODE_INFO& sourceModeInfo = modes.at(path.sourceInfo.modeInfoIdx);
 
-    return Output(
-      0,
-      { .width = devMode.dmPelsWidth, .height = devMode.dmPelsHeight },
-      devMode.dmDisplayFrequency,
-      true
-    );
+      if (sourceModeInfo.infoType == DISPLAYCONFIG_MODE_INFO_TYPE_SOURCE && sourceModeInfo.sourceMode.position.x == 0 && sourceModeInfo.sourceMode.position.y == 0) {
+        const DISPLAYCONFIG_MODE_INFO& targetModeInfo = modes.at(path.targetInfo.modeInfoIdx);
+
+        if (targetModeInfo.infoType != DISPLAYCONFIG_MODE_INFO_TYPE_TARGET)
+          continue;
+
+        const DISPLAYCONFIG_VIDEO_SIGNAL_INFO& videoSignalInfo = targetModeInfo.targetMode.targetVideoSignalInfo;
+
+        return Output(
+          path.targetInfo.id,
+          { .width = videoSignalInfo.activeSize.cx, .height = videoSignalInfo.activeSize.cy },
+          videoSignalInfo.totalSize.cx != 0 && videoSignalInfo.totalSize.cy != 0
+            ? static_cast<f64>(videoSignalInfo.pixelRate) / (videoSignalInfo.totalSize.cx * videoSignalInfo.totalSize.cy)
+            : 0,
+          true
+        );
+      }
+    }
+    // NOLINTEND(*-pro-type-union-access)
+
+    ERR(NotFound, "No primary display found with QueryDisplayConfig");
   }
 
   fn GetNetworkInterfaces() -> Result<Vec<NetworkInterface>> {
@@ -970,7 +976,7 @@ namespace draconis::core::system {
     }
 
     if (result != NO_ERROR)
-      return Err(DracError(PlatformSpecific, "GetAdaptersAddresses failed with error: " + std::to_string(result)));
+      ERR_FMT(NetworkError, "GetAdaptersAddresses failed with error: {}", result);
 
     // Iterate through the linked list of adapters
     for (IP_ADAPTER_ADDRESSES* pCurrAddresses = pAddresses; pCurrAddresses != nullptr; pCurrAddresses = pCurrAddresses->Next) {
@@ -1018,7 +1024,7 @@ namespace draconis::core::system {
       inet_pton(AF_INET, "8.8.8.8", &destAddr.sin_addr);
 
       if (DWORD status = GetBestRoute(destAddr.sin_addr.s_addr, 0, &routeRow); status != NO_ERROR)
-        return Err(DracError(PlatformSpecific, "GetBestRoute failed with error: " + std::to_string(status)));
+        ERR_FMT(NetworkError, "GetBestRoute failed with error: {}", status);
 
       // The interface index for the best route
       const DWORD primaryInterfaceIndex = routeRow.dwForwardIfIndex;
@@ -1038,7 +1044,7 @@ namespace draconis::core::system {
       }
 
       if (result != NO_ERROR)
-        return Err(DracError(PlatformSpecific, "GetAdaptersAddresses failed with error: " + std::to_string(result)));
+        ERR_FMT(NetworkError, "GetAdaptersAddresses failed with error: {}", result);
 
       for (IP_ADAPTER_ADDRESSES* pCurrAddresses = pAddresses; pCurrAddresses != nullptr; pCurrAddresses = pCurrAddresses->Next) {
         // NOLINTNEXTLINE(*-union-access)
@@ -1075,7 +1081,7 @@ namespace draconis::core::system {
         }
       }
 
-      return Err(DracError(NotFound, "Could not find details for the primary network interface."));
+      ERR(NotFound, "Could not find details for the primary network interface.");
     });
   }
 
@@ -1086,15 +1092,15 @@ namespace draconis::core::system {
     SYSTEM_POWER_STATUS powerStatus;
 
     if (!GetSystemPowerStatus(&powerStatus))
-      return Err(DracError(PlatformSpecific, "GetSystemPowerStatus failed with error code " + std::to_string(GetLastError())));
+      ERR_FMT(ApiUnavailable, "GetSystemPowerStatus failed with error code {}", GetLastError());
 
     // The BATTERY_FLAG_NO_SYSTEM_BATTERY flag (0x80) indicates no battery is present.
     if (powerStatus.BatteryFlag & BATTERY_FLAG_NO_BATTERY)
-      return Err(DracError(NotFound, "No battery found"));
+      ERR(NotFound, "No battery found");
 
     // The BATTERY_FLAG_UNKNOWN flag (0xFF) indicates the status can't be determined.
     if (powerStatus.BatteryFlag == BATTERY_FLAG_UNKNOWN)
-      return Err(DracError(NotFound, "Battery status unknown"));
+      ERR(NotFound, "Battery status unknown");
 
     // 255 means unknown, so we'll map it to None.
     const Option<u8> percentage = (powerStatus.BatteryLifePercent == 255) ? None : Some(powerStatus.BatteryLifePercent);
@@ -1119,7 +1125,7 @@ namespace draconis::core::system {
 
   #if DRAC_ENABLE_PACKAGECOUNT
 namespace draconis::services::packages {
-  using draconis::utils::env::GetEnvW;
+  using draconis::utils::env::GetEnv;
   using helpers::GetDirCount;
 
   fn CountChocolatey(CacheManager& cache) -> Result<u64> {
@@ -1129,7 +1135,7 @@ namespace draconis::services::packages {
 
       // If the ChocolateyInstall environment variable is set, use that instead.
       // Most of the time it's set to C:\ProgramData\chocolatey, but it can be overridden.
-      if (const Result<WCStr*> chocoEnv = GetEnvW(L"ChocolateyInstall"); chocoEnv)
+      if (const Result<PWCStr> chocoEnv = GetEnv(L"ChocolateyInstall"); chocoEnv)
         chocoPath = *chocoEnv;
 
       // The lib directory contains the package metadata.
@@ -1137,10 +1143,12 @@ namespace draconis::services::packages {
 
       // Get the number of directories in the lib directory.
       // This corresponds to the number of packages installed.
-      if (Result<u64> dirCount = GetDirCount(chocoPath))
+      const Result<u64> dirCount = GetDirCount(chocoPath);
+
+      if (dirCount)
         return *dirCount;
 
-      return Err(DracError(NotFound, "Failed to get Chocolatey package count"));
+      ERR_FROM(dirCount.error());
     });
   }
 
@@ -1149,24 +1157,26 @@ namespace draconis::services::packages {
       WString scoopAppsPath;
 
       // The SCOOP environment variable should be used first if it's set.
-      if (const Result<WCStr*> scoopEnv = GetEnvW(L"SCOOP"); scoopEnv) {
+      if (const Result<PWCStr> scoopEnv = GetEnv(L"SCOOP"); scoopEnv) {
         scoopAppsPath = *scoopEnv;
         scoopAppsPath.append(L"\\apps");
-      } else if (const Result<WCStr*> userProfile = GetEnvW(L"USERPROFILE"); userProfile) {
+      } else if (const Result<PWCStr> userProfile = GetEnv(L"USERPROFILE"); userProfile) {
         // Otherwise, we can try finding the scoop folder in the user's home directory.
         scoopAppsPath = *userProfile;
         scoopAppsPath.append(L"\\scoop\\apps");
       } else {
         // The user likely doesn't have scoop installed if neither of those other methods work.
-        return Err(DracError(NotFound, "Could not determine Scoop installation directory (SCOOP and USERPROFILE environment variables not found)"));
+        ERR(ConfigurationError, "Could not determine Scoop installation directory (SCOOP and USERPROFILE environment variables not found)");
       }
 
       // Get the number of directories in the apps directory.
       // This corresponds to the number of packages installed.
-      if (Result<u64> dirCount = GetDirCount(scoopAppsPath))
+      const Result<u64> dirCount = GetDirCount(scoopAppsPath);
+
+      if (dirCount)
         return *dirCount;
 
-      return Err(DracError(NotFound, "Failed to get Scoop package count"));
+      ERR_FROM(dirCount.error());
     });
   }
 
@@ -1182,7 +1192,7 @@ namespace draconis::services::packages {
         return std::ranges::distance(PackageManager().FindPackagesForUser(L""));
       } catch (const winrt::hresult_error& e) {
         // Make sure to catch any errors that WinRT might throw.
-        return Err(DracError(e));
+        ERR_FMT(ApiUnavailable, "Failed to get package count: {}", winrt::to_string(e.message()));
       }
     });
   }

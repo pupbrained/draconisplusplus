@@ -231,7 +231,7 @@ namespace draconis::utils {
      * @return An Option containing the value.
      */
     template <typename Tp>
-    constexpr auto Some(Tp&& value) -> Option<std::remove_reference_t<Tp>> {
+    constexpr fn Some(Tp&& value) -> Option<std::remove_reference_t<Tp>> {
       return std::make_optional<std::remove_reference_t<Tp>>(std::forward<Tp>(value));
     }
 

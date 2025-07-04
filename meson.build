@@ -25,6 +25,7 @@ host_system = host_machine.system()
 project_string_defines = {
   'DRAC_VERSION': '"' + meson.project_version() + '"',
   'fn': 'auto',
+  '_WIN32_WINNT': '0x0602',
 }
 
 project_flag_defines = {
@@ -202,11 +203,11 @@ if host_system == 'darwin'
   lib_deps += cpp.find_library('iconv')
 elif host_system == 'windows'
   lib_deps += [
-    dependency('dwmapi', native: true, required: true),
-    dependency('windowsapp', native: true, required: true),
-    dependency('setupapi', native: true, required: true),
-    dependency('dxgi', native: true, required: true),
-    dependency('dxguid', native: true, required: true),
+    cpp.find_library('dwmapi'),
+    cpp.find_library('windowsapp'),
+    cpp.find_library('setupapi'),
+    cpp.find_library('dxgi'),
+    cpp.find_library('dxguid'),
   ]
 elif host_system not in ['serenity', 'haiku']
   lib_deps += dependency('dbus-1', required: feature_states['nowplaying'])

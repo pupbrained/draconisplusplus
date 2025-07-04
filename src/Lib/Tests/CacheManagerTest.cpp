@@ -53,7 +53,14 @@ class CacheManagerTest : public Test {
     // Set environment variable for test
     m_originalHome = env::GetEnv("HOME");
 
-    env::SetEnv("HOME", m_testDir.c_str());
+    env::SetEnv(
+#ifdef _WIN32
+      L"HOME",
+#else
+      "HOME",
+#endif
+      m_testDir.c_str()
+    );
   }
 
   fn TearDown() -> Unit override {

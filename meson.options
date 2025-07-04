@@ -15,6 +15,7 @@ option('use_linked_pci_ids', type: 'boolean', value: false)
 # Note: Enabling this disables runtime TOML parsing and configuration overriding.
 option('precompiled_config', type: 'boolean', value: false)
 
+# Linux-specific
 option(
   'pugixml',
   type: 'feature',
@@ -22,6 +23,7 @@ option(
   description: 'Use pugixml to parse XBPS package metadata on Void Linux',
 )
 
+# Linux/BSD-specific
 option(
   'xcb',
   type: 'feature',
@@ -29,6 +31,7 @@ option(
   description: 'Use libxcb to get the X11 window manager/display(s)',
 )
 
+# Linux/BSD-specific
 option(
   'wayland',
   type: 'feature',
@@ -36,7 +39,7 @@ option(
   description: 'Use wayland-client to get the Wayland compositor/display(s)',
 )
 
-# Note: Requires DBus on Linux/BSD or MediaRemote.framework (private API) on macOS.
+# Note: Requires DBus on Linux/BSD and MediaRemote.framework (private API) on macOS.
 option(
   'nowplaying',
   type: 'feature',

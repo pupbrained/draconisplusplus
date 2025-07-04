@@ -77,20 +77,19 @@ namespace draconis::core::system {
     };
 
     // Use batch operations for related information
-    Future<Result<String>>               desktopEnvFut     = std::async(async, [&cache]() { return GetDesktopEnvironment(cache); });
-    Future<Result<String>>               windowMgrFut      = std::async(async, [&cache]() { return GetWindowManager(cache); });
-    Future<Result<Output>>               primaryDisplayFut = std::async(async, &GetPrimaryOutput);
-    Future<Result<String>>               osFut             = std::async(async, [&cache]() { return GetOSVersion(cache); });
-    Future<Result<String>>               kernelFut         = std::async(async, [&cache]() { return GetKernelVersion(cache); });
-    Future<Result<String>>               hostFut           = std::async(async, [&cache]() { return GetHost(cache); });
-    Future<Result<String>>               cpuFut            = std::async(async, [&cache]() { return GetCPUModel(cache); });
-    Future<Result<CPUCores>>             cpuCoresFut       = std::async(async, [&cache]() { return GetCPUCores(cache); });
-    Future<Result<String>>               gpuFut            = std::async(async, [&cache]() { return GetGPUModel(cache); });
-    Future<Result<String>>               shellFut          = std::async(async, [&cache]() { return GetShell(cache); });
-    Future<Result<ResourceUsage>>        memFut            = std::async(async, &GetMemInfo);
-    Future<Result<ResourceUsage>>        diskFut           = std::async(async, &GetDiskUsage);
-    Future<Result<String>>               dateFut           = std::async(async, &getDate);
-    Future<Result<std::chrono::seconds>> uptimeFut         = std::async(async, &GetUptime);
+    Future<Result<String>>               desktopEnvFut = std::async(async, [&cache]() { return GetDesktopEnvironment(cache); });
+    Future<Result<String>>               windowMgrFut  = std::async(async, [&cache]() { return GetWindowManager(cache); });
+    Future<Result<String>>               osFut         = std::async(async, [&cache]() { return GetOSVersion(cache); });
+    Future<Result<String>>               kernelFut     = std::async(async, [&cache]() { return GetKernelVersion(cache); });
+    Future<Result<String>>               hostFut       = std::async(async, [&cache]() { return GetHost(cache); });
+    Future<Result<String>>               cpuFut        = std::async(async, [&cache]() { return GetCPUModel(cache); });
+    Future<Result<CPUCores>>             cpuCoresFut   = std::async(async, [&cache]() { return GetCPUCores(cache); });
+    Future<Result<String>>               gpuFut        = std::async(async, [&cache]() { return GetGPUModel(cache); });
+    Future<Result<String>>               shellFut      = std::async(async, [&cache]() { return GetShell(cache); });
+    Future<Result<ResourceUsage>>        memFut        = std::async(async, &GetMemInfo);
+    Future<Result<ResourceUsage>>        diskFut       = std::async(async, &GetDiskUsage);
+    Future<Result<String>>               dateFut       = std::async(async, &getDate);
+    Future<Result<std::chrono::seconds>> uptimeFut     = std::async(async, &GetUptime);
 
 #if DRAC_ENABLE_PACKAGECOUNT
     Future<Result<u64>> pkgFut = std::async(async, [&cache, &config]() { return draconis::services::packages::GetTotalCount(cache, config.enabledPackageManagers); });
@@ -100,20 +99,19 @@ namespace draconis::core::system {
     Future<Result<MediaInfo>> npFut = std::async(config.nowPlaying.enabled ? async : deferred, &GetNowPlaying);
 #endif
 
-    this->desktopEnv     = desktopEnvFut.get();
-    this->windowMgr      = windowMgrFut.get();
-    this->primaryDisplay = primaryDisplayFut.get();
-    this->osVersion      = osFut.get();
-    this->kernelVersion  = kernelFut.get();
-    this->host           = hostFut.get();
-    this->cpuModel       = replaceTrademarkSymbols(cpuFut.get());
-    this->cpuCores       = cpuCoresFut.get();
-    this->gpuModel       = gpuFut.get();
-    this->shell          = shellFut.get();
-    this->memInfo        = memFut.get();
-    this->diskUsage      = diskFut.get();
-    this->uptime         = uptimeFut.get();
-    this->date           = dateFut.get();
+    this->desktopEnv    = desktopEnvFut.get();
+    this->windowMgr     = windowMgrFut.get();
+    this->osVersion     = osFut.get();
+    this->kernelVersion = kernelFut.get();
+    this->host          = hostFut.get();
+    this->cpuModel      = replaceTrademarkSymbols(cpuFut.get());
+    this->cpuCores      = cpuCoresFut.get();
+    this->gpuModel      = gpuFut.get();
+    this->shell         = shellFut.get();
+    this->memInfo       = memFut.get();
+    this->diskUsage     = diskFut.get();
+    this->uptime        = uptimeFut.get();
+    this->date          = dateFut.get();
 
 #if DRAC_ENABLE_PACKAGECOUNT
     this->packageCount = pkgFut.get();

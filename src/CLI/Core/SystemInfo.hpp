@@ -40,7 +40,6 @@ namespace draconis::core::system {
     Result<CPUCores>      cpuCores;
     Result<String>        gpuModel;
     Result<seconds>       uptime;
-    Result<Output>        primaryDisplay;
 #if DRAC_ENABLE_PACKAGECOUNT
     Result<u64> packageCount;
 #endif

@@ -57,29 +57,9 @@ namespace draconis::utils::error {
 
     DracError(const DracErrorCode errc, String msg, const std::source_location& loc = std::source_location::current())
       : message(std::move(msg)), location(loc), code(errc) {}
-
-#ifdef _WIN32
-    explicit DracError(const winrt::hresult_error& err)
-      : message(winrt::to_string(err.message())) {
-      using matchit::match, matchit::is, matchit::or_, matchit::_;
-      using enum DracErrorCode;
-
-      auto fromWin32 = [](const u32 win32) -> HRESULT { return HRESULT_FROM_WIN32(win32); };
-
-      code = match(err.code())(
-        is | or_(E_ACCESSDENIED, fromWin32(ERROR_ACCESS_DENIED)) = PermissionDenied,
-        is | fromWin32(ERROR_FILE_NOT_FOUND)                     = NotFound,
-        is | fromWin32(ERROR_PATH_NOT_FOUND)                     = NotFound,
-        is | fromWin32(ERROR_SERVICE_NOT_FOUND)                  = NotFound,
-        is | fromWin32(ERROR_TIMEOUT)                            = Timeout,
-        is | fromWin32(ERROR_SEM_TIMEOUT)                        = Timeout,
-        is | fromWin32(ERROR_NOT_SUPPORTED)                      = NotSupported,
-        is | _                                                   = PlatformSpecific
-      );
-    }
-#endif
   };
 } // namespace draconis::utils::error
 
 #define ERR(errc, msg)          return ::draconis::utils::types::Err(::draconis::utils::error::DracError(errc, msg))
+#define ERR_FROM(err)           return ::draconis::utils::types::Err(::draconis::utils::error::DracError(err))
 #define ERR_FMT(errc, fmt, ...) return ::draconis::utils::types::Err(::draconis::utils::error::DracError(errc, std::format(fmt, __VA_ARGS__)))

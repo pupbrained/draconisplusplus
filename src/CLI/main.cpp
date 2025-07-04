@@ -108,8 +108,6 @@ namespace {
 
       Print(failureLine);
     }
-
-    // Flush is handled automatically by the Print function
   }
 } // namespace
 
@@ -159,6 +157,7 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
   CacheManager cache;
   cache.setGlobalPolicy(CachePolicy::tempDirectory());
 
+#ifndef NDEBUG
   if (Result<CPUCores> cpuCores = GetCPUCores(cache))
     debug_log("CPU cores: {} physical, {} logical", cpuCores->physical, cpuCores->logical);
   else
@@ -185,20 +184,21 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
   } else
     debug_at(battery.error());
 
+  if (Result<Output> primaryOutput = GetPrimaryOutput()) {
+    debug_log("Primary display ID: {}", primaryOutput->id);
+    debug_log("Primary display resolution: {}x{}", primaryOutput->resolution.width, primaryOutput->resolution.height);
+    debug_log("Primary display refresh rate: {:.2f}Hz", primaryOutput->refreshRate);
+    debug_log("Primary display is primary: {}", primaryOutput->isPrimary);
+  } else
+    debug_at(primaryOutput.error());
+#endif
+
   {
     using namespace ftxui;
     using namespace ftxui::Dimension;
 
     const Config& config = Config::getInstance();
     SystemInfo    data(cache, config);
-
-    if (data.primaryDisplay) {
-      debug_log("Display ID: {}", data.primaryDisplay->id);
-      debug_log("Display resolution: {}x{}", data.primaryDisplay->resolution.width, data.primaryDisplay->resolution.height);
-      debug_log("Display refresh rate: {:.2f}Hz", data.primaryDisplay->refreshRate);
-      debug_log("Display is primary: {}", data.primaryDisplay->isPrimary);
-    } else
-      debug_at(data.primaryDisplay.error());
 
 #if DRAC_ENABLE_WEATHER
     Result<Report> weatherReport;
