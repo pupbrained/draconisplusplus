@@ -55,25 +55,25 @@ feature_states = {}
 
 # Define which options are features vs booleans
 feature_options = [
-  'enable_nowplaying',
-  'enable_caching',
-  'enable_weather',
-  'enable_packagecount',
-  'use_xcb',
-  'use_wayland',
-  'use_pugixml',
+  'nowplaying',
+  'caching',
+  'weather',
+  'packagecount',
+  'xcb',
+  'wayland',
+  'pugixml',
 ]
 
 foreach option, define : {
+  'caching': 'DRAC_ENABLE_CACHING',
+  'nowplaying': 'DRAC_ENABLE_NOWPLAYING',
+  'packagecount': 'DRAC_ENABLE_PACKAGECOUNT',
   'precompiled_config': 'DRAC_PRECOMPILED_CONFIG',
-  'enable_nowplaying': 'DRAC_ENABLE_NOWPLAYING',
-  'enable_caching': 'DRAC_ENABLE_CACHING',
-  'enable_weather': 'DRAC_ENABLE_WEATHER',
-  'enable_packagecount': 'DRAC_ENABLE_PACKAGECOUNT',
+  'pugixml': 'DRAC_USE_PUGIXML',
   'use_linked_pci_ids': 'DRAC_USE_LINKED_PCI_IDS',
-  'use_xcb': 'DRAC_USE_XCB',
-  'use_wayland': 'DRAC_USE_WAYLAND',
-  'use_pugixml': 'DRAC_USE_PUGIXML',
+  'wayland': 'DRAC_USE_WAYLAND',
+  'weather': 'DRAC_ENABLE_WEATHER',
+  'xcb': 'DRAC_USE_XCB',
 }
   opt_val = get_option(option)
 
@@ -178,11 +178,11 @@ else
   lib_deps += dependency('tomlplusplus', include_type: 'system', static: true)
 endif
 
-if feature_states['enable_weather']
+if feature_states['weather']
   lib_deps += dependency('libcurl', include_type: 'system', static: true)
 endif
 
-if feature_states['enable_packagecount'] and host_system in ['darwin', 'linux']
+if feature_states['packagecount'] and host_system in ['darwin', 'linux']
   lib_deps += dependency('SQLiteCpp')
 endif
 
@@ -209,16 +209,16 @@ elif host_system == 'windows'
     dependency('dxguid', native: true, required: true),
   ]
 elif host_system not in ['serenity', 'haiku']
-  lib_deps += dependency('dbus-1', required: feature_states['enable_nowplaying'])
+  lib_deps += dependency('dbus-1', required: feature_states['nowplaying'])
 
-  lib_deps += dependency('xau', required: get_option('use_xcb'))
-  lib_deps += dependency('xcb', required: get_option('use_xcb'))
-  lib_deps += dependency('xcb-randr', required: get_option('use_xcb'))
-  lib_deps += dependency('xdmcp', required: get_option('use_xcb'))
+  lib_deps += dependency('xau', required: get_option('xcb'))
+  lib_deps += dependency('xcb', required: get_option('xcb'))
+  lib_deps += dependency('xcb-randr', required: get_option('xcb'))
+  lib_deps += dependency('xdmcp', required: get_option('xcb'))
 
-  lib_deps += dependency('pugixml', required: get_option('use_pugixml'))
+  lib_deps += dependency('pugixml', required: get_option('pugixml'))
 
-  lib_deps += dependency('wayland-client', required: get_option('use_wayland'))
+  lib_deps += dependency('wayland-client', required: get_option('wayland'))
 endif
 
 # Glaze (JSON/BEVE serializer/deserializer)
@@ -260,26 +260,28 @@ endif
 # =========================== #
 summary(
   {
-    'Weather support': feature_states['enable_weather'],
-    'Package counting': feature_states['enable_packagecount'],
-    'Now Playing': feature_states['enable_nowplaying'],
-    'Caching': feature_states['enable_caching'],
+    'Weather support': feature_states['weather'],
+    'Package counting': feature_states['packagecount'],
+    'Now Playing': feature_states['nowplaying'],
+    'Caching': feature_states['caching'],
     'Precompiled config': get_option('precompiled_config'),
   },
   section: 'Features',
   bool_yn: true,
 )
 
-summary(
-  {
-    'XCB (X11)': feature_states.get('use_xcb', false),
-    'Wayland': feature_states.get('use_wayland', false),
-    'pugixml': feature_states.get('use_pugixml', false),
-    'Linked PCI IDs': feature_states.get('use_linked_pci_ids', false),
-  },
-  section: 'Platform Support',
-  bool_yn: true,
-)
+if host_system != 'windows' and host_system != 'darwin'
+  summary(
+    {
+      'XCB (X11)': feature_states.get('xcb', false),
+      'Wayland': feature_states.get('wayland', false),
+      'pugixml': feature_states.get('pugixml', false),
+      'Use Linked pci.ids': feature_states.get('use_linked_pci_ids', false),
+    },
+    section: 'Platform Support',
+    bool_yn: true,
+  )
+endif
 
 summary(
   {

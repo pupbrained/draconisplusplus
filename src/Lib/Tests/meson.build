@@ -43,7 +43,7 @@ if gtest_dep.found() and gmock_dep.found()
   endforeach
 
   # Conditionally build package tests
-  if get_option('enable_packagecount').enabled()
+  if get_option('packagecount').enabled()
     foreach test_file : test_sources['packages']
       test_name = fs.stem(test_file)
 
@@ -67,7 +67,7 @@ if gtest_dep.found() and gmock_dep.found()
   endif
 
   # Conditionally build weather tests
-  if get_option('enable_weather').enabled()
+  if get_option('weather').enabled()
     foreach test_file : test_sources['weather']
       test_name = fs.stem(test_file)
 

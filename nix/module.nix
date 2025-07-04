@@ -67,10 +67,11 @@ with lib; let
       (oldAttrs.mesonFlags or [])
       ++ [
         (lib.optionalString (cfg.configFormat == "hpp") "-Dprecompiled_config=true")
-        (lib.optionalString (cfg.usePugixml) "-Duse_pugixml=enabled")
-        (lib.optionalString (cfg.enableNowPlaying) "-Denable_nowplaying=enabled")
-        (lib.optionalString (cfg.enableWeather) "-Denable_weather=eneabled")
-        (lib.optionalString (cfg.enablePackageCount) "-Denable_packagecount=enabled")
+        (lib.optionalString (cfg.usePugixml) "-Dpugixml=enabled")
+        (lib.optionalString (cfg.enableNowPlaying) "-Dnowplaying=enabled")
+        (lib.optionalString (cfg.enableWeather) "-Dweather=eneabled")
+        (lib.optionalString (cfg.enablePackageCount) "-Dpackagecount=enabled")
+        (lib.optionalString (cfg.enableCaching) "-Dcaching=enabled")
       ];
   });
 
@@ -115,11 +116,9 @@ in {
       };
 
       description = ''
-        Specifies the location for weather data.
-        This can be either a city name (as a string) or an attribute set
-        with `lat` and `lon` coordinates.
-        Using a city name is only supported by the OpenWeatherMap provider
-        and is not supported in `hpp` configuration mode.
+        Specifies the location for weather data. This can be either a city name
+        (as a string) or an attribute set with `lat` and `lon` coordinates.
+        Using a city name is only supported by the OpenWeatherMap provider.
       '';
 
       example = literalExpression ''
@@ -161,6 +160,12 @@ in {
       type = types.bool;
       default = true;
       description = "Enable getting package count.";
+    };
+
+    enableCaching = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Enable caching functionality.";
     };
 
     username = mkOption {

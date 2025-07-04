@@ -30,11 +30,11 @@ platform_sources = {
 # Build final source list
 lib_all_sources = lib_sources['base']
 
-if get_option('enable_packagecount').enabled()
+if get_option('packagecount').enabled()
   lib_all_sources += lib_sources['packages']
 endif
 
-if get_option('enable_weather').enabled()
+if get_option('weather').enabled()
   lib_all_sources += lib_sources['weather']
 endif
 

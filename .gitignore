@@ -28,6 +28,7 @@ imgui.ini
 subprojects/*
 !subprojects/*.wrap
 subprojects/sqlite3.wrap
+dev_profile*
 
 /config.hpp
 pci_ids.o
