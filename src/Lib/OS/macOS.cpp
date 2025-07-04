@@ -3,23 +3,21 @@
   #include <CoreFoundation/CFPropertyList.h> // CFPropertyListCreateWithData, kCFPropertyListImmutable
   #include <CoreFoundation/CFStream.h>       // CFReadStreamClose, CFReadStreamCreateWithFile, CFReadStreamOpen, CFReadStreamRead, CFReadStreamRef
   #include <CoreGraphics/CGDirectDisplay.h>  // CGDisplayCopyDeviceDescription, CGDisplayCopyDisplayMode, CGDisplayIsMain, CGDisplayModeGetMaximumRefreshRate, CGDisplayModeGetRefreshRate, CGDisplayPixelsHigh, CGDisplayPixelsWide, CGDisplayRef, CGDisplayModeRef, CGDirectDisplayID
-  #include <IOKit/IOKitLib.h>                // IOKit types and functions
-  #include <IOKit/ps/IOPSKeys.h>
-  #include <IOKit/ps/IOPowerSources.h>
-  #include <algorithm> // std::ranges::equal
-  #include <arpa/inet.h>
-  #include <flat_map> // std::flat_map
-  #include <ifaddrs.h>
-  #include <mach/mach_host.h>     // host_statistics64
-  #include <mach/mach_init.h>     // host_page_size, mach_host_self
-  #include <mach/vm_statistics.h> // vm_statistics64_data_t
-  #include <net/if.h>
-  #include <net/if_dl.h>
-  #include <net/route.h>
-  #include <netdb.h>
-  #include <netinet/in.h>
-  #include <sys/statvfs.h> // statvfs
-  #include <sys/sysctl.h>  // {CTL_KERN, KERN_PROC, KERN_PROC_ALL, kinfo_proc, sysctl, sysctlbyname}
+  #include <IOKit/ps/IOPSKeys.h>             // kIOPSCurrentCapacityKey, kIOPSInternalBatteryType, kIOPSIsChargingKey, kIOPSTimeToEmptyKey, kIOPSTypeKey
+  #include <IOKit/ps/IOPowerSources.h>       // IOPSCopyPowerSourcesInfo, IOPSGetPowerSourceDescription
+  #include <algorithm>                       // std::ranges::equal
+  #include <flat_map>                        // std::flat_map
+  #include <ifaddrs.h>                       // freeifaddrs, getifaddrs, ifaddrs, sockaddr
+  #include <mach/mach_host.h>                // host_statistics64
+  #include <mach/mach_init.h>                // host_page_size, mach_host_self
+  #include <mach/vm_statistics.h>            // vm_statistics64_data_t
+  #include <net/if.h>                        // IFF_LOOPBACK, IFF_UP, IF_NAMESIZE, if_indextoname
+  #include <net/if_dl.h>                     // LLADDR, sockaddr_dl
+  #include <net/route.h>                     // RTA_DST, RTF_GATEWAY, rt_msghdr
+  #include <netdb.h>                         // NI_MAXHOST, NI_NUMERICHOST, getnameinfo
+  #include <netinet/in.h>                    // sockaddr_in
+  #include <sys/statvfs.h>                   // statvfs
+  #include <sys/sysctl.h>                    // {CTL_KERN, KERN_PROC, KERN_PROC_ALL, kinfo_proc, sysctl, sysctlbyname}
 
   #include <Drac++/Core/System.hpp>
   #include <Drac++/Services/Packages.hpp>
@@ -751,7 +749,8 @@ namespace draconis::services::packages {
           continue;
         }
 
-        Result dirCount = GetCountFromDirectory(cache, "homebrew_" + cellarPath.filename().string(), cellarPath, true);
+        // Use the non-cached version to avoid nested cache calls
+        Result dirCount = GetCountFromDirectoryNoCache("homebrew_" + cellarPath.filename().string(), cellarPath, None, true);
 
         if (!dirCount) {
           if (dirCount.error().code != NotFound)

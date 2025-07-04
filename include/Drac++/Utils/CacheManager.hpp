@@ -61,6 +61,7 @@ namespace draconis::utils::cache {
     CacheManager() : m_globalPolicy { .location = CacheLocation::Persistent, .ttl = days(1) } {}
 
     fn setGlobalPolicy(const CachePolicy& policy) -> Unit {
+      LockGuard lock(m_cacheMutex);
       m_globalPolicy = policy;
     }
 
@@ -115,9 +116,8 @@ namespace draconis::utils::cache {
       // 3. Cache miss: call fetcher
       Result<T> fetchedResult = fetcher();
 
-      if (!fetchedResult) {
+      if (!fetchedResult)
         return fetchedResult;
-      }
 
       // 4. Store in cache
       Option<u64> expiryTs;

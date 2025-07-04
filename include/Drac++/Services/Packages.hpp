@@ -5,7 +5,6 @@
   #include <filesystem> // std::filesystem::path
 
   #include "../Utils/CacheManager.hpp"
-  #include "../Utils/Error.hpp"
   #include "../Utils/Types.hpp"
 
 namespace draconis::services::packages {
@@ -158,6 +157,22 @@ namespace draconis::services::packages {
    * @return Result containing the count (u64) or a DracError. Defaults filter to "" and subtractOne to false.
    */
   fn GetCountFromDirectory(draconis::utils::cache::CacheManager& cache, const utils::types::String& pmId, const std::filesystem::path& dirPath) -> utils::types::Result<utils::types::u64>;
+
+  /**
+   * @brief Gets package count by iterating entries in a directory without caching (for internal use).
+   * @param pmId Identifier for the package manager (for logging).
+   * @param dirPath Path to the directory to iterate.
+   * @param fileExtensionFilter Only count files with this extension (e.g., ".list").
+   * @param subtractOne Subtract one from the final count.
+   * @return Result containing the count (u64) or a DracError.
+   * @note This function is for internal use to avoid nested cache calls.
+   */
+  fn GetCountFromDirectoryNoCache(
+    const utils::types::String&                       pmId,
+    const std::filesystem::path&                      dirPath,
+    const utils::types::Option<utils::types::String>& fileExtensionFilter,
+    bool                                              subtractOne
+  ) -> utils::types::Result<utils::types::u64>;
 
   #ifdef __linux__
   /**

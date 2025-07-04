@@ -31,6 +31,70 @@ using enum draconis::utils::error::DracErrorCode;
 namespace {
   constexpr const char* CACHE_KEY_PREFIX = "pkg_count_";
 
+  fn GetCountFromDirectoryImplNoCache(
+    const String&         pmId,
+    const fs::path&       dirPath,
+    const Option<String>& fileExtensionFilter,
+    const bool            subtractOne
+  ) -> Result<u64> {
+    std::error_code fsErrCode;
+
+    fsErrCode.clear();
+
+    if (!fs::is_directory(dirPath, fsErrCode)) {
+      if (fsErrCode && fsErrCode != std::errc::no_such_file_or_directory)
+        ERR_FMT(ResourceExhausted, "Filesystem error checking if '{}' is a directory: {} (resource exhausted or API unavailable)", dirPath.string(), fsErrCode.message());
+
+      ERR_FMT(NotFound, "{} path is not a directory: {}", pmId, dirPath.string());
+    }
+
+    fsErrCode.clear();
+
+    u64              count     = 0;
+    const bool       hasFilter = fileExtensionFilter.has_value();
+    const StringView filter    = fileExtensionFilter ? StringView(*fileExtensionFilter) : StringView();
+
+    try {
+      const fs::directory_iterator dirIter(
+        dirPath,
+        fs::directory_options::skip_permission_denied | fs::directory_options::follow_directory_symlink,
+        fsErrCode
+      );
+
+      if (fsErrCode)
+        ERR_FMT(ResourceExhausted, "Failed to create iterator for {} directory '{}': {} (resource exhausted or API unavailable)", pmId, dirPath.string(), fsErrCode.message());
+
+      if (hasFilter) {
+        for (const fs::directory_entry& entry : dirIter) {
+          if (entry.path().empty())
+            continue;
+
+          if (std::error_code isFileErr; entry.is_regular_file(isFileErr) && !isFileErr) {
+            if (entry.path().extension().string() == filter)
+              count++;
+          } else if (isFileErr)
+            warn_log("Error stating entry '{}' in {} directory: {}", entry.path().string(), pmId, isFileErr.message());
+        }
+      } else {
+        for (const fs::directory_entry& entry : dirIter) {
+          if (!entry.path().empty())
+            count++;
+        }
+      }
+    } catch (const fs::filesystem_error& fsCatchErr) {
+      ERR_FMT(ResourceExhausted, "Filesystem error during {} directory iteration: {} (resource exhausted or API unavailable)", pmId, fsCatchErr.what());
+    } catch (const Exception& exc) {
+      ERR_FMT(InternalError, "Internal error during {} directory iteration: {}", pmId, exc.what());
+    } catch (...) {
+      ERR_FMT(Other, "Unknown error iterating {} directory (unexpected exception)", pmId);
+    }
+
+    if (subtractOne && count > 0)
+      count--;
+
+    return count;
+  }
+
   fn GetCountFromDirectoryImpl(
     CacheManager&         cache,
     const String&         pmId,
@@ -39,62 +103,7 @@ namespace {
     const bool            subtractOne
   ) -> Result<u64> {
     return cache.getOrSet<u64>(std::format("{}{}", CACHE_KEY_PREFIX, pmId), [&]() -> Result<u64> {
-      std::error_code fsErrCode;
-
-      fsErrCode.clear();
-
-      if (!fs::is_directory(dirPath, fsErrCode)) {
-        if (fsErrCode && fsErrCode != std::errc::no_such_file_or_directory)
-          ERR_FMT(ResourceExhausted, "Filesystem error checking if '{}' is a directory: {} (resource exhausted or API unavailable)", dirPath.string(), fsErrCode.message());
-
-        ERR_FMT(NotFound, "{} path is not a directory: {}", pmId, dirPath.string());
-      }
-
-      fsErrCode.clear();
-
-      u64              count     = 0;
-      const bool       hasFilter = fileExtensionFilter.has_value();
-      const StringView filter    = fileExtensionFilter ? StringView(*fileExtensionFilter) : StringView();
-
-      try {
-        const fs::directory_iterator dirIter(
-          dirPath,
-          fs::directory_options::skip_permission_denied | fs::directory_options::follow_directory_symlink,
-          fsErrCode
-        );
-
-        if (fsErrCode)
-          ERR_FMT(ResourceExhausted, "Failed to create iterator for {} directory '{}': {} (resource exhausted or API unavailable)", pmId, dirPath.string(), fsErrCode.message());
-
-        if (hasFilter) {
-          for (const fs::directory_entry& entry : dirIter) {
-            if (entry.path().empty())
-              continue;
-
-            if (std::error_code isFileErr; entry.is_regular_file(isFileErr) && !isFileErr) {
-              if (entry.path().extension().string() == filter)
-                count++;
-            } else if (isFileErr)
-              warn_log("Error stating entry '{}' in {} directory: {}", entry.path().string(), pmId, isFileErr.message());
-          }
-        } else {
-          for (const fs::directory_entry& entry : dirIter) {
-            if (!entry.path().empty())
-              count++;
-          }
-        }
-      } catch (const fs::filesystem_error& fsCatchErr) {
-        ERR_FMT(ResourceExhausted, "Filesystem error during {} directory iteration: {} (resource exhausted or API unavailable)", pmId, fsCatchErr.what());
-      } catch (const Exception& exc) {
-        ERR_FMT(InternalError, "Internal error during {} directory iteration: {}", pmId, exc.what());
-      } catch (...) {
-        ERR_FMT(Other, "Unknown error iterating {} directory (unexpected exception)", pmId);
-      }
-
-      if (subtractOne && count > 0)
-        count--;
-
-      return count;
+      return GetCountFromDirectoryImplNoCache(pmId, dirPath, fileExtensionFilter, subtractOne);
     });
   }
 
@@ -121,6 +130,15 @@ namespace draconis::services::packages {
 
   fn GetCountFromDirectory(CacheManager& cache, const String& pmId, const fs::path& dirPath) -> Result<u64> {
     return GetCountFromDirectoryImpl(cache, pmId, dirPath, None, false);
+  }
+
+  fn GetCountFromDirectoryNoCache(
+    const String&         pmId,
+    const fs::path&       dirPath,
+    const Option<String>& fileExtensionFilter,
+    const bool            subtractOne
+  ) -> Result<u64> {
+    return GetCountFromDirectoryImplNoCache(pmId, dirPath, fileExtensionFilter, subtractOne);
   }
 
   #if !defined(__serenity__) && !defined(_WIN32)
