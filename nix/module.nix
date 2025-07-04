@@ -67,10 +67,10 @@ with lib; let
       (oldAttrs.mesonFlags or [])
       ++ [
         (lib.optionalString (cfg.configFormat == "hpp") "-Dprecompiled_config=true")
-        (lib.optionalString (cfg.usePugixml) "-Duse_pugixml=true")
-        (lib.optionalString (cfg.enableNowPlaying) "-Denable_nowplaying=true")
-        (lib.optionalString (cfg.enableWeather) "-Denable_weather=true")
-        (lib.optionalString (cfg.enablePackageCount) "-Denable_packagecount=true")
+        (lib.optionalString (cfg.usePugixml) "-Duse_pugixml=enabled")
+        (lib.optionalString (cfg.enableNowPlaying) "-Denable_nowplaying=enabled")
+        (lib.optionalString (cfg.enableWeather) "-Denable_weather=eneabled")
+        (lib.optionalString (cfg.enablePackageCount) "-Denable_packagecount=enabled")
       ];
   });
 
