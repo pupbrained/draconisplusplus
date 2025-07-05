@@ -116,7 +116,7 @@ namespace draconis::utils::logging {
   /**
    * @brief Directly applies ANSI color codes to text
    * @param text The text to colorize
-   * @param color The FTXUI color
+   * @param color The color
    * @return Styled string with ANSI codes
    */
   inline fn Colorize(const StringView text, const LogColor color) -> String {
@@ -157,9 +157,9 @@ namespace draconis::utils::logging {
   }
 
   /**
-   * @brief Returns FTXUI color representation for a log level
+   * @brief Returns the LogColor for a log level
    * @param level The log level
-   * @return FTXUI color code
+   * @return The LogColor for the log level
    */
   constexpr fn GetLevelColor(const LogLevel level) -> LogColor {
     using namespace matchit;

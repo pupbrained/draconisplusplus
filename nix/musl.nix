@@ -80,7 +80,6 @@
     xorg.libXdmcp
     xorg.libxcb
 
-    (mkOverridden "cmake" ftxui)
     (mkOverridden "cmake" pugixml)
     (mkOverridden "cmake" sqlitecpp)
     (mkOverridden "meson" tomlplusplus)

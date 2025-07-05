@@ -1,21 +1,25 @@
 #include "UI.hpp"
 
+#include <sstream>
+
 #include <Drac++/Utils/Logging.hpp>
 #include <Drac++/Utils/Types.hpp>
 
-using namespace ftxui;
 using namespace draconis::utils::types;
+using namespace draconis::utils::logging;
 
 namespace draconis::ui {
   using config::Config;
+
   using core::system::SystemInfo;
+
   using services::weather::Report;
 
   constexpr Theme DEFAULT_THEME = {
-    .icon   = Color::Cyan,
-    .label  = Color::Yellow,
-    .value  = Color::White,
-    .border = Color::GrayLight,
+    .icon   = LogColor::Cyan,
+    .label  = LogColor::Yellow,
+    .value  = LogColor::White,
+    .border = LogColor::Gray,
   };
 
   [[maybe_unused]] static constexpr Icons NONE = {
@@ -52,9 +56,9 @@ namespace draconis::ui {
     .kernel             = "   ",
     .memory             = "   ",
 #if DRAC_ARCH_64BIT
-    .cpu = " 󰻠  ", // 64-bit CPU
+    .cpu = " 󰻠  ",
 #else
-    .cpu = " 󰻟  ", // 32-bit CPU
+    .cpu = " 󰻟  ",
 #endif
     .gpu    = "   ",
     .uptime = "   ",
@@ -146,329 +150,255 @@ namespace draconis::ui {
     }
 #endif // __linux__
 
-    fn CreateColorCircles() -> Element {
-      static const Element COLOR_CIRCLES = hbox({
-        text("◯") | bold | color(static_cast<Color::Palette256>(0)),
-        text(" "),
-        text("◯") | bold | color(static_cast<Color::Palette256>(1)),
-        text(" "),
-        text("◯") | bold | color(static_cast<Color::Palette256>(2)),
-        text(" "),
-        text("◯") | bold | color(static_cast<Color::Palette256>(3)),
-        text(" "),
-        text("◯") | bold | color(static_cast<Color::Palette256>(4)),
-        text(" "),
-        text("◯") | bold | color(static_cast<Color::Palette256>(5)),
-        text(" "),
-        text("◯") | bold | color(static_cast<Color::Palette256>(6)),
-        text(" "),
-        text("◯") | bold | color(static_cast<Color::Palette256>(7)),
-        text(" "),
-        text("◯") | bold | color(static_cast<Color::Palette256>(8)),
-        text(" "),
-        text("◯") | bold | color(static_cast<Color::Palette256>(9)),
-        text(" "),
-        text("◯") | bold | color(static_cast<Color::Palette256>(10)),
-        text(" "),
-        text("◯") | bold | color(static_cast<Color::Palette256>(11)),
-        text(" "),
-        text("◯") | bold | color(static_cast<Color::Palette256>(12)),
-        text(" "),
-        text("◯") | bold | color(static_cast<Color::Palette256>(13)),
-        text(" "),
-        text("◯") | bold | color(static_cast<Color::Palette256>(14)),
-        text(" "),
-        text("◯") | bold | color(static_cast<Color::Palette256>(15)),
-        text(" "),
-      });
+    fn CreateColorCircles() -> String {
+      std::stringstream stream;
 
-      return COLOR_CIRCLES;
+      for (usize i = 0; i < 16; ++i)
+        stream << Colorize("◯", static_cast<LogColor>(i)) << (((i == 15) ? "" : " "));
+
+      return stream.str();
     }
 
     fn get_visual_width(const String& str) -> usize {
-      return string_width(str);
+      usize width    = 0;
+      bool  inEscape = false;
+
+      for (const char& character : str)
+        if (inEscape)
+          inEscape = (character != 'm');
+        else if (character == '\033')
+          inEscape = true;
+        else if ((character & 0xC0) != 0x80)
+          width++;
+
+      return width;
     }
 
     fn get_visual_width_sv(const StringView& sview) -> usize {
-      return string_width(String(sview));
+      return get_visual_width(String(sview));
     }
 
-    fn find_max_label_len(const std::vector<RowInfo>& rows) -> usize {
+    fn find_max_label_len(const Vec<RowInfo>& rows) -> usize {
       usize maxWidth = 0;
-      for (const RowInfo& row : rows) maxWidth = std::max(maxWidth, get_visual_width_sv(row.label));
+
+      for (const RowInfo& row : rows)
+        maxWidth = std::max(maxWidth, get_visual_width_sv(row.label));
 
       return maxWidth;
     }
   } // namespace
 
 #if DRAC_ENABLE_WEATHER
-  fn CreateUI(const Config& config, const SystemInfo& data, Option<Report> weather) -> Element {
+  fn CreateUI(const Config& config, const SystemInfo& data, Option<Report> weather) -> String {
 #else
-  fn CreateUI(const Config& config, const SystemInfo& data) -> Element {
+  fn CreateUI(const Config& config, const SystemInfo& data) -> String {
 #endif
-    const String& name = config.general.name;
+    const String& name     = config.general.name;
+    const Icons&  iconType = ICON_TYPE;
 
-    // clang-format off
-    const auto& [
-      calendarIcon,
-      deIcon,
-      diskIcon,
-      hostIcon,
-      kernelIcon,
-      memoryIcon,
-      cpuIcon,
-      gpuIcon,
-      uptimeIcon,
-    #if DRAC_ENABLE_NOWPLAYING
-      musicIcon,
-    #endif
-      osIcon,
-    #if DRAC_ENABLE_PACKAGECOUNT
-      packageIcon,
-    #endif
-      paletteIcon,
-      shellIcon,
-      userIcon,
-    #if DRAC_ENABLE_WEATHER
-      weatherIcon,
-    #endif
-      wmIcon
-    ] = ui::ICON_TYPE;
-    // clang-format on
+    Vec<RowInfo> initialRows;
+    Vec<RowInfo> systemInfoRows;
+    Vec<RowInfo> hardwareRows;
+    Vec<RowInfo> softwareRows;
+    Vec<RowInfo> envInfoRows;
 
-    Vec<RowInfo> initialRows;    // Date, Weather
-    Vec<RowInfo> systemInfoRows; // Host, OS, Kernel
-    Vec<RowInfo> hardwareRows;   // RAM, Disk, CPU, GPU
-    Vec<RowInfo> softwareRows;   // Shell, Packages
-    Vec<RowInfo> envInfoRows;    // DE, WM
-
-    if (data.date)
-      initialRows.push_back({ .icon = calendarIcon, .label = "Date", .value = *data.date });
+    {
+      if (data.date)
+        initialRows.push_back({ iconType.calendar, "Date", *data.date });
 
 #if DRAC_ENABLE_WEATHER
-    if (weather) {
-      const auto& [temperature, townName, description] = *weather;
+      if (weather) {
+        const auto& [temperature, townName, description] = *weather;
 
-      PCStr tempUnit = config.weather.units == services::weather::UnitSystem::METRIC ? "C" : "F";
+        PCStr tempUnit =
+          config.weather.units == services::weather::UnitSystem::METRIC
+          ? "C"
+          : "F";
 
-      initialRows.push_back(
-        {
-          .icon  = weatherIcon,
-          .label = "Weather",
-          .value = config.weather.showTownName && townName
-            ? std::format("{}°{} in {}", std::lround(temperature), tempUnit, *townName)
-            : std::format("{}°{}, {}", std::lround(temperature), tempUnit, description),
-        }
-      );
-    }
-#endif // DRAC_ENABLE_WEATHER
-
-    if (data.host && !data.host->empty())
-      systemInfoRows.push_back({ .icon = hostIcon, .label = "Host", .value = *data.host });
-
-    if (data.osVersion)
-      systemInfoRows.push_back({
-#ifdef __linux__
-        .icon = GetDistroIcon(*data.osVersion).value_or(osIcon),
-#else
-        .icon = osIcon,
+        initialRows.push_back(
+          {
+            iconType.weather,
+            "Weather",
+            config.weather.showTownName && townName
+              ? std::format("{}°{} in {}", std::lround(temperature), tempUnit, *townName)
+              : std::format("{}°{}, {}", std::lround(temperature), tempUnit, description),
+          }
+        );
+      }
 #endif
-        .label = "OS",
-        .value = *data.osVersion,
-      });
+    }
 
-    if (data.kernelVersion)
-      systemInfoRows.push_back({ .icon = kernelIcon, .label = "Kernel", .value = *data.kernelVersion });
+    {
+      if (data.host && !data.host->empty())
+        systemInfoRows.push_back({ iconType.host, "Host", *data.host });
 
-    if (data.memInfo)
-      hardwareRows.push_back(
-        {
-          .icon  = memoryIcon,
-          .label = "RAM",
-          .value = std::format("{}/{}", BytesToGiB(data.memInfo->usedBytes), BytesToGiB(data.memInfo->totalBytes)),
-        }
-      );
+      if (data.osVersion)
+        systemInfoRows.push_back({
+#ifdef __linux__
+          GetDistroIcon(*data.osVersion).value_or(iconType.os),
+#else
+          iconType.os,
+#endif
+          "OS",
+          *data.osVersion,
+        });
 
-    if (data.diskUsage)
-      hardwareRows.push_back(
-        {
-          .icon  = diskIcon,
-          .label = "Disk",
-          .value = std::format("{}/{}", BytesToGiB(data.diskUsage->usedBytes), BytesToGiB(data.diskUsage->totalBytes)),
-        }
-      );
+      if (data.kernelVersion)
+        systemInfoRows.push_back({ iconType.kernel, "Kernel", *data.kernelVersion });
+    }
 
-    if (data.cpuModel)
-      hardwareRows.push_back({ .icon = cpuIcon, .label = "CPU", .value = *data.cpuModel });
+    {
+      if (data.memInfo)
+        hardwareRows.push_back({ iconType.memory, "RAM", std::format("{}/{}", BytesToGiB(data.memInfo->usedBytes), BytesToGiB(data.memInfo->totalBytes)) });
 
-    if (data.gpuModel)
-      hardwareRows.push_back({ .icon = gpuIcon, .label = "GPU", .value = *data.gpuModel });
+      if (data.diskUsage)
+        hardwareRows.push_back({ iconType.disk, "Disk", std::format("{}/{}", BytesToGiB(data.diskUsage->usedBytes), BytesToGiB(data.diskUsage->totalBytes)) });
 
-    if (data.uptime)
-      hardwareRows.push_back(
-        { .icon = uptimeIcon, .label = "Uptime", .value = std::format("{}", SecondsToFormattedDuration { *data.uptime }) }
-      );
+      if (data.cpuModel)
+        hardwareRows.push_back({ iconType.cpu, "CPU", *data.cpuModel });
 
-    if (data.shell)
-      softwareRows.push_back({ .icon = shellIcon, .label = "Shell", .value = *data.shell });
+      if (data.gpuModel)
+        hardwareRows.push_back({ iconType.gpu, "GPU", *data.gpuModel });
+
+      if (data.uptime)
+        hardwareRows.push_back({ iconType.uptime, "Uptime", std::format("{}", SecondsToFormattedDuration { *data.uptime }) });
+    }
+
+    {
+      if (data.shell)
+        softwareRows.push_back({ iconType.shell, "Shell", *data.shell });
 
 #if DRAC_ENABLE_PACKAGECOUNT
-    if (data.packageCount && *data.packageCount > 0)
-      softwareRows.push_back({ .icon = packageIcon, .label = "Packages", .value = std::format("{}", *data.packageCount) });
+      if (data.packageCount && *data.packageCount > 0)
+        softwareRows.push_back({ iconType.package, "Packages", std::format("{}", *data.packageCount) });
 #endif
-
-    bool addedDe = false;
-
-    if (data.desktopEnv && (!data.windowMgr || *data.desktopEnv != *data.windowMgr)) {
-      envInfoRows.push_back({ .icon = deIcon, .label = "DE", .value = *data.desktopEnv });
-      addedDe = true;
     }
 
-    if (data.windowMgr && (!addedDe || (data.desktopEnv && *data.desktopEnv != *data.windowMgr)))
-      envInfoRows.push_back({ .icon = wmIcon, .label = "WM", .value = *data.windowMgr });
+    {
+      const bool deExists = data.desktopEnv.has_value();
+      const bool wmExists = data.windowMgr.has_value();
+
+      if (deExists && wmExists) {
+        if (*data.desktopEnv == *data.windowMgr)
+          envInfoRows.push_back({ iconType.windowManager, "WM", *data.windowMgr });
+        else {
+          envInfoRows.push_back({ iconType.desktopEnvironment, "DE", *data.desktopEnv });
+          envInfoRows.push_back({ iconType.windowManager, "WM", *data.windowMgr });
+        }
+      } else if (deExists)
+        envInfoRows.push_back({ iconType.desktopEnvironment, "DE", *data.desktopEnv });
+      else if (wmExists)
+        envInfoRows.push_back({ iconType.windowManager, "WM", *data.windowMgr });
+    }
+
+    usize maxContentWidth = 0;
+
+    fn getGroupMaxWidth = [&](const Vec<RowInfo>& group) -> usize {
+      if (group.empty())
+        return 0;
+
+      usize groupMaxLabelWidth = find_max_label_len(group);
+      usize groupMaxWidth      = 0;
+
+      for (const RowInfo& row : group)
+        groupMaxWidth = std::max(groupMaxWidth, get_visual_width_sv(row.icon) + groupMaxLabelWidth + 1 + get_visual_width(row.value));
+
+      return groupMaxWidth;
+    };
+
+    maxContentWidth = std::max({
+      getGroupMaxWidth(initialRows),
+      getGroupMaxWidth(systemInfoRows),
+      getGroupMaxWidth(hardwareRows),
+      getGroupMaxWidth(softwareRows),
+      getGroupMaxWidth(envInfoRows),
+    });
+
+    String greetingLine = String(iconType.user) + "Hello " + name + "!";
+    maxContentWidth     = std::max(maxContentWidth, get_visual_width(greetingLine));
+
+    String paletteLine = String(iconType.palette) + CreateColorCircles();
+    maxContentWidth    = std::max(maxContentWidth, get_visual_width(paletteLine));
 
 #if DRAC_ENABLE_NOWPLAYING
     bool   nowPlayingActive = false;
     String npText;
 
     if (config.nowPlaying.enabled && data.nowPlaying) {
-      const String title  = data.nowPlaying->title.value_or("Unknown Title");
-      const String artist = data.nowPlaying->artist.value_or("Unknown Artist");
-      npText              = artist + " - " + title;
-      nowPlayingActive    = true;
+      npText           = data.nowPlaying->artist.value_or("Unknown Artist") + " - " + data.nowPlaying->title.value_or("Unknown Title");
+      nowPlayingActive = true;
+
+      String playingLeft = String(iconType.music) + "Playing";
+
+      maxContentWidth = std::max(maxContentWidth, get_visual_width(playingLeft) + 1 + get_visual_width(npText));
     }
 #endif
 
-    usize maxContentWidth = 0;
+    std::stringstream stream;
 
-    const usize greetingWidth = get_visual_width_sv(userIcon) + get_visual_width_sv("Hello ") + get_visual_width(name) + get_visual_width_sv("! ");
-    maxContentWidth           = std::max(maxContentWidth, greetingWidth);
+    const usize innerWidth = maxContentWidth + 1;
 
-    const usize paletteWidth = get_visual_width_sv(userIcon) + (16 * (get_visual_width_sv("◯") + get_visual_width_sv(" ")));
-    maxContentWidth          = std::max(maxContentWidth, paletteWidth);
+    String hBorder;
 
-    const usize iconActualWidth = get_visual_width_sv(userIcon);
+    for (usize i = 0; i < innerWidth; ++i) hBorder += "─";
 
-    const usize maxLabelWidthInitial  = find_max_label_len(initialRows);
-    const usize maxLabelWidthSystem   = find_max_label_len(systemInfoRows);
-    const usize maxLabelWidthHardware = find_max_label_len(hardwareRows);
-    const usize maxLabelWidthSoftware = find_max_label_len(softwareRows);
-    const usize maxLabelWidthEnv      = find_max_label_len(envInfoRows);
+    fn createLine = [&](const String& left, const String& right = "") {
+      usize leftWidth  = get_visual_width(left);
+      usize rightWidth = get_visual_width(right);
+      usize padding    = (maxContentWidth >= leftWidth + rightWidth) ? maxContentWidth - (leftWidth + rightWidth) : 0;
 
-    const usize requiredWidthInitialW  = iconActualWidth + maxLabelWidthInitial;
-    const usize requiredWidthSystemW   = iconActualWidth + maxLabelWidthSystem;
-    const usize requiredWidthHardwareW = iconActualWidth + maxLabelWidthHardware;
-    const usize requiredWidthSoftwareW = iconActualWidth + maxLabelWidthSoftware;
-    const usize requiredWidthEnvW      = iconActualWidth + maxLabelWidthEnv;
-
-    fn calculateRowVisualWidth = [&](const RowInfo& row, const usize requiredLabelVisualWidth) -> usize {
-      return requiredLabelVisualWidth + get_visual_width(row.value) + get_visual_width_sv(" ");
+      stream << "│" << left << String(padding, ' ') << right << " │\n";
     };
 
-    for (const RowInfo& row : initialRows)
-      maxContentWidth = std::max(maxContentWidth, calculateRowVisualWidth(row, requiredWidthInitialW));
+    fn createLeftAlignedLine = [&](const String& content) { createLine(content, ""); };
 
-    for (const RowInfo& row : systemInfoRows)
-      maxContentWidth = std::max(maxContentWidth, calculateRowVisualWidth(row, requiredWidthSystemW));
+    stream << "╭" << hBorder << "╮\n";
+    createLeftAlignedLine(Colorize(greetingLine, DEFAULT_THEME.icon));
 
-    for (const RowInfo& row : hardwareRows)
-      maxContentWidth = std::max(maxContentWidth, calculateRowVisualWidth(row, requiredWidthHardwareW));
+    stream << "├" << hBorder << "┤\n";
+    createLeftAlignedLine(Colorize(String(iconType.palette), DEFAULT_THEME.icon) + CreateColorCircles());
 
-    for (const RowInfo& row : softwareRows)
-      maxContentWidth = std::max(maxContentWidth, calculateRowVisualWidth(row, requiredWidthSoftwareW));
+    bool hasRenderedContent = false;
 
-    for (const RowInfo& row : envInfoRows)
-      maxContentWidth = std::max(maxContentWidth, calculateRowVisualWidth(row, requiredWidthEnvW));
+    fn renderGroup = [&](const Vec<RowInfo>& group) {
+      if (group.empty())
+        return;
 
-#if DRAC_ENABLE_NOWPLAYING
-    const usize targetBoxWidth = maxContentWidth + 2;
+      const usize groupMaxLabelWidth = find_max_label_len(group);
 
-    usize npFixedWidthLeft  = 0;
-    usize npFixedWidthRight = 0;
+      if (hasRenderedContent)
+        stream << "├" << hBorder << "┤\n";
 
-    if (nowPlayingActive) {
-      npFixedWidthLeft  = get_visual_width_sv(musicIcon) + get_visual_width_sv("Playing") + get_visual_width_sv(" ");
-      npFixedWidthRight = get_visual_width_sv(" ");
-    }
+      for (const RowInfo& row : group)
+        createLine(
+          Colorize(String(row.icon), DEFAULT_THEME.icon) + Colorize(String(row.label), DEFAULT_THEME.label) + String(groupMaxLabelWidth - get_visual_width_sv(row.label), ' '),
+          Colorize(row.value, DEFAULT_THEME.value)
+        );
 
-    i32 paragraphLimit = 1;
-
-    if (nowPlayingActive) {
-      i32 availableForParagraph = static_cast<i32>(targetBoxWidth) - static_cast<i32>(npFixedWidthLeft) - static_cast<i32>(npFixedWidthRight);
-
-      availableForParagraph -= 2;
-
-      paragraphLimit = std::max(1, availableForParagraph);
-    }
-#endif // DRAC_ENABLE_NOWPLAYING
-
-    fn createStandardRow = [&](const RowInfo& row, const usize sectionRequiredVisualWidth) {
-      return hbox({
-        hbox({
-          text(String(row.icon)) | color(ui::DEFAULT_THEME.icon),
-          text(String(row.label)) | color(ui::DEFAULT_THEME.label),
-        }) |
-          size(WIDTH, EQUAL, static_cast<int>(sectionRequiredVisualWidth)),
-        text(" "),
-        filler(),
-        text(row.value) | color(ui::DEFAULT_THEME.value),
-        text(" "),
-      });
+      hasRenderedContent = true;
     };
 
-    Elements content;
+    hasRenderedContent = true;
 
-    content.push_back(text(String(userIcon) + "Hello " + name + "! ") | bold | color(DEFAULT_THEME.icon));
-    content.push_back(separator() | color(DEFAULT_THEME.border));
-    content.push_back(hbox({ text(String(paletteIcon)) | color(DEFAULT_THEME.icon), CreateColorCircles() }));
-
-    const bool section1Present = !initialRows.empty();
-    const bool section2Present = !systemInfoRows.empty();
-    const bool section3Present = !hardwareRows.empty();
-    const bool section4Present = !softwareRows.empty();
-    const bool section5Present = !envInfoRows.empty();
-
-    if (section1Present)
-      content.push_back(separator() | color(DEFAULT_THEME.border));
-
-    for (const RowInfo& row : initialRows) content.push_back(createStandardRow(row, requiredWidthInitialW));
-
-    if ((section1Present && (section2Present || section3Present || section4Present || section5Present)) || (!section1Present && section2Present))
-      content.push_back(separator() | color(DEFAULT_THEME.border));
-
-    for (const RowInfo& row : systemInfoRows) content.push_back(createStandardRow(row, requiredWidthSystemW));
-
-    if (section2Present && (section3Present || section4Present || section5Present))
-      content.push_back(separator() | color(DEFAULT_THEME.border));
-
-    for (const RowInfo& row : hardwareRows) content.push_back(createStandardRow(row, requiredWidthHardwareW));
-
-    if (section3Present && (section4Present || section5Present))
-      content.push_back(separator() | color(DEFAULT_THEME.border));
-
-    for (const RowInfo& row : softwareRows) content.push_back(createStandardRow(row, requiredWidthSoftwareW));
-
-    if (section4Present && section5Present)
-      content.push_back(separator() | color(DEFAULT_THEME.border));
-
-    for (const RowInfo& row : envInfoRows) content.push_back(createStandardRow(row, requiredWidthEnvW));
+    renderGroup(initialRows);
+    renderGroup(systemInfoRows);
+    renderGroup(hardwareRows);
+    renderGroup(softwareRows);
+    renderGroup(envInfoRows);
 
 #if DRAC_ENABLE_NOWPLAYING
-    if ((section1Present || section2Present || section3Present || section4Present || section5Present) && nowPlayingActive)
-      content.push_back(separator() | color(DEFAULT_THEME.border));
-
     if (nowPlayingActive) {
-      content.push_back(hbox({
-        text(String(musicIcon)) | color(DEFAULT_THEME.icon),
-        text("Playing") | color(DEFAULT_THEME.label),
-        text(" "),
-        filler(),
-        paragraphAlignRight(npText) | color(Color::Magenta) | size(WIDTH, LESS_THAN, paragraphLimit),
-        text(" "),
-      }));
-    }
-#endif // DRAC_ENABLE_NOWPLAYING
+      if (hasRenderedContent)
+        stream << "├" << hBorder << "┤\n";
 
-    return hbox({ vbox(content) | borderRounded | color(Color::White), filler() });
+      createLine(
+        Colorize(String(iconType.music), DEFAULT_THEME.icon) + Colorize("Playing", DEFAULT_THEME.label),
+        Colorize(npText, LogColor::Magenta)
+      );
+    }
+#endif
+
+    stream << "╰" << hBorder << "╯\n";
+    return stream.str();
   }
 } // namespace draconis::ui

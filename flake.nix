@@ -59,7 +59,6 @@
           ++ (with pkgsStatic; [
             asio
             curl
-            ftxui
             libunistring
             magic-enum
             sqlitecpp

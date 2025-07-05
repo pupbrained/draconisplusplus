@@ -1,7 +1,4 @@
-#include <cstdlib>                 // EXIT_FAILURE, EXIT_SUCCESS
-#include <ftxui/dom/elements.hpp>  // ftxui::{Element, hbox, vbox, text, separator, filler, etc.}
-#include <ftxui/dom/node.hpp>      // ftxui::{Render}
-#include <ftxui/screen/screen.hpp> // ftxui::{Screen, Dimension::Full}
+#include <cstdlib> // EXIT_FAILURE, EXIT_SUCCESS
 
 #include <Drac++/Core/System.hpp>
 #include <Drac++/Services/Packages.hpp>
@@ -89,24 +86,12 @@ namespace {
       failures.emplace_back("Weather", weather.error());
 #endif
 
-    const String summary = std::format(
-      "We've collected a total of {} readouts including {} failed read{}.\n\n",
-      totalPossibleReadouts,
-      failures.size(),
-      failures.size() == 1 ? "" : "s"
-    );
-
-    Print(summary);
-
-    for (const auto& [readout, err] : failures) {
-      const String failureLine = std::format(
-        "Readout \"{}\" failed: {} ({})\n",
-        readout,
-        err.message,
-        magic_enum::enum_name(err.code)
-      );
-
-      Print(failureLine);
+    if (failures.empty()) {
+      Println("All readouts were successful!");
+    } else {
+      Println("We've collected a total of {} readouts including {} failed read{}.", totalPossibleReadouts, failures.size(), failures.size() == 1 ? "" : "s");
+      for (const auto& [readout, err] : failures)
+        Println("Readout \"{}\" failed: {} ({})", readout, err.message, magic_enum::enum_name(err.code));
     }
   }
 } // namespace
@@ -194,9 +179,6 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
 #endif
 
   {
-    using namespace ftxui;
-    using namespace ftxui::Dimension;
-
     const Config& config = Config::getInstance();
     SystemInfo    data(cache, config);
 
@@ -222,7 +204,7 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
       return EXIT_SUCCESS;
     }
 
-    Element document;
+    String document;
 
 #if DRAC_ENABLE_WEATHER
     Option<Report> weatherOption = None;
@@ -237,9 +219,7 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
     document = CreateUI(config, data);
 #endif
 
-    Screen screen = Screen::Create(Full(), Fit(document));
-    Render(screen, document);
-    screen.Print();
+    Println(document);
   }
 
   // Running the program as part of the shell's startup will cut

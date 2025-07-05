@@ -1,10 +1,8 @@
 #pragma once
 
-#include <ftxui/dom/elements.hpp> // ftxui::Element
-#include <ftxui/screen/color.hpp> // ftxui::Color
-
 #include <Drac++/Services/Weather.hpp>
 
+#include <Drac++/Utils/Logging.hpp>
 #include <Drac++/Utils/Types.hpp>
 
 #include "Config/Config.hpp"
@@ -13,20 +11,22 @@
 namespace draconis::ui {
   namespace {
     using config::Config;
-    using core::system::SystemInfo;
-    using ftxui::Element;
-    using services::weather::Report;
-    using utils::types::Option;
-    using utils::types::StringView;
 
-    using Palette16 = ftxui::Color::Palette16;
+    using core::system::SystemInfo;
+
+    using services::weather::Report;
+
+    using utils::logging::LogColor;
+    using utils::types::Option;
+    using utils::types::String;
+    using utils::types::StringView;
   } // namespace
 
   struct Theme {
-    Palette16 icon;
-    Palette16 label;
-    Palette16 value;
-    Palette16 border;
+    LogColor icon;
+    LogColor label;
+    LogColor value;
+    LogColor border;
   };
 
   extern const Theme DEFAULT_THEME;
@@ -65,15 +65,15 @@ namespace draconis::ui {
    * @param config The application configuration.
    * @param data The collected system data.
    * @param weather The weather report, if enabled/available.
-   * @return The root ftxui::Element for rendering.
+   * @return A string containing the formatted UI.
    */
-  fn CreateUI(const Config& config, const SystemInfo& data, Option<Report> weather) -> Element;
+  fn CreateUI(const Config& config, const SystemInfo& data, Option<Report> weather) -> String;
 #else
   /**
    * @brief Creates the main UI element based on system data and configuration.
    * @param config The application configuration.
-   * @param data The collected system data. @return The root ftxui::Element for rendering.
+   * @param data The collected system data. @return A string containing the formatted UI.
    */
-  fn CreateUI(const Config& config, const SystemInfo& data) -> Element;
+  fn CreateUI(const Config& config, const SystemInfo& data) -> String;
 #endif // DRAC_ENABLE_WEATHER
 } // namespace draconis::ui

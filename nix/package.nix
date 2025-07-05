@@ -29,7 +29,6 @@
     ]
     ++ (with pkgs.pkgsStatic; [
       curl
-      ftxui
       gtest
       magic-enum
       sqlitecpp
