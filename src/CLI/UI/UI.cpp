@@ -122,6 +122,14 @@ namespace draconis::ui {
     String     value;
   };
 
+  struct UIGroup {
+    Vec<RowInfo> rows;
+    Vec<usize>   iconWidths;
+    Vec<usize>   labelWidths;
+    Vec<usize>   valueWidths;
+    usize        maxLabelWidth = 0;
+  };
+
   namespace {
 #ifdef __linux__
     // clang-format off
@@ -150,16 +158,25 @@ namespace draconis::ui {
     }
 #endif // __linux__
 
-    fn CreateColorCircles() -> String {
-      std::stringstream stream;
+    constexpr StringView COLOR_CIRCLES =
+      "\033[38;5;0m◯\033[0m "
+      "\033[38;5;1m◯\033[0m "
+      "\033[38;5;2m◯\033[0m "
+      "\033[38;5;3m◯\033[0m "
+      "\033[38;5;4m◯\033[0m "
+      "\033[38;5;5m◯\033[0m "
+      "\033[38;5;6m◯\033[0m "
+      "\033[38;5;7m◯\033[0m "
+      "\033[38;5;8m◯\033[0m "
+      "\033[38;5;9m◯\033[0m "
+      "\033[38;5;10m◯\033[0m "
+      "\033[38;5;11m◯\033[0m "
+      "\033[38;5;12m◯\033[0m "
+      "\033[38;5;13m◯\033[0m "
+      "\033[38;5;14m◯\033[0m "
+      "\033[38;5;15m◯\033[0m";
 
-      for (usize i = 0; i < 16; ++i)
-        stream << Colorize("◯", static_cast<LogColor>(i)) << (((i == 15) ? "" : " "));
-
-      return stream.str();
-    }
-
-    fn get_visual_width(const String& str) -> usize {
+    fn GetVisualWidth(const StringView& str) -> usize {
       usize width    = 0;
       bool  inEscape = false;
 
@@ -174,17 +191,89 @@ namespace draconis::ui {
       return width;
     }
 
-    fn get_visual_width_sv(const StringView& sview) -> usize {
-      return get_visual_width(String(sview));
+    fn ProcessGroup(UIGroup& group) -> usize {
+      if (group.rows.empty())
+        return 0;
+
+      group.iconWidths.reserve(group.rows.size());
+      group.labelWidths.reserve(group.rows.size());
+      group.valueWidths.reserve(group.rows.size());
+
+      for (const auto& row : group.rows) {
+        const usize labelWidth = GetVisualWidth(row.label);
+        group.maxLabelWidth    = std::max(group.maxLabelWidth, labelWidth);
+        group.iconWidths.push_back(GetVisualWidth(row.icon));
+        group.labelWidths.push_back(labelWidth);
+        group.valueWidths.push_back(GetVisualWidth(row.value));
+      }
+
+      const auto zippedWidths = std::views::zip(group.iconWidths, group.valueWidths);
+
+      const usize groupMaxWidth =
+        std::ranges::max(
+          zippedWidths | std::views::transform([&](const auto& widths) {
+            const auto& [iconW, valueW] = widths;
+            return iconW + group.maxLabelWidth + 1 + valueW;
+          })
+        );
+
+      return groupMaxWidth;
     }
 
-    fn find_max_label_len(const Vec<RowInfo>& rows) -> usize {
-      usize maxWidth = 0;
+    fn RenderGroup(std::stringstream& stream, const UIGroup& group, const usize maxContentWidth, const String& hBorder, bool& hasRenderedContent) {
+      if (group.rows.empty())
+        return;
 
-      for (const RowInfo& row : rows)
-        maxWidth = std::max(maxWidth, get_visual_width_sv(row.label));
+      if (hasRenderedContent)
+        stream << "├" << hBorder << "┤\n";
 
-      return maxWidth;
+      auto createLine = [&](const String& left, const String& right = "") {
+        const usize leftWidth  = GetVisualWidth(left);
+        const usize rightWidth = GetVisualWidth(right);
+        const usize padding    = (maxContentWidth >= leftWidth + rightWidth) ? maxContentWidth - (leftWidth + rightWidth) : 0;
+
+        stream << "│ " << left << String(padding, ' ') << right << " │\n";
+      };
+
+      const auto zippedRows = std::views::zip(group.rows, group.labelWidths);
+
+      for (const auto& [row, labelWidth] : zippedRows)
+        createLine(
+          Colorize(row.icon, DEFAULT_THEME.icon) + Colorize(row.label, DEFAULT_THEME.label) + String(group.maxLabelWidth - labelWidth, ' '),
+          Colorize(row.value, DEFAULT_THEME.value)
+        );
+
+      hasRenderedContent = true;
+    }
+
+    fn WordWrap(const StringView& text, const usize wrapWidth) -> Vec<String> {
+      Vec<String> lines;
+
+      if (wrapWidth == 0) {
+        lines.emplace_back(text);
+        return lines;
+      }
+
+      std::stringstream textStream((String(text)));
+      String            word;
+      String            currentLine;
+
+      while (textStream >> word) {
+        if (!currentLine.empty() && GetVisualWidth(currentLine) + GetVisualWidth(word) + 1 > wrapWidth) {
+          lines.emplace_back(currentLine);
+          currentLine.clear();
+        }
+
+        if (!currentLine.empty())
+          currentLine += " ";
+
+        currentLine += word;
+      }
+
+      if (!currentLine.empty())
+        lines.emplace_back(currentLine);
+
+      return lines;
     }
   } // namespace
 
@@ -196,15 +285,15 @@ namespace draconis::ui {
     const String& name     = config.general.name;
     const Icons&  iconType = ICON_TYPE;
 
-    Vec<RowInfo> initialRows;
-    Vec<RowInfo> systemInfoRows;
-    Vec<RowInfo> hardwareRows;
-    Vec<RowInfo> softwareRows;
-    Vec<RowInfo> envInfoRows;
+    UIGroup initialGroup;
+    UIGroup systemInfoGroup;
+    UIGroup hardwareGroup;
+    UIGroup softwareGroup;
+    UIGroup envInfoGroup;
 
     {
       if (data.date)
-        initialRows.push_back({ iconType.calendar, "Date", *data.date });
+        initialGroup.rows.push_back({ iconType.calendar, "Date", *data.date });
 
 #if DRAC_ENABLE_WEATHER
       if (weather) {
@@ -215,7 +304,7 @@ namespace draconis::ui {
           ? "C"
           : "F";
 
-        initialRows.push_back(
+        initialGroup.rows.push_back(
           {
             iconType.weather,
             "Weather",
@@ -230,10 +319,10 @@ namespace draconis::ui {
 
     {
       if (data.host && !data.host->empty())
-        systemInfoRows.push_back({ iconType.host, "Host", *data.host });
+        systemInfoGroup.rows.push_back({ iconType.host, "Host", *data.host });
 
       if (data.osVersion)
-        systemInfoRows.push_back({
+        systemInfoGroup.rows.push_back({
 #ifdef __linux__
           GetDistroIcon(*data.osVersion).value_or(iconType.os),
 #else
@@ -244,33 +333,33 @@ namespace draconis::ui {
         });
 
       if (data.kernelVersion)
-        systemInfoRows.push_back({ iconType.kernel, "Kernel", *data.kernelVersion });
+        systemInfoGroup.rows.push_back({ iconType.kernel, "Kernel", *data.kernelVersion });
     }
 
     {
       if (data.memInfo)
-        hardwareRows.push_back({ iconType.memory, "RAM", std::format("{}/{}", BytesToGiB(data.memInfo->usedBytes), BytesToGiB(data.memInfo->totalBytes)) });
+        hardwareGroup.rows.push_back({ iconType.memory, "RAM", std::format("{}/{}", BytesToGiB(data.memInfo->usedBytes), BytesToGiB(data.memInfo->totalBytes)) });
 
       if (data.diskUsage)
-        hardwareRows.push_back({ iconType.disk, "Disk", std::format("{}/{}", BytesToGiB(data.diskUsage->usedBytes), BytesToGiB(data.diskUsage->totalBytes)) });
+        hardwareGroup.rows.push_back({ iconType.disk, "Disk", std::format("{}/{}", BytesToGiB(data.diskUsage->usedBytes), BytesToGiB(data.diskUsage->totalBytes)) });
 
       if (data.cpuModel)
-        hardwareRows.push_back({ iconType.cpu, "CPU", *data.cpuModel });
+        hardwareGroup.rows.push_back({ iconType.cpu, "CPU", *data.cpuModel });
 
       if (data.gpuModel)
-        hardwareRows.push_back({ iconType.gpu, "GPU", *data.gpuModel });
+        hardwareGroup.rows.push_back({ iconType.gpu, "GPU", *data.gpuModel });
 
       if (data.uptime)
-        hardwareRows.push_back({ iconType.uptime, "Uptime", std::format("{}", SecondsToFormattedDuration { *data.uptime }) });
+        hardwareGroup.rows.push_back({ iconType.uptime, "Uptime", std::format("{}", SecondsToFormattedDuration { *data.uptime }) });
     }
 
     {
       if (data.shell)
-        softwareRows.push_back({ iconType.shell, "Shell", *data.shell });
+        softwareGroup.rows.push_back({ iconType.shell, "Shell", *data.shell });
 
 #if DRAC_ENABLE_PACKAGECOUNT
       if (data.packageCount && *data.packageCount > 0)
-        softwareRows.push_back({ iconType.package, "Packages", std::format("{}", *data.packageCount) });
+        softwareGroup.rows.push_back({ iconType.package, "Packages", std::format("{}", *data.packageCount) });
 #endif
     }
 
@@ -280,121 +369,102 @@ namespace draconis::ui {
 
       if (deExists && wmExists) {
         if (*data.desktopEnv == *data.windowMgr)
-          envInfoRows.push_back({ iconType.windowManager, "WM", *data.windowMgr });
+          envInfoGroup.rows.push_back({ iconType.windowManager, "WM", *data.windowMgr });
         else {
-          envInfoRows.push_back({ iconType.desktopEnvironment, "DE", *data.desktopEnv });
-          envInfoRows.push_back({ iconType.windowManager, "WM", *data.windowMgr });
+          envInfoGroup.rows.push_back({ iconType.desktopEnvironment, "DE", *data.desktopEnv });
+          envInfoGroup.rows.push_back({ iconType.windowManager, "WM", *data.windowMgr });
         }
       } else if (deExists)
-        envInfoRows.push_back({ iconType.desktopEnvironment, "DE", *data.desktopEnv });
+        envInfoGroup.rows.push_back({ iconType.desktopEnvironment, "DE", *data.desktopEnv });
       else if (wmExists)
-        envInfoRows.push_back({ iconType.windowManager, "WM", *data.windowMgr });
+        envInfoGroup.rows.push_back({ iconType.windowManager, "WM", *data.windowMgr });
     }
+
+    Vec<UIGroup*> groups = { &initialGroup, &systemInfoGroup, &hardwareGroup, &softwareGroup, &envInfoGroup };
 
     usize maxContentWidth = 0;
 
-    fn getGroupMaxWidth = [&](const Vec<RowInfo>& group) -> usize {
-      if (group.empty())
-        return 0;
+    for (UIGroup* group : groups) {
+      if (group->rows.empty())
+        continue;
 
-      usize groupMaxLabelWidth = find_max_label_len(group);
-      usize groupMaxWidth      = 0;
+      maxContentWidth = std::max(maxContentWidth, ProcessGroup(*group));
+    }
 
-      for (const RowInfo& row : group)
-        groupMaxWidth = std::max(groupMaxWidth, get_visual_width_sv(row.icon) + groupMaxLabelWidth + 1 + get_visual_width(row.value));
+    String greetingLine = std::format("{}Hello {}!", iconType.user, name);
+    maxContentWidth     = std::max(maxContentWidth, GetVisualWidth(greetingLine));
 
-      return groupMaxWidth;
-    };
-
-    maxContentWidth = std::max({
-      getGroupMaxWidth(initialRows),
-      getGroupMaxWidth(systemInfoRows),
-      getGroupMaxWidth(hardwareRows),
-      getGroupMaxWidth(softwareRows),
-      getGroupMaxWidth(envInfoRows),
-    });
-
-    String greetingLine = String(iconType.user) + "Hello " + name + "!";
-    maxContentWidth     = std::max(maxContentWidth, get_visual_width(greetingLine));
-
-    String paletteLine = String(iconType.palette) + CreateColorCircles();
-    maxContentWidth    = std::max(maxContentWidth, get_visual_width(paletteLine));
+    maxContentWidth = std::max(maxContentWidth, GetVisualWidth(iconType.palette) + GetVisualWidth(COLOR_CIRCLES));
 
 #if DRAC_ENABLE_NOWPLAYING
     bool   nowPlayingActive = false;
     String npText;
 
     if (config.nowPlaying.enabled && data.nowPlaying) {
-      npText           = data.nowPlaying->artist.value_or("Unknown Artist") + " - " + data.nowPlaying->title.value_or("Unknown Title");
+      npText           = std::format("{} - {}", data.nowPlaying->artist.value_or("Unknown Artist"), data.nowPlaying->title.value_or("Unknown Title"));
       nowPlayingActive = true;
-
-      String playingLeft = String(iconType.music) + "Playing";
-
-      maxContentWidth = std::max(maxContentWidth, get_visual_width(playingLeft) + 1 + get_visual_width(npText));
     }
 #endif
 
     std::stringstream stream;
 
-    const usize innerWidth = maxContentWidth + 1;
+    const usize innerWidth = maxContentWidth + 2;
 
     String hBorder;
-
+    hBorder.reserve(innerWidth * 3);
     for (usize i = 0; i < innerWidth; ++i) hBorder += "─";
 
-    fn createLine = [&](const String& left, const String& right = "") {
-      usize leftWidth  = get_visual_width(left);
-      usize rightWidth = get_visual_width(right);
-      usize padding    = (maxContentWidth >= leftWidth + rightWidth) ? maxContentWidth - (leftWidth + rightWidth) : 0;
+    auto createLine = [&](const String& left, const String& right = "") {
+      const usize leftWidth  = GetVisualWidth(left);
+      const usize rightWidth = GetVisualWidth(right);
+      const usize padding    = (maxContentWidth >= leftWidth + rightWidth) ? maxContentWidth - (leftWidth + rightWidth) : 0;
 
-      stream << "│" << left << String(padding, ' ') << right << " │\n";
+      stream << "│ " << left << String(padding, ' ') << right << " │\n";
     };
 
-    fn createLeftAlignedLine = [&](const String& content) { createLine(content, ""); };
+    auto createLeftAlignedLine = [&](const String& content) { createLine(content, ""); };
 
     stream << "╭" << hBorder << "╮\n";
     createLeftAlignedLine(Colorize(greetingLine, DEFAULT_THEME.icon));
 
     stream << "├" << hBorder << "┤\n";
-    createLeftAlignedLine(Colorize(String(iconType.palette), DEFAULT_THEME.icon) + CreateColorCircles());
+    createLeftAlignedLine(Colorize(iconType.palette, DEFAULT_THEME.icon) + String(COLOR_CIRCLES));
+    bool hasRenderedContent = true;
 
-    bool hasRenderedContent = false;
-
-    fn renderGroup = [&](const Vec<RowInfo>& group) {
-      if (group.empty())
-        return;
-
-      const usize groupMaxLabelWidth = find_max_label_len(group);
-
-      if (hasRenderedContent)
-        stream << "├" << hBorder << "┤\n";
-
-      for (const RowInfo& row : group)
-        createLine(
-          Colorize(String(row.icon), DEFAULT_THEME.icon) + Colorize(String(row.label), DEFAULT_THEME.label) + String(groupMaxLabelWidth - get_visual_width_sv(row.label), ' '),
-          Colorize(row.value, DEFAULT_THEME.value)
-        );
-
-      hasRenderedContent = true;
-    };
-
-    hasRenderedContent = true;
-
-    renderGroup(initialRows);
-    renderGroup(systemInfoRows);
-    renderGroup(hardwareRows);
-    renderGroup(softwareRows);
-    renderGroup(envInfoRows);
+    for (const UIGroup* group : groups)
+      RenderGroup(stream, *group, maxContentWidth, hBorder, hasRenderedContent);
 
 #if DRAC_ENABLE_NOWPLAYING
     if (nowPlayingActive) {
       if (hasRenderedContent)
         stream << "├" << hBorder << "┤\n";
 
-      createLine(
-        Colorize(String(iconType.music), DEFAULT_THEME.icon) + Colorize("Playing", DEFAULT_THEME.label),
-        Colorize(npText, LogColor::Magenta)
-      );
+      const String leftPart      = Colorize(iconType.music, DEFAULT_THEME.icon) + Colorize("Playing", DEFAULT_THEME.label);
+      const usize  leftPartWidth = GetVisualWidth(leftPart);
+
+      const usize availableWidth = maxContentWidth - leftPartWidth;
+
+      const Vec<String> wrappedLines = WordWrap(npText, availableWidth);
+
+      if (!wrappedLines.empty()) {
+        createLine(leftPart, Colorize(wrappedLines[0], LogColor::Magenta));
+
+        const String indent(leftPartWidth, ' ');
+
+        for (usize i = 1; i < wrappedLines.size(); ++i) {
+          String rightPart      = Colorize(wrappedLines[i], LogColor::Magenta);
+          usize  rightPartWidth = GetVisualWidth(rightPart);
+
+          usize padding = (maxContentWidth > leftPartWidth + rightPartWidth)
+            ? maxContentWidth - leftPartWidth - rightPartWidth
+            : 0;
+
+          String lineContent = indent;
+          lineContent.append(padding, ' ');
+          lineContent.append(rightPart);
+          createLine(lineContent);
+        }
+      }
     }
 #endif
 
