@@ -232,7 +232,7 @@ namespace draconis::ui {
         const usize rightWidth = GetVisualWidth(right);
         const usize padding    = (maxContentWidth >= leftWidth + rightWidth) ? maxContentWidth - (leftWidth + rightWidth) : 0;
 
-        stream << "│ " << left << String(padding, ' ') << right << " │\n";
+        stream << "│" << left << String(padding, ' ') << right << " │\n";
       };
 
       const auto zippedRows = std::views::zip(group.rows, group.labelWidths);
@@ -408,7 +408,7 @@ namespace draconis::ui {
 
     std::stringstream stream;
 
-    const usize innerWidth = maxContentWidth + 2;
+    const usize innerWidth = maxContentWidth + 1;
 
     String hBorder;
     hBorder.reserve(innerWidth * 3);
@@ -419,7 +419,7 @@ namespace draconis::ui {
       const usize rightWidth = GetVisualWidth(right);
       const usize padding    = (maxContentWidth >= leftWidth + rightWidth) ? maxContentWidth - (leftWidth + rightWidth) : 0;
 
-      stream << "│ " << left << String(padding, ' ') << right << " │\n";
+      stream << "│" << left << String(padding, ' ') << right << " │\n";
     };
 
     auto createLeftAlignedLine = [&](const String& content) { createLine(content, ""); };
