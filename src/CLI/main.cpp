@@ -1,5 +1,11 @@
 #include <cstdlib> // EXIT_FAILURE, EXIT_SUCCESS
 
+#ifdef _WIN32
+  #include <fcntl.h>
+  #include <io.h>
+  #include <windows.h>
+#endif
+
 #include <Drac++/Core/System.hpp>
 #include <Drac++/Services/Packages.hpp>
 
@@ -31,6 +37,37 @@ using draconis::services::weather::Report;
 #endif
 
 namespace {
+#ifdef _WIN32
+  fn ConvertUTF8ToWString(const String& utf8String) -> Option<WString> {
+    const i32 wideSize = MultiByteToWideChar(CP_UTF8, 0, utf8String.c_str(), static_cast<i32>(utf8String.length()), nullptr, 0);
+
+    if (wideSize <= 0)
+      return None;
+
+    WString wideString(wideSize, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, utf8String.c_str(), static_cast<i32>(utf8String.length()), wideString.data(), wideSize);
+
+    return wideString;
+  }
+
+  fn WriteToConsole(const String& document) -> Unit {
+    SetConsoleOutputCP(CP_UTF8);
+
+    if (Option<WString> wideDocument = ConvertUTF8ToWString(document)) {
+      HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+
+      if (hConsole != INVALID_HANDLE_VALUE) {
+        DWORD written {};
+        WriteConsoleW(hConsole, wideDocument->c_str(), static_cast<DWORD>(wideDocument->length()), &written, nullptr);
+        WriteConsoleW(hConsole, L"\n", 1, &written, nullptr);
+        return;
+      }
+    }
+
+    Println(document);
+  }
+#endif
+
   fn PrintDoctorReport(
 #if DRAC_ENABLE_WEATHER
     const Result<Report>& weather,
@@ -219,12 +256,13 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
     document = CreateUI(config, data);
 #endif
 
+#ifdef _WIN32
+    // I LOVE WINDOWS!
+    WriteToConsole(document);
+#else
     Println(document);
+#endif
   }
-
-  // Running the program as part of the shell's startup will cut
-  // off the last line of output, so we need to add a newline here.
-  Println();
 
   return EXIT_SUCCESS;
 } catch (const Exception& e) {

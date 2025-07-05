@@ -176,17 +176,106 @@ namespace draconis::ui {
       "\033[38;5;14m◯\033[0m "
       "\033[38;5;15m◯\033[0m";
 
+    fn IsWideCharacter(char32_t codepoint) -> bool {
+      return (codepoint >= 0x1100 && codepoint <= 0x115F) || // Hangul Jamo
+        (codepoint >= 0x2329 && codepoint <= 0x232A) ||      // Angle brackets
+        (codepoint >= 0x2E80 && codepoint <= 0x2EFF) ||      // CJK Radicals Supplement
+        (codepoint >= 0x2F00 && codepoint <= 0x2FDF) ||      // Kangxi Radicals
+        (codepoint >= 0x2FF0 && codepoint <= 0x2FFF) ||      // Ideographic Description Characters
+        (codepoint >= 0x3000 && codepoint <= 0x303E) ||      // CJK Symbols and Punctuation
+        (codepoint >= 0x3041 && codepoint <= 0x3096) ||      // Hiragana
+        (codepoint >= 0x3099 && codepoint <= 0x30FF) ||      // Katakana
+        (codepoint >= 0x3105 && codepoint <= 0x312F) ||      // Bopomofo
+        (codepoint >= 0x3131 && codepoint <= 0x318E) ||      // Hangul Compatibility Jamo
+        (codepoint >= 0x3190 && codepoint <= 0x31BF) ||      // Kanbun
+        (codepoint >= 0x31C0 && codepoint <= 0x31EF) ||      // CJK Strokes
+        (codepoint >= 0x31F0 && codepoint <= 0x31FF) ||      // Katakana Phonetic Extensions
+        (codepoint >= 0x3200 && codepoint <= 0x32FF) ||      // Enclosed CJK Letters and Months
+        (codepoint >= 0x3300 && codepoint <= 0x33FF) ||      // CJK Compatibility
+        (codepoint >= 0x3400 && codepoint <= 0x4DBF) ||      // CJK Unified Ideographs Extension A
+        (codepoint >= 0x4E00 && codepoint <= 0x9FFF) ||      // CJK Unified Ideographs
+        (codepoint >= 0xA000 && codepoint <= 0xA48F) ||      // Yi Syllables
+        (codepoint >= 0xA490 && codepoint <= 0xA4CF) ||      // Yi Radicals
+        (codepoint >= 0xAC00 && codepoint <= 0xD7A3) ||      // Hangul Syllables
+        (codepoint >= 0xF900 && codepoint <= 0xFAFF) ||      // CJK Compatibility Ideographs
+        (codepoint >= 0xFE10 && codepoint <= 0xFE19) ||      // Vertical Forms
+        (codepoint >= 0xFE30 && codepoint <= 0xFE6F) ||      // CJK Compatibility Forms
+        (codepoint >= 0xFF00 && codepoint <= 0xFF60) ||      // Fullwidth Forms
+        (codepoint >= 0xFFE0 && codepoint <= 0xFFE6) ||      // Fullwidth Forms
+        (codepoint >= 0x20000 && codepoint <= 0x2FFFD) ||    // CJK Unified Ideographs Extension B, C, D, E
+        (codepoint >= 0x30000 && codepoint <= 0x3FFFD);      // CJK Unified Ideographs Extension F
+    }
+
+    fn DecodeUTF8(const StringView& str, usize& pos) -> char32_t {
+      if (pos >= str.length())
+        return 0;
+
+      const fn getByte = [&](usize index) -> u8 {
+        return static_cast<u8>(str[index]);
+      };
+
+      const u8 first = getByte(pos++);
+
+      if ((first & 0x80) == 0) // ASCII (0xxxxxxx)
+        return first;
+
+      if ((first & 0xE0) == 0xC0) {
+        // 2-byte sequence (110xxxxx 10xxxxxx)
+        if (pos >= str.length())
+          return 0;
+
+        const u8 second = getByte(pos++);
+
+        return ((first & 0x1F) << 6) | (second & 0x3F);
+      }
+
+      if ((first & 0xF0) == 0xE0) {
+        // 3-byte sequence (1110xxxx 10xxxxxx 10xxxxxx)
+        if (pos + 1 >= str.length())
+          return 0;
+
+        const u8 second = getByte(pos++);
+        const u8 third  = getByte(pos++);
+
+        return ((first & 0x0F) << 12) | ((second & 0x3F) << 6) | (third & 0x3F);
+      }
+
+      if ((first & 0xF8) == 0xF0) {
+        // 4-byte sequence (11110xxx 10xxxxxx 10xxxxxx 10xxxxxx)
+        if (pos + 2 >= str.length())
+          return 0;
+
+        const u8 second = getByte(pos++);
+        const u8 third  = getByte(pos++);
+        const u8 fourth = getByte(pos++);
+
+        return ((first & 0x07) << 18) | ((second & 0x3F) << 12) | ((third & 0x3F) << 6) | (fourth & 0x3F);
+      }
+
+      return 0; // Invalid UTF-8
+    }
+
     fn GetVisualWidth(const StringView& str) -> usize {
       usize width    = 0;
       bool  inEscape = false;
+      usize pos      = 0;
 
-      for (const char& character : str)
-        if (inEscape)
-          inEscape = (character != 'm');
-        else if (character == '\033')
+      while (pos < str.length()) {
+        const char current = str[pos];
+
+        if (inEscape) {
+          inEscape = (current != 'm');
+          pos++;
+        } else if (current == '\033') {
           inEscape = true;
-        else if ((character & 0xC0) != 0x80)
-          width++;
+          pos++;
+        } else {
+          const char32_t codepoint = DecodeUTF8(str, pos);
+          if (codepoint != 0) {
+            width += IsWideCharacter(codepoint) ? 2 : 1;
+          }
+        }
+      }
 
       return width;
     }
@@ -199,7 +288,7 @@ namespace draconis::ui {
       group.labelWidths.reserve(group.rows.size());
       group.valueWidths.reserve(group.rows.size());
 
-      for (const auto& row : group.rows) {
+      for (const RowInfo& row : group.rows) {
         const usize labelWidth = GetVisualWidth(row.label);
         group.maxLabelWidth    = std::max(group.maxLabelWidth, labelWidth);
         group.iconWidths.push_back(GetVisualWidth(row.icon));
@@ -211,8 +300,9 @@ namespace draconis::ui {
 
       const usize groupMaxWidth =
         std::ranges::max(
-          zippedWidths | std::views::transform([&](const auto& widths) {
+          zippedWidths | std::views::transform([&](const std::tuple<usize, usize>& widths) {
             const auto& [iconW, valueW] = widths;
+
             return iconW + group.maxLabelWidth + 1 + valueW;
           })
         );
@@ -227,7 +317,7 @@ namespace draconis::ui {
       if (hasRenderedContent)
         stream << "├" << hBorder << "┤\n";
 
-      auto createLine = [&](const String& left, const String& right = "") {
+      const fn createLine = [&](const String& left, const String& right = "") {
         const usize leftWidth  = GetVisualWidth(left);
         const usize rightWidth = GetVisualWidth(right);
         const usize padding    = (maxContentWidth >= leftWidth + rightWidth) ? maxContentWidth - (leftWidth + rightWidth) : 0;
@@ -293,7 +383,7 @@ namespace draconis::ui {
 
     {
       if (data.date)
-        initialGroup.rows.push_back({ iconType.calendar, "Date", *data.date });
+        initialGroup.rows.push_back({ .icon = iconType.calendar, .label = "Date", .value = *data.date });
 
 #if DRAC_ENABLE_WEATHER
       if (weather) {
@@ -306,9 +396,9 @@ namespace draconis::ui {
 
         initialGroup.rows.push_back(
           {
-            iconType.weather,
-            "Weather",
-            config.weather.showTownName && townName
+            .icon  = iconType.weather,
+            .label = "Weather",
+            .value = config.weather.showTownName && townName
               ? std::format("{}°{} in {}", std::lround(temperature), tempUnit, *townName)
               : std::format("{}°{}, {}", std::lround(temperature), tempUnit, description),
           }
@@ -319,47 +409,47 @@ namespace draconis::ui {
 
     {
       if (data.host && !data.host->empty())
-        systemInfoGroup.rows.push_back({ iconType.host, "Host", *data.host });
+        systemInfoGroup.rows.push_back({ .icon = iconType.host, .label = "Host", .value = *data.host });
 
       if (data.osVersion)
         systemInfoGroup.rows.push_back({
 #ifdef __linux__
-          GetDistroIcon(*data.osVersion).value_or(iconType.os),
+          .icon = GetDistroIcon(*data.osVersion).value_or(iconType.os),
 #else
-          iconType.os,
+          .icon = iconType.os,
 #endif
-          "OS",
-          *data.osVersion,
+          .label = "OS",
+          .value = *data.osVersion,
         });
 
       if (data.kernelVersion)
-        systemInfoGroup.rows.push_back({ iconType.kernel, "Kernel", *data.kernelVersion });
+        systemInfoGroup.rows.push_back({ .icon = iconType.kernel, .label = "Kernel", .value = *data.kernelVersion });
     }
 
     {
       if (data.memInfo)
-        hardwareGroup.rows.push_back({ iconType.memory, "RAM", std::format("{}/{}", BytesToGiB(data.memInfo->usedBytes), BytesToGiB(data.memInfo->totalBytes)) });
+        hardwareGroup.rows.push_back({ .icon = iconType.memory, .label = "RAM", .value = std::format("{}/{}", BytesToGiB(data.memInfo->usedBytes), BytesToGiB(data.memInfo->totalBytes)) });
 
       if (data.diskUsage)
-        hardwareGroup.rows.push_back({ iconType.disk, "Disk", std::format("{}/{}", BytesToGiB(data.diskUsage->usedBytes), BytesToGiB(data.diskUsage->totalBytes)) });
+        hardwareGroup.rows.push_back({ .icon = iconType.disk, .label = "Disk", .value = std::format("{}/{}", BytesToGiB(data.diskUsage->usedBytes), BytesToGiB(data.diskUsage->totalBytes)) });
 
       if (data.cpuModel)
-        hardwareGroup.rows.push_back({ iconType.cpu, "CPU", *data.cpuModel });
+        hardwareGroup.rows.push_back({ .icon = iconType.cpu, .label = "CPU", .value = *data.cpuModel });
 
       if (data.gpuModel)
-        hardwareGroup.rows.push_back({ iconType.gpu, "GPU", *data.gpuModel });
+        hardwareGroup.rows.push_back({ .icon = iconType.gpu, .label = "GPU", .value = *data.gpuModel });
 
       if (data.uptime)
-        hardwareGroup.rows.push_back({ iconType.uptime, "Uptime", std::format("{}", SecondsToFormattedDuration { *data.uptime }) });
+        hardwareGroup.rows.push_back({ .icon = iconType.uptime, .label = "Uptime", .value = std::format("{}", SecondsToFormattedDuration { *data.uptime }) });
     }
 
     {
       if (data.shell)
-        softwareGroup.rows.push_back({ iconType.shell, "Shell", *data.shell });
+        softwareGroup.rows.push_back({ .icon = iconType.shell, .label = "Shell", .value = *data.shell });
 
 #if DRAC_ENABLE_PACKAGECOUNT
       if (data.packageCount && *data.packageCount > 0)
-        softwareGroup.rows.push_back({ iconType.package, "Packages", std::format("{}", *data.packageCount) });
+        softwareGroup.rows.push_back({ .icon = iconType.package, .label = "Packages", .value = std::format("{}", *data.packageCount) });
 #endif
     }
 
@@ -369,15 +459,15 @@ namespace draconis::ui {
 
       if (deExists && wmExists) {
         if (*data.desktopEnv == *data.windowMgr)
-          envInfoGroup.rows.push_back({ iconType.windowManager, "WM", *data.windowMgr });
+          envInfoGroup.rows.push_back({ .icon = iconType.windowManager, .label = "WM", .value = *data.windowMgr });
         else {
-          envInfoGroup.rows.push_back({ iconType.desktopEnvironment, "DE", *data.desktopEnv });
-          envInfoGroup.rows.push_back({ iconType.windowManager, "WM", *data.windowMgr });
+          envInfoGroup.rows.push_back({ .icon = iconType.desktopEnvironment, .label = "DE", .value = *data.desktopEnv });
+          envInfoGroup.rows.push_back({ .icon = iconType.windowManager, .label = "WM", .value = *data.windowMgr });
         }
       } else if (deExists)
-        envInfoGroup.rows.push_back({ iconType.desktopEnvironment, "DE", *data.desktopEnv });
+        envInfoGroup.rows.push_back({ .icon = iconType.desktopEnvironment, .label = "DE", .value = *data.desktopEnv });
       else if (wmExists)
-        envInfoGroup.rows.push_back({ iconType.windowManager, "WM", *data.windowMgr });
+        envInfoGroup.rows.push_back({ .icon = iconType.windowManager, .label = "WM", .value = *data.windowMgr });
     }
 
     Vec<UIGroup*> groups = { &initialGroup, &systemInfoGroup, &hardwareGroup, &softwareGroup, &envInfoGroup };
@@ -414,7 +504,7 @@ namespace draconis::ui {
     hBorder.reserve(innerWidth * 3);
     for (usize i = 0; i < innerWidth; ++i) hBorder += "─";
 
-    auto createLine = [&](const String& left, const String& right = "") {
+    const fn createLine = [&](const String& left, const String& right = "") {
       const usize leftWidth  = GetVisualWidth(left);
       const usize rightWidth = GetVisualWidth(right);
       const usize padding    = (maxContentWidth >= leftWidth + rightWidth) ? maxContentWidth - (leftWidth + rightWidth) : 0;
@@ -422,7 +512,7 @@ namespace draconis::ui {
       stream << "│" << left << String(padding, ' ') << right << " │\n";
     };
 
-    auto createLeftAlignedLine = [&](const String& content) { createLine(content, ""); };
+    const fn createLeftAlignedLine = [&](const String& content) { createLine(content, ""); };
 
     stream << "╭" << hBorder << "╮\n";
     createLeftAlignedLine(Colorize(greetingLine, DEFAULT_THEME.icon));
