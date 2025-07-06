@@ -2,10 +2,8 @@
 #include <chrono>                    // std::chrono::{minutes, steady_clock, time_point}
 #include <csignal>                   // SIGINT, SIGTERM, SIG_ERR, std::signal
 #include <cstdlib>                   // EXIT_FAILURE, EXIT_SUCCESS
-#include <filesystem>                // std::filesystem::{path, weakly_canonical}
 #include <fstream>                   // std::ifstream
 #include <magic_enum/magic_enum.hpp> // magic_enum::enum_name
-#include <thread>                    // std::jthread
 
 #ifdef DELETE
   #undef DELETE
@@ -40,8 +38,6 @@ using namespace draconis::services::weather;
 using draconis::utils::error::DracError;
 using enum draconis::utils::error::DracErrorCode;
 
-namespace fs = std::filesystem;
-
 namespace {
   constexpr i16   port        = 3722;
   constexpr PCStr indexFile   = "examples/glaze_http/web/index.mustache";
@@ -57,24 +53,12 @@ namespace {
 
     mutable UniquePointer<IWeatherService> weatherService;
 #endif
-
-    mutable struct HotReloading {
-      std::filesystem::file_time_type lastWriteTime;
-      mutable std::mutex              mtx;
-    } hotReloading;
   };
 
   fn GetState() -> const State& {
     static const State STATE;
 
     return STATE;
-  }
-
-  fn get_latest_web_files_write_time() -> std::filesystem::file_time_type {
-    fs::file_time_type tp1 = fs::exists(indexFile) ? fs::last_write_time(indexFile) : fs::file_time_type::min();
-    fs::file_time_type tp2 = fs::exists(stylingFile) ? fs::last_write_time(stylingFile) : fs::file_time_type::min();
-
-    return std::max(tp1, tp2);
   }
 
   fn readFile(const std::filesystem::path& path) -> Result<String> {
@@ -153,14 +137,6 @@ fn main() -> i32 {
       error_log("Server error at {}:{} -> {}", loc.file_name(), loc.line(), errc.message());
   });
 
-  server.get("/hot_reload_check", [](const glz::request&, glz::response& res) {
-    std::unique_lock lock(GetState().hotReloading.mtx);
-
-    fs::file_time_type timePoint = GetState().hotReloading.lastWriteTime;
-
-    res.body(std::format("{}", timePoint.time_since_epoch().count()));
-  });
-
   server.get("/style.css", [](const glz::request& req, glz::response& res) {
     info_log("Handling request for style.css from {}", req.remote_ip);
 
@@ -233,8 +209,8 @@ fn main() -> i32 {
       addProperty("Window Manager", GetWindowManager(cacheManager));
       addProperty("CPU Model", GetCPUModel(cacheManager));
       addProperty("GPU Model", GetGPUModel(cacheManager));
-      addProperty("Memory", GetMemInfo());
-      addProperty("Disk Usage", GetDiskUsage());
+      addProperty("Memory", GetMemInfo(cacheManager));
+      addProperty("Disk Usage", GetDiskUsage(cacheManager));
 #if DRAC_ENABLE_NOWPLAYING
       addProperty("Now Playing", GetNowPlaying());
 #endif
@@ -297,22 +273,6 @@ fn main() -> i32 {
       error_log("Failed to render stencil template:\n{}", glz::format_error(result.error(), *htmlTemplate));
       res.status(500).body("Internal Server Error: Template rendering failed.");
     }
-  });
-
-  GetState().hotReloading.lastWriteTime = get_latest_web_files_write_time();
-
-  std::jthread fileWatcherThread([](const std::stop_token& stopToken) {
-    while (!stopToken.stop_requested()) {
-      std::this_thread::sleep_for(std::chrono::seconds(1));
-      auto latestTime = get_latest_web_files_write_time();
-
-      std::unique_lock lock(GetState().hotReloading.mtx);
-      if (latestTime > GetState().hotReloading.lastWriteTime) {
-        info_log("Web file change detected, updating timestamp.");
-        GetState().hotReloading.lastWriteTime = latestTime;
-      }
-    }
-    info_log("File watcher thread stopped.");
   });
 
   server.bind(port);

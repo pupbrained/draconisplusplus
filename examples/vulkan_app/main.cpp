@@ -422,10 +422,10 @@ fn main() -> i32 {
       osVersion     = GetOSVersion(cacheManager);
       cpuModel      = GetCPUModel(cacheManager);
       gpuModel      = GetGPUModel(cacheManager);
-      memInfo       = GetMemInfo();
+      memInfo       = GetMemInfo(cacheManager);
       desktopEnv    = GetDesktopEnvironment(cacheManager);
       windowMgr     = GetWindowManager(cacheManager);
-      diskUsage     = GetDiskUsage();
+      diskUsage     = GetDiskUsage(cacheManager);
       shell         = GetShell(cacheManager);
 #if DRAC_ENABLE_PACKAGECOUNT
       packageCount = GetTotalCount(cacheManager, Manager::CARGO);

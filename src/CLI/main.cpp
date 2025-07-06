@@ -128,7 +128,7 @@ namespace {
   }
 } // namespace
 
-fn main(const i32 argc, char* argv[]) -> i32 try {
+fn main(const i32 argc, CStr* argv[]) -> i32 try {
 #ifdef _WIN32
   winrt::init_apartment();
 #endif

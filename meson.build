@@ -34,6 +34,7 @@ project_flag_defines = {
   'DRAC_ARCH_ARM': host_machine.cpu_family() == 'arm',
   'DRAC_ARCH_X86': host_machine.cpu_family() == 'x86',
   'DRAC_ARCH_X86_64': host_machine.cpu_family() == 'x86_64',
+  'DRAC_DEBUG': get_option('debug'),
 }
 
 if host_system == 'windows'
@@ -259,6 +260,19 @@ endif
 # =========================== #
 #   Configuration Summaries   #
 # =========================== #
+summary(
+  {
+    '64-bit': project_flag_defines['DRAC_ARCH_64BIT'],
+    'AArch64': project_flag_defines['DRAC_ARCH_AARCH64'],
+    'ARM': project_flag_defines['DRAC_ARCH_ARM'],
+    'X86': project_flag_defines['DRAC_ARCH_X86'],
+    'X86_64': project_flag_defines['DRAC_ARCH_X86_64'],
+    'Debug': project_flag_defines['DRAC_DEBUG'],
+  },
+  section: 'Definitions',
+  bool_yn: true,
+)
+
 summary(
   {
     'Weather support': feature_states['weather'],
