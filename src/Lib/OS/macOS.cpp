@@ -5,7 +5,6 @@
   #include <CoreGraphics/CGDirectDisplay.h>  // CGDisplayCopyDeviceDescription, CGDisplayCopyDisplayMode, CGDisplayIsMain, CGDisplayModeGetMaximumRefreshRate, CGDisplayModeGetRefreshRate, CGDisplayPixelsHigh, CGDisplayPixelsWide, CGDisplayRef, CGDisplayModeRef, CGDirectDisplayID
   #include <IOKit/ps/IOPSKeys.h>             // kIOPSCurrentCapacityKey, kIOPSInternalBatteryType, kIOPSIsChargingKey, kIOPSTimeToEmptyKey, kIOPSTypeKey
   #include <IOKit/ps/IOPowerSources.h>       // IOPSCopyPowerSourcesInfo, IOPSGetPowerSourceDescription
-  #include <algorithm>                       // std::ranges::equal
   #include <flat_map>                        // std::flat_map
   #include <ifaddrs.h>                       // freeifaddrs, getifaddrs, ifaddrs, sockaddr
   #include <mach/mach_host.h>                // host_statistics64
@@ -31,6 +30,7 @@
   #include "OS/macOS/Bridge.hpp"
 
 using namespace draconis::utils::types;
+using draconis::utils::cache::CacheManager, draconis::utils::cache::CachePolicy;
 
 using enum draconis::utils::error::DracErrorCode;
 
@@ -82,7 +82,7 @@ namespace {
 } // namespace
 
 namespace draconis::core::system {
-  fn GetMemInfo() -> Result<ResourceUsage> {
+  fn GetMemInfo(CacheManager& /*cache*/) -> Result<ResourceUsage> {
     // Mach ports are used for communicating with the kernel. mach_host_self
     // provides a port to the host kernel, which is needed for host-level queries.
     static mach_port_t HostPort = mach_host_self();
@@ -127,26 +127,23 @@ namespace draconis::core::system {
     return macOS::GetNowPlayingInfo();
   }
 
-  fn GetOSVersion(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+  fn GetOSVersion(CacheManager& cache) -> Result<String> {
     return cache.getOrSet<String>("macos_os_version", macOS::GetOSVersion);
   }
 
-  fn GetDesktopEnvironment(draconis::utils::cache::CacheManager& cache) -> Result<String> {
-    // macOS doesn't really have the concept of a desktop environment,
-    // and an immediate return doesn't need caching.
-    (void)cache;
-
+  fn GetDesktopEnvironment(CacheManager& /*cache*/) -> Result<String> {
     return "Aqua";
   }
 
-  fn GetWindowManager(draconis::utils::cache::CacheManager& cache) -> Result<String> {
+  fn GetWindowManager(CacheManager& cache) -> Result<String> {
     return cache.getOrSet<String>("macos_wm", []() -> Result<String> {
+      // Store names in lowercase to allow cheap case-insensitive compare via `strncasecmp`.
       constexpr Array<StringView, 5> knownWms = {
-        "Yabai",
-        "ChunkWM",
-        "Amethyst",
-        "Spectacle",
-        "Rectangle",
+        "yabai",
+        "chunkwm",
+        "amethyst",
+        "spectacle",
+        "rectangle",
       };
 
       Array<i32, 3> request = { CTL_KERN, KERN_PROC, KERN_PROC_ALL };
@@ -172,26 +169,21 @@ namespace draconis::core::system {
       // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
       Span<const kinfo_proc> processes(reinterpret_cast<const kinfo_proc*>(buf.data()), count);
 
-      for (const kinfo_proc& procInfo : processes)
+      for (const kinfo_proc& procInfo : processes) {
+        const char* procNameC = procInfo.kp_proc.p_comm;
+        const usize procLen   = std::strlen(procNameC);
+
         for (const StringView& wmName : knownWms)
-          if (
-            std::ranges::equal(
-              StringView(procInfo.kp_proc.p_comm),
-              wmName,
-              [](char chrA, char chrB) {
-                return std::tolower(chrA) == std::tolower(chrB);
-              }
-            )
-          )
+          if (procLen == wmName.size() && strncasecmp(procNameC, wmName.data(), wmName.size()) == 0)
             return String(wmName);
+      }
 
       return "Quartz";
     });
   }
 
-  fn GetKernelVersion(draconis::utils::cache::CacheManager& cache) -> Result<String> {
-    // clang-format off
-    return cache.getOrSet<String>("macos_kernel", []() -> Result<String> {
+  fn GetKernelVersion(CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("macos_kernel", CachePolicy::neverExpire(), []() -> Result<String> {
       Array<char, 256> kernelVersion {};
       usize            kernelVersionLen = kernelVersion.size();
 
@@ -199,12 +191,11 @@ namespace draconis::core::system {
         ERR_FMT(ResourceExhausted, "sysctlbyname('kern.osrelease') failed: {}", std::system_category().message(errno));
 
       return String(kernelVersion.data());
-    }, draconis::utils::cache::CachePolicy::neverExpire());
-    // clang-format on
+    });
   }
 
-  fn GetHost(draconis::utils::cache::CacheManager& cache) -> Result<String> {
-    return cache.getOrSet<String>("macos_host", []() -> Result<String> {
+  fn GetHost(CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("macos_host", CachePolicy::neverExpire(), []() -> Result<String> {
       Array<char, 256> hwModel {};
       usize            hwModelLen = hwModel.size();
 
@@ -371,9 +362,8 @@ namespace draconis::core::system {
     });
   }
 
-  fn GetCPUModel(draconis::utils::cache::CacheManager& cache) -> Result<String> {
-    // clang-format off
-    return cache.getOrSet<String>("macos_cpu_model", []() -> Result<String> {
+  fn GetCPUModel(CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("macos_cpu_model", CachePolicy::neverExpire(), []() -> Result<String> {
       Array<char, 256> cpuModel {};
       usize            cpuModelLen = cpuModel.size();
 
@@ -381,13 +371,11 @@ namespace draconis::core::system {
         ERR_FMT(ResourceExhausted, "sysctlbyname('machdep.cpu.brand_string') failed: {}", std::system_category().message(errno));
 
       return String(cpuModel.data());
-    }, draconis::utils::cache::CachePolicy::neverExpire());
-    // clang-format on
+    });
   }
 
-  fn GetCPUCores(draconis::utils::cache::CacheManager& cache) -> Result<CPUCores> {
-    // clang-format off
-    return cache.getOrSet<CPUCores>("macos_cpu_cores", []() -> Result<CPUCores> {
+  fn GetCPUCores(CacheManager& cache) -> Result<CPUCores> {
+    return cache.getOrSet<CPUCores>("macos_cpu_cores", CachePolicy::neverExpire(), []() -> Result<CPUCores> {
       u32   physicalCores = 0;
       u32   logicalCores  = 0;
       usize size          = sizeof(u32);
@@ -400,28 +388,22 @@ namespace draconis::core::system {
       if (sysctlbyname("hw.logicalcpu", &logicalCores, &size, nullptr, 0) == -1)
         ERR_FMT(ResourceExhausted, "sysctlbyname('hw.logicalcpu') failed: {}", std::system_category().message(errno));
 
-      debug_log("Physical cores: {}", physicalCores);
-      debug_log("Logical cores: {}", logicalCores);
-
       return CPUCores(physicalCores, logicalCores);
-    }, draconis::utils::cache::CachePolicy::neverExpire());
-    // clang-format on
+    });
   }
 
-  fn GetGPUModel(draconis::utils::cache::CacheManager& cache) -> Result<String> {
-    // clang-format off
-    return cache.getOrSet<String>("macos_gpu", []() -> Result<String> {
+  fn GetGPUModel(CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("macos_gpu", CachePolicy::neverExpire(), []() -> Result<String> {
       const Result<String> gpuModel = macOS::GetGPUModel();
 
       if (!gpuModel)
         ERR(UnavailableFeature, "macOS::GetGPUModel() failed: GPU model unavailable (no GPU present)");
 
       return *gpuModel;
-    }, draconis::utils::cache::CachePolicy::neverExpire());
-    // clang-format on
+    });
   }
 
-  fn GetDiskUsage() -> Result<ResourceUsage> {
+  fn GetDiskUsage(CacheManager& /*cache*/) -> Result<ResourceUsage> {
     struct statvfs vfs;
 
     if (statvfs("/", &vfs) != 0)
@@ -433,8 +415,8 @@ namespace draconis::core::system {
     };
   }
 
-  fn GetShell(draconis::utils::cache::CacheManager& cache) -> Result<String> {
-    return cache.getOrSet<String>("macos_shell", []() -> Result<String> {
+  fn GetShell(CacheManager& cache) -> Result<String> {
+    return cache.getOrSet<String>("macos_shell", CachePolicy::tempDirectory(), []() -> Result<String> {
       if (const Result<String> shellPath = draconis::utils::env::GetEnv("SHELL")) {
         // clang-format off
         constexpr Array<Pair<StringView, StringView>, 8> shellMap {{
@@ -478,51 +460,102 @@ namespace draconis::core::system {
     return duration_cast<seconds>(now - bootTimepoint);
   }
 
-  fn GetPrimaryOutput() -> Result<Output> {
-    return getDisplayInfoById(CGMainDisplayID());
+  fn GetPrimaryOutput(CacheManager& cache) -> Result<Output> {
+    return cache.getOrSet<Output>("macos_primary_output", CachePolicy::tempDirectory(), []() -> Result<Output> {
+      return getDisplayInfoById(CGMainDisplayID());
+    });
   }
 
-  fn GetOutputs() -> Result<Vec<Output>> {
-    u32 displayCount = 0;
+  fn GetOutputs(CacheManager& cache) -> Result<Vec<Output>> {
+    return cache.getOrSet<Vec<Output>>("macos_outputs", CachePolicy::tempDirectory(), []() -> Result<Vec<Output>> {
+      u32 displayCount = 0;
 
-    if (CGGetOnlineDisplayList(0, nullptr, &displayCount) != kCGErrorSuccess)
-      ERR(UnavailableFeature, "CGGetOnlineDisplayList failed to get display count (CoreGraphics API unavailable or no displays)");
+      if (CGGetOnlineDisplayList(0, nullptr, &displayCount) != kCGErrorSuccess)
+        ERR(UnavailableFeature, "CGGetOnlineDisplayList failed to get display count (CoreGraphics API unavailable or no displays)");
 
-    if (displayCount == 0)
-      ERR(UnavailableFeature, "No displays found (displayCount == 0, feature not present)");
+      if (displayCount == 0)
+        ERR(UnavailableFeature, "No displays found (displayCount == 0, feature not present)");
 
-    Vec<CGDirectDisplayID> displayIDs(displayCount);
+      // Use a small stack buffer for the common case (≤ 16 displays) to avoid a
+      // heap allocation on most systems.
+      constexpr u32                                kSmallDisplayLimit = 16;
+      Array<CGDirectDisplayID, kSmallDisplayLimit> stackDisplayIDs {};
+      CGDirectDisplayID*                           displayIDs = stackDisplayIDs.data();
+      Vec<CGDirectDisplayID>                       dynDisplayIDs; // falls back when more than 16
 
-    if (CGGetOnlineDisplayList(displayCount, displayIDs.data(), &displayCount) != kCGErrorSuccess)
-      ERR(UnavailableFeature, "CGGetOnlineDisplayList failed to get display list (CoreGraphics API unavailable or no displays)");
+      if (displayCount > kSmallDisplayLimit) {
+        dynDisplayIDs.resize(displayCount);
+        displayIDs = dynDisplayIDs.data();
+      }
 
-    Vec<Output> displays;
-    displays.reserve(displayCount);
+      if (CGGetOnlineDisplayList(displayCount, displayIDs, &displayCount) != kCGErrorSuccess)
+        ERR(UnavailableFeature, "CGGetOnlineDisplayList failed to get display list (CoreGraphics API unavailable or no displays)");
 
-    for (const CGDirectDisplayID displayID : displayIDs)
-      if (Result<Output> display = getDisplayInfoById(displayID); display)
-        displays.push_back(*display);
+      const CGDirectDisplayID mainId = CGMainDisplayID();
 
-    return displays;
+      Vec<Output> displays;
+      displays.reserve(displayCount);
+
+      const Span<const CGDirectDisplayID> ids(displayIDs, displayCount);
+
+      for (const CGDirectDisplayID displayID : ids) {
+        const usize width  = CGDisplayPixelsWide(displayID);
+        const usize height = CGDisplayPixelsHigh(displayID);
+
+        if (width == 0 || height == 0)
+          continue;
+
+        const bool isPrimary = (displayID == mainId);
+
+        f64 refreshRate = 0.0;
+        if (isPrimary) {
+          if (CGDisplayModeRef currentMode = CGDisplayCopyDisplayMode(displayID)) {
+            refreshRate = CGDisplayModeGetRefreshRate(currentMode);
+            CGDisplayModeRelease(currentMode);
+          }
+        }
+
+        displays.emplace_back(
+          displayID,
+          Output::Resolution { .width = width, .height = height },
+          refreshRate,
+          isPrimary
+        );
+      }
+
+      return displays;
+    });
   }
 
-  fn GetPrimaryNetworkInterface(draconis::utils::cache::CacheManager& cache) -> Result<NetworkInterface> {
-    return cache.getOrSet<NetworkInterface>("macos_primary_network_interface", []() -> Result<NetworkInterface> {
-      // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) - This requires a lot of casts and there's no good way to avoid them.
+  fn GetPrimaryNetworkInterface(CacheManager& cache) -> Result<NetworkInterface> {
+    return cache.getOrSet<NetworkInterface>("macos_primary_network_interface", CachePolicy::tempDirectory(), []() -> Result<NetworkInterface> {
+      // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) – unavoidable when talking to C APIs.
       Array<i32, 6> mib = { CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_FLAGS, RTF_GATEWAY };
       usize         len = 0;
 
       if (sysctl(mib.data(), mib.size(), nullptr, &len, nullptr, 0) == -1)
         ERR(ResourceExhausted, "sysctl(CTL_NET, PF_ROUTE, ...) failed to get routing table size (network API unavailable or resource exhausted)");
 
-      Vec<char> buf(len);
+      // Use a small stack buffer for the common case to avoid a heap allocation.
+      constexpr usize           stackBufSize = 4096;
+      Array<char, stackBufSize> stackBuf {};
+      char*                     bufPtr = nullptr;
+      Vec<char>                 dynBuf {};
 
-      if (sysctl(mib.data(), mib.size(), buf.data(), &len, nullptr, 0) == -1)
+      if (len <= stackBufSize)
+        bufPtr = stackBuf.data();
+      else {
+        dynBuf.resize(len);
+        bufPtr = dynBuf.data();
+      }
+
+      if (sysctl(mib.data(), mib.size(), bufPtr, &len, nullptr, 0) == -1)
         ERR(ResourceExhausted, "sysctl(CTL_NET, PF_ROUTE, ...) failed to get routing table dump (network API unavailable or resource exhausted)");
 
-      String primaryInterfaceName;
+      // Locate the default route and remember its interface *index*.
+      u32 primaryIfIndex = 0;
       for (usize offset = 0; offset < len;) {
-        const auto* rtm   = reinterpret_cast<const rt_msghdr*>(&buf[offset]);
+        const auto* rtm   = reinterpret_cast<const rt_msghdr*>(std::next(bufPtr, static_cast<ptrdiff_t>(offset)));
         const auto* saddr = reinterpret_cast<const sockaddr*>(std::next(rtm));
 
         if (rtm->rtm_msglen == 0)
@@ -530,18 +563,15 @@ namespace draconis::core::system {
 
         if (saddr->sa_family == AF_INET && rtm->rtm_addrs & RTA_DST)
           if (reinterpret_cast<const sockaddr_in*>(saddr)->sin_addr.s_addr == 0) {
-            Array<char, IF_NAMESIZE> ifName = {};
-            if (if_indextoname(rtm->rtm_index, ifName.data()) != nullptr) {
-              primaryInterfaceName = String(ifName.data());
-              break;
-            }
+            primaryIfIndex = rtm->rtm_index;
+            break;
           }
 
         offset += rtm->rtm_msglen;
       }
 
-      if (primaryInterfaceName.empty())
-        ERR(UnavailableFeature, "Could not determine primary interface name from routing table (no default route found, feature not present)");
+      if (primaryIfIndex == 0)
+        ERR(UnavailableFeature, "Could not determine primary interface index from routing table (no default route found, feature not present)");
 
       ifaddrs* ifaddrList = nullptr;
       if (getifaddrs(&ifaddrList) == -1)
@@ -550,34 +580,97 @@ namespace draconis::core::system {
       UniquePointer<ifaddrs, decltype(&freeifaddrs)> ifaddrsDeleter(ifaddrList, &freeifaddrs);
 
       NetworkInterface primaryInterface;
-      primaryInterface.name = primaryInterfaceName;
-      bool foundDetails     = false;
+      bool             foundDetails = false;
 
       for (ifaddrs* ifa = ifaddrList; ifa != nullptr; ifa = ifa->ifa_next) {
-        // Skip any entries that don't match our primary interface name
-        if (ifa->ifa_addr == nullptr || primaryInterfaceName != ifa->ifa_name)
+        if (ifa->ifa_addr == nullptr)
           continue;
 
-        foundDetails = true;
+        // Match by interface *index* – cheaper than string compares.
+        if (if_nametoindex(ifa->ifa_name) != primaryIfIndex)
+          continue;
 
-        // Set flags
+        foundDetails                = true;
+        primaryInterface.name       = String(ifa->ifa_name);
         primaryInterface.isUp       = ifa->ifa_flags & IFF_UP;
         primaryInterface.isLoopback = ifa->ifa_flags & IFF_LOOPBACK;
+
+        switch (ifa->ifa_addr->sa_family) {
+          case AF_INET: {
+            Array<char, NI_MAXHOST> host = {};
+            if (getnameinfo(ifa->ifa_addr, sizeof(sockaddr_in), host.data(), host.size(), nullptr, 0, NI_NUMERICHOST) == 0)
+              primaryInterface.ipv4Address = String(host.data());
+            break;
+          }
+          case AF_LINK: {
+            auto* sdl = reinterpret_cast<sockaddr_dl*>(ifa->ifa_addr);
+            if (sdl && sdl->sdl_alen == 6) {
+              const auto*          macPtr = reinterpret_cast<const u8*>(LLADDR(sdl));
+              const Span<const u8> macAddr(macPtr, sdl->sdl_alen);
+              primaryInterface.macAddress = std::format(
+                "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+                macAddr[0],
+                macAddr[1],
+                macAddr[2],
+                macAddr[3],
+                macAddr[4],
+                macAddr[5]
+              );
+            }
+            break;
+          }
+          default:
+            break;
+        }
+      }
+
+      if (!foundDetails)
+        ERR_FMT(UnavailableFeature, "Found primary interface index '{}' but could not find its details via getifaddrs (feature not present)", primaryIfIndex);
+
+      return primaryInterface;
+      // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+    });
+  }
+
+  fn GetNetworkInterfaces(CacheManager& cache) -> Result<Vec<NetworkInterface>> {
+    return cache.getOrSet<Vec<NetworkInterface>>("macos_network_interfaces", CachePolicy::tempDirectory(), []() -> Result<Vec<NetworkInterface>> {
+      // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) - This requires a lot of casts and there's no good way to avoid them.
+      ifaddrs* ifaddrList = nullptr;
+      if (getifaddrs(&ifaddrList) == -1)
+        ERR_FMT(ResourceExhausted, "getifaddrs() failed: {} (resource exhausted or API unavailable)", std::system_category().message(errno));
+
+      UniquePointer<ifaddrs, decltype(&freeifaddrs)> ifaddrsDeleter(ifaddrList, &freeifaddrs);
+
+      // Use a map to collect interface information since getifaddrs returns multiple entries per interface
+      std::flat_map<String, NetworkInterface> interfaceMap;
+
+      for (ifaddrs* ifa = ifaddrList; ifa != nullptr; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr == nullptr)
+          continue;
+
+        const String interfaceName = String(ifa->ifa_name);
+
+        // Get or create the interface entry
+        auto& interface = interfaceMap[interfaceName];
+        interface.name  = interfaceName;
+
+        // Set flags
+        interface.isUp       = ifa->ifa_flags & IFF_UP;
+        interface.isLoopback = ifa->ifa_flags & IFF_LOOPBACK;
 
         // Get IPv4 details
         if (ifa->ifa_addr->sa_family == AF_INET) {
           Array<char, NI_MAXHOST> host = {};
           if (getnameinfo(ifa->ifa_addr, sizeof(sockaddr_in), host.data(), host.size(), nullptr, 0, NI_NUMERICHOST) == 0)
-            primaryInterface.ipv4Address = String(host.data());
+            interface.ipv4Address = String(host.data());
         } else if (ifa->ifa_addr->sa_family == AF_LINK) {
           auto* sdl = reinterpret_cast<sockaddr_dl*>(ifa->ifa_addr);
 
           if (sdl && sdl->sdl_alen == 6) {
-            const auto* macPtr = reinterpret_cast<const u8*>(LLADDR(sdl));
-
+            const auto*          macPtr = reinterpret_cast<const u8*>(LLADDR(sdl));
             const Span<const u8> macAddr(macPtr, sdl->sdl_alen);
 
-            primaryInterface.macAddress = std::format(
+            interface.macAddress = std::format(
               "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
               macAddr[0],
               macAddr[1],
@@ -590,79 +683,22 @@ namespace draconis::core::system {
         }
       }
 
-      if (!foundDetails)
-        ERR_FMT(UnavailableFeature, "Found primary interface name '{}' but could not find its details via getifaddrs (feature not present)", primaryInterfaceName);
+      // Convert the map to a vector
+      Vec<NetworkInterface> interfaces;
+      interfaces.reserve(interfaceMap.size());
 
-      return primaryInterface;
+      for (const auto& pair : interfaceMap)
+        interfaces.push_back(pair.second);
+
+      if (interfaces.empty())
+        ERR(UnavailableFeature, "No network interfaces found (getifaddrs returned empty list, feature not present)");
+
+      return interfaces;
       // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
     });
   }
 
-  fn GetNetworkInterfaces() -> Result<Vec<NetworkInterface>> {
-    // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) - This requires a lot of casts and there's no good way to avoid them.
-    ifaddrs* ifaddrList = nullptr;
-    if (getifaddrs(&ifaddrList) == -1)
-      ERR_FMT(ResourceExhausted, "getifaddrs() failed: {} (resource exhausted or API unavailable)", std::system_category().message(errno));
-
-    UniquePointer<ifaddrs, decltype(&freeifaddrs)> ifaddrsDeleter(ifaddrList, &freeifaddrs);
-
-    // Use a map to collect interface information since getifaddrs returns multiple entries per interface
-    std::flat_map<String, NetworkInterface> interfaceMap;
-
-    for (ifaddrs* ifa = ifaddrList; ifa != nullptr; ifa = ifa->ifa_next) {
-      if (ifa->ifa_addr == nullptr)
-        continue;
-
-      const String interfaceName = String(ifa->ifa_name);
-
-      // Get or create the interface entry
-      auto& interface = interfaceMap[interfaceName];
-      interface.name  = interfaceName;
-
-      // Set flags
-      interface.isUp       = ifa->ifa_flags & IFF_UP;
-      interface.isLoopback = ifa->ifa_flags & IFF_LOOPBACK;
-
-      // Get IPv4 details
-      if (ifa->ifa_addr->sa_family == AF_INET) {
-        Array<char, NI_MAXHOST> host = {};
-        if (getnameinfo(ifa->ifa_addr, sizeof(sockaddr_in), host.data(), host.size(), nullptr, 0, NI_NUMERICHOST) == 0)
-          interface.ipv4Address = String(host.data());
-      } else if (ifa->ifa_addr->sa_family == AF_LINK) {
-        auto* sdl = reinterpret_cast<sockaddr_dl*>(ifa->ifa_addr);
-
-        if (sdl && sdl->sdl_alen == 6) {
-          const auto*          macPtr = reinterpret_cast<const u8*>(LLADDR(sdl));
-          const Span<const u8> macAddr(macPtr, sdl->sdl_alen);
-
-          interface.macAddress = std::format(
-            "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
-            macAddr[0],
-            macAddr[1],
-            macAddr[2],
-            macAddr[3],
-            macAddr[4],
-            macAddr[5]
-          );
-        }
-      }
-    }
-
-    // Convert the map to a vector
-    Vec<NetworkInterface> interfaces;
-    interfaces.reserve(interfaceMap.size());
-
-    for (const auto& pair : interfaceMap)
-      interfaces.push_back(pair.second);
-
-    if (interfaces.empty())
-      ERR(UnavailableFeature, "No network interfaces found (getifaddrs returned empty list, feature not present)");
-
-    return interfaces;
-    // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
-  }
-
-  fn GetBatteryInfo() -> Result<Battery> {
+  fn GetBatteryInfo(CacheManager& /*cache*/) -> Result<Battery> {
     using matchit::match, matchit::is, matchit::_;
     using enum Battery::Status;
 
@@ -732,7 +768,7 @@ namespace draconis::core::system {
 namespace draconis::services::packages {
   namespace fs = std::filesystem;
 
-  fn GetHomebrewCount(draconis::utils::cache::CacheManager& cache) -> Result<u64> {
+  fn GetHomebrewCount(CacheManager& cache) -> Result<u64> {
     return cache.getOrSet<u64>("homebrew_total", [&]() -> Result<u64> {
       Array<fs::path, 2> cellarPaths {
         "/opt/homebrew/Cellar",
@@ -769,7 +805,7 @@ namespace draconis::services::packages {
     });
   }
 
-  fn GetMacPortsCount(draconis::utils::cache::CacheManager& cache) -> Result<u64> {
+  fn GetMacPortsCount(CacheManager& cache) -> Result<u64> {
     return GetCountFromDb(cache, "macports", "/opt/local/var/macports/registry/registry.db", "SELECT COUNT(*) FROM ports WHERE state='installed';");
   }
 } // namespace draconis::services::packages

@@ -138,7 +138,9 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
   winrt::init_apartment();
 #endif
 
-  bool doctorMode = false;
+  bool doctorMode     = false;
+  bool clearCache     = false;
+  bool ignoreCacheRun = false;
 
   {
     using draconis::utils::argparse::ArgumentParser;
@@ -146,26 +148,38 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
     ArgumentParser parser("draconis", DRAC_VERSION);
 
     parser
-      .addArgument({ "-V", "--verbose" })
+      .addArguments("-V", "--verbose")
       .help("Enable verbose logging. Overrides --log-level.")
       .flag();
 
     parser
-      .addArgument({ "-d", "--doctor" })
+      .addArguments("-d", "--doctor")
       .help("Reports any failed readouts and their error messages.")
       .flag();
 
     parser
-      .addArgument({ "--log-level" })
+      .addArguments("--log-level")
       .help("Set the minimum log level. Defaults to info.")
       .defaultValue(LogLevel::Info);
+
+    parser
+      .addArguments("--clear-cache")
+      .help("Clears the cache. This will remove all cached data, including in-memory and on-disk copies.")
+      .flag();
+
+    parser
+      .addArguments("--ignore-cache")
+      .help("Ignore cache for this run (fetch fresh data without reading/writing on-disk cache).")
+      .flag();
 
     if (Result result = parser.parseArgs(Span(argv, static_cast<usize>(argc))); !result) {
       error_at(result.error());
       return EXIT_FAILURE;
     }
 
-    doctorMode = parser.get<bool>("-d") || parser.get<bool>("--doctor");
+    doctorMode     = parser.get<bool>("-d") || parser.get<bool>("--doctor");
+    clearCache     = parser.get<bool>("--clear-cache");
+    ignoreCacheRun = parser.get<bool>("--ignore-cache");
 
     SetRuntimeLogLevel(
       parser.get<bool>("-V") || parser.get<bool>("--verbose")
@@ -177,7 +191,22 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
   using draconis::utils::cache::CacheManager, draconis::utils::cache::CachePolicy;
 
   CacheManager cache;
+
+  if (ignoreCacheRun)
+    CacheManager::ignoreCache = true;
+
   cache.setGlobalPolicy(CachePolicy::tempDirectory());
+
+  if (clearCache) {
+    const u8 removedCount = cache.invalidateAll(true);
+
+    if (removedCount > 0)
+      Println("Removed {} files.", removedCount);
+    else
+      Println("No cache files were found to clear.");
+
+    return EXIT_SUCCESS;
+  }
 
 #ifndef NDEBUG
   if (Result<CPUCores> cpuCores = GetCPUCores(cache))
@@ -194,7 +223,7 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
   } else
     debug_at(networkInterface.error());
 
-  if (Result<Battery> battery = GetBatteryInfo()) {
+  if (Result<Battery> battery = GetBatteryInfo(cache)) {
     debug_log("Battery status: {}", magic_enum::enum_name(battery->status));
 
     debug_log("Battery percentage: {}%", battery->percentage.value_or(0));
@@ -206,7 +235,7 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
   } else
     debug_at(battery.error());
 
-  if (Result<Output> primaryOutput = GetPrimaryOutput()) {
+  if (Result<Output> primaryOutput = GetPrimaryOutput(cache)) {
     debug_log("Primary display ID: {}", primaryOutput->id);
     debug_log("Primary display resolution: {}x{}", primaryOutput->resolution.width, primaryOutput->resolution.height);
     debug_log("Primary display refresh rate: {:.2f}Hz", primaryOutput->refreshRate);
@@ -257,7 +286,9 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
 #endif
 
 #ifdef _WIN32
-    // I LOVE WINDOWS!
+    // For some reason, the box-drawing characters don't render correctly
+    // in the console when using std::println/std::cout. Instead, we use
+    // WriteConsoleW to more directly output to the console.
     WriteToConsole(document);
 #else
     Println(document);

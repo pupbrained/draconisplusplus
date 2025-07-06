@@ -16,7 +16,7 @@ namespace draconis::core::system {
     using draconis::utils::error::DracError;
     using enum draconis::utils::error::DracErrorCode;
 
-    fn getDate() -> Result<String> {
+    fn GetDate() -> Result<String> {
       using std::chrono::system_clock;
 
       const system_clock::time_point nowTp = system_clock::now();
@@ -83,10 +83,10 @@ namespace draconis::core::system {
     this->cpuCores      = GetCPUCores(cache);
     this->gpuModel      = GetGPUModel(cache);
     this->shell         = GetShell(cache);
-    this->memInfo       = GetMemInfo();
-    this->diskUsage     = GetDiskUsage();
+    this->memInfo       = GetMemInfo(cache);
+    this->diskUsage     = GetDiskUsage(cache);
     this->uptime        = GetUptime();
-    this->date          = getDate();
+    this->date          = GetDate();
 
 #if DRAC_ENABLE_PACKAGECOUNT
     this->packageCount = draconis::services::packages::GetTotalCount(cache, config.enabledPackageManagers);

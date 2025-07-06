@@ -10,10 +10,12 @@
 #pragma once
 
 #include <algorithm>
+#include <concepts>                  // std::convertible_to
 #include <cstdlib>                   // std::exit
 #include <format>                    // std::format
 #include <magic_enum/magic_enum.hpp> // magic_enum::enum_name, magic_enum::enum_cast
 #include <sstream>                   // std::ostringstream
+#include <utility>                   // std::forward
 
 #include "Error.hpp"
 #include "Logging.hpp"
@@ -108,6 +110,21 @@ namespace draconis::utils::argparse {
      */
     explicit Argument(Vec<String> names, String help_text = "", bool is_flag = false)
       : m_names(std::move(names)), m_helpText(std::move(help_text)), m_isFlag(is_flag) {
+      if (m_isFlag)
+        m_defaultValue = false;
+    }
+
+    /**
+     * @brief Construct a new Argument with variadic names.
+     * @tparam NameTs Variadic list of types convertible to String
+     * @param help_text Help text for this argument
+     * @param is_flag Whether this is a flag (boolean) argument
+     * @param names One or more argument names
+     */
+    template <typename... NameTs>
+      requires(sizeof...(NameTs) >= 1 && (std::convertible_to<NameTs, String> && ...))
+    explicit Argument(String help_text, bool is_flag, NameTs&&... names)
+      : m_names { String(std::forward<NameTs>(names))... }, m_helpText(std::move(help_text)), m_isFlag(is_flag) {
       if (m_isFlag)
         m_defaultValue = false;
     }
@@ -329,24 +346,32 @@ namespace draconis::utils::argparse {
      */
     explicit ArgumentParser(String programName = "", String version = "1.0")
       : m_programName(std::move(programName)), m_version(std::move(version)) {
-      addArgument({ "-h", "--help" })
+      addArguments("-h", "--help")
         .help("Show this help message and exit")
         .flag()
         .defaultValue(false);
 
-      addArgument({ "-v", "--version" })
+      addArguments("-v", "--version")
         .help("Show version information and exit")
         .flag()
         .defaultValue(false);
     }
 
     /**
-     * @brief Add a new argument to the parser.
-     * @param names Vector of argument names
+     * @brief Add a new argument (or multiple aliases) to the parser.
+     *
+     * This variadic overload allows callers to pass one or more names directly, e.g.
+     *   parser.addArgument("-f", "--file");
+     * without the need to manually construct a `Vec<String>` or invoke `addArguments`.
+     *
+     * @tparam NameTs Variadic list of types convertible to `String`
+     * @param names   One or more argument names / aliases
      * @return Reference to the newly created argument
      */
-    fn addArgument(Vec<String> names) -> Argument& {
-      m_arguments.emplace_back(std::make_unique<Argument>(std::move(names)));
+    template <typename... NameTs>
+      requires(sizeof...(NameTs) >= 1 && (std::convertible_to<NameTs, String> && ...))
+    fn addArguments(NameTs&&... names) -> Argument& {
+      m_arguments.emplace_back(std::make_unique<Argument>(String {}, false, std::forward<NameTs>(names)...));
       Argument& arg = *m_arguments.back();
 
       for (const String& name : arg.getNames())

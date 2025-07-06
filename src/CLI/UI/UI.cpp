@@ -293,25 +293,25 @@ namespace draconis::ui {
       const usize circleWidth = GetVisualWidth(COLOR_CIRCLES.at(0));
       const usize numCircles  = COLOR_CIRCLES.size();
 
-      const usize maxCircles    = availableWidth / circleWidth;
-      const usize circlesToShow = std::min(numCircles, maxCircles);
+      // Always show all circles with at least 1 space between each
+      const usize minSpacingPerGap  = 1;
+      const usize totalMinSpacing   = (numCircles - 1) * minSpacingPerGap;
+      const usize totalCirclesWidth = numCircles * circleWidth;
+      const usize requiredWidth     = totalCirclesWidth + totalMinSpacing;
+      const usize effectiveWidth    = std::max(availableWidth, requiredWidth);
 
-      if (circlesToShow == 0)
-        return "";
-
-      if (circlesToShow == 1) {
-        const usize padding = availableWidth / 2;
+      if (numCircles == 1) {
+        const usize padding = effectiveWidth / 2;
         return String(padding, ' ') + String(COLOR_CIRCLES.at(0));
       }
 
-      const usize totalCirclesWidth = circlesToShow * circleWidth;
-      const usize totalSpacing      = availableWidth - totalCirclesWidth;
-      const usize spacingBetween    = totalSpacing / (circlesToShow - 1);
+      const usize totalSpacing   = effectiveWidth - totalCirclesWidth;
+      const usize spacingBetween = totalSpacing / (numCircles - 1);
 
       String result;
-      result.reserve(availableWidth);
+      result.reserve(effectiveWidth);
 
-      for (usize i = 0; i < circlesToShow; ++i) {
+      for (usize i = 0; i < numCircles; ++i) {
         if (i > 0)
           result.append(spacingBetween, ' ');
 
@@ -332,37 +332,42 @@ namespace draconis::ui {
       group.colouredLabels.reserve(group.rows.size());
       group.colouredValues.reserve(group.rows.size());
 
+      // Track maximum width while we populate cached data.
+      usize groupMaxWidth = 0;
+
       for (const RowInfo& row : group.rows) {
         const usize labelWidth = GetVisualWidth(row.label);
         group.maxLabelWidth    = std::max(group.maxLabelWidth, labelWidth);
-        group.iconWidths.push_back(GetVisualWidth(row.icon));
+
+        const usize iconW  = GetVisualWidth(row.icon);
+        const usize valueW = GetVisualWidth(row.value);
+
+        group.iconWidths.push_back(iconW);
         group.labelWidths.push_back(labelWidth);
-        group.valueWidths.push_back(GetVisualWidth(row.value));
+        group.valueWidths.push_back(valueW);
+
         group.colouredIcons.push_back(Colorize(row.icon, DEFAULT_THEME.icon));
         group.colouredLabels.push_back(Colorize(row.label, DEFAULT_THEME.label));
         group.colouredValues.push_back(Colorize(row.value, DEFAULT_THEME.value));
+
+        groupMaxWidth = std::max(groupMaxWidth, iconW + valueW); // label handled after loop
       }
 
-      const auto zippedWidths = std::views::zip(group.iconWidths, group.valueWidths);
-
-      const usize groupMaxWidth =
-        std::ranges::max(
-          zippedWidths | std::views::transform([&](const std::tuple<usize, usize>& widths) {
-            const auto& [iconW, valueW] = widths;
-
-            return iconW + group.maxLabelWidth + 1 + valueW;
-          })
-        );
+      // Final adjustment: add label width once (max label + 1 space).
+      groupMaxWidth += group.maxLabelWidth + 1;
 
       return groupMaxWidth;
     }
 
-    constexpr fn RenderGroup(std::stringstream& stream, const UIGroup& group, const usize maxContentWidth, const String& hBorder, bool& hasRenderedContent) {
+    constexpr fn RenderGroup(String& out, const UIGroup& group, const usize maxContentWidth, const String& hBorder, bool& hasRenderedContent) {
       if (group.rows.empty())
         return;
 
-      if (hasRenderedContent)
-        stream << "├" << hBorder << "┤\n";
+      if (hasRenderedContent) {
+        out += "├";
+        out += hBorder;
+        out += "┤\n";
+      }
 
       for (usize i = 0; i < group.rows.size(); ++i) {
         const usize leftWidth  = group.iconWidths[i] + group.maxLabelWidth;
@@ -371,13 +376,13 @@ namespace draconis::ui {
              ? maxContentWidth - (leftWidth + rightWidth)
              : 0;
 
-        stream << "│"
-               << group.colouredIcons[i]
-               << group.colouredLabels[i]
-               << String(group.maxLabelWidth - group.labelWidths[i], ' ')
-               << String(padding, ' ')
-               << group.colouredValues[i]
-               << " │\n";
+        out += "│";
+        out += group.colouredIcons[i];
+        out += group.colouredLabels[i];
+        out.append(group.maxLabelWidth - group.labelWidths[i], ' ');
+        out.append(padding, ' ');
+        out += group.colouredValues[i];
+        out += " │\n";
       }
 
       hasRenderedContent = true;
@@ -531,10 +536,12 @@ namespace draconis::ui {
     String greetingLine = std::format("{}Hello {}!", iconType.user, name);
     maxContentWidth     = std::max(maxContentWidth, GetVisualWidth(greetingLine));
 
-    // Calculate width needed for color circles
+    // Calculate width needed for color circles (including minimum spacing)
     const usize circleWidth       = GetVisualWidth(COLOR_CIRCLES[0]);
     const usize totalCirclesWidth = COLOR_CIRCLES.size() * circleWidth;
-    const usize colorCirclesWidth = GetVisualWidth(iconType.palette) + totalCirclesWidth;
+    const usize minSpacingPerGap  = 1;
+    const usize totalMinSpacing   = (COLOR_CIRCLES.size() - 1) * minSpacingPerGap;
+    const usize colorCirclesWidth = GetVisualWidth(iconType.palette) + totalCirclesWidth + totalMinSpacing;
     maxContentWidth               = std::max(maxContentWidth, colorCirclesWidth);
 
 #if DRAC_ENABLE_NOWPLAYING
@@ -547,7 +554,17 @@ namespace draconis::ui {
     }
 #endif
 
-    std::stringstream stream;
+    String out;
+
+    usize estimatedLines = 4;
+    for (const UIGroup* grp : groups)
+      estimatedLines += grp->rows.empty() ? 0 : (grp->rows.size() + 1);
+#if DRAC_ENABLE_NOWPLAYING
+    if (nowPlayingActive)
+      ++estimatedLines;
+#endif
+
+    out.reserve(estimatedLines * (maxContentWidth + 4));
 
     const usize innerWidth = maxContentWidth + 1;
 
@@ -560,27 +577,43 @@ namespace draconis::ui {
       const usize rightWidth = GetVisualWidth(right);
       const usize padding    = (maxContentWidth >= leftWidth + rightWidth) ? maxContentWidth - (leftWidth + rightWidth) : 0;
 
-      stream << "│" << left << String(padding, ' ') << right << " │\n";
+      out += "│";
+      out += left;
+      out.append(padding, ' ');
+      out += right;
+      out += " │\n";
     };
 
     const fn createLeftAlignedLine = [&](const String& content) { createLine(content, ""); };
 
-    stream << "╭" << hBorder << "╮\n";
+    // Top border and greeting
+    out += "╭";
+    out += hBorder;
+    out += "╮\n";
+
     createLeftAlignedLine(Colorize(greetingLine, DEFAULT_THEME.icon));
 
-    stream << "├" << hBorder << "┤\n";
+    // Palette line
+    out += "├";
+    out += hBorder;
+    out += "┤\n";
+
     const String paletteIcon    = Colorize(iconType.palette, DEFAULT_THEME.icon);
     const usize  availableWidth = maxContentWidth - GetVisualWidth(paletteIcon);
     createLeftAlignedLine(paletteIcon + CreateDistributedColorCircles(availableWidth));
+
     bool hasRenderedContent = true;
 
     for (const UIGroup* group : groups)
-      RenderGroup(stream, *group, maxContentWidth, hBorder, hasRenderedContent);
+      RenderGroup(out, *group, maxContentWidth, hBorder, hasRenderedContent);
 
 #if DRAC_ENABLE_NOWPLAYING
     if (nowPlayingActive) {
-      if (hasRenderedContent)
-        stream << "├" << hBorder << "┤\n";
+      if (hasRenderedContent) {
+        out += "├";
+        out += hBorder;
+        out += "┤\n";
+      }
 
       const String leftPart      = Colorize(iconType.music, DEFAULT_THEME.icon) + Colorize("Playing", DEFAULT_THEME.label);
       const usize  leftPartWidth = GetVisualWidth(leftPart);
@@ -611,7 +644,9 @@ namespace draconis::ui {
     }
 #endif
 
-    stream << "╰" << hBorder << "╯\n";
-    return stream.str();
+    out += "╰";
+    out += hBorder;
+    out += "╯\n";
+    return out;
   }
 } // namespace draconis::ui

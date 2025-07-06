@@ -217,6 +217,7 @@ TEST_F(CacheManagerTest, DifferentTypes) {
 
 TEST_F(CacheManagerTest, PolicyOverride) {
   CacheManager cache;
+
   // Set global policy to persistent
   cache.setGlobalPolicy({ .location = CacheLocation::Persistent, .ttl = std::chrono::hours(24) });
 
@@ -224,17 +225,13 @@ TEST_F(CacheManagerTest, PolicyOverride) {
   auto fetcher    = createCountingFetcher(fetchCount, 42);
 
   // Override with in-memory policy for this specific call
-  auto result = cache.getOrSet<i32>(
-    "override_key",
-    fetcher,
-    CachePolicy::inMemory()
-  );
+  Result<i32> result = cache.getOrSet<i32>("override_key", CachePolicy::inMemory(), fetcher);
 
   EXPECT_EQ(*result, 42);
   EXPECT_EQ(fetchCount, 1);
 
   // Should be cached in memory
-  EXPECT_EQ(*cache.getOrSet<i32>("override_key", fetcher, CachePolicy::inMemory()), 42);
+  EXPECT_EQ(*cache.getOrSet<i32>("override_key", CachePolicy::inMemory(), fetcher), 42);
   EXPECT_EQ(fetchCount, 1);
 }
 
@@ -393,10 +390,10 @@ TEST_F(CacheManagerTest, TTLOverride) {
   auto fetcher    = createCountingFetcher(fetchCount, 42);
 
   // First call should fetch
-  auto result = cache.getOrSet<i32>(
+  Result<i32> result = cache.getOrSet<i32>(
     "ttl_override_key",
-    fetcher,
-    CachePolicy { .location = CacheLocation::InMemory, .ttl = 1s } // Override with 1 second TTL
+    CachePolicy { .location = CacheLocation::InMemory, .ttl = 1s }, // Override with 1 second TTL
+    fetcher
   );
 
   EXPECT_EQ(*result, 42);
@@ -406,11 +403,7 @@ TEST_F(CacheManagerTest, TTLOverride) {
   std::this_thread::sleep_for(1100ms); // Wait slightly longer than 1 second
 
   // Should fetch again because we used the override TTL
-  result = cache.getOrSet<i32>(
-    "ttl_override_key",
-    fetcher,
-    CachePolicy { .location = CacheLocation::InMemory, .ttl = 1s } // Override with 1 second TTL again
-  );
+  result = cache.getOrSet<i32>("ttl_override_key", CachePolicy { .location = CacheLocation::InMemory, .ttl = 1s }, fetcher);
 
   EXPECT_EQ(*result, 42);
   EXPECT_EQ(fetchCount, 2);
