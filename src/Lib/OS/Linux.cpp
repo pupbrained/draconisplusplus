@@ -720,7 +720,7 @@ namespace {
 } // namespace
 
 namespace draconis::core::system {
-  using draconis::utils::cache::CacheManager, draconis::utils::cache::CachePolicy;
+  using draconis::utils::cache::CacheManager;
   using draconis::utils::env::GetEnv;
 
   fn GetOSVersion(CacheManager& cache) -> Result<String> {
@@ -1010,96 +1010,93 @@ namespace draconis::core::system {
     });
   }
 
-  fn GetCPUModel(CacheManager& cache) -> Result<String> {
-    return cache.getOrSet<String>("linux_cpu_model", []() -> Result<String> {
-      Array<u32, 4>   cpuInfo;
-      Array<char, 49> brandString = { 0 };
+  fn GetCPUModel(CacheManager& /*cache*/) -> Result<String> {
+    Array<u32, 4>   cpuInfo;
+    Array<char, 49> brandString = { 0 };
 
-      __get_cpuid(0x80000000, cpuInfo.data(), &cpuInfo[1], &cpuInfo[2], &cpuInfo[3]);
-      const u32 maxFunction = cpuInfo[0];
+    __get_cpuid(0x80000000, cpuInfo.data(), &cpuInfo[1], &cpuInfo[2], &cpuInfo[3]);
+    const u32 maxFunction = cpuInfo[0];
 
-      if (maxFunction < 0x80000004)
-        ERR(NotSupported, "CPU does not support brand string");
+    if (maxFunction < 0x80000004)
+      ERR(NotSupported, "CPU does not support brand string");
 
-      for (u32 i = 0; i < 3; ++i) {
-        __get_cpuid(0x80000002 + i, cpuInfo.data(), &cpuInfo[1], &cpuInfo[2], &cpuInfo[3]);
-        std::memcpy(&brandString.at(i * 16), cpuInfo.data(), sizeof(cpuInfo));
-      }
+    for (u32 i = 0; i < 3; ++i) {
+      __get_cpuid(0x80000002 + i, cpuInfo.data(), &cpuInfo[1], &cpuInfo[2], &cpuInfo[3]);
+      std::memcpy(&brandString.at(i * 16), cpuInfo.data(), sizeof(cpuInfo));
+    }
 
-      std::string result(brandString.data());
+    std::string result(brandString.data());
 
-      result.erase(result.find_last_not_of(" \t\n\r") + 1);
+    result.erase(result.find_last_not_of(" \t\n\r") + 1);
 
-      if (result.empty())
-        ERR(InternalError, "Failed to get CPU model string via CPUID");
+    if (result.empty())
+      ERR(InternalError, "Failed to get CPU model string via CPUID");
 
-      return result;
-    });
+    return result;
   }
 
-  fn GetCPUCores(CacheManager& cache) -> Result<CPUCores> {
-    return cache.getOrSet<CPUCores>("linux_cpu_cores", []() -> Result<CPUCores> {
-      u32 eax = 0, ebx = 0, ecx = 0, edx = 0;
+  fn GetCPUCores(CacheManager& /*cache*/) -> Result<CPUCores> {
+    u32 eax = 0, ebx = 0, ecx = 0, edx = 0;
 
-      __get_cpuid(0x0, &eax, &ebx, &ecx, &edx);
-      const u32 maxLeaf   = eax;
-      const u32 vendorEbx = ebx;
+    __get_cpuid(0x0, &eax, &ebx, &ecx, &edx);
+    const u32 maxLeaf   = eax;
+    const u32 vendorEbx = ebx;
 
-      u32 logicalCores  = 0;
-      u32 physicalCores = 0;
+    u32 logicalCores  = 0;
+    u32 physicalCores = 0;
 
-      if (maxLeaf >= 0xB) {
-        u32 threadsPerCore = 0;
-        for (u32 subleaf = 0;; ++subleaf) {
-          __get_cpuid_count(0xB, subleaf, &eax, &ebx, &ecx, &edx);
-          if (ebx == 0)
-            break;
+    if (maxLeaf >= 0xB) {
+      u32 threadsPerCore = 0;
+      for (u32 subleaf = 0;; ++subleaf) {
+        __get_cpuid_count(0xB, subleaf, &eax, &ebx, &ecx, &edx);
+        if (ebx == 0)
+          break;
 
-          const u32 levelType         = (ecx >> 8) & 0xFF;
-          const u32 processorsAtLevel = ebx & 0xFFFF;
+        const u32 levelType         = (ecx >> 8) & 0xFF;
+        const u32 processorsAtLevel = ebx & 0xFFFF;
 
-          if (levelType == 1) // SMT (Hyper-Threading) level
-            threadsPerCore = processorsAtLevel;
+        if (levelType == 1) // SMT (Hyper-Threading) level
+          threadsPerCore = processorsAtLevel;
 
-          if (levelType == 2) // Core level
-            logicalCores = processorsAtLevel;
-        }
-
-        if (logicalCores > 0 && threadsPerCore > 0)
-          physicalCores = logicalCores / threadsPerCore;
+        if (levelType == 2) // Core level
+          logicalCores = processorsAtLevel;
       }
 
-      if (physicalCores == 0 || logicalCores == 0) {
-        __get_cpuid(0x1, &eax, &ebx, &ecx, &edx);
-        logicalCores                 = (ebx >> 16) & 0xFF;
-        const bool hasHyperthreading = (edx & (1 << 28)) != 0;
+      if (logicalCores > 0 && threadsPerCore > 0)
+        physicalCores = logicalCores / threadsPerCore;
+    }
 
-        if (hasHyperthreading) {
-          constexpr u32 vendorIntel = 0x756e6547; // "Genu"ine"Intel"
-          constexpr u32 vendorAmd   = 0x68747541; // "Auth"entic"AMD"
+    if (physicalCores == 0 || logicalCores == 0) {
+      __get_cpuid(0x1, &eax, &ebx, &ecx, &edx);
+      logicalCores                 = (ebx >> 16) & 0xFF;
+      const bool hasHyperthreading = (edx & (1 << 28)) != 0;
 
-          if (vendorEbx == vendorIntel && maxLeaf >= 0x4) {
-            __get_cpuid_count(0x4, 0, &eax, &ebx, &ecx, &edx);
-            physicalCores = ((eax >> 26) & 0x3F) + 1;
-          } else if (vendorEbx == vendorAmd) {
-            __get_cpuid(0x80000000, &eax, &ebx, &ecx, &edx); // Get max extended leaf
-            if (eax >= 0x80000008) {
-              __get_cpuid(0x80000008, &eax, &ebx, &ecx, &edx);
-              physicalCores = (ecx & 0xFF) + 1;
-            }
+      if (hasHyperthreading) {
+        constexpr u32 vendorIntel = 0x756e6547; // "Genu"ine"Intel"
+        constexpr u32 vendorAmd   = 0x68747541; // "Auth"entic"AMD"
+
+        if (vendorEbx == vendorIntel && maxLeaf >= 0x4) {
+          __get_cpuid_count(0x4, 0, &eax, &ebx, &ecx, &edx);
+          physicalCores = ((eax >> 26) & 0x3F) + 1;
+        } else if (vendorEbx == vendorAmd) {
+          __get_cpuid(0x80000000, &eax, &ebx, &ecx, &edx); // Get max extended leaf
+          if (eax >= 0x80000008) {
+            __get_cpuid(0x80000008, &eax, &ebx, &ecx, &edx);
+            physicalCores = (ecx & 0xFF) + 1;
           }
-        } else {
-          physicalCores = logicalCores;
         }
-      }
-
-      if (physicalCores == 0 && logicalCores > 0)
+      } else {
         physicalCores = logicalCores;
+      }
+    }
 
-      if (physicalCores == 0 || logicalCores == 0)
-        ERR(InternalError, "Failed to determine core counts via CPUID");
+    if (physicalCores == 0 && logicalCores > 0)
+      physicalCores = logicalCores;
 
-      return CPUCores(static_cast<u16>(physicalCores), static_cast<u16>(logicalCores)); }, CachePolicy::neverExpire());
+    if (physicalCores == 0 || logicalCores == 0)
+      ERR(InternalError, "Failed to determine core counts via CPUID");
+
+    return CPUCores(static_cast<u16>(physicalCores), static_cast<u16>(logicalCores));
   }
 
   fn GetGPUModel(CacheManager& cache) -> Result<String> {

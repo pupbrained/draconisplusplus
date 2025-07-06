@@ -6,7 +6,7 @@
   #include <pwd.h>    // getpwuid, passwd
   #include <unistd.h> // getuid
 
-  #include "Drac++/Utils/Env.hpp"
+  #include <Drac++/Utils/Env.hpp>
 #endif
 
 #if !DRAC_PRECOMPILED_CONFIG
@@ -15,7 +15,7 @@
   #include <toml++/impl/node_view.hpp> // toml::node_view
   #include <toml++/impl/table.hpp>     // toml::table
 
-  #include "Drac++/Utils/Logging.hpp"
+  #include <Drac++/Utils/Logging.hpp>
 #endif
 
 #if DRAC_ENABLE_WEATHER
@@ -26,6 +26,7 @@
   #include <Drac++/Services/Packages.hpp>
 #endif
 
+#include <Drac++/Utils/Logging.hpp>
 #include <Drac++/Utils/Types.hpp>
 
 namespace draconis::config {
@@ -34,7 +35,7 @@ namespace draconis::config {
    * @brief Holds general configuration settings.
    */
   struct General {
-    draconis::utils::types::String name = getDefaultName(); ///< Default display name, retrieved from the system.
+    mutable draconis::utils::types::Option<draconis::utils::types::String> name; ///< Display name; resolved lazily via getDefaultName() when needed.
 
     /**
      * @brief Retrieves the default name for the user.
@@ -58,6 +59,8 @@ namespace draconis::config {
       using draconis::utils::env::GetEnv;
       using draconis::utils::types::PCStr, draconis::utils::types::String, draconis::utils::types::Result;
 
+      info_log("Getting default name from system");
+
       const passwd*        pwd        = getpwuid(getuid());
       PCStr                pwdName    = pwd ? pwd->pw_name : nullptr;
       const Result<String> envUser    = GetEnv("USER");
@@ -68,6 +71,12 @@ namespace draconis::config {
         : envLogname ? *envLogname
                      : "User";
 #endif // _WIN32
+    }
+
+    fn getName() const -> const draconis::utils::types::String& {
+      if (!name)
+        name = getDefaultName();
+      return *name;
     }
 
 #if !DRAC_PRECOMPILED_CONFIG

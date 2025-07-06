@@ -254,6 +254,9 @@ namespace draconis::config {
     const toml::node_view wthTbl = tbl["weather"];
     this->weather                = wthTbl.is_table() ? Weather::fromToml(*wthTbl.as_table()) : Weather {};
   #endif
+
+    if (this->general.name.empty())
+      this->general.name = General::getDefaultName();
   }
 #endif
 } // namespace draconis::config

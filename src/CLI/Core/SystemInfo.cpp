@@ -57,11 +57,9 @@ namespace draconis::core::system {
   } // namespace
 
   SystemInfo::SystemInfo(utils::cache::CacheManager& cache, const Config& config) {
-    using enum std::launch;
-
     // I'm not sure if AMD uses trademark symbols in their CPU models, but I know
     // Intel does. Might as well replace them with their unicode counterparts.
-    fn replaceTrademarkSymbols = [](Result<String> str) -> Result<String> {
+    auto replaceTrademarkSymbols = [](Result<String> str) -> Result<String> {
       if (!str)
         return Err(str.error());
 
@@ -76,49 +74,26 @@ namespace draconis::core::system {
       return str;
     };
 
-    // Use batch operations for related information
-    Future<Result<String>>               desktopEnvFut = std::async(async, [&cache]() { return GetDesktopEnvironment(cache); });
-    Future<Result<String>>               windowMgrFut  = std::async(async, [&cache]() { return GetWindowManager(cache); });
-    Future<Result<String>>               osFut         = std::async(async, [&cache]() { return GetOSVersion(cache); });
-    Future<Result<String>>               kernelFut     = std::async(async, [&cache]() { return GetKernelVersion(cache); });
-    Future<Result<String>>               hostFut       = std::async(async, [&cache]() { return GetHost(cache); });
-    Future<Result<String>>               cpuFut        = std::async(async, [&cache]() { return GetCPUModel(cache); });
-    Future<Result<CPUCores>>             cpuCoresFut   = std::async(async, [&cache]() { return GetCPUCores(cache); });
-    Future<Result<String>>               gpuFut        = std::async(async, [&cache]() { return GetGPUModel(cache); });
-    Future<Result<String>>               shellFut      = std::async(async, [&cache]() { return GetShell(cache); });
-    Future<Result<ResourceUsage>>        memFut        = std::async(async, &GetMemInfo);
-    Future<Result<ResourceUsage>>        diskFut       = std::async(async, &GetDiskUsage);
-    Future<Result<String>>               dateFut       = std::async(async, &getDate);
-    Future<Result<std::chrono::seconds>> uptimeFut     = std::async(async, &GetUptime);
+    this->desktopEnv    = GetDesktopEnvironment(cache);
+    this->windowMgr     = GetWindowManager(cache);
+    this->osVersion     = GetOSVersion(cache);
+    this->kernelVersion = GetKernelVersion(cache);
+    this->host          = GetHost(cache);
+    this->cpuModel      = replaceTrademarkSymbols(GetCPUModel(cache));
+    this->cpuCores      = GetCPUCores(cache);
+    this->gpuModel      = GetGPUModel(cache);
+    this->shell         = GetShell(cache);
+    this->memInfo       = GetMemInfo();
+    this->diskUsage     = GetDiskUsage();
+    this->uptime        = GetUptime();
+    this->date          = getDate();
 
 #if DRAC_ENABLE_PACKAGECOUNT
-    Future<Result<u64>> pkgFut = std::async(async, [&cache, &config]() { return draconis::services::packages::GetTotalCount(cache, config.enabledPackageManagers); });
+    this->packageCount = draconis::services::packages::GetTotalCount(cache, config.enabledPackageManagers);
 #endif
 
 #if DRAC_ENABLE_NOWPLAYING
-    Future<Result<MediaInfo>> npFut = std::async(config.nowPlaying.enabled ? async : deferred, &GetNowPlaying);
-#endif
-
-    this->desktopEnv    = desktopEnvFut.get();
-    this->windowMgr     = windowMgrFut.get();
-    this->osVersion     = osFut.get();
-    this->kernelVersion = kernelFut.get();
-    this->host          = hostFut.get();
-    this->cpuModel      = replaceTrademarkSymbols(cpuFut.get());
-    this->cpuCores      = cpuCoresFut.get();
-    this->gpuModel      = gpuFut.get();
-    this->shell         = shellFut.get();
-    this->memInfo       = memFut.get();
-    this->diskUsage     = diskFut.get();
-    this->uptime        = uptimeFut.get();
-    this->date          = dateFut.get();
-
-#if DRAC_ENABLE_PACKAGECOUNT
-    this->packageCount = pkgFut.get();
-#endif
-
-#if DRAC_ENABLE_NOWPLAYING
-    this->nowPlaying = config.nowPlaying.enabled ? npFut.get() : Err(DracError(ApiUnavailable, "Now Playing API disabled"));
+    this->nowPlaying = config.nowPlaying.enabled ? GetNowPlaying() : Err(DracError(ApiUnavailable, "Now Playing API disabled"));
 #endif
   }
 } // namespace draconis::core::system

@@ -4,9 +4,9 @@
 
 # Structured source organization
 lib_sources = {
-  'base': files(),
-  'packages': files('Services/Packages.cpp'),
-  'weather': files(
+  'base' : files(),
+  'packages' : files('Services/Packages.cpp'),
+  'weather' : files(
     'Services/Weather/MetNoService.cpp',
     'Services/Weather/OpenMeteoService.cpp',
     'Services/Weather/OpenWeatherMapService.cpp',
@@ -17,14 +17,14 @@ lib_sources = {
 
 # Platform-specific sources
 platform_sources = {
-  'darwin': files('OS/macOS.cpp', 'OS/macOS/Bridge.mm'),
-  'dragonfly': files('OS/BSD.cpp'),
-  'freebsd': files('OS/BSD.cpp'),
-  'haiku': files('OS/Haiku.cpp'),
-  'linux': files('OS/Linux.cpp'),
-  'netbsd': files('OS/BSD.cpp'),
-  'serenity': files('OS/Serenity.cpp'),
-  'windows': files('OS/Windows.cpp'),
+  'darwin' : files('OS/macOS.cpp', 'OS/macOS/Bridge.mm'),
+  'dragonfly' : files('OS/BSD.cpp'),
+  'freebsd' : files('OS/BSD.cpp'),
+  'haiku' : files('OS/Haiku.cpp'),
+  'linux' : files('OS/Linux.cpp'),
+  'netbsd' : files('OS/BSD.cpp'),
+  'serenity' : files('OS/Serenity.cpp'),
+  'windows' : files('OS/Windows.cpp'),
 }
 
 # Build final source list
@@ -51,15 +51,15 @@ endif
 # ----------------- #
 #  Static Library   #
 # ----------------- #
-libdraconis = static_library(
-  'draconis++',
+libdrac = static_library(
+  'drac++',
   lib_all_sources,
-  dependencies: lib_deps,
-  install: false,
+  dependencies : lib_deps,
+  install : false,
 )
 
 draconis_dep = declare_dependency(
-  link_with: libdraconis,
-  dependencies: [includes_dep],
-  link_args: link_args,
+  link_with : libdrac,
+  dependencies : [includes_dep],
+  link_args : link_args,
 )

@@ -195,7 +195,7 @@ if host_system == 'darwin'
       'coregraphics',
       'foundation',
       'iokit',
-      'mediaplayer',
+      feature_states['nowplaying'] ? 'mediaplayer' : '',
       'metal',
       'systemconfiguration',
     ],

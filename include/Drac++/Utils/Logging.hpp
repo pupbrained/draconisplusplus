@@ -256,6 +256,38 @@ namespace draconis::utils::logging {
   }
 
   /**
+   * @brief Returns a HH:MM:SS timestamp string for the provided epoch time.
+   *        The value is cached per-thread and only recomputed when the seconds
+   *        value changes, greatly reducing the cost when many log calls land
+   *        in the same second.
+   * @param tt The epoch time (seconds since epoch).
+   * @return StringView pointing to a thread-local null-terminated buffer.
+   */
+  inline fn GetCachedTimestamp(const std::time_t timeT) -> StringView {
+    thread_local auto           LastTt   = static_cast<std::time_t>(-1);
+    thread_local Array<char, 9> TsBuffer = { '\0' };
+
+    if (timeT != LastTt) {
+      std::tm localTm {};
+
+#ifdef _WIN32
+      if (localtime_s(&localTm, &timeT) == 0)
+#else
+      if (localtime_r(&timeT, &localTm) != nullptr)
+#endif
+      {
+        if (std::strftime(TsBuffer.data(), TsBuffer.size(), LogLevelConst::TIMESTAMP_FORMAT, &localTm) == 0)
+          std::copy_n("??:??:??", 9, TsBuffer.data());
+      } else
+        std::copy_n("??:??:??", 9, TsBuffer.data()); // fallback
+
+      LastTt = timeT;
+    }
+
+    return { TsBuffer.data(), 8 };
+  }
+
+  /**
    * @brief Logs a message with the specified log level, source location, and format string.
    * @tparam Args Parameter pack for format arguments.
    * @param level The log level (DEBUG, INFO, WARN, ERROR).
@@ -278,53 +310,31 @@ namespace draconis::utils::logging {
     if (level < GetRuntimeLogLevel())
       return;
 
-    const LockGuard lock(GetLogMutex());
-
     const auto        nowTp = system_clock::now();
     const std::time_t nowTt = system_clock::to_time_t(nowTp);
-    std::tm           localTm {};
 
-    String timestamp;
+    const StringView timestamp = GetCachedTimestamp(nowTt);
 
-#ifdef _WIN32
-    if (localtime_s(&localTm, &nowTt) == 0) {
-#else
-    if (localtime_r(&nowTt, &localTm) != nullptr) {
-#endif
-      Array<char, 64> timeBuffer {};
-
-      const usize formattedTime =
-        std::strftime(timeBuffer.data(), sizeof(timeBuffer), LogLevelConst::TIMESTAMP_FORMAT, &localTm);
-
-      if (formattedTime > 0) {
-        timestamp = timeBuffer.data();
-      } else {
-        try {
-          timestamp = std::format("{:%X}", nowTp);
-        } catch ([[maybe_unused]] const std::format_error& fmtErr) { timestamp = "??:??:??"; }
-      }
-    } else
-      timestamp = "??:??:??";
-
-    const String message = std::format(fmt, std::forward<Args>(args)...);
-
-    const String mainLogLine = std::format(
-      LogLevelConst::LOG_FORMAT,
-      Colorize(String("[") + timestamp + "]", DEBUG_INFO_COLOR),
-      GetLevelInfo().at(static_cast<usize>(level)),
-      message
-    );
-
-    Println(mainLogLine);
+    const String message          = std::format(fmt, std::forward<Args>(args)...);
+    const String coloredTimestamp = Colorize(std::format("[{}]", timestamp), DEBUG_INFO_COLOR);
 
 #ifndef NDEBUG
     const String fileLine      = std::format(LogLevelConst::FILE_LINE_FORMAT, path(loc.file_name()).lexically_normal().string(), loc.line());
     const String fullDebugLine = std::format("{}{}", LogLevelConst::DEBUG_LINE_PREFIX, fileLine);
-    Print(Italic(Colorize(fullDebugLine, DEBUG_INFO_COLOR)));
-    Println(LogLevelConst::RESET_CODE);
-#else
-    Print(LogLevelConst::RESET_CODE);
 #endif
+
+    {
+      const LockGuard lock(GetLogMutex());
+
+      Println(LogLevelConst::LOG_FORMAT, coloredTimestamp, GetLevelInfo().at(static_cast<usize>(level)), message);
+
+#ifndef NDEBUG
+      Print(Italic(Colorize(fullDebugLine, DEBUG_INFO_COLOR)));
+      Println(LogLevelConst::RESET_CODE);
+#else
+      Print(LogLevelConst::RESET_CODE);
+#endif
+    }
   }
 
   template <typename ErrorType>
