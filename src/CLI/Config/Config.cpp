@@ -245,6 +245,9 @@ namespace draconis::config {
     const toml::node_view genTbl = tbl["general"];
     this->general                = genTbl.is_table() ? General::fromToml(*genTbl.as_table()) : General {};
 
+    if (!this->general.name)
+      this->general.name = General::getDefaultName();
+
   #if DRAC_ENABLE_NOWPLAYING
     const toml::node_view npTbl = tbl["now_playing"];
     this->nowPlaying            = npTbl.is_table() ? NowPlaying::fromToml(*npTbl.as_table()) : NowPlaying {};
@@ -254,9 +257,6 @@ namespace draconis::config {
     const toml::node_view wthTbl = tbl["weather"];
     this->weather                = wthTbl.is_table() ? Weather::fromToml(*wthTbl.as_table()) : Weather {};
   #endif
-
-    if (this->general.name.empty())
-      this->general.name = General::getDefaultName();
   }
 #endif
 } // namespace draconis::config
