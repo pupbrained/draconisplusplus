@@ -69,7 +69,7 @@ namespace draconis::core::system::macOS {
         dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0),
         ^(NSDictionary* information) {
           if (!information) {
-            result = Err(DracError(NotFound, "No media metadata available - no media is currently playing"));
+            result = Err(DracError(NotFound, "No media is currently playing"));
           } else {
             // Extract the title and artist from the dictionary. These keys are also from the private framework.
             const NSString* const title  = [information objectForKey:@"kMRMediaRemoteNowPlayingInfoTitle"];

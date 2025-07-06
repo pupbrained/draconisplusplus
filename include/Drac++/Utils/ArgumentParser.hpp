@@ -275,6 +275,43 @@ namespace draconis::utils::argparse {
     }
 
     /**
+     * @brief Check if this argument has a default value.
+     * @return true if a default value is set, false otherwise
+     */
+    [[nodiscard]] fn hasDefault() const -> bool {
+      return m_defaultValue.has_value();
+    }
+
+    /**
+     * @brief Get the default value as a lowercase string (for help text).
+     *        Returns an empty string if no default value is set.
+     */
+    [[nodiscard]] fn getDefaultAsString() const -> String {
+      if (!m_defaultValue.has_value())
+        return {};
+
+      const ArgValue& value = m_defaultValue.value();
+
+      String result;
+      std::visit(
+        [&](const auto& value) {
+          using V = std::decay_t<decltype(value)>;
+          if constexpr (std::is_same_v<V, bool>)
+            result = value ? "true" : "false";
+          else if constexpr (std::is_same_v<V, String>)
+            result = value;
+          else
+            result = std::format("{}", value);
+        },
+        value
+      );
+
+      std::ranges::transform(result, result.begin(), [](char chr) { return std::tolower(chr); });
+
+      return result;
+    }
+
+    /**
      * @brief Set the value for this argument.
      * @param value The value to set
      * @return Result indicating success or failure
@@ -545,6 +582,9 @@ namespace draconis::utils::argparse {
             }
             Println(choicesStream.str());
           }
+
+          if (arg->hasChoices() && arg->hasDefault())
+            Println(std::format("    Default: {}", arg->getDefaultAsString()));
 
           Println();
         }

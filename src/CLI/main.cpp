@@ -1,3 +1,4 @@
+#include <array>
 #include <cstdlib> // EXIT_FAILURE, EXIT_SUCCESS
 
 #ifdef _WIN32
@@ -74,61 +75,55 @@ namespace {
 #endif
     const SystemInfo& data
   ) -> Unit {
-    Vec<Pair<String, DracError>> failures;
+    Array<Option<Pair<String, DracError>>, 10 + DRAC_ENABLE_PACKAGECOUNT + DRAC_ENABLE_NOWPLAYING + DRAC_ENABLE_WEATHER>
+      failures {};
 
-    constexpr u8 totalPossibleReadouts = 10
+    usize failureCount = 0;
+
+#define DRAC_CHECK(expr, label) \
+  if (!(expr))                  \
+  failures.at(failureCount++) = { label, (expr).error() }
+
+    DRAC_CHECK(data.date, "Date");
+    DRAC_CHECK(data.host, "Host");
+    DRAC_CHECK(data.kernelVersion, "KernelVersion");
+    DRAC_CHECK(data.osVersion, "OSVersion");
+    DRAC_CHECK(data.memInfo, "MemoryInfo");
+    DRAC_CHECK(data.desktopEnv, "DesktopEnvironment");
+    DRAC_CHECK(data.windowMgr, "WindowManager");
+    DRAC_CHECK(data.diskUsage, "DiskUsage");
+    DRAC_CHECK(data.shell, "Shell");
+    DRAC_CHECK(data.uptime, "Uptime");
+
 #if DRAC_ENABLE_PACKAGECOUNT
-      + 1
+    DRAC_CHECK(data.packageCount, "PackageCount");
 #endif
+
 #if DRAC_ENABLE_NOWPLAYING
-      + 1
+    DRAC_CHECK(data.nowPlaying, "NowPlaying");
 #endif
+
 #if DRAC_ENABLE_WEATHER
-      + 1
-#endif
-      ;
-
-    failures.reserve(totalPossibleReadouts);
-
-    if (!data.date.has_value())
-      failures.emplace_back("Date", data.date.error());
-    if (!data.host.has_value())
-      failures.emplace_back("Host", data.host.error());
-    if (!data.kernelVersion.has_value())
-      failures.emplace_back("KernelVersion", data.kernelVersion.error());
-    if (!data.osVersion.has_value())
-      failures.emplace_back("OSVersion", data.osVersion.error());
-    if (!data.memInfo.has_value())
-      failures.emplace_back("MemoryInfo", data.memInfo.error());
-    if (!data.desktopEnv.has_value())
-      failures.emplace_back("DesktopEnvironment", data.desktopEnv.error());
-    if (!data.windowMgr.has_value())
-      failures.emplace_back("WindowManager", data.windowMgr.error());
-    if (!data.diskUsage.has_value())
-      failures.emplace_back("DiskUsage", data.diskUsage.error());
-    if (!data.shell.has_value())
-      failures.emplace_back("Shell", data.shell.error());
-    if (!data.uptime.has_value())
-      failures.emplace_back("Uptime", data.uptime.error());
-#if DRAC_ENABLE_PACKAGECOUNT
-    if (!data.packageCount.has_value())
-      failures.emplace_back("PackageCount", data.packageCount.error());
-#endif
-#if DRAC_ENABLE_NOWPLAYING
-    if (!data.nowPlaying.has_value())
-      failures.emplace_back("NowPlaying", data.nowPlaying.error());
-#endif
-#if DRAC_ENABLE_WEATHER
-    if (!weather.has_value())
-      failures.emplace_back("Weather", weather.error());
+    DRAC_CHECK(weather, "Weather");
 #endif
 
-    if (failures.empty()) {
+    if (failureCount == 0)
       Println("All readouts were successful!");
-    } else {
-      Println("We've collected a total of {} readouts including {} failed read{}.", totalPossibleReadouts, failures.size(), failures.size() == 1 ? "" : "s");
-      for (const auto& [readout, err] : failures)
-        Println("Readout \"{}\" failed: {} ({})", readout, err.message, magic_enum::enum_name(err.code));
+    else {
+      Println(
+        "Out of {} readouts, {} failed.\n",
+        failures.size(),
+        failureCount
+      );
+
+      for (const Option<Pair<String, DracError>>& failure : failures)
+        if (failure)
+          Println(
+            R"(Readout "{}" failed: {} ({}))",
+            failure->first,
+            failure->second.message,
+            magic_enum::enum_name(failure->second.code)
+          );
     }
   }
 } // namespace
@@ -158,8 +153,8 @@ fn main(const i32 argc, char* argv[]) -> i32 try {
       .flag();
 
     parser
-      .addArguments("--log-level")
-      .help("Set the minimum log level. Defaults to info.")
+      .addArguments("-l", "--log-level")
+      .help("Set the minimum log level.")
       .defaultValue(LogLevel::Info);
 
     parser

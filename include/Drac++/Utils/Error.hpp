@@ -25,6 +25,8 @@ namespace draconis::utils::error {
    */
   enum class DracErrorCode : u8 {
     ApiUnavailable,     ///< A required OS service/API is unavailable or failed unexpectedly at runtime.
+    ConfigurationError, ///< Configuration or environment issue.
+    CorruptedData,      ///< Data present but corrupt or inconsistent.
     InternalError,      ///< An error occurred within the application's OS abstraction code logic.
     InvalidArgument,    ///< An invalid argument was passed to a function or method.
     IoError,            ///< General I/O error (filesystem, pipes, etc.).
@@ -35,13 +37,11 @@ namespace draconis::utils::error {
     OutOfMemory,        ///< The system ran out of memory or resources to complete the operation.
     ParseError,         ///< Failed to parse data obtained from the OS (e.g., file content, API output).
     PermissionDenied,   ///< Insufficient permissions to perform the operation.
-    PlatformSpecific,   ///< An unmapped error specific to the underlying OS platform occurred (check message).
-    Timeout,            ///< An operation timed out (e.g., waiting for IPC reply).
-    ResourceExhausted,  ///< System resource limit reached (not memory).
-    CorruptedData,      ///< Data present but corrupt or inconsistent.
-    UnavailableFeature, ///< Feature not present on this hardware/OS.
-    ConfigurationError, ///< Configuration or environment issue.
     PermissionRequired, ///< Operation requires elevated privileges.
+    PlatformSpecific,   ///< An unmapped error specific to the underlying OS platform occurred (check message).
+    ResourceExhausted,  ///< System resource limit reached (not memory).
+    Timeout,            ///< An operation timed out (e.g., waiting for IPC reply).
+    UnavailableFeature, ///< Feature not present on this hardware/OS.
   };
 
   /**
