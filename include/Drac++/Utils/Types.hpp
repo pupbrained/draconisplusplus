@@ -328,7 +328,7 @@ namespace draconis::utils {
      * @tparam Tp The return type of the callable.
      */
     template <typename Tp>
-    using Fn = std::move_only_function<Tp>;
+    using Fn = std::function<Tp>;
 
     /**
      * @typedef Result

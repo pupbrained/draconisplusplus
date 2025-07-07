@@ -87,7 +87,7 @@ namespace draconis::utils::cache {
     fn getOrSet(
       const String&       key,
       Option<CachePolicy> overridePolicy,
-      Fn<Result<T>()>&&   fetcher
+      Fn<Result<T>()>     fetcher
     ) -> Result<T> {
 #ifdef DRAC_ENABLE_CACHING
       /* Early-exit if caching is globally disabled for this run. */
@@ -128,7 +128,7 @@ namespace draconis::utils::cache {
       }
 
       // 3. Cache miss: call fetcher (move the callable to indicate consumption)
-      Result<T> fetchedResult = std::move(fetcher)();
+      Result<T> fetchedResult = fetcher();
 
       if (!fetchedResult)
         return fetchedResult;
@@ -170,11 +170,9 @@ namespace draconis::utils::cache {
 #endif
     }
 
-    // Perfect-forwarding wrapper: accepts any callable convertible to our Fn alias
-    template <typename T, typename F>
-      requires std::invocable<F&> && std::is_convertible_v<F, Fn<Result<T>()>>
-                                   fn getOrSet(const String& key, F&& fetcher) -> Result<T> {
-      return getOrSet<T>(key, None, Fn<Result<T>()>(std::forward<F>(fetcher)));
+    template <typename T>
+    fn getOrSet(const String& key, Fn<Result<T>()> fetcher) -> Result<T> {
+      return getOrSet(key, None, fetcher);
     }
 
     /**
