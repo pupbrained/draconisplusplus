@@ -15,6 +15,7 @@ namespace draconis::core::system {
   namespace {
     using utils::types::Battery;
     using utils::types::CPUCores;
+    using utils::types::DisplayInfo;
     using utils::types::f64;
     using utils::types::Frequencies;
     using utils::types::i64;
@@ -22,7 +23,6 @@ namespace draconis::core::system {
     using utils::types::NetworkInterface;
     using utils::types::None;
     using utils::types::Option;
-    using utils::types::Output;
     using utils::types::ResourceUsage;
     using utils::types::Result;
     using utils::types::String;
@@ -515,7 +515,7 @@ namespace draconis::core::system {
    * #include <Drac++/Core/System.hpp>
    *
    * int main() {
-   *   Result<Array<Output, 16>> outputs = draconis::core::system::GetOutputs();
+   *   Result<Vec<DisplayInfo>> outputs = draconis::core::system::GetOutputs();
    *
    *   if (outputs.has_value()) {
    *     std::println("Outputs: {}", outputs.value().size());
@@ -527,7 +527,7 @@ namespace draconis::core::system {
    * }
    * @endcode
    */
-  fn GetOutputs(CacheManager& cache) -> Result<Vec<Output>>;
+  fn GetOutputs(CacheManager& cache) -> Result<Vec<DisplayInfo>>;
 
   /**
    * @brief Fetches the primary output.
@@ -548,7 +548,7 @@ namespace draconis::core::system {
    * #include <Drac++/Core/System.hpp>
    *
    * int main() {
-   *   Result<Output> primaryOutput = draconis::core::system::GetPrimaryOutput();
+   *   Result<DisplayInfo> primaryOutput = draconis::core::system::GetPrimaryOutput();
    *
    *   if (primaryOutput.has_value()) {
    *     std::println("Primary output: {}", primaryOutput.value().name);
@@ -560,7 +560,7 @@ namespace draconis::core::system {
    * }
    * @endcode
    */
-  fn GetPrimaryOutput(CacheManager& cache) -> Result<Output>;
+  fn GetPrimaryOutput(CacheManager& cache) -> Result<DisplayInfo>;
 
   /**
    * @brief Fetches the network interfaces.

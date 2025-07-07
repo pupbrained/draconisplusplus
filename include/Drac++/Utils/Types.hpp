@@ -322,13 +322,13 @@ namespace draconis::utils {
     using Future = std::future<Tp>;
 
     /**
-     * @brief Alias for std::function<Tp>.
+     * @brief Alias for std::move_only_function<Tp>.
      *
      * Represents a callable object.
      * @tparam Tp The return type of the callable.
      */
     template <typename Tp>
-    using Fn = std::function<Tp>;
+    using Fn = std::move_only_function<Tp>;
 
     /**
      * @typedef Result

@@ -87,7 +87,7 @@ namespace draconis::utils::cache {
     fn getOrSet(
       const String&       key,
       Option<CachePolicy> overridePolicy,
-      Fn<Result<T>()>     fetcher
+      Fn<Result<T>()>&&   fetcher
     ) -> Result<T> {
 #ifdef DRAC_ENABLE_CACHING
       /* Early-exit if caching is globally disabled for this run. */
@@ -127,8 +127,8 @@ namespace draconis::utils::cache {
         }
       }
 
-      // 3. Cache miss: call fetcher
-      Result<T> fetchedResult = fetcher();
+      // 3. Cache miss: call fetcher (move the callable to indicate consumption)
+      Result<T> fetchedResult = std::move(fetcher)();
 
       if (!fetchedResult)
         return fetchedResult;
@@ -170,9 +170,11 @@ namespace draconis::utils::cache {
 #endif
     }
 
-    template <typename T>
-    fn getOrSet(const String& key, Fn<Result<T>()> fetcher) -> Result<T> {
-      return getOrSet(key, None, fetcher);
+    // Perfect-forwarding wrapper: accepts any callable convertible to our Fn alias
+    template <typename T, typename F>
+      requires std::invocable<F&> && std::is_convertible_v<F, Fn<Result<T>()>>
+                                   fn getOrSet(const String& key, F&& fetcher) -> Result<T> {
+      return getOrSet<T>(key, None, Fn<Result<T>()>(std::forward<F>(fetcher)));
     }
 
     /**
@@ -341,8 +343,8 @@ namespace glz {
   };
 
   template <>
-  struct meta<draconis::utils::types::Output> {
-    using T = draconis::utils::types::Output;
+  struct meta<draconis::utils::types::DisplayInfo> {
+    using T = draconis::utils::types::DisplayInfo;
 
     // clang-format off
     static constexpr detail::Object value = object(
@@ -355,8 +357,8 @@ namespace glz {
   };
 
   template <>
-  struct meta<draconis::utils::types::Output::Resolution> {
-    using T = draconis::utils::types::Output::Resolution;
+  struct meta<draconis::utils::types::DisplayInfo::Resolution> {
+    using T = draconis::utils::types::DisplayInfo::Resolution;
 
     static constexpr detail::Object value = object("width", &T::width, "height", &T::height);
   };

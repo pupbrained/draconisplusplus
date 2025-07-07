@@ -58,7 +58,7 @@ namespace draconis::utils::types {
   };
 
   enum class CPUArch : u8 {
-    X86,    ///< x86 32-bit architecture.
+    X86,     ///< x86 32-bit architecture.
     X86_64,  ///< x86_64 64-bit architecture.
     ARM,     ///< 32-bit ARM architecture.
     AARCH64, ///< 64-bit ARM architecture (ARMv8-A).
@@ -72,12 +72,12 @@ namespace draconis::utils::types {
    * Used to report the number of physical and logical cores on a CPU.
    */
   struct CPUCores {
-    u16 physical; ///< Number of physical cores.
-    u16 logical;  ///< Number of logical cores.
+    usize physical; ///< Number of physical cores.
+    usize logical;  ///< Number of logical cores.
 
     CPUCores() = default;
 
-    CPUCores(const u16 physical, const u16 logical)
+    CPUCores(const usize physical, const usize logical)
       : physical(physical), logical(logical) {}
   };
 
@@ -93,7 +93,7 @@ namespace draconis::utils::types {
    *
    * Used to report the display or monitor device.
    */
-  struct Output {
+  struct DisplayInfo {
     usize id; ///< Output ID.
 
     struct Resolution {
@@ -104,9 +104,9 @@ namespace draconis::utils::types {
     f64  refreshRate; ///< Refresh rate in Hz.
     bool isPrimary;   ///< Whether the display is the primary display.
 
-    Output() = default;
+    DisplayInfo() = default;
 
-    Output(const usize identifier, const Resolution resolution, const f64 refreshRate, const bool isPrimary)
+    DisplayInfo(const usize identifier, const Resolution resolution, const f64 refreshRate, const bool isPrimary)
       : id(identifier), resolution(resolution), refreshRate(refreshRate), isPrimary(isPrimary) {}
   };
 

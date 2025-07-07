@@ -230,7 +230,7 @@ fn main(const i32 argc, CStr* argv[]) -> i32 try {
   } else
     debug_at(battery.error());
 
-  if (Result<Output> primaryOutput = GetPrimaryOutput(cache)) {
+  if (Result<DisplayInfo> primaryOutput = GetPrimaryOutput(cache)) {
     debug_log("Primary display ID: {}", primaryOutput->id);
     debug_log("Primary display resolution: {}x{}", primaryOutput->resolution.width, primaryOutput->resolution.height);
     debug_log("Primary display refresh rate: {:.2f}Hz", primaryOutput->refreshRate);
