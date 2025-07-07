@@ -752,7 +752,7 @@ namespace draconis::core::system {
     });
   }
 
-  fn GetMemInfo() -> Result<ResourceUsage> {
+  fn GetMemInfo(CacheManager& /*cache*/) -> Result<ResourceUsage> {
     struct sysinfo info;
 
     if (sysinfo(&info) != 0)
@@ -1165,7 +1165,7 @@ namespace draconis::core::system {
     });
   }
 
-  fn GetDiskUsage() -> Result<ResourceUsage> {
+  fn GetDiskUsage(CacheManager& /*cache*/) -> Result<ResourceUsage> {
     struct statvfs stat;
 
     if (statvfs("/", &stat) == -1)
@@ -1177,7 +1177,7 @@ namespace draconis::core::system {
     };
   }
 
-  fn GetOutputs() -> Result<Vec<Output>> {
+  fn GetOutputs(CacheManager& /*cache*/) -> Result<Vec<Output>> {
     if (GetEnv("WAYLAND_DISPLAY")) {
       Result<Vec<Output>> displays = GetWaylandDisplays();
 
@@ -1199,7 +1199,7 @@ namespace draconis::core::system {
     ERR(NotFound, "No display server detected");
   }
 
-  fn GetPrimaryOutput() -> Result<Output> {
+  fn GetPrimaryOutput(CacheManager& /*cache*/) -> Result<Output> {
     if (GetEnv("WAYLAND_DISPLAY")) {
       Result<Output> display = GetWaylandPrimaryDisplay();
 
@@ -1221,7 +1221,7 @@ namespace draconis::core::system {
     ERR(NotFound, "No display server detected");
   }
 
-  fn GetNetworkInterfaces() -> Result<Vec<NetworkInterface>> {
+  fn GetNetworkInterfaces(CacheManager& /*cache*/) -> Result<Vec<NetworkInterface>> {
     // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast) - This requires a lot of casts and there's no good way to avoid them.
     ifaddrs* ifaddrList = nullptr;
     if (getifaddrs(&ifaddrList) == -1)
@@ -1394,7 +1394,7 @@ namespace draconis::core::system {
     });
   }
 
-  fn GetBatteryInfo() -> Result<Battery> {
+  fn GetBatteryInfo(CacheManager& /*cache*/) -> Result<Battery> {
     using matchit::match, matchit::is, matchit::_;
     using enum Battery::Status;
 
