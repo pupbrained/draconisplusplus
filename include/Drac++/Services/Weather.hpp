@@ -8,12 +8,23 @@
   #include <variant>
 
   #include "../Utils/CacheManager.hpp"
-  #include "../Utils/Error.hpp"
   #include "../Utils/Types.hpp"
 
 namespace draconis::services::weather {
-  inline fn GetCacheManager() -> draconis::utils::types::UniquePointer<draconis::utils::cache::CacheManager>& {
-    static draconis::utils::types::UniquePointer<draconis::utils::cache::CacheManager> CacheManager;
+  namespace {
+    using utils::cache::CacheManager;
+
+    using utils::types::f64;
+    using utils::types::None;
+    using utils::types::Option;
+    using utils::types::Result;
+    using utils::types::String;
+    using utils::types::u8;
+    using utils::types::UniquePointer;
+  } // namespace
+
+  inline fn GetCacheManager() -> UniquePointer<CacheManager>& {
+    static UniquePointer<CacheManager> CacheManager;
     return CacheManager;
   }
 
@@ -21,7 +32,7 @@ namespace draconis::services::weather {
    * @brief Specifies the weather service provider.
    * @see config::DRAC_WEATHER_PROVIDER in `config(.example).hpp`.
    */
-  enum class Provider : utils::types::u8 {
+  enum class Provider : u8 {
     OPENWEATHERMAP, ///< OpenWeatherMap API. Requires an API key. @see config::DRAC_API_KEY
     OPENMETEO,      ///< OpenMeteo API. Does not require an API key.
     METNO,          ///< Met.no API. Does not require an API key.
@@ -31,7 +42,7 @@ namespace draconis::services::weather {
    * @brief Specifies the unit system for weather information.
    * @see config::DRAC_WEATHER_UNIT in `config(.example).hpp`.
    */
-  enum class UnitSystem : utils::types::u8 {
+  enum class UnitSystem : u8 {
     METRIC,   ///< Metric units (Celsius, kph, etc.).
     IMPERIAL, ///< Imperial units (Fahrenheit, mph, etc.).
   };
@@ -43,17 +54,17 @@ namespace draconis::services::weather {
    * Contains temperature, conditions, and timestamp.
    */
   struct Report {
-    utils::types::f64                          temperature; ///< Degrees (C/F)
-    utils::types::Option<utils::types::String> name;        ///< Optional town/city name (may be missing for some providers)
-    utils::types::String                       description; ///< Weather description (e.g., "clear sky", "rain")
+    f64            temperature; ///< Degrees (C/F)
+    Option<String> name;        ///< Optional town/city name (may be missing for some providers)
+    String         description; ///< Weather description (e.g., "clear sky", "rain")
   };
 
   struct Coords {
-    utils::types::f64 lat;
-    utils::types::f64 lon;
+    f64 lat;
+    f64 lon;
   };
 
-  using Location = std::variant<utils::types::String, Coords>;
+  using Location = std::variant<String, Coords>;
 
   class IWeatherService {
    public:
@@ -65,13 +76,13 @@ namespace draconis::services::weather {
 
     virtual ~IWeatherService() = default;
 
-    [[nodiscard]] virtual fn getWeatherInfo() const -> utils::types::Result<Report> = 0;
+    [[nodiscard]] virtual fn getWeatherInfo() const -> Result<Report> = 0;
 
    protected:
     IWeatherService() = default;
   };
 
-  fn CreateWeatherService(Provider provider, const Location& location, UnitSystem units, const utils::types::Option<utils::types::String>& apiKey = utils::types::None) -> utils::types::UniquePointer<IWeatherService>;
+  fn CreateWeatherService(Provider provider, const Location& location, UnitSystem units, const Option<String>& apiKey = None) -> UniquePointer<IWeatherService>;
 } // namespace draconis::services::weather
 
 template <>

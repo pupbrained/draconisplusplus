@@ -420,7 +420,7 @@ namespace draconis::ui {
   } // namespace
 
 #if DRAC_ENABLE_WEATHER
-  fn CreateUI(const Config& config, const SystemInfo& data, Option<Report> weather) -> String {
+  fn CreateUI(const Config& config, const SystemInfo& data, Result<Report> weather) -> String {
 #else
   fn CreateUI(const Config& config, const SystemInfo& data) -> String {
 #endif

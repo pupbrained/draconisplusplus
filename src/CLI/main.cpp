@@ -140,7 +140,7 @@ fn main(const i32 argc, CStr* argv[]) -> i32 try {
   {
     using draconis::utils::argparse::ArgumentParser;
 
-    ArgumentParser parser("draconis", DRAC_VERSION);
+    ArgumentParser parser(DRAC_VERSION);
 
     parser
       .addArguments("-V", "--verbose")
@@ -167,7 +167,7 @@ fn main(const i32 argc, CStr* argv[]) -> i32 try {
       .help("Ignore cache for this run (fetch fresh data without reading/writing on-disk cache).")
       .flag();
 
-    if (Result result = parser.parseArgs(Span(argv, static_cast<usize>(argc))); !result) {
+    if (Result result = parser.parseArgs({ argv, static_cast<usize>(argc) }); !result) {
       error_at(result.error());
       return EXIT_FAILURE;
     }
@@ -268,14 +268,7 @@ fn main(const i32 argc, CStr* argv[]) -> i32 try {
     String document;
 
 #if DRAC_ENABLE_WEATHER
-    Option<Report> weatherOption = None;
-
-    if (weatherReport)
-      weatherOption = *weatherReport;
-    else if (weatherReport.error().code != ApiUnavailable)
-      error_at(weatherReport.error());
-
-    document = CreateUI(config, data, weatherOption);
+    document = CreateUI(config, data, weatherReport);
 #else
     document = CreateUI(config, data);
 #endif

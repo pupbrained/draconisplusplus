@@ -17,7 +17,7 @@ namespace draconis::ui {
     using services::weather::Report;
 
     using utils::logging::LogColor;
-    using utils::types::Option;
+    using utils::types::Result;
     using utils::types::String;
     using utils::types::StringView;
   } // namespace
@@ -67,7 +67,7 @@ namespace draconis::ui {
    * @param weather The weather report, if enabled/available.
    * @return A string containing the formatted UI.
    */
-  fn CreateUI(const Config& config, const SystemInfo& data, Option<Report> weather) -> String;
+  fn CreateUI(const Config& config, const SystemInfo& data, Result<Report> weather) -> String;
 #else
   /**
    * @brief Creates the main UI element based on system data and configuration.

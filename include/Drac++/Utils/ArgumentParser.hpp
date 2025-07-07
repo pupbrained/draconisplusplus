@@ -15,6 +15,7 @@
 #include <format>                    // std::format
 #include <magic_enum/magic_enum.hpp> // magic_enum::enum_name, magic_enum::enum_cast
 #include <sstream>                   // std::ostringstream
+#include <unordered_set>             // std::unordered_set for fast choice look-ups
 #include <utility>                   // std::forward
 
 #include "Error.hpp"
@@ -28,6 +29,7 @@ namespace draconis::utils::argparse {
     using logging::Print;
     using logging::Println;
 
+    using types::CStr;
     using types::Err;
     using types::f64;
     using types::i32;
@@ -37,6 +39,7 @@ namespace draconis::utils::argparse {
     using types::Span;
     using types::String;
     using types::StringView;
+    using types::u8;
     using types::UniquePointer;
     using types::Unit;
     using types::usize;
@@ -61,17 +64,19 @@ namespace draconis::utils::argparse {
   struct EnumTraits {
     static constexpr bool has_string_conversion = magic_enum::is_scoped_enum_v<EnumType>;
 
-    static fn getChoices() -> ArgChoices {
+    static fn getChoices() -> const ArgChoices& {
       static_assert(has_string_conversion, "Enum type must be a scoped enum");
 
-      ArgChoices choices;
-      const auto enumValues = magic_enum::enum_values<EnumType>();
-      choices.reserve(enumValues.size());
+      static const ArgChoices CACHED_CHOICES = [] {
+        ArgChoices vec;
+        const auto enumValues = magic_enum::enum_values<EnumType>();
+        vec.reserve(enumValues.size());
+        for (const auto value : enumValues)
+          vec.emplace_back(magic_enum::enum_name(value));
+        return vec;
+      }();
 
-      for (const auto value : enumValues)
-        choices.emplace_back(magic_enum::enum_name(value));
-
-      return choices;
+      return CACHED_CHOICES;
     }
 
     static fn stringToEnum(const String& str) -> EnumType {
@@ -164,9 +169,8 @@ namespace draconis::utils::argparse {
 
       m_defaultValue = strValue;
 
-      m_choices = EnumTraits<EnumType>::getChoices();
-
-      return *this;
+      /* Setting choices via helper ensures lowercase set is populated. */
+      return this->choices(EnumTraits<EnumType>::getChoices());
     }
 
     /**
@@ -184,8 +188,24 @@ namespace draconis::utils::argparse {
      * @param choices Vector of allowed string values
      * @return Reference to this argument for method chaining
      */
-    fn choices(ArgChoices choices) -> Argument& {
-      m_choices = std::move(choices);
+    fn choices(const ArgChoices& choices) -> Argument& {
+      m_choices = choices;
+
+      std::unordered_set<String> lowered;
+      lowered.reserve(choices.size());
+
+      for (const String& choice : choices) {
+        String lower = choice;
+        std::ranges::transform(
+          lower,
+          lower.begin(),
+          [](u8 chr) { return static_cast<CStr>(std::tolower(chr)); }
+        );
+        lowered.emplace(std::move(lower));
+      }
+
+      m_lowerChoices = std::move(lowered);
+
       return *this;
     }
 
@@ -318,24 +338,31 @@ namespace draconis::utils::argparse {
      */
     fn setValue(ArgValue value) -> Result<> {
       if (hasChoices() && std::holds_alternative<String>(value)) {
-        const String&     strValue = std::get<String>(value);
-        const ArgChoices& choices  = m_choices.value();
+        const String& strValue = std::get<String>(value);
 
-        bool isValid = false;
-        for (const String& choice : choices) {
-          if (std::ranges::equal(strValue, choice, [](char charA, char charB) { return std::tolower(charA) == std::tolower(charB); })) {
-            isValid = true;
-            break;
-          }
-        }
+        /* Lower-case once for lookup */
+        String lowerValue = strValue;
+        std::ranges::transform(
+          lowerValue,
+          lowerValue.begin(),
+          [](u8 chr) { return static_cast<CStr>(std::tolower(chr)); }
+        );
+
+        bool isValid = m_lowerChoices && m_lowerChoices->contains(lowerValue);
 
         if (!isValid) {
+          const ArgChoices& choices = m_choices.value();
+
           std::ostringstream choicesStream;
           for (usize i = 0; i < choices.size(); ++i) {
             if (i > 0)
               choicesStream << ", ";
             String lower = choices[i];
-            std::ranges::transform(lower, lower.begin(), [](char character) { return std::tolower(character); });
+            std::ranges::transform(
+              lower,
+              lower.begin(),
+              [](u8 chr) { return static_cast<CStr>(std::tolower(chr)); }
+            );
             choicesStream << lower;
           }
 
@@ -362,13 +389,14 @@ namespace draconis::utils::argparse {
     }
 
    private:
-    Vec<String>        m_names;        ///< Argument names (e.g., {"-v", "--verbose"})
-    String             m_helpText;     ///< Help text for this argument
-    Option<ArgValue>   m_value;        ///< The actual value provided
-    Option<ArgValue>   m_defaultValue; ///< Default value if none provided
-    Option<ArgChoices> m_choices;      ///< Allowed choices for enum-style arguments
-    bool               m_isFlag {};    ///< Whether this is a flag argument
-    bool               m_isUsed {};    ///< Whether this argument was used
+    Vec<String>                        m_names;        ///< Argument names (e.g., {"-v", "--verbose"})
+    String                             m_helpText;     ///< Help text for this argument
+    Option<ArgValue>                   m_value;        ///< The actual value provided
+    Option<ArgValue>                   m_defaultValue; ///< Default value if none provided
+    Option<ArgChoices>                 m_choices;      ///< Allowed choices for enum-style arguments
+    Option<std::unordered_set<String>> m_lowerChoices; ///< Lower-cased set for fast validation
+    bool                               m_isFlag {};    ///< Whether this is a flag argument
+    bool                               m_isUsed {};    ///< Whether this argument was used
   };
 
   /**
@@ -378,11 +406,30 @@ namespace draconis::utils::argparse {
    public:
     /**
      * @brief Construct a new ArgumentParser.
-     * @param programName Name of the program (for help messages)
+     * @param programName Name of the program
      * @param version Version string of the program
      */
-    explicit ArgumentParser(String programName = "", String version = "1.0")
+    explicit ArgumentParser(String programName, String version)
       : m_programName(std::move(programName)), m_version(std::move(version)) {
+      addArguments("-h", "--help")
+        .help("Show this help message and exit")
+        .flag()
+        .defaultValue(false);
+
+      addArguments("-v", "--version")
+        .help("Show version information and exit")
+        .flag()
+        .defaultValue(false);
+    }
+
+    /**
+     * @brief Construct a new ArgumentParser.
+     * @param version Version string of the program
+     *
+     * @details Program name is set to argv[0] at runtime.
+     */
+    explicit ArgumentParser(String version)
+      : m_version(std::move(version)) {
       addArguments("-h", "--help")
         .help("Show this help message and exit")
         .flag()
@@ -423,13 +470,44 @@ namespace draconis::utils::argparse {
      * @return Result indicating success or failure
      */
     fn parseArgs(Span<const char* const> args) -> Result<> {
-      Vec<String> stringArgs;
-      stringArgs.reserve(args.size());
+      if (args.empty())
+        return {};
 
-      for (const char* arg : args)
-        stringArgs.emplace_back(arg);
+      if (m_programName.empty())
+        m_programName = args[0];
 
-      return parseArgs(stringArgs);
+      for (usize i = 1; i < args.size(); ++i) {
+        StringView arg = args[i];
+
+        if (arg == "-h" || arg == "--help") {
+          printHelp();
+          std::exit(0);
+        }
+
+        if (arg == "-v" || arg == "--version") {
+          Println(m_version);
+          std::exit(0);
+        }
+
+        auto iter = m_argumentMap.find(arg);
+        if (iter == m_argumentMap.end())
+          return Err(DracError(DracErrorCode::InvalidArgument, std::format("Unknown argument: {}", arg)));
+
+        Argument* argument = iter->second;
+
+        if (argument->isFlag()) {
+          argument->markUsed();
+        } else {
+          if (i + 1 >= args.size())
+            return Err(DracError(DracErrorCode::InvalidArgument, std::format("Argument {} requires a value", arg)));
+
+          String value = args[++i];
+          if (Result result = argument->setValue(value); !result)
+            return result;
+        }
+      }
+
+      return {};
     }
 
     /**
