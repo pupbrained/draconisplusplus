@@ -14,7 +14,7 @@
     utils,
     ...
   }: let
-    lib = nixpkgs.lib;
+    inherit (nixpkgs) lib;
   in
     {homeModules.default = import ./nix/module.nix {inherit self;};}
     // utils.lib.eachDefaultSystem (
@@ -69,12 +69,12 @@
           ++ darwinPkgs
           ++ linuxPkgs;
 
-        darwinPkgs = nixpkgs.lib.optionals stdenv.isDarwin (with pkgs.pkgsStatic; [
+        darwinPkgs = lib.optionals stdenv.isDarwin (with pkgs.pkgsStatic; [
           libiconv
           apple-sdk_15
         ]);
 
-        linuxPkgs = nixpkgs.lib.optionals stdenv.isLinux (with pkgs;
+        linuxPkgs = lib.optionals stdenv.isLinux (with pkgs;
           [valgrind]
           ++ (with pkgsStatic; [
             dbus
@@ -117,10 +117,10 @@
               vulkanDir = "${pkgs.mesa}/share/vulkan/icd.d";
               vulkanFiles = builtins.filter (file: builtins.match ".*\\.json$" file != null) (builtins.attrNames (builtins.readDir vulkanDir));
             in
-              nixpkgs.lib.concatStringsSep ":" (map (file: "${vulkanDir}/${file}") vulkanFiles);
+              lib.concatStringsSep ":" (map (file: "${vulkanDir}/${file}") vulkanFiles);
 
           shellHook =
-            pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
+            lib.optionalString pkgs.stdenv.hostPlatform.isDarwin ''
               export SDKROOT=${pkgs.pkgsStatic.apple-sdk_15}/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
               export DEVELOPER_DIR=${pkgs.pkgsStatic.apple-sdk_15}
               export LDFLAGS="-L${pkgs.pkgsStatic.libiconvReal}/lib $LDFLAGS"
@@ -129,7 +129,7 @@
               export NIX_OBJCFLAGS_COMPILE="-isysroot $SDKROOT"
               export NIX_OBJCXXFLAGS_COMPILE="-isysroot $SDKROOT"
             ''
-            + pkgs.lib.optionalString pkgs.stdenv.hostPlatform.isLinux ''
+            + lib.optionalString pkgs.stdenv.hostPlatform.isLinux ''
               cp ${pkgs.pciutils}/share/pci.ids pci.ids
               chmod +w pci.ids
               objcopy -I binary -O default pci.ids pci_ids.o

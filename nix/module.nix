@@ -67,11 +67,11 @@ with lib; let
       (oldAttrs.mesonFlags or [])
       ++ [
         (lib.optionalString (cfg.configFormat == "hpp") "-Dprecompiled_config=true")
-        (lib.optionalString (cfg.usePugixml) "-Dpugixml=enabled")
-        (lib.optionalString (cfg.enableNowPlaying) "-Dnowplaying=enabled")
-        (lib.optionalString (cfg.enableWeather) "-Dweather=enabled")
-        (lib.optionalString (cfg.enablePackageCount) "-Dpackagecount=enabled")
-        (lib.optionalString (cfg.enableCaching) "-Dcaching=enabled")
+        (lib.optionalString cfg.usePugixml "-Dpugixml=enabled")
+        (lib.optionalString cfg.enableNowPlaying "-Dnowplaying=enabled")
+        (lib.optionalString cfg.enableWeather "-Dweather=enabled")
+        (lib.optionalString cfg.enablePackageCount "-Dpackagecount=enabled")
+        (lib.optionalString cfg.enableCaching "-Dcaching=enabled")
       ];
   });
 
