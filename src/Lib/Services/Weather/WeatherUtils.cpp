@@ -35,7 +35,7 @@ namespace draconis::services::weather::utils {
     // 20: "YYYY-MM-DDTHH:MM:SSZ"
     // 16: "YYYY-MM-DDTHH:MM" (seconds assumed 00, UTC assumed)
     if (stringLen != 20 && stringLen != 16)
-      return Err(DracError(ParseError, std::format("Failed to parse ISO8601 time \'{}\', unexpected length {}. Expected 16 or 20 characters.", iso8601, stringLen)));
+      ERR_FMT(ParseError, "Invalid ISO8601 string: '{}' (expected format 'YYYY-MM-DDTHH:MM[:SSZ]')", stringLen);
 
     std::tm timeStruct = {};
     i32     year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0; // Default second to 0
@@ -48,21 +48,22 @@ namespace draconis::services::weather::utils {
     // Common parsing for YYYY-MM-DDTHH:MM
     // Structure: YYYY-MM-DDTHH:MM
     // Indices:   0123456789012345
-    if (!parseInt(iso8601.substr(0, 4), year) || // YYYY
-        iso8601[4] != '-' ||
-        !parseInt(iso8601.substr(5, 2), month) || // MM
-        iso8601[7] != '-' ||
-        !parseInt(iso8601.substr(8, 2), day) || // DD
-        iso8601[10] != 'T' ||
-        !parseInt(iso8601.substr(11, 2), hour) || // HH
-        iso8601[13] != ':' ||
-        !parseInt(iso8601.substr(14, 2), minute) // MM
+    if (
+      !parseInt(iso8601.substr(0, 4), year) || // YYYY
+      iso8601[4] != '-' ||
+      !parseInt(iso8601.substr(5, 2), month) || // MM
+      iso8601[7] != '-' ||
+      !parseInt(iso8601.substr(8, 2), day) || // DD
+      iso8601[10] != 'T' ||
+      !parseInt(iso8601.substr(11, 2), hour) || // HH
+      iso8601[13] != ':' ||
+      !parseInt(iso8601.substr(14, 2), minute) // MM
     )
-      return Err(DracError(ParseError, std::format("Failed to parse common date/time components from ISO8601 string: \'{}\'", iso8601)));
+      ERR_FMT(ParseError, "Failed to parse common date/time components from ISO8601 string: '{}'", iso8601);
 
     if (stringLen == 20) // Format: YYYY-MM-DDTHH:MM:SSZ
       if (iso8601[16] != ':' || !parseInt(iso8601.substr(17, 2), second) || iso8601[19] != 'Z')
-        return Err(DracError(ParseError, std::format("Failed to parse seconds or UTC zone from 20-character ISO8601 string: \'{}\'", iso8601)));
+        ERR_FMT(ParseError, "Failed to parse seconds or UTC zone from 20-character ISO8601 string: '{}'", iso8601);
 
     timeStruct.tm_year  = year - 1900;
     timeStruct.tm_mon   = month - 1;
@@ -76,14 +77,14 @@ namespace draconis::services::weather::utils {
     time_t epochTime = _mkgmtime(&timeStruct);
 
     if (epochTime == -1)
-      return Err(DracError(ParseError, "Failed to convert time to epoch using _mkgmtime (invalid date components or out of range)"));
+      ERR(ParseError, "Failed to convert time to epoch using _mkgmtime (invalid date components or out of range)");
 
     return static_cast<usize>(epochTime);
   #else
     time_t epochTime = timegm(&timeStruct);
 
     if (epochTime == static_cast<time_t>(-1))
-      return Err(DracError(ParseError, std::format("Failed to convert time to epoch using timegm (invalid date components or out of range)")));
+      ERR(ParseError, "Failed to convert time to epoch using timegm (invalid date components or out of range)");
 
     return epochTime;
   #endif
@@ -170,7 +171,6 @@ namespace draconis::services::weather::utils {
       return "thunderstorm with hail";
     return "unknown";
   }
-
 } // namespace draconis::services::weather::utils
 
 #endif // DRAC_ENABLE_WEATHER

@@ -10,7 +10,6 @@
 namespace XCB {
   namespace {
     using draconis::utils::types::i32;
-    using draconis::utils::types::None;
     using draconis::utils::types::PCStr;
     using draconis::utils::types::RawPointer;
     using draconis::utils::types::u16;

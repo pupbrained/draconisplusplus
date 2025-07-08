@@ -49,10 +49,10 @@ namespace draconis::core::system {
           return std::format("{} {}{}", monthBuffer, day, suffix);
         }
 
-        return Err(DracError(ParseError, "Failed to format date"));
+        ERR(ParseError, "Failed to format date");
       }
 
-      return Err(DracError(ParseError, "Failed to get local time"));
+      ERR(ParseError, "Failed to get local time");
     }
   } // namespace
 
@@ -61,7 +61,7 @@ namespace draconis::core::system {
     // Intel does. Might as well replace them with their unicode counterparts.
     auto replaceTrademarkSymbols = [](Result<String> str) -> Result<String> {
       if (!str)
-        return Err(str.error());
+        ERR_FROM(str.error());
 
       usize pos = 0;
 

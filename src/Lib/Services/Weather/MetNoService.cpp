@@ -37,28 +37,28 @@ fn MetNoService::getWeatherInfo() const -> Result<Report> {
       });
 
       if (!curl) {
-        if (Option<DracError> initError = curl.getInitializationError())
-          return Err(*initError);
+        if (const Option<DracError>& initError = curl.getInitializationError())
+          ERR_FROM(*initError);
 
-        return Err(DracError(ApiUnavailable, "Failed to initialize cURL (Easy handle is invalid after construction)"));
+        ERR(ApiUnavailable, "Failed to initialize cURL (Easy handle is invalid after construction)");
       }
 
       if (Result res = curl.perform(); !res)
-        return Err(res.error());
+        ERR_FROM(res.error());
 
       draconis::services::weather::dto::metno::Response apiResp {};
 
       if (error_ctx errc = read<glz::opts { .error_on_unknown_keys = false }>(apiResp, responseBuffer); errc.ec != error_code::none)
-        return Err(DracError(ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer.data()))));
+        ERR_FMT(ParseError, "Failed to parse JSON response: {}", format_error(errc, responseBuffer.data()));
 
       if (apiResp.properties.timeseries.empty())
-        return Err(DracError(ParseError, "No timeseries data in met.no response"));
+        ERR(ParseError, "No timeseries data in met.no response");
 
       const auto& [time, data] = apiResp.properties.timeseries.front();
 
       f64 temp = data.instant.details.airTemperature;
 
-      if (m_units == UnitSystem::IMPERIAL)
+      if (m_units == UnitSystem::Imperial)
         temp = temp * 9.0 / 5.0 + 32.0;
 
       String symbolCode = data.next1Hours ? data.next1Hours->summary.symbolCode : "";
@@ -71,13 +71,14 @@ fn MetNoService::getWeatherInfo() const -> Result<Report> {
       }
 
       if (Result<usize> timestamp = draconis::services::weather::utils::ParseIso8601ToEpoch(time); !timestamp)
-        return Err(timestamp.error());
+        ERR_FROM(timestamp.error());
 
       Report out = {
         .temperature = temp,
         .name        = None,
         .description = symbolCode,
       };
+
       return out;
     }
   );

@@ -442,7 +442,7 @@ namespace draconis::ui {
         const auto& [temperature, townName, description] = *weather;
 
         PCStr tempUnit =
-          config.weather.units == services::weather::UnitSystem::METRIC
+          config.weather.units == services::weather::UnitSystem::Metric
           ? "C"
           : "F";
 

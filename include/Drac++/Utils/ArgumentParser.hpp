@@ -366,10 +366,13 @@ namespace draconis::utils::argparse {
             choicesStream << lower;
           }
 
-          return Err(DracError(
+          ERR_FMT(
             DracErrorCode::InvalidArgument,
-            std::format("Invalid value '{}' for argument '{}'. Allowed values: {}", strValue, getPrimaryName(), choicesStream.str())
-          ));
+            "Invalid value '{}' for argument '{}'. Allowed values: {}",
+            strValue,
+            getPrimaryName(),
+            choicesStream.str()
+          );
         }
       }
 
@@ -491,7 +494,7 @@ namespace draconis::utils::argparse {
 
         auto iter = m_argumentMap.find(arg);
         if (iter == m_argumentMap.end())
-          return Err(DracError(DracErrorCode::InvalidArgument, std::format("Unknown argument: {}", arg)));
+          ERR_FMT(DracErrorCode::InvalidArgument, "Unknown argument: {}", arg);
 
         Argument* argument = iter->second;
 
@@ -499,7 +502,7 @@ namespace draconis::utils::argparse {
           argument->markUsed();
         } else {
           if (i + 1 >= args.size())
-            return Err(DracError(DracErrorCode::InvalidArgument, std::format("Argument {} requires a value", arg)));
+            ERR_FMT(DracErrorCode::InvalidArgument, "Argument {} requires a value", arg);
 
           String value = args[++i];
           if (Result result = argument->setValue(value); !result)
@@ -537,7 +540,7 @@ namespace draconis::utils::argparse {
 
         auto iter = m_argumentMap.find(arg);
         if (iter == m_argumentMap.end())
-          return Err(DracError(DracErrorCode::InvalidArgument, std::format("Unknown argument: {}", arg)));
+          ERR_FMT(DracErrorCode::InvalidArgument, "Unknown argument: {}", arg);
 
         Argument* argument = iter->second;
 
@@ -545,12 +548,11 @@ namespace draconis::utils::argparse {
           argument->markUsed();
         } else {
           if (i + 1 >= args.size())
-            return Err(DracError(DracErrorCode::InvalidArgument, std::format("Argument {} requires a value", arg)));
+            ERR_FMT(DracErrorCode::InvalidArgument, "Argument {} requires a value", arg);
 
           String value = args[++i];
-          if (Result result = argument->setValue(value); !result) {
+          if (Result result = argument->setValue(value); !result)
             return result;
-          }
         }
       }
 
@@ -587,6 +589,7 @@ namespace draconis::utils::argparse {
         return iter->second->getEnum<EnumType>();
 
       static_assert(EnumTraits<EnumType>::has_string_conversion, "Enum type not supported. Add a specialization to EnumTraits.");
+
       return EnumTraits<EnumType>::stringToEnum("");
     }
 
@@ -648,6 +651,7 @@ namespace draconis::utils::argparse {
             std::ostringstream choicesStream;
             choicesStream << "    Available values: ";
             const ArgChoices& choices = arg->getChoices();
+
             for (usize i = 0; i < choices.size(); ++i) {
               if (i > 0)
                 choicesStream << ", ";
@@ -658,6 +662,7 @@ namespace draconis::utils::argparse {
 
               choicesStream << lower;
             }
+
             Println(choicesStream.str());
           }
 

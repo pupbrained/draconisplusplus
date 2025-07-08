@@ -88,7 +88,7 @@ namespace {
     ERR_FMT(IoError, "Failed to read from sysfs file: {}", path.string());
   }
 
-  fn LookupPciNamesFromBuffer(StringView buffer, const StringView vendorId, const StringView deviceId) -> Pair<String, String> {
+  fn LookupPciNamesFromBuffer(StringView buffer, const StringView vendorId, const StringView deviceId) -> Result<Pair<String, String>> {
     using std::views::common;
     using std::views::split;
 
@@ -115,14 +115,13 @@ namespace {
       } else if (vendorFound && line.size() > 1 && line[1] != '\t') {
         const StringView deviceLine = line.substr(1); // skip leading tab
 
-        if (deviceLine.starts_with(deviceIdStr)) {
+        if (deviceLine.starts_with(deviceIdStr))
           if (const usize namePos = line.find("  "); namePos != String::npos)
-            return { String(currentVendorName), String(line.substr(namePos + 2)) };
-        }
+            return Pair(String(currentVendorName), String(line.substr(namePos + 2)));
       }
     }
 
-    return { "", "" };
+    ERR_FMT(NotFound, "PCI device with vendor ID '{}' and device ID '{}' not found in PCI IDs buffer", vendorId, deviceId);
   }
 
   #ifdef DRAC_USE_LINKED_PCI_IDS
@@ -131,7 +130,7 @@ namespace {
     extern const char _binary_pci_ids_end[];
   }
 
-  fn LookupPciNames(const StringView vendorId, const StringView deviceId) -> Pair<String, String> {
+  fn LookupPciNames(const StringView vendorId, const StringView deviceId) -> Result<Pair<String, String>> {
     const usize pciIdsLen = _binary_pci_ids_end - _binary_pci_ids_start;
 
     return LookupPciNamesFromBuffer(StringView(_binary_pci_ids_start, pciIdsLen), vendorId, deviceId);
@@ -151,7 +150,7 @@ namespace {
     return {};
   }
 
-  fn LookupPciNames(const StringView vendorId, const StringView deviceId) -> Pair<String, String> {
+  fn LookupPciNames(const StringView vendorId, const StringView deviceId) -> Result<Pair<String, String>> {
     const fs::path& pciIdsPath = FindPciIDsPath();
 
     if (pciIdsPath.empty())
@@ -163,7 +162,7 @@ namespace {
     if (fd >= 0) {
       struct stat sb {};
       if (fstat(fd, &sb) == 0 && sb.st_size > 0) {
-        void* mapped = mmap(nullptr, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+        RawPointer mapped = mmap(nullptr, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
         if (mapped != MAP_FAILED) {
           Pair<String, String> result = LookupPciNamesFromBuffer(
             StringView(static_cast<const char*>(mapped), static_cast<usize>(sb.st_size)),
@@ -361,9 +360,8 @@ namespace {
       f64 refreshRate = 0;
 
       if (crtcInfoReply->mode != NONE) {
-        RandrModeInfo*        modeInfo  = nullptr;
-        RandrModeInfoIterator modesIter = GetScreenResourcesCurrentModesIterator(screenResourcesReply.get());
-        for (; modesIter.rem; ModeInfoNext(&modesIter))
+        RandrModeInfo* modeInfo = nullptr;
+        for (RandrModeInfoIterator modesIter = GetScreenResourcesCurrentModesIterator(screenResourcesReply.get()); modesIter.rem; ModeInfoNext(&modesIter))
           if (modesIter.data->id == crtcInfoReply->mode) {
             modeInfo = modesIter.data;
             break;
@@ -1044,12 +1042,9 @@ namespace draconis::core::system {
         Result<String> vendorIdRes = ReadSysFile(entry.path() / "vendor");
         Result<String> deviceIdRes = ReadSysFile(entry.path() / "device");
 
-        if (vendorIdRes && deviceIdRes) {
-          auto [vendor, device] = LookupPciNames(*vendorIdRes, *deviceIdRes);
-
-          if (!vendor.empty() && !device.empty())
-            return CleanGpuModelName(std::move(vendor), std::move(device));
-        }
+        if (vendorIdRes && deviceIdRes)
+          if (Result<Pair<String, String>> pciNames = LookupPciNames(*vendorIdRes, *deviceIdRes))
+            return CleanGpuModelName(std::move(pciNames->first), std::move(pciNames->second));
 
         if (vendorIdRes) {
           const auto* iter = std::ranges::find_if(fallbackVendorMap, [&](const auto& pair) {

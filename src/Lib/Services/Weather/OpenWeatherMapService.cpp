@@ -33,34 +33,39 @@ namespace {
     });
 
     if (!curl) {
-      if (Option<DracError> initError = curl.getInitializationError())
-        return Err(*initError);
-      return Err(DracError(ApiUnavailable, "Failed to initialize cURL (Easy handle is invalid after construction)"));
+      if (const Option<DracError>& initError = curl.getInitializationError())
+        ERR_FROM(*initError);
+
+      ERR(ApiUnavailable, "Failed to initialize cURL (Easy handle is invalid after construction)");
     }
 
     if (Result res = curl.perform(); !res)
-      return Err(res.error());
+      ERR_FROM(res.error());
 
     draconis::services::weather::dto::owm::OWMResponse owmResponse;
 
     if (const error_ctx errc = read<glz::opts { .error_on_unknown_keys = false }>(owmResponse, responseBuffer); errc.ec != error_code::none)
-      return Err(DracError(ParseError, std::format("Failed to parse JSON response: {}", format_error(errc, responseBuffer.data()))));
+      ERR_FMT(ParseError, "Failed to parse JSON response: {}", format_error(errc, responseBuffer.data()));
 
     if (owmResponse.cod && *owmResponse.cod != 200) {
       using matchit::match, matchit::is, matchit::or_, matchit::_;
 
       String apiErrorMessage = "OpenWeatherMap API error";
+
       if (owmResponse.message && !owmResponse.message->empty())
         apiErrorMessage += std::format(" ({}): {}", *owmResponse.cod, *owmResponse.message);
       else
         apiErrorMessage += std::format(" (Code: {})", *owmResponse.cod);
 
-      return Err(DracError(match(*owmResponse.cod)(is | 401 = PermissionDenied, is | 404 = NotFound, is | or_(429, _) = ApiUnavailable), apiErrorMessage));
+      ERR(
+        match(*owmResponse.cod)(is | 401 = PermissionDenied, is | 404 = NotFound, is | or_(429, _) = ApiUnavailable),
+        std::move(apiErrorMessage)
+      );
     }
 
     Report report = {
       .temperature = owmResponse.main.temp,
-      .name        = owmResponse.name.empty() ? None : Option<String>(owmResponse.name),
+      .name        = owmResponse.name.empty() ? None : Some(owmResponse.name),
       .description = !owmResponse.weather.empty() ? owmResponse.weather[0].description : "",
     };
 
@@ -80,7 +85,7 @@ fn OpenWeatherMapService::getWeatherInfo() const -> Result<Report> {
 
         Result<String> escapedUrl = Curl::Easy::escape(city);
         if (!escapedUrl)
-          return Err(escapedUrl.error());
+          ERR_FROM(escapedUrl.error());
 
         const String apiUrl = std::format("https://api.openweathermap.org/data/2.5/weather?q={}&appid={}&units={}", *escapedUrl, m_apiKey, m_units);
 
@@ -95,7 +100,7 @@ fn OpenWeatherMapService::getWeatherInfo() const -> Result<Report> {
         return MakeApiRequest(apiUrl);
       }
 
-      return Err(DracError(ParseError, "Invalid location type in configuration."));
+      ERR(ParseError, "Invalid location type in configuration.");
     }
   );
 }

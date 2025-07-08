@@ -1,5 +1,6 @@
 #include <array>
-#include <cstdlib> // EXIT_FAILURE, EXIT_SUCCESS
+#include <cstdlib>      // EXIT_FAILURE, EXIT_SUCCESS
+#include <sys/ptrace.h> // ptrace
 
 #ifdef _WIN32
   #include <fcntl.h>
@@ -29,13 +30,6 @@ using namespace draconis::utils::logging;
 using namespace draconis::core::system;
 using namespace draconis::config;
 using namespace draconis::ui;
-
-using draconis::utils::error::DracError;
-using enum draconis::utils::error::DracErrorCode;
-
-#if DRAC_ENABLE_WEATHER
-using draconis::services::weather::Report;
-#endif
 
 namespace {
 #ifdef _WIN32
@@ -75,6 +69,8 @@ namespace {
 #endif
     const SystemInfo& data
   ) -> Unit {
+    using draconis::utils::error::DracError;
+
     Array<Option<Pair<String, DracError>>, 10 + DRAC_ENABLE_PACKAGECOUNT + DRAC_ENABLE_NOWPLAYING + DRAC_ENABLE_WEATHER>
       failures {};
 
@@ -244,6 +240,8 @@ fn main(const i32 argc, CStr* argv[]) -> i32 try {
     SystemInfo    data(cache, config);
 
 #if DRAC_ENABLE_WEATHER
+    using enum draconis::utils::error::DracErrorCode;
+
     Result<Report> weatherReport;
 
     if (config.weather.enabled && config.weather.service == nullptr)

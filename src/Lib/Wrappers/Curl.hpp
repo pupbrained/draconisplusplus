@@ -168,13 +168,13 @@ namespace Curl {
     template <typename T>
     fn setOpt(const CURLoption option, T value) -> Result<> {
       if (!m_curl)
-        return Err(DracError(InternalError, "CURL handle is not initialized or init failed"));
+        ERR(InternalError, "CURL handle is not initialized or init failed");
 
       if (m_initError)
-        return Err(DracError(InternalError, "CURL handle initialization previously failed"));
+        ERR(InternalError, "CURL handle initialization previously failed");
 
       if (const CURLcode res = curl_easy_setopt(m_curl, option, value); res != CURLE_OK)
-        return Err(DracError(PlatformSpecific, std::format("curl_easy_setopt failed: {}", curl_easy_strerror(res))));
+        ERR_FMT(PlatformSpecific, "curl_easy_setopt failed: {}", curl_easy_strerror(res));
 
       return {};
     }
@@ -185,13 +185,13 @@ namespace Curl {
      */
     fn perform() -> Result<> {
       if (!m_curl)
-        return Err(DracError(InternalError, "CURL handle is not initialized or init failed"));
+        ERR(InternalError, "CURL handle is not initialized or init failed");
 
       if (m_initError)
-        return Err(DracError(InternalError, std::format("Cannot perform request, CURL handle initialization failed: {}", m_initError->message)));
+        ERR_FMT(InternalError, "Cannot perform request, CURL handle initialization failed: {}", m_initError->message);
 
       if (const CURLcode res = curl_easy_perform(m_curl); res != CURLE_OK)
-        return Err(DracError(ApiUnavailable, std::format("curl_easy_perform failed: {}", curl_easy_strerror(res))));
+        ERR_FMT(ApiUnavailable, "curl_easy_perform failed: {}", curl_easy_strerror(res));
 
       return {};
     }
@@ -206,13 +206,13 @@ namespace Curl {
     template <typename T>
     fn getInfo(const CURLINFO info, T* value) -> Result<> {
       if (!m_curl)
-        return Err(DracError(InternalError, "CURL handle is not initialized or init failed"));
+        ERR(InternalError, "CURL handle is not initialized or init failed");
 
       if (m_initError)
-        return Err(DracError(InternalError, std::format("CURL handle initialization previously failed: {}", m_initError->message)));
+        ERR_FMT(InternalError, "CURL handle initialization previously failed: {}", m_initError->message);
 
       if (const CURLcode res = curl_easy_getinfo(m_curl, info, value); res != CURLE_OK)
-        return Err(DracError(PlatformSpecific, std::format("curl_easy_getinfo failed: {}", curl_easy_strerror(res))));
+        ERR_FMT(PlatformSpecific, "curl_easy_getinfo failed: {}", curl_easy_strerror(res));
 
       return {};
     }
@@ -226,7 +226,7 @@ namespace Curl {
       char* escapedUrl = curl_easy_escape(nullptr, url.c_str(), static_cast<int>(url.length()));
 
       if (!escapedUrl)
-        return Err(DracError(OutOfMemory, "curl_easy_escape failed"));
+        ERR(OutOfMemory, "curl_easy_escape failed");
 
       String result(escapedUrl);
 
@@ -251,7 +251,7 @@ namespace Curl {
      */
     fn setWriteFunction(String* buffer) -> Result<> {
       if (!buffer)
-        return Err(DracError(InvalidArgument, "Write buffer cannot be null"));
+        ERR(InvalidArgument, "Write buffer cannot be null");
 
       if (Result res = setOpt(CURLOPT_WRITEFUNCTION, writeCallback); !res)
         return res;
@@ -371,16 +371,16 @@ namespace Curl {
      */
     fn addHandle(const Easy& easyHandle) -> Result<> {
       if (m_initError)
-        return Err(DracError(InternalError, std::format("CURL multi handle initialization previously failed: {}", m_initError->message)));
+        ERR_FMT(InternalError, "CURL multi handle initialization previously failed: {}", m_initError->message);
 
       if (!easyHandle.get())
-        return Err(DracError(InvalidArgument, "Provided CURL easy handle is not valid"));
+        ERR(InvalidArgument, "Provided CURL easy handle is not valid");
 
       if (easyHandle.getInitializationError())
-        return Err(DracError(InvalidArgument, std::format("Provided CURL easy handle failed initialization: {}", easyHandle.getInitializationError()->message)));
+        ERR_FMT(InvalidArgument, "Provided CURL easy handle failed initialization: {}", easyHandle.getInitializationError()->message);
 
       if (const CURLMcode res = curl_multi_add_handle(m_multi, easyHandle.get()); res != CURLM_OK)
-        return Err(DracError(PlatformSpecific, std::format("curl_multi_add_handle failed: {}", curl_multi_strerror(res))));
+        ERR_FMT(PlatformSpecific, "curl_multi_add_handle failed: {}", curl_multi_strerror(res));
 
       return {};
     }
@@ -392,16 +392,16 @@ namespace Curl {
      */
     fn removeHandle(const Easy& easyHandle) -> Result<> {
       if (!m_multi)
-        return Err(DracError(InternalError, "CURL multi handle is not initialized or init failed"));
+        ERR(InternalError, "CURL multi handle is not initialized or init failed");
 
       if (m_initError)
-        return Err(DracError(InternalError, std::format("CURL multi handle initialization previously failed: {}", m_initError->message)));
+        ERR_FMT(InternalError, "CURL multi handle initialization previously failed: {}", m_initError->message);
 
       if (!easyHandle.get()) // It's okay to try to remove a null handle, curl_multi_remove_handle handles it.
-        return Err(DracError(InvalidArgument, "Provided CURL easy handle is not valid (for removal check)"));
+        ERR(InvalidArgument, "Provided CURL easy handle is not valid (for removal check)");
 
       if (const CURLMcode res = curl_multi_remove_handle(m_multi, easyHandle.get()); res != CURLM_OK) // CURLM_BAD_EASY_HANDLE is a possible error if handle was not in multi stack
-        return Err(DracError(PlatformSpecific, std::format("curl_multi_remove_handle failed: {}", curl_multi_strerror(res))));
+        ERR_FMT(PlatformSpecific, "curl_multi_remove_handle failed: {}", curl_multi_strerror(res));
 
       return {};
     }
@@ -413,13 +413,13 @@ namespace Curl {
      */
     fn perform(i32* stillRunning) -> Result<> {
       if (!m_multi)
-        return Err(DracError(InternalError, "CURL multi handle is not initialized or init failed"));
+        ERR(InternalError, "CURL multi handle is not initialized or init failed");
 
       if (m_initError)
-        return Err(DracError(InternalError, std::format("CURL multi handle initialization previously failed: {}", m_initError->message)));
+        ERR_FMT(InternalError, "CURL multi handle initialization previously failed: {}", m_initError->message);
 
       if (const CURLMcode res = curl_multi_perform(m_multi, stillRunning); res != CURLM_OK && res != CURLM_CALL_MULTI_PERFORM)
-        return Err(DracError(PlatformSpecific, std::format("curl_multi_perform failed: {}", curl_multi_strerror(res))));
+        ERR_FMT(PlatformSpecific, "curl_multi_perform failed: {}", curl_multi_strerror(res));
 
       return {};
     }
@@ -431,10 +431,10 @@ namespace Curl {
      */
     fn infoRead(i32* msgsInQueue) -> Result<CURLMsg*> {
       if (!m_multi)
-        return Err(DracError(InternalError, "CURL multi handle is not initialized or init failed"));
+        ERR(InternalError, "CURL multi handle is not initialized or init failed");
 
       if (m_initError)
-        return Err(DracError(InternalError, std::format("CURL multi handle initialization previously failed: {}", m_initError->message)));
+        ERR_FMT(InternalError, "CURL multi handle initialization previously failed: {}", m_initError->message);
 
       CURLMsg* msg = curl_multi_info_read(m_multi, msgsInQueue);
 
@@ -449,13 +449,13 @@ namespace Curl {
      */
     fn poll(const i32 timeoutMs, i32* numfds) -> Result<> {
       if (!m_multi)
-        return Err(DracError(InternalError, "CURL multi handle is not initialized or init failed"));
+        ERR(InternalError, "CURL multi handle is not initialized or init failed");
 
       if (m_initError)
-        return Err(DracError(InternalError, std::format("CURL multi handle initialization previously failed: {}", m_initError->message)));
+        ERR_FMT(InternalError, "CURL multi handle initialization previously failed: {}", m_initError->message);
 
       if (const CURLMcode res = curl_multi_poll(m_multi, nullptr, 0, timeoutMs, numfds); res != CURLM_OK)
-        return Err(DracError(PlatformSpecific, std::format("curl_multi_poll failed: {}", curl_multi_strerror(res))));
+        ERR_FMT(PlatformSpecific, "curl_multi_poll failed: {}", curl_multi_strerror(res));
 
       return {};
     }
@@ -471,13 +471,13 @@ namespace Curl {
      */
     fn wait(const i32 timeoutMs, i32* numfds) -> Result<> {
       if (!m_multi)
-        return Err(DracError(InternalError, "CURL multi handle is not initialized or init failed"));
+        ERR(InternalError, "CURL multi handle is not initialized or init failed");
 
       if (m_initError)
-        return Err(DracError(InternalError, std::format("CURL multi handle initialization previously failed: {}", m_initError->message)));
+        ERR_FMT(InternalError, "CURL multi handle initialization previously failed: {}", m_initError->message);
 
       if (const CURLMcode res = curl_multi_wait(m_multi, nullptr, 0, timeoutMs, numfds); res != CURLM_OK)
-        return Err(DracError(PlatformSpecific, std::format("curl_multi_wait failed: {}", curl_multi_strerror(res))));
+        ERR_FMT(PlatformSpecific, "curl_multi_wait failed: {}", curl_multi_strerror(res));
 
       return {};
     }
@@ -490,7 +490,7 @@ namespace Curl {
    */
   inline fn GlobalInit(const i32 flags = CURL_GLOBAL_ALL) -> Result<> {
     if (const CURLcode res = curl_global_init(flags); res != CURLE_OK)
-      return Err(DracError(PlatformSpecific, std::format("curl_global_init failed: {}", curl_easy_strerror(res))));
+      ERR_FMT(PlatformSpecific, "curl_global_init failed: {}", curl_easy_strerror(res));
 
     return {};
   }

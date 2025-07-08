@@ -33,9 +33,9 @@ namespace draconis::services::weather {
    * @see config::DRAC_WEATHER_PROVIDER in `config(.example).hpp`.
    */
   enum class Provider : u8 {
-    OPENWEATHERMAP, ///< OpenWeatherMap API. Requires an API key. @see config::DRAC_API_KEY
-    OPENMETEO,      ///< OpenMeteo API. Does not require an API key.
-    METNO,          ///< Met.no API. Does not require an API key.
+    OpenWeatherMap, ///< OpenWeatherMap API. Requires an API key. @see config::DRAC_API_KEY
+    OpenMeteo,      ///< OpenMeteo API. Does not require an API key.
+    MetNo,          ///< Met.no API. Does not require an API key.
   };
 
   /**
@@ -43,8 +43,8 @@ namespace draconis::services::weather {
    * @see config::DRAC_WEATHER_UNIT in `config(.example).hpp`.
    */
   enum class UnitSystem : u8 {
-    METRIC,   ///< Metric units (Celsius, kph, etc.).
-    IMPERIAL, ///< Imperial units (Fahrenheit, mph, etc.).
+    Metric,   ///< Metric units (Celsius, kph, etc.).
+    Imperial, ///< Imperial units (Fahrenheit, mph, etc.).
   };
 
   /**
@@ -107,7 +107,7 @@ struct std::formatter<draconis::services::weather::UnitSystem> {
   static fn format(draconis::services::weather::UnitSystem unit, std::format_context& ctx) {
     using matchit::match, matchit::is, matchit::_;
 
-    return std::format_to(ctx.out(), "{}", match(unit)(is | draconis::services::weather::UnitSystem::METRIC = "metric", is | draconis::services::weather::UnitSystem::IMPERIAL = "imperial"));
+    return std::format_to(ctx.out(), "{}", match(unit)(is | draconis::services::weather::UnitSystem::Metric = "metric", is | draconis::services::weather::UnitSystem::Imperial = "imperial"));
   }
 };
 

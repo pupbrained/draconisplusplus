@@ -63,11 +63,11 @@ namespace {
 
   fn readFile(const std::filesystem::path& path) -> Result<String> {
     if (!std::filesystem::exists(path))
-      return Err(DracError(NotFound, std::format("File not found: {}", path.string())));
+      ERR_FMT(NotFound, "File not found: {}", path.string());
 
     std::ifstream file(path, std::ios::in | std::ios::binary);
     if (!file)
-      return Err(DracError(IoError, std::format("Failed to open file: {}", path.string())));
+      ERR_FMT(IoError, "Failed to open file: {}", path.string());
 
     const usize size = std::filesystem::file_size(path);
 
@@ -125,7 +125,7 @@ fn main() -> i32 {
 
 #if DRAC_ENABLE_WEATHER
   {
-    GetState().weatherService = CreateWeatherService(Provider::METNO, Coords(40.71427, -74.00597), UnitSystem::IMPERIAL);
+    GetState().weatherService = CreateWeatherService(Provider::MetNo, Coords(40.71427, -74.00597), UnitSystem::Imperial);
 
     if (!GetState().weatherService)
       error_log("Error: Failed to initialize WeatherService.");
@@ -241,7 +241,7 @@ fn main() -> i32 {
             weatherResultToAdd                  = fetchedReport;
           } else {
             error_log("Weather service is not initialized. Cannot fetch new data.");
-            Result<Report> errorReport          = Err(DracError(ApiUnavailable, "Weather service not initialized"));
+            Result<Report> errorReport          = Err({ ApiUnavailable, "Weather service not initialized" });
             GetState().weatherCache.report      = errorReport;
             GetState().weatherCache.lastChecked = now;
             weatherResultToAdd                  = errorReport;

@@ -24,7 +24,6 @@
 VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE
 
 using namespace draconis::utils::types;
-using draconis::utils::error::DracError;
 using enum draconis::utils::error::DracErrorCode;
 
 namespace {
@@ -53,7 +52,7 @@ namespace {
     info_log("Recreating swapchain with dimensions: {}x{}", width, height);
 
     if (device.waitIdle() != vk::Result::eSuccess)
-      return Err(DracError(Other, "failed to wait for device idle before recreation!"));
+      ERR(Other, "failed to wait for device idle before recreation!");
 
     vk::SwapchainKHR oldSwapChain = swapChain;
     swapChain                     = VK_NULL_HANDLE;
@@ -65,7 +64,7 @@ namespace {
 
     vk::ResultValue<vk::SurfaceCapabilitiesKHR> capabilitiesResult = physicalDevice.getSurfaceCapabilitiesKHR(surface);
     if (capabilitiesResult.result != vk::Result::eSuccess)
-      return Err(DracError(Other, "failed to get surface capabilities"));
+      ERR(Other, "failed to get surface capabilities");
 
     vk::SurfaceCapabilitiesKHR capabilities = capabilitiesResult.value;
 
@@ -89,13 +88,13 @@ namespace {
 
     vk::ResultValue<Vec<vk::SurfaceFormatKHR>> formatsResult = physicalDevice.getSurfaceFormatsKHR(surface);
     if (formatsResult.result != vk::Result::eSuccess)
-      return Err(DracError(Other, "failed to get surface formats"));
+      ERR(Other, "failed to get surface formats");
 
     surfaceFormat = formatsResult.value[0];
 
     vk::ResultValue<Vec<vk::PresentModeKHR>> presentModesResult = physicalDevice.getSurfacePresentModesKHR(surface);
     if (presentModesResult.result != vk::Result::eSuccess)
-      return Err(DracError(Other, "failed to get surface present modes"));
+      ERR(Other, "failed to get surface present modes");
 
     presentMode = vk::PresentModeKHR::eFifo;
     for (const vk::PresentModeKHR& availablePresentMode : presentModesResult.value) {
@@ -129,13 +128,13 @@ namespace {
 
     vk::ResultValue<vk::SwapchainKHR> swapChainResult = device.createSwapchainKHR(createInfo);
     if (swapChainResult.result != vk::Result::eSuccess)
-      return Err(DracError(Other, "failed to create swapchain!"));
+      ERR(Other, "failed to create swapchain!");
 
     swapChain = swapChainResult.value;
 
     vk::ResultValue<Vec<vk::Image>> imagesResult = device.getSwapchainImagesKHR(swapChain);
     if (imagesResult.result != vk::Result::eSuccess)
-      return Err(DracError(Other, "failed to get swapchain images!"));
+      ERR(Other, "failed to get swapchain images!");
 
     swapChainImages = imagesResult.value;
 
@@ -160,14 +159,14 @@ namespace {
 
       vk::ResultValue<vk::ImageView> imageViewResult = device.createImageView(imageViewCreateInfo);
       if (imageViewResult.result != vk::Result::eSuccess)
-        return Err(DracError(Other, "failed to create image views!"));
+        ERR(Other, "failed to create image views!");
 
       swapChainImageViews[i] = imageViewResult.value;
     }
 
     vk::ResultValue<Vec<vk::CommandBuffer>> buffersResult = device.allocateCommandBuffers({ commandPool, vk::CommandBufferLevel::ePrimary, static_cast<u32>(swapChainImageViews.size()) });
     if (buffersResult.result != vk::Result::eSuccess)
-      return Err(DracError(Other, "failed to allocate command buffers!"));
+      ERR(Other, "failed to allocate command buffers!");
 
     commandBuffers = buffersResult.value;
 

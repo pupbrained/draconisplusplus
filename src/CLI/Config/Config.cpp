@@ -151,24 +151,24 @@ namespace draconis::config {
     cfg.weather.units        = DRAC_WEATHER_UNIT;
     cfg.weather.location     = DRAC_LOCATION;
 
-    if constexpr (DRAC_WEATHER_PROVIDER == OPENWEATHERMAP) {
+    if constexpr (DRAC_WEATHER_PROVIDER == OpenWeatherMap) {
       if (!cfg.weather.apiKey) {
         error_log("OpenWeatherMap requires an API key.");
         cfg.weather.enabled = false;
       }
 
       cfg.weather.service = CreateWeatherService(
-        OPENWEATHERMAP,
+        OpenWeatherMap,
         DRAC_LOCATION,
         cfg.weather.units,
         cfg.weather.apiKey
       );
-    } else if constexpr (DRAC_WEATHER_PROVIDER == OPENMETEO) {
+    } else if constexpr (DRAC_WEATHER_PROVIDER == OpenMeteo) {
       if (std::holds_alternative<Coords>(DRAC_LOCATION)) {
         const auto& coords = std::get<Coords>(DRAC_LOCATION);
 
         cfg.weather.service = CreateWeatherService(
-          OPENMETEO,
+          OpenMeteo,
           coords,
           cfg.weather.units
         );
@@ -176,12 +176,12 @@ namespace draconis::config {
         error_log("Precompiled OpenMeteo requires coordinates, but DRAC_LOCATION is not Coords.");
         cfg.weather.enabled = false;
       }
-    } else if constexpr (DRAC_WEATHER_PROVIDER == METNO) {
+    } else if constexpr (DRAC_WEATHER_PROVIDER == MetNo) {
       if (std::holds_alternative<Coords>(DRAC_LOCATION)) {
         const auto& coords = std::get<Coords>(DRAC_LOCATION);
 
         cfg.weather.service = CreateWeatherService(
-          METNO,
+          MetNo,
           coords,
           cfg.weather.units
         );

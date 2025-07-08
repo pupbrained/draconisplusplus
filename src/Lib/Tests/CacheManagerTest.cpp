@@ -3,6 +3,7 @@
 #include <thread>
 
 #include <Drac++/Utils/CacheManager.hpp>
+#include <Drac++/Utils/Error.hpp>
 #include <Drac++/Utils/Types.hpp>
 
 #include "gtest/gtest.h"
@@ -13,9 +14,6 @@ using namespace draconis::utils;
 using cache::CacheLocation;
 using cache::CacheManager;
 using cache::CachePolicy;
-
-using error::DracError;
-using error::DracErrorCode;
 
 using types::Err;
 using types::i32;
@@ -85,9 +83,7 @@ class CacheManagerTest : public Test {
 
   // Helper function to create a fetcher that simulates failure
   static auto createFailingFetcher() {
-    return []() -> Result<i32> {
-      return Err(DracError(DracErrorCode::Other, "Fetch failed"));
-    };
+    return []() -> Result<i32> { ERR(error::DracErrorCode::Other, "Fetch failed"); };
   }
 
   // Helper function to create a fetcher with delay
@@ -149,7 +145,7 @@ TEST_F(CacheManagerTest, FetcherFailure) {
   auto result         = cache.getOrSet<i32>("error_key", failingFetcher);
 
   EXPECT_FALSE(result.has_value());
-  EXPECT_EQ(result.error().code, DracErrorCode::Other);
+  EXPECT_EQ(result.error().code, error::DracErrorCode::Other);
   EXPECT_EQ(result.error().message, "Fetch failed");
 }
 

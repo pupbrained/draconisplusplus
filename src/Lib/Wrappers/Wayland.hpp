@@ -15,7 +15,6 @@ namespace Wayland {
     using draconis::utils::types::DisplayInfo;
     using draconis::utils::types::f64;
     using draconis::utils::types::i32;
-    using draconis::utils::types::None;
     using draconis::utils::types::PCStr;
     using draconis::utils::types::RawPointer;
     using draconis::utils::types::StringView;

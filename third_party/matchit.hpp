@@ -20,6 +20,7 @@
 #include <array>
 #include <cassert>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <tuple>
@@ -81,11 +82,21 @@ namespace matchit {
     class Nullary : public T {
      public:
       using T::operator();
+
+      constexpr Nullary(const T& t) : T(t) {}
+      constexpr Nullary(T&& t) : T(std::move(t)) {}
     };
 
     template <typename T>
     constexpr auto nullary(const T& t) {
       return Nullary<T> { t };
+    }
+
+    template <typename T>
+    constexpr auto nullary(T&& t)
+      requires(!std::is_lvalue_reference_v<T>)
+    {
+      return Nullary<std::decay_t<T>> { std::forward<T>(t) };
     }
 
     template <typename T>
@@ -98,6 +109,17 @@ namespace matchit {
     template <typename T>
     constexpr auto expr(const T& v) {
       return nullary([&] { return v; });
+    }
+
+    template <typename T>
+    constexpr auto expr(T&& v)
+      requires(!std::is_lvalue_reference_v<T>)
+    {
+      using U     = std::remove_reference_t<T>;
+      auto shared = std::make_shared<U>(std::forward<T>(v));
+      return nullary([shared]() -> U {
+        return std::move(*shared);
+      });
     }
 
     template <typename T>

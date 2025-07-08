@@ -4,7 +4,6 @@
 
   #include <cstring>
   #include <dbus/dbus.h> // DBus Library
-  #include <format>      // std::format
   #include <type_traits> // std::is_convertible_v
   #include <utility>     // std::exchange, std::forward
 
@@ -13,18 +12,14 @@
 
 namespace DBus {
   namespace {
-    using draconis::utils::error::DracError;
-    using draconis::utils::error::DracErrorCode;
     using enum draconis::utils::error::DracErrorCode;
 
-    using draconis::utils::types::Err;
     using draconis::utils::types::i32;
     using draconis::utils::types::None;
     using draconis::utils::types::Option;
     using draconis::utils::types::RawPointer;
     using draconis::utils::types::Result;
     using draconis::utils::types::String;
-    using draconis::utils::types::u32;
     using draconis::utils::types::Unit;
   } // namespace
 
@@ -133,18 +128,6 @@ namespace DBus {
      */
     [[nodiscard]] fn get() const -> const DBusError* {
       return &m_err;
-    }
-
-    /**
-     * @brief Converts the D-Bus error to a DracError.
-     * @param code The DracErrorCode to use if the D-Bus error is set.
-     * @return A DracError representing the D-Bus error, or an internal error if called when no D-Bus error is set.
-     */
-    [[nodiscard]] fn toDracError(const DracErrorCode code = PlatformSpecific) const -> DracError {
-      if (isSet())
-        return { code, std::format("D-Bus Error: {} ({})", message(), name()) };
-
-      return { InternalError, "Attempted to convert non-set ErrorGuard" };
     }
   };
 
@@ -374,7 +357,7 @@ namespace DBus {
       DBusMessage* rawMsg = dbus_message_new_method_call(destination, path, interface, method);
 
       if (!rawMsg)
-        return Err(DracError(OutOfMemory, "dbus_message_new_method_call failed (allocation failed?)"));
+        ERR(OutOfMemory, "dbus_message_new_method_call failed (allocation failed?)");
 
       return Message(rawMsg);
     }
@@ -479,9 +462,7 @@ namespace DBus {
     [[nodiscard]] fn sendWithReplyAndBlock(const Message& message, const i32 timeout_milliseconds = 1000) const
       -> Result<Message> {
       if (!m_conn || !message.get())
-        return Err(
-          DracError(InvalidArgument, "Invalid connection or message provided to sendWithReplyAndBlock")
-        );
+        ERR(InvalidArgument, "Invalid connection or message provided to sendWithReplyAndBlock");
 
       Error        err;
       DBusMessage* rawReply =
@@ -490,24 +471,20 @@ namespace DBus {
       if (err.isSet()) {
         if (const char* errName = err.name()) {
           if (strcmp(errName, DBUS_ERROR_TIMEOUT) == 0 || strcmp(errName, DBUS_ERROR_NO_REPLY) == 0)
-            return Err(err.toDracError(Timeout));
+            ERR(Timeout, err.message());
 
           if (strcmp(errName, DBUS_ERROR_SERVICE_UNKNOWN) == 0)
-            return Err(err.toDracError(NotFound));
+            ERR(NotFound, err.message());
 
           if (strcmp(errName, DBUS_ERROR_ACCESS_DENIED) == 0)
-            return Err(err.toDracError(PermissionDenied));
+            ERR(PermissionDenied, err.message());
         }
 
-        return Err(err.toDracError(PlatformSpecific));
+        ERR(PlatformSpecific, err.message());
       }
 
       if (!rawReply)
-        return Err(DracError(
-          ApiUnavailable,
-          "dbus_connection_send_with_reply_and_block returned null without setting error (likely timeout or "
-          "disconnected)"
-        ));
+        ERR(ApiUnavailable, "dbus_connection_send_with_reply_and_block returned null without setting error (likely timeout or disconnected)");
 
       return Message(rawReply);
     }
@@ -522,10 +499,10 @@ namespace DBus {
       DBusConnection* rawConn = dbus_bus_get(bus_type, err.get());
 
       if (err.isSet())
-        return Err(err.toDracError(ApiUnavailable));
+        ERR(ApiUnavailable, err.message());
 
       if (!rawConn)
-        return Err(DracError(ApiUnavailable, "dbus_bus_get returned null without setting error"));
+        ERR(ApiUnavailable, "dbus_bus_get returned null without setting error");
 
       return Connection(rawConn);
     }
