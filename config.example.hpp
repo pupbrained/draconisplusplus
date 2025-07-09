@@ -100,7 +100,6 @@ namespace config {
    * @see weather::Coords
    * @see DRAC_WEATHER_PROVIDER
    *
-
    */
   constexpr Location DRAC_LOCATION = weather::Coords { .lat = 40.730610, .lon = -73.935242 };
   #endif

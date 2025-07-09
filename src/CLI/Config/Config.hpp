@@ -164,8 +164,8 @@ namespace draconis::config {
       String unitsStr      = tbl["units"].value_or("metric");
 
       match(unitsStr)(
-        is | "metric"   = [&]() { weather.units = UnitSystem::METRIC; },
-        is | "imperial" = [&]() { weather.units = UnitSystem::IMPERIAL; },
+        is | "metric"   = [&]() { weather.units = UnitSystem::Metric; },
+        is | "imperial" = [&]() { weather.units = UnitSystem::Imperial; },
         is | _          = [&]() { SET_ERROR("Invalid units: '{}'. Accepted values are 'metric' and 'imperial'.", unitsStr); }
       );
 
@@ -195,20 +195,20 @@ namespace draconis::config {
           is | "openmeteo" = [&]() {
             if (std::holds_alternative<Coords>(weather.location)) {
               const auto& coords = std::get<Coords>(weather.location);
-              weather.service = CreateWeatherService(Provider::OPENMETEO, coords, weather.units);
+              weather.service = CreateWeatherService(Provider::OpenMeteo, coords, weather.units);
             } else
               SET_ERROR("OpenMeteo requires coordinates (lat, lon) for location.");
           },
           is | "metno" = [&]() {
             if (std::holds_alternative<Coords>(weather.location)) {
               const auto& coords = std::get<Coords>(weather.location);
-              weather.service = CreateWeatherService(Provider::METNO, coords, weather.units);
+              weather.service = CreateWeatherService(Provider::MetNo, coords, weather.units);
             } else
               SET_ERROR("MetNo requires coordinates (lat, lon) for location.");
           },
           is | "openweathermap" = [&]() {
             if (weather.apiKey)
-              weather.service = CreateWeatherService(Provider::OPENWEATHERMAP, weather.location,  weather.units, weather.apiKey);
+              weather.service = CreateWeatherService(Provider::OpenWeatherMap, weather.location,  weather.units, weather.apiKey);
             else
               SET_ERROR("OpenWeatherMap requires an API key.");
           },

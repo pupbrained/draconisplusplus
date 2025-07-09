@@ -3,7 +3,6 @@
   #include <algorithm>
   #include <arpa/inet.h>          // inet_ntop
   #include <chrono>               // std::chrono::minutes
-  #include <climits>              // PATH_MAX
   #include <cpuid.h>              // __get_cpuid
   #include <cstring>              // std::strlen
   #include <expected>             // std::{unexpected, expected}
@@ -15,6 +14,7 @@
   #include <glaze/beve/write.hpp> // glz::write_beve
   #include <ifaddrs.h>            // getifaddrs, freeifaddrs, ifaddrs
   #include <linux/if_packet.h>    // sockaddr_ll
+  #include <linux/limits.h>       // PATH_MAX
   #include <map>                  // std::map
   #include <matchit.hpp>          // matchit::{is, is_not, is_any, etc.}
   #include <net/if.h>             // IFF_UP, IFF_LOOPBACK
@@ -154,34 +154,37 @@ namespace {
     const fs::path& pciIdsPath = FindPciIDsPath();
 
     if (pciIdsPath.empty())
-      return { "", "" };
+      ERR(NotFound, "Could not find pci.ids");
 
-    // Attempt fast path: mmap file into memory
-    const int fd = open(pciIdsPath.c_str(), O_RDONLY | O_CLOEXEC);
+    const i32 filedesc = open(pciIdsPath.c_str(), O_RDONLY | O_CLOEXEC);
 
-    if (fd >= 0) {
-      struct stat sb {};
-      if (fstat(fd, &sb) == 0 && sb.st_size > 0) {
-        RawPointer mapped = mmap(nullptr, sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (filedesc >= 0) {
+      struct stat statbuf {};
+
+      if (fstat(filedesc, &statbuf) == 0 && statbuf.st_size > 0) {
+        RawPointer mapped = mmap(nullptr, statbuf.st_size, PROT_READ, MAP_PRIVATE, filedesc, 0);
+
         if (mapped != MAP_FAILED) {
-          Pair<String, String> result = LookupPciNamesFromBuffer(
-            StringView(static_cast<const char*>(mapped), static_cast<usize>(sb.st_size)),
+          Result<Pair<String, String>> result = LookupPciNamesFromBuffer(
+            StringView(static_cast<PCStr>(mapped), static_cast<usize>(statbuf.st_size)),
             vendorId,
             deviceId
           );
-          munmap(mapped, sb.st_size);
-          close(fd);
+
+          munmap(mapped, statbuf.st_size);
+          close(filedesc);
+
           return result;
         }
       }
 
-      close(fd);
+      close(filedesc);
     }
 
-    // Fallback: read entire file into memory buffer
     std::ifstream file(pciIdsPath, std::ios::binary);
+
     if (!file)
-      return { "", "" };
+      ERR_FMT(NotFound, "Could not open {}", pciIdsPath.string());
 
     std::string contents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 

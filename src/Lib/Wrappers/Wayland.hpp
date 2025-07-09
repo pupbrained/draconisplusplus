@@ -293,7 +293,8 @@ namespace Wayland {
      *
      * @param display The Wayland display object
      */
-    explicit DisplayManager(Display* display) : m_display(display) {}
+    explicit DisplayManager(Display* display)
+      : m_display(display) {}
 
     /**
      * @brief Get information about all displays
@@ -513,6 +514,9 @@ namespace Wayland {
       static_cast<DisplayManager*>(data)->primaryDone();
     }
 
+    static fn primaryScale(RawPointer /*data*/, wl_output* /*wl_output*/, i32 /*scale*/) -> Unit {}
+    static fn primaryGeometry(void* /*data*/, struct wl_output* /*wl_output*/, int32_t /*x*/, int32_t /*y*/, int32_t /*physical_width*/, int32_t /*physical_height*/, int32_t /*subpixel*/, const char* /*make*/, const char* /*model*/, int32_t /*transform*/) -> Unit {}
+
     /**
      * @brief Wayland primary display registry handler
      *
@@ -539,10 +543,10 @@ namespace Wayland {
         return;
 
       const static OutputListener LISTENER = {
-        .geometry    = nullptr,
+        .geometry    = primaryGeometry,
         .mode        = primaryMode,
         .done        = primaryDone,
-        .scale       = nullptr,
+        .scale       = primaryScale,
         .name        = nullptr,
         .description = nullptr
       };

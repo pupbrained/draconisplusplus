@@ -127,12 +127,10 @@ namespace draconis::ui {
     Vec<usize>   iconWidths;
     Vec<usize>   labelWidths;
     Vec<usize>   valueWidths;
-    // Cached coloured strings so we don't have to run Colorize() on every
-    // render pass.
-    Vec<String> colouredIcons;
-    Vec<String> colouredLabels;
-    Vec<String> colouredValues;
-    usize       maxLabelWidth = 0;
+    Vec<String>  coloredIcons;
+    Vec<String>  coloredLabels;
+    Vec<String>  coloredValues;
+    usize        maxLabelWidth = 0;
   };
 
   namespace {
@@ -328,9 +326,9 @@ namespace draconis::ui {
       group.iconWidths.reserve(group.rows.size());
       group.labelWidths.reserve(group.rows.size());
       group.valueWidths.reserve(group.rows.size());
-      group.colouredIcons.reserve(group.rows.size());
-      group.colouredLabels.reserve(group.rows.size());
-      group.colouredValues.reserve(group.rows.size());
+      group.coloredIcons.reserve(group.rows.size());
+      group.coloredLabels.reserve(group.rows.size());
+      group.coloredValues.reserve(group.rows.size());
 
       // Track maximum width while we populate cached data.
       usize groupMaxWidth = 0;
@@ -346,9 +344,9 @@ namespace draconis::ui {
         group.labelWidths.push_back(labelWidth);
         group.valueWidths.push_back(valueW);
 
-        group.colouredIcons.push_back(Colorize(row.icon, DEFAULT_THEME.icon));
-        group.colouredLabels.push_back(Colorize(row.label, DEFAULT_THEME.label));
-        group.colouredValues.push_back(Colorize(row.value, DEFAULT_THEME.value));
+        group.coloredIcons.push_back(Colorize(row.icon, DEFAULT_THEME.icon));
+        group.coloredLabels.push_back(Colorize(row.label, DEFAULT_THEME.label));
+        group.coloredValues.push_back(Colorize(row.value, DEFAULT_THEME.value));
 
         groupMaxWidth = std::max(groupMaxWidth, iconW + valueW); // label handled after loop
       }
@@ -377,11 +375,11 @@ namespace draconis::ui {
              : 0;
 
         out += "│";
-        out += group.colouredIcons[i];
-        out += group.colouredLabels[i];
+        out += group.coloredIcons[i];
+        out += group.coloredLabels[i];
         out.append(group.maxLabelWidth - group.labelWidths[i], ' ');
         out.append(padding, ' ');
-        out += group.colouredValues[i];
+        out += group.coloredValues[i];
         out += " │\n";
       }
 
