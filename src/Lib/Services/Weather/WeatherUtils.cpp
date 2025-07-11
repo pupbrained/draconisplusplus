@@ -10,6 +10,14 @@
     #define _DEFAULT_SOURCE // exposes timegm
   #endif
 
+  #ifdef __SWITCH__
+// timegm is not available on Switch, provide a simple implementation
+inline time_t timegm(struct tm* tm) {
+  // Simple implementation: assume UTC timezone
+  return mktime(tm);
+}
+  #endif
+
   #include "Drac++/Utils/Error.hpp"
   #include "Drac++/Utils/Types.hpp"
 

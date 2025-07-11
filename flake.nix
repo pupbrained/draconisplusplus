@@ -5,6 +5,7 @@
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     treefmt-nix.url = "github:numtide/treefmt-nix";
     utils.url = "github:numtide/flake-utils";
+    devkitNix.url = "github:bandithedoge/devkitNix";
   };
 
   outputs = {
@@ -12,6 +13,7 @@
     nixpkgs,
     treefmt-nix,
     utils,
+    devkitNix,
     ...
   }: let
     inherit (nixpkgs) lib;
@@ -19,7 +21,10 @@
     {homeModules.default = import ./nix/module.nix {inherit self;};}
     // utils.lib.eachDefaultSystem (
       system: let
-        pkgs = import nixpkgs {inherit system;};
+        pkgs = import nixpkgs {
+          inherit system;
+          overlays = [devkitNix.overlays.default];
+        };
 
         llvmPackages = pkgs.llvmPackages_20;
 
@@ -67,7 +72,10 @@
             })
           ])
           ++ darwinPkgs
-          ++ linuxPkgs;
+          ++ linuxPkgs
+          ++ (with pkgs.devkitNix; [
+            devkitA64
+          ]);
 
         darwinPkgs = lib.optionals stdenv.isDarwin (with pkgs.pkgsStatic; [
           libiconv
@@ -83,8 +91,8 @@
             wayland
           ]));
 
-        draconisPkgs = import ./nix {inherit nixpkgs self system lib;};
-      in {
+        draconisPkgs = import ./nix {inherit nixpkgs self system lib devkitNix;};
+      in rec {
         packages = draconisPkgs;
         checks = draconisPkgs;
 
@@ -134,6 +142,10 @@
               chmod +w pci.ids
               objcopy -I binary -O default pci.ids pci_ids.o
               rm pci.ids
+            ''
+            + ''
+              export DEVKITPRO=${pkgs.devkitNix.devkitA64}/opt/devkitpro
+              export PATH=$DEVKITPRO/devkitA64/bin:$PATH
             '';
         };
 

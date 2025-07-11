@@ -105,8 +105,11 @@
       '';
 
       installPhase = ''
-        mkdir -p $out/bin
+        mkdir -p $out/bin $out/lib
         mv build/src/CLI/draconis++ $out/bin/draconis++
+        mv build/src/Lib/libdrac++.a $out/lib/
+        mkdir -p $out/include
+        cp -r include/Drac++ $out/include/
       '';
 
       NIX_ENFORCE_NO_NATIVE =
