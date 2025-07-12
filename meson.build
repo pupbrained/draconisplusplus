@@ -302,6 +302,7 @@ summary(
   {
     'Build examples': get_option('build_examples'),
     'Build tests': get_option('build_tests'),
+    'Build Switch example': get_option('build_switch_example'),
   },
   section: 'Build Options',
   bool_yn: true,

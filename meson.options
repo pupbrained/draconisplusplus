@@ -7,6 +7,12 @@
 
 option('build_examples', type: 'boolean', value: true)
 option('build_tests', type: 'boolean', value: true)
+option(
+  'build_switch_example',
+  type: 'boolean',
+  value: false,
+  description: 'Build the Nintendo Switch example if devkitPro is available',
+)
 
 # Note: These are primarily intended for use with Nix.
 option('build_for_musl', type: 'boolean', value: false)

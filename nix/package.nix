@@ -80,6 +80,7 @@
 
       mesonFlags = [
         "-Dbuild_examples=false"
+        "-Dbuild_switch_example=false"
         (lib.optionalString stdenv.isLinux "-Duse_linked_pci_ids=true")
       ];
 
