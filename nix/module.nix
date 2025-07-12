@@ -43,8 +43,8 @@ with lib; let
         constexpr const char* DRAC_USERNAME = "${cfg.username}";
 
         #if DRAC_ENABLE_WEATHER
-        constexpr services::weather::Provider DRAC_WEATHER_PROVIDER = services::weather::Provider::${lib.toUpper cfg.weatherProvider};
-        constexpr services::weather::UnitSystem DRAC_WEATHER_UNIT = services::weather::UnitSystem::${lib.toUpper cfg.weatherUnit};
+        constexpr services::weather::Provider DRAC_WEATHER_PROVIDER = services::weather::Provider::${cfg.weatherProvider};
+        constexpr services::weather::UnitSystem DRAC_WEATHER_UNIT = services::weather::UnitSystem::${cfg.weatherUnit};
         constexpr bool DRAC_SHOW_TOWN_NAME = ${toString cfg.showTownName};
         constexpr std::optional<std::string> DRAC_API_KEY = ${apiKey};
         constexpr services::weather::Location DRAC_LOCATION = ${location};
@@ -181,8 +181,8 @@ in {
     };
 
     weatherUnit = mkOption {
-      type = types.enum ["metric" "imperial"];
-      default = "metric";
+      type = types.enum ["Metric" "Imperial"];
+      default = "Metric";
       description = "Unit for temperature display.";
     };
 
