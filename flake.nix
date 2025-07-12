@@ -101,9 +101,10 @@
             (with pkgs; [
               alejandra
               bear
-              llvmPackages.clang-tools
+              cachix
               cmake
               hyperfine
+              llvmPackages.clang-tools
               meson
               ninja
               pkg-config
