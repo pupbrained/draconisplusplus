@@ -35,7 +35,7 @@ using draconis::utils::cache::CacheManager, draconis::utils::cache::CachePolicy;
 using enum draconis::utils::error::DracErrorCode;
 
 namespace {
-  fn getDisplayInfoById(CGDirectDisplayID displayID) -> Result<Output> {
+  fn getDisplayInfoById(CGDirectDisplayID displayID) -> Result<DisplayInfo> {
     // Get display resolution
     const usize width  = CGDisplayPixelsWide(displayID);
     const usize height = CGDisplayPixelsHigh(displayID);
@@ -56,7 +56,7 @@ namespace {
     // Check if this is the main display
     const bool isPrimary = displayID == CGMainDisplayID();
 
-    return Output(
+    return DisplayInfo(
       displayID,
       { .width = static_cast<u16>(width), .height = static_cast<u16>(height) },
       static_cast<u16>(refreshRate),
@@ -460,14 +460,14 @@ namespace draconis::core::system {
     return duration_cast<seconds>(now - bootTimepoint);
   }
 
-  fn GetPrimaryOutput(CacheManager& cache) -> Result<Output> {
-    return cache.getOrSet<Output>("macos_primary_output", CachePolicy::tempDirectory(), []() -> Result<Output> {
+  fn GetPrimaryOutput(CacheManager& cache) -> Result<DisplayInfo> {
+    return cache.getOrSet<DisplayInfo>("macos_primary_output", CachePolicy::tempDirectory(), []() -> Result<DisplayInfo> {
       return getDisplayInfoById(CGMainDisplayID());
     });
   }
 
-  fn GetOutputs(CacheManager& cache) -> Result<Vec<Output>> {
-    return cache.getOrSet<Vec<Output>>("macos_outputs", CachePolicy::tempDirectory(), []() -> Result<Vec<Output>> {
+  fn GetOutputs(CacheManager& cache) -> Result<Vec<DisplayInfo>> {
+    return cache.getOrSet<Vec<DisplayInfo>>("macos_outputs", CachePolicy::tempDirectory(), []() -> Result<Vec<DisplayInfo>> {
       u32 displayCount = 0;
 
       if (CGGetOnlineDisplayList(0, nullptr, &displayCount) != kCGErrorSuccess)
@@ -493,7 +493,7 @@ namespace draconis::core::system {
 
       const CGDirectDisplayID mainId = CGMainDisplayID();
 
-      Vec<Output> displays;
+      Vec<DisplayInfo> displays;
       displays.reserve(displayCount);
 
       const Span<const CGDirectDisplayID> ids(displayIDs, displayCount);
@@ -517,7 +517,7 @@ namespace draconis::core::system {
 
         displays.emplace_back(
           displayID,
-          Output::Resolution { .width = width, .height = height },
+          DisplayInfo::Resolution { .width = width, .height = height },
           refreshRate,
           isPrimary
         );

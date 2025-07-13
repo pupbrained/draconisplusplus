@@ -67,13 +67,13 @@ namespace draconis::ui {
    * @param weather The weather report, if enabled/available.
    * @return A string containing the formatted UI.
    */
-  fn CreateUI(const Config& config, const SystemInfo& data, Result<Report> weather) -> String;
+  fn CreateUI(const Config& config, const SystemInfo& data, Result<Report> weather, bool noAscii) -> String;
 #else
   /**
    * @brief Creates the main UI element based on system data and configuration.
    * @param config The application configuration.
    * @param data The collected system data. @return A string containing the formatted UI.
    */
-  fn CreateUI(const Config& config, const SystemInfo& data) -> String;
+  fn CreateUI(const Config& config, const SystemInfo& data, bool noAscii) -> String;
 #endif // DRAC_ENABLE_WEATHER
 } // namespace draconis::ui

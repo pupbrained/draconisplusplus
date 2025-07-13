@@ -1,5 +1,7 @@
 #include "UI.hpp"
 
+#include <cctype>
+#include <fstream>
 #include <sstream>
 
 #include <Drac++/Utils/Logging.hpp>
@@ -178,6 +180,18 @@ namespace draconis::ui {
       "\033[38;5;13m◯\033[0m",
       "\033[38;5;14m◯\033[0m",
       "\033[38;5;15m◯\033[0m"
+    };
+
+    constexpr Array<StringView, 9> LOGO_COLORS = {
+      "\033[31m", // red
+      "\033[32m", // green
+      "\033[33m", // yellow
+      "\033[34m", // blue
+      "\033[35m", // magenta
+      "\033[36m", // cyan
+      "\033[37m", // white
+      "\033[90m", // gray
+      "\033[91m"  // light red
     };
 
     constexpr fn IsWideCharacter(char32_t codepoint) -> bool {
@@ -415,12 +429,78 @@ namespace draconis::ui {
 
       return lines;
     }
+
+    constexpr fn GetAsciiArt(StringView operatingSystem) -> Vec<String> {
+      String filename;
+      if (operatingSystem.contains("NixOS")) {
+        filename = "nixos.txt";
+      } else if (operatingSystem.contains("macOS")) {
+        filename = "macos.txt";
+      } else if (operatingSystem.contains("Ubuntu")) {
+        filename = "ubuntu.txt";
+      } else if (operatingSystem.contains("Arch Linux")) {
+        filename = "arch.txt";
+      } else if (operatingSystem.contains("Debian")) {
+        filename = "debian.txt";
+      } else if (operatingSystem.contains("Fedora")) {
+        filename = "fedora.txt";
+      } else if (operatingSystem.contains("Gentoo")) {
+        filename = "gentoo.txt";
+      } else {
+        return {};
+      }
+
+      String        fullPath = "ascii/" + filename;
+      std::ifstream file(fullPath);
+      if (!file) {
+        return {};
+      }
+
+      Vec<String> lines;
+      String      line;
+      String      currentColor;
+
+      while (std::getline(file, line)) {
+        String processed = currentColor;
+        usize  pos       = 0;
+        while (pos < line.length()) {
+          if (line[pos] == '$') {
+            ++pos;
+            if (pos < line.length() && line[pos] == '$') {
+              processed += '$';
+              ++pos;
+              continue;
+            }
+            if (pos < line.length() && std::isdigit(static_cast<unsigned char>(line[pos]))) {
+              const usize index = line[pos] - '1';
+
+              if (index >= 0 && index < LOGO_COLORS.size()) {
+                String colorCode = String(LOGO_COLORS.at(index));
+                processed += colorCode;
+                currentColor = colorCode;
+                ++pos;
+                continue;
+              }
+            }
+
+            processed += '$';
+          } else {
+            processed += line[pos];
+            ++pos;
+          }
+        }
+        lines.push_back(processed);
+      }
+
+      return lines;
+    }
+
   } // namespace
 
 #if DRAC_ENABLE_WEATHER
-  fn CreateUI(const Config& config, const SystemInfo& data, Result<Report> weather) -> String {
+  fn CreateUI(const Config& config, const SystemInfo& data, Result<Report> weather, bool noAscii) -> String {
 #else
-  fn CreateUI(const Config& config, const SystemInfo& data) -> String {
+  fn CreateUI(const Config& config, const SystemInfo& data, bool noAscii) -> String {
 #endif
     const String& name     = config.general.getName();
     const Icons&  iconType = ICON_TYPE;
@@ -645,6 +725,80 @@ namespace draconis::ui {
     out += "╰";
     out += hBorder;
     out += "╯\n";
-    return out;
+
+    Vec<String>       boxLines;
+    std::stringstream stream(out);
+    String            line;
+
+    while (std::getline(stream, line, '\n'))
+      boxLines.push_back(line);
+
+    if (!boxLines.empty() && boxLines.back().empty())
+      boxLines.pop_back();
+
+    Vec<String> asciiLines = GetAsciiArt(*data.osVersion);
+
+    if (noAscii || asciiLines.empty())
+      return out;
+
+    usize maxAsciiW = 0;
+    for (const String& line : asciiLines)
+      maxAsciiW = std::max(maxAsciiW, GetVisualWidth(line));
+
+    usize asciiHeight = asciiLines.size();
+
+    String emptyAscii(maxAsciiW, ' ');
+
+    usize  boxWidth = GetVisualWidth(boxLines[0]);
+    String emptyBox = "│" + String(boxWidth - 2, ' ') + "│";
+
+    usize boxContentHeight = boxLines.size() - 2;
+    usize totalHeight      = std::max(asciiHeight, boxContentHeight + 2);
+
+    usize asciiPadTop = (totalHeight > asciiHeight) ? (totalHeight - asciiHeight) / 2 : 0;
+
+    usize boxPadTop    = (totalHeight > boxContentHeight + 2) ? (totalHeight - boxContentHeight - 2) / 2 : 0;
+    usize boxPadBottom = (totalHeight > boxContentHeight + 2) ? (totalHeight - boxContentHeight - 2 - boxPadTop) : 0;
+
+    Vec<String> extendedBox;
+
+    extendedBox.push_back(boxLines[0]);
+
+    for (usize j = 0; j < boxPadTop; ++j) extendedBox.push_back(emptyBox);
+    for (usize j = 1; j < boxLines.size() - 1; ++j) extendedBox.push_back(boxLines[j]);
+    for (usize j = 0; j < boxPadBottom; ++j) extendedBox.push_back(emptyBox);
+
+    extendedBox.push_back(boxLines.back());
+
+    usize extendedBoxHeight = extendedBox.size();
+
+    totalHeight = std::max(asciiHeight, extendedBoxHeight);
+
+    asciiPadTop = (totalHeight - asciiHeight) / 2;
+
+    String newOut;
+    for (usize i = 0; i < totalHeight; ++i) {
+      String outputLine;
+
+      if (i < asciiPadTop || i >= asciiPadTop + asciiHeight) {
+        outputLine += emptyAscii;
+      } else {
+        const String& asciiLine = asciiLines[i - asciiPadTop];
+        outputLine += asciiLine;
+        outputLine.append(maxAsciiW - GetVisualWidth(asciiLine), ' ');
+        outputLine += "\033[0m";
+      }
+
+      outputLine += "  ";
+
+      if (i < extendedBoxHeight)
+        outputLine += extendedBox[i];
+      else
+        outputLine += emptyBox;
+
+      newOut += outputLine + "\n";
+    }
+    return newOut;
   }
+
 } // namespace draconis::ui

@@ -24,9 +24,9 @@ endif
 switch_example = get_option('build_switch_example')
 
 if switch_example
-  aarch64_gpp = find_program('aarch64-none-elf-g++', required: switch_example.enabled())
-  elf2nro = find_program('elf2nro', required: switch_example.enabled())
-  nacptool = find_program('nacptool', required: switch_example.enabled())
+  aarch64_gpp = find_program('aarch64-none-elf-g++', required: switch_example)
+  elf2nro = find_program('elf2nro', required: switch_example)
+  nacptool = find_program('nacptool', required: switch_example)
   devkitpro = run_command('sh', '-c', 'printf %s "$DEVKITPRO"', check: false).stdout().strip()
 
   if aarch64_gpp.found() and elf2nro.found() and nacptool.found() and devkitpro != ''
@@ -191,7 +191,7 @@ if switch_example
       build_by_default: true,
       install: false,
     )
-  elif switch_example.enabled()
+  elif switch_example
     error('build_switch_example enabled but required tools not found')
   endif
 endif

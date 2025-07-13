@@ -44,8 +44,11 @@ namespace {
 
     return wideString;
   }
+#endif
 
   fn WriteToConsole(const String& document) -> Unit {
+#ifdef _WIN32
+    // Windows requires some special handling to display UTF-8 characters correctly.
     SetConsoleOutputCP(CP_UTF8);
 
     if (Option<WString> wideDocument = ConvertUTF8ToWString(document)) {
@@ -58,10 +61,10 @@ namespace {
         return;
       }
     }
+#endif
 
     Println(document);
   }
-#endif
 
   fn PrintDoctorReport(
 #if DRAC_ENABLE_WEATHER
@@ -103,6 +106,8 @@ namespace {
     DRAC_CHECK(weather, "Weather");
 #endif
 
+#undef DRAC_CHECK
+
     if (failureCount == 0)
       Println("All readouts were successful!");
     else {
@@ -132,6 +137,7 @@ fn main(const i32 argc, CStr* argv[]) -> i32 try {
   bool doctorMode     = false;
   bool clearCache     = false;
   bool ignoreCacheRun = false;
+  bool noAscii        = false;
 
   {
     using draconis::utils::argparse::ArgumentParser;
@@ -163,6 +169,11 @@ fn main(const i32 argc, CStr* argv[]) -> i32 try {
       .help("Ignore cache for this run (fetch fresh data without reading/writing on-disk cache).")
       .flag();
 
+    parser
+      .addArguments("--no-ascii")
+      .help("Disable ASCII art display.")
+      .flag();
+
     if (Result result = parser.parseArgs({ argv, static_cast<usize>(argc) }); !result) {
       error_at(result.error());
       return EXIT_FAILURE;
@@ -171,6 +182,7 @@ fn main(const i32 argc, CStr* argv[]) -> i32 try {
     doctorMode     = parser.get<bool>("-d") || parser.get<bool>("--doctor");
     clearCache     = parser.get<bool>("--clear-cache");
     ignoreCacheRun = parser.get<bool>("--ignore-cache");
+    noAscii        = parser.get<bool>("--no-ascii");
 
     SetRuntimeLogLevel(
       parser.get<bool>("-V") || parser.get<bool>("--verbose")
@@ -263,22 +275,14 @@ fn main(const i32 argc, CStr* argv[]) -> i32 try {
       return EXIT_SUCCESS;
     }
 
-    String document;
-
+    WriteToConsole(CreateUI(
+      config,
+      data,
 #if DRAC_ENABLE_WEATHER
-    document = CreateUI(config, data, weatherReport);
-#else
-    document = CreateUI(config, data);
+      weatherReport,
 #endif
-
-#ifdef _WIN32
-    // For some reason, the box-drawing characters don't render correctly
-    // in the console when using std::println/std::cout. Instead, we use
-    // WriteConsoleW to more directly output to the console.
-    WriteToConsole(document);
-#else
-    Println(document);
-#endif
+      noAscii
+    ));
   }
 
   return EXIT_SUCCESS;
