@@ -26,7 +26,6 @@ namespace draconis::ui {
     LogColor icon;
     LogColor label;
     LogColor value;
-    LogColor border;
   };
 
   extern const Theme DEFAULT_THEME;

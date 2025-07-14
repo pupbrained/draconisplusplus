@@ -14,6 +14,21 @@
 
 namespace draconis::utils::types {
   /**
+   * @struct OSInfo
+   * @brief Represents information about the operating system.
+   */
+  struct OSInfo {
+    String name;
+    String version;
+    String id;
+
+    OSInfo() = default;
+
+    OSInfo(String name, String version, String identifier)
+      : name(std::move(name)), version(std::move(version)), id(std::move(identifier)) {}
+  };
+
+  /**
    * @struct ResourceUsage
    * @brief Represents usage information for a resource (disk space, RAM, etc.).
    *
@@ -22,6 +37,11 @@ namespace draconis::utils::types {
   struct ResourceUsage {
     u64 usedBytes;  ///< Currently used resource space in bytes.
     u64 totalBytes; ///< Total resource space in bytes.
+
+    ResourceUsage() = default;
+
+    ResourceUsage(u64 usedBytes, u64 totalBytes)
+      : usedBytes(usedBytes), totalBytes(totalBytes) {}
   };
 
   /**
@@ -85,6 +105,11 @@ namespace draconis::utils::types {
     f64 base;    ///< Base (rated) frequency in MHz.
     f64 max;     ///< Maximum (turbo) frequency in MHz.
     f64 current; ///< Current operating frequency in MHz (can fluctuate).
+
+    Frequencies() = default;
+
+    Frequencies(f64 base, f64 max, f64 current)
+      : base(base), max(max), current(current) {}
   };
 
   /**
@@ -150,14 +175,14 @@ namespace draconis::utils::types {
 namespace std {
   template <>
   struct formatter<draconis::utils::types::BytesToGiB> : formatter<draconis::utils::types::f64> {
-    auto format(const draconis::utils::types::BytesToGiB& BTG, auto& ctx) const {
+    fn format(const draconis::utils::types::BytesToGiB& BTG, auto& ctx) const {
       return format_to(ctx.out(), "{:.2f}GiB", static_cast<draconis::utils::types::f64>(BTG.value) / draconis::utils::types::GIB);
     }
   };
 
   template <>
   struct formatter<draconis::utils::types::SecondsToFormattedDuration> : formatter<draconis::utils::types::String> {
-    auto format(const draconis::utils::types::SecondsToFormattedDuration& stfd, auto& ctx) const {
+    fn format(const draconis::utils::types::SecondsToFormattedDuration& stfd, auto& ctx) const {
       using draconis::utils::types::Array;
       using draconis::utils::types::String;
       using draconis::utils::types::u64;

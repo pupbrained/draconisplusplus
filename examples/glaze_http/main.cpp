@@ -173,6 +173,12 @@ fn main() -> i32 {
           else if (result.error().code != NotSupported)
             sysInfo.properties.emplace_back(name, result.error());
         },
+        [&](const String& name, const Result<OSInfo>& result) -> Unit {
+          if (result)
+            sysInfo.properties.emplace_back(name, std::format("{} {}", result->name, result->version));
+          else
+            sysInfo.properties.emplace_back(name, result.error());
+        },
         [&](const String& name, const Result<ResourceUsage>& result) -> Unit {
           if (result)
             sysInfo.properties.emplace_back(name, std::format("{} / {}", BytesToGiB(result->usedBytes), BytesToGiB(result->totalBytes)));
@@ -201,7 +207,7 @@ fn main() -> i32 {
 #endif
       };
 
-      addProperty("OS Version", GetOSVersion(cacheManager));
+      addProperty("OS", GetOperatingSystem(cacheManager));
       addProperty("Kernel Version", GetKernelVersion(cacheManager));
       addProperty("Host", GetHost(cacheManager));
       addProperty("Shell", GetShell(cacheManager));

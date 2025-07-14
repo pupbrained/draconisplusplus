@@ -1,11 +1,12 @@
 #include "UI.hpp"
 
 #include <cctype>
-#include <fstream>
 #include <sstream>
 
 #include <Drac++/Utils/Logging.hpp>
 #include <Drac++/Utils/Types.hpp>
+
+#include "AsciiArt.hpp"
 
 using namespace draconis::utils::types;
 using namespace draconis::utils::logging;
@@ -18,10 +19,9 @@ namespace draconis::ui {
   using services::weather::Report;
 
   constexpr Theme DEFAULT_THEME = {
-    .icon   = LogColor::Cyan,
-    .label  = LogColor::Yellow,
-    .value  = LogColor::White,
-    .border = LogColor::Gray,
+    .icon  = LogColor::Cyan,
+    .label = LogColor::Yellow,
+    .value = LogColor::White,
   };
 
   [[maybe_unused]] static constexpr Icons NONE = {
@@ -139,18 +139,18 @@ namespace draconis::ui {
 #ifdef __linux__
     // clang-format off
     constexpr Array<Pair<StringView, StringView>, 13> distro_icons {{
-      {        "NixOS", "   " },
-      {        "Zorin", "   " },
-      {       "Debian", "   " },
-      {       "Fedora", "   " },
-      {       "Gentoo", "   " },
-      {       "Ubuntu", "   " },
-      {      "Manjaro", "   " },
-      {      "Pop!_OS", "   " },
-      {   "Arch Linux", "   " },
-      {   "Linux Mint", "   " },
-      {   "Void Linux", "   " },
-      { "Alpine Linux", "   " },
+      {      "arch", "   " },
+      {     "nixos", "   " },
+      {     "popos", "   " },
+      {     "zorin", "   " },
+      {    "debian", "   " },
+      {    "fedora", "   " },
+      {    "gentoo", "   " },
+      {    "ubuntu", "   " },
+      {    "alpine", "   " },
+      {   "manjaro", "   " },
+      { "linuxmint", "   " },
+      { "voidlinux", "   " },
     }};
     // clang-format on
 
@@ -180,18 +180,6 @@ namespace draconis::ui {
       "\033[38;5;13m◯\033[0m",
       "\033[38;5;14m◯\033[0m",
       "\033[38;5;15m◯\033[0m"
-    };
-
-    constexpr Array<StringView, 9> LOGO_COLORS = {
-      "\033[31m", // red
-      "\033[32m", // green
-      "\033[33m", // yellow
-      "\033[34m", // blue
-      "\033[35m", // magenta
-      "\033[36m", // cyan
-      "\033[37m", // white
-      "\033[90m", // gray
-      "\033[91m"  // light red
     };
 
     constexpr fn IsWideCharacter(char32_t codepoint) -> bool {
@@ -289,9 +277,8 @@ namespace draconis::ui {
           pos++;
         } else {
           const char32_t codepoint = DecodeUTF8(str, pos);
-          if (codepoint != 0) {
+          if (codepoint != 0)
             width += IsWideCharacter(codepoint) ? 2 : 1;
-          }
         }
       }
 
@@ -327,7 +314,8 @@ namespace draconis::ui {
         if (i > 0)
           result.append(spacingBetween, ' ');
 
-        result += String(COLOR_CIRCLES.at(i));
+        const auto& circle = COLOR_CIRCLES.at(i);
+        result.append(circle.data(), circle.size());
       }
 
       return result;
@@ -430,71 +418,6 @@ namespace draconis::ui {
       return lines;
     }
 
-    constexpr fn GetAsciiArt(StringView operatingSystem) -> Vec<String> {
-      String filename;
-      if (operatingSystem.contains("NixOS")) {
-        filename = "nixos.txt";
-      } else if (operatingSystem.contains("macOS")) {
-        filename = "macos.txt";
-      } else if (operatingSystem.contains("Ubuntu")) {
-        filename = "ubuntu.txt";
-      } else if (operatingSystem.contains("Arch Linux")) {
-        filename = "arch.txt";
-      } else if (operatingSystem.contains("Debian")) {
-        filename = "debian.txt";
-      } else if (operatingSystem.contains("Fedora")) {
-        filename = "fedora.txt";
-      } else if (operatingSystem.contains("Gentoo")) {
-        filename = "gentoo.txt";
-      } else {
-        return {};
-      }
-
-      String        fullPath = "ascii/" + filename;
-      std::ifstream file(fullPath);
-      if (!file) {
-        return {};
-      }
-
-      Vec<String> lines;
-      String      line;
-      String      currentColor;
-
-      while (std::getline(file, line)) {
-        String processed = currentColor;
-        usize  pos       = 0;
-        while (pos < line.length()) {
-          if (line[pos] == '$') {
-            ++pos;
-            if (pos < line.length() && line[pos] == '$') {
-              processed += '$';
-              ++pos;
-              continue;
-            }
-            if (pos < line.length() && std::isdigit(static_cast<unsigned char>(line[pos]))) {
-              const usize index = line[pos] - '1';
-
-              if (index >= 0 && index < LOGO_COLORS.size()) {
-                String colorCode = String(LOGO_COLORS.at(index));
-                processed += colorCode;
-                currentColor = colorCode;
-                ++pos;
-                continue;
-              }
-            }
-
-            processed += '$';
-          } else {
-            processed += line[pos];
-            ++pos;
-          }
-        }
-        lines.push_back(processed);
-      }
-
-      return lines;
-    }
-
   } // namespace
 
 #if DRAC_ENABLE_WEATHER
@@ -541,15 +464,15 @@ namespace draconis::ui {
       if (data.host && !data.host->empty())
         systemInfoGroup.rows.push_back({ .icon = iconType.host, .label = "Host", .value = *data.host });
 
-      if (data.osVersion)
+      if (data.operatingSystem)
         systemInfoGroup.rows.push_back({
 #ifdef __linux__
-          .icon = GetDistroIcon(*data.osVersion).value_or(iconType.os),
+          .icon = GetDistroIcon(data.operatingSystem->id).value_or(iconType.os),
 #else
           .icon = iconType.os,
 #endif
           .label = "OS",
-          .value = *data.osVersion,
+          .value = std::format("{} {}", data.operatingSystem->name, data.operatingSystem->version),
         });
 
       if (data.kernelVersion)
@@ -736,13 +659,13 @@ namespace draconis::ui {
     if (!boxLines.empty() && boxLines.back().empty())
       boxLines.pop_back();
 
-    Vec<String> asciiLines = GetAsciiArt(*data.osVersion);
+    Vec<StringView> asciiLines = ascii::GetAsciiArt(data.operatingSystem->id);
 
     if (noAscii || asciiLines.empty())
       return out;
 
     usize maxAsciiW = 0;
-    for (const String& line : asciiLines)
+    for (const auto& line : asciiLines)
       maxAsciiW = std::max(maxAsciiW, GetVisualWidth(line));
 
     usize asciiHeight = asciiLines.size();
@@ -783,8 +706,8 @@ namespace draconis::ui {
       if (i < asciiPadTop || i >= asciiPadTop + asciiHeight) {
         outputLine += emptyAscii;
       } else {
-        const String& asciiLine = asciiLines[i - asciiPadTop];
-        outputLine += asciiLine;
+        const auto& asciiLine = asciiLines[i - asciiPadTop];
+        outputLine.append(asciiLine.data(), asciiLine.size());
         outputLine.append(maxAsciiW - GetVisualWidth(asciiLine), ' ');
         outputLine += "\033[0m";
       }

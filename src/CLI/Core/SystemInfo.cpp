@@ -74,19 +74,19 @@ namespace draconis::core::system {
       return str;
     };
 
-    this->desktopEnv    = GetDesktopEnvironment(cache);
-    this->windowMgr     = GetWindowManager(cache);
-    this->osVersion     = GetOSVersion(cache);
-    this->kernelVersion = GetKernelVersion(cache);
-    this->host          = GetHost(cache);
-    this->cpuModel      = replaceTrademarkSymbols(GetCPUModel(cache));
-    this->cpuCores      = GetCPUCores(cache);
-    this->gpuModel      = GetGPUModel(cache);
-    this->shell         = GetShell(cache);
-    this->memInfo       = GetMemInfo(cache);
-    this->diskUsage     = GetDiskUsage(cache);
-    this->uptime        = GetUptime();
-    this->date          = GetDate();
+    this->desktopEnv      = GetDesktopEnvironment(cache);
+    this->windowMgr       = GetWindowManager(cache);
+    this->operatingSystem = GetOperatingSystem(cache);
+    this->kernelVersion   = GetKernelVersion(cache);
+    this->host            = GetHost(cache);
+    this->cpuModel        = replaceTrademarkSymbols(GetCPUModel(cache));
+    this->cpuCores        = GetCPUCores(cache);
+    this->gpuModel        = GetGPUModel(cache);
+    this->shell           = GetShell(cache);
+    this->memInfo         = GetMemInfo(cache);
+    this->diskUsage       = GetDiskUsage(cache);
+    this->uptime          = GetUptime();
+    this->date            = GetDate();
 
 #if DRAC_ENABLE_PACKAGECOUNT
     this->packageCount = draconis::services::packages::GetTotalCount(cache, config.enabledPackageManagers);

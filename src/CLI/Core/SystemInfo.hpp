@@ -11,6 +11,7 @@ namespace draconis::core::system {
   namespace {
     using config::Config;
 
+    using utils::types::OSInfo;
     using utils::types::CPUArch;
     using utils::types::Frequencies;
     using utils::types::MediaInfo;
@@ -30,7 +31,7 @@ namespace draconis::core::system {
     Result<String>        date;
     Result<String>        host;
     Result<String>        kernelVersion;
-    Result<String>        osVersion;
+    Result<OSInfo>        operatingSystem;
     Result<ResourceUsage> memInfo;
     Result<String>        desktopEnv;
     Result<String>        windowMgr;

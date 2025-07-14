@@ -86,7 +86,7 @@ namespace {
     DRAC_CHECK(data.date, "Date");
     DRAC_CHECK(data.host, "Host");
     DRAC_CHECK(data.kernelVersion, "KernelVersion");
-    DRAC_CHECK(data.osVersion, "OSVersion");
+    DRAC_CHECK(data.operatingSystem, "OperatingSystem");
     DRAC_CHECK(data.memInfo, "MemoryInfo");
     DRAC_CHECK(data.desktopEnv, "DesktopEnvironment");
     DRAC_CHECK(data.windowMgr, "WindowManager");

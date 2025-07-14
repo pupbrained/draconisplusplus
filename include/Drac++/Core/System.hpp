@@ -23,6 +23,7 @@ namespace draconis::core::system {
     using utils::types::NetworkInterface;
     using utils::types::None;
     using utils::types::Option;
+    using utils::types::OSInfo;
     using utils::types::ResourceUsage;
     using utils::types::Result;
     using utils::types::String;
@@ -149,7 +150,7 @@ namespace draconis::core::system {
    * }
    * @endcode
    */
-  fn GetOSVersion(CacheManager& cache) -> Result<String>;
+  fn GetOperatingSystem(CacheManager& cache) -> Result<OSInfo>;
 
   /**
    * @brief Fetches the desktop environment.
@@ -660,4 +661,16 @@ namespace draconis::core::system {
    * @endcode
    */
   fn GetBatteryInfo(CacheManager& cache) -> Result<Battery>;
+
+#ifdef __linux__
+  namespace linux {
+    /**
+     * @brief Fetches the distro ID.
+     * @return The distro ID.
+     *
+     * @details Obtained from /etc/os-release.
+     */
+    fn GetDistroID(CacheManager& cache) -> Result<String>;
+  } // namespace linux
+#endif
 } // namespace draconis::core::system

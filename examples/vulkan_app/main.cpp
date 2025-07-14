@@ -391,7 +391,7 @@ fn main() -> i32 {
   std::chrono::time_point lastUpdateTime = std::chrono::steady_clock::now();
   Result<String>          host;
   Result<String>          kernelVersion;
-  Result<String>          osVersion;
+  Result<OSInfo>          osInfo;
   Result<String>          cpuModel;
   Result<String>          gpuModel;
   Result<ResourceUsage>   memInfo;
@@ -418,7 +418,7 @@ fn main() -> i32 {
 
       host          = GetHost(cacheManager);
       kernelVersion = GetKernelVersion(cacheManager);
-      osVersion     = GetOSVersion(cacheManager);
+      osInfo        = GetOperatingSystem(cacheManager);
       cpuModel      = GetCPUModel(cacheManager);
       gpuModel      = GetGPUModel(cacheManager);
       memInfo       = GetMemInfo(cacheManager);
@@ -466,11 +466,16 @@ fn main() -> i32 {
     {
       ImGui::TextUnformatted(std::format("Host: {}", host.value_or("N/A")).c_str());
       ImGui::TextUnformatted(std::format("Kernel: {}", kernelVersion.value_or("N/A")).c_str());
-      ImGui::TextUnformatted(std::format("OS: {}", osVersion.value_or("N/A")).c_str());
+
+      if (osInfo)
+        ImGui::TextUnformatted(std::format("OS: {} {}", osInfo->name, osInfo->version).c_str());
+      else
+        ImGui::TextUnformatted("OS: N/A");
+
       ImGui::TextUnformatted(std::format("CPU: {}", cpuModel.value_or("N/A")).c_str());
       ImGui::TextUnformatted(std::format("GPU: {}", gpuModel.value_or("N/A")).c_str());
 
-      if (memInfo.has_value())
+      if (memInfo)
         ImGui::TextUnformatted(std::format("Memory: {} / {}", BytesToGiB(memInfo->usedBytes), BytesToGiB(memInfo->totalBytes)).c_str());
       else
         ImGui::TextUnformatted("Memory: N/A");
@@ -478,7 +483,7 @@ fn main() -> i32 {
       ImGui::TextUnformatted(std::format("DE: {}", desktopEnv.value_or("N/A")).c_str());
       ImGui::TextUnformatted(std::format("WM: {}", windowMgr.value_or("N/A")).c_str());
 
-      if (diskUsage.has_value())
+      if (diskUsage)
         ImGui::TextUnformatted(std::format("Disk: {} / {}", BytesToGiB(diskUsage->usedBytes), BytesToGiB(diskUsage->totalBytes)).c_str());
       else
         ImGui::TextUnformatted("Disk: N/A");

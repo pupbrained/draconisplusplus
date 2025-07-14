@@ -319,6 +319,19 @@ namespace draconis::utils::cache {
 
 namespace glz {
   template <>
+  struct meta<draconis::utils::types::OSInfo> {
+    using T = draconis::utils::types::OSInfo;
+
+    // clang-format off
+    static constexpr detail::Object value = object(
+      "name", &T::name,
+      "version", &T::version,
+      "id", &T::id
+    );
+    // clang-format on
+  };
+
+  template <>
   struct meta<draconis::utils::types::CPUCores> {
     using T = draconis::utils::types::CPUCores;
 

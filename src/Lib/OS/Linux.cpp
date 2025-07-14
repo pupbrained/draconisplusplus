@@ -647,32 +647,83 @@ namespace draconis::core::system {
   using draconis::utils::cache::CacheManager;
   using draconis::utils::env::GetEnv;
 
-  fn GetOSVersion(CacheManager& cache) -> Result<String> {
-    return cache.getOrSet<String>("linux_os_version", []() -> Result<String> {
+  namespace linux {
+    fn GetDistroID(CacheManager& cache) -> Result<String> {
+      return cache.getOrSet<String>("linux_distro_id", []() -> Result<String> {
+        std::ifstream file("/etc/os-release");
+
+        if (!file.is_open())
+          ERR(NotFound, "Failed to open /etc/os-release");
+
+        String line;
+
+        while (std::getline(file, line)) {
+          if (StringView(line).starts_with("ID=")) {
+            String value = line.substr(3);
+
+            if ((value.length() >= 2 && value.front() == '"' && value.back() == '"') ||
+                (value.length() >= 2 && value.front() == '\'' && value.back() == '\''))
+              value = value.substr(1, value.length() - 2);
+
+            if (value.empty())
+              ERR(ParseError, "ID value is empty or only quotes in /etc/os-release");
+
+            return String(value);
+          }
+        }
+
+        ERR(NotFound, "ID line not found in /etc/os-release");
+      });
+    }
+  } // namespace linux
+
+  fn GetOperatingSystem(CacheManager& cache) -> Result<OSInfo> {
+    return cache.getOrSet<OSInfo>("linux_os_version", []() -> Result<OSInfo> {
       std::ifstream file("/etc/os-release");
 
       if (!file.is_open())
         ERR(NotFound, "Failed to open /etc/os-release");
 
-      String               line;
-      constexpr StringView prefix = "PRETTY_NAME=";
+      String osName, osVersion, osId;
+
+      String line;
+
+      const fn parseValue = [&](String& val) {
+        if (val.length() >= 2 && ((val.front() == '"' && val.back() == '"') || (val.front() == '\'' && val.back() == '\'')))
+          val = val.substr(1, val.length() - 2);
+      };
 
       while (std::getline(file, line)) {
-        if (StringView(line).starts_with(prefix)) {
-          String value = line.substr(prefix.size());
+        const StringView lineView = line;
 
-          if ((value.length() >= 2 && value.front() == '"' && value.back() == '"') ||
-              (value.length() >= 2 && value.front() == '\'' && value.back() == '\''))
-            value = value.substr(1, value.length() - 2);
-
-          if (value.empty())
-            ERR(ParseError, "PRETTY_NAME value is empty or only quotes in /etc/os-release");
-
-          return String(value);
+        if (lineView.starts_with("NAME=")) {
+          osName = lineView.substr(5);
+          parseValue(osName);
+        } else if (lineView.starts_with("VERSION=")) {
+          osVersion = lineView.substr(8);
+          parseValue(osVersion);
+        } else if (lineView.starts_with("ID=")) {
+          osId = lineView.substr(3);
+          parseValue(osId);
+        } else if (lineView.starts_with("PRETTY_NAME=") && osName.empty()) {
+          osName = lineView.substr(12);
+          parseValue(osName);
+        } else if (lineView.starts_with("VERSION_ID=") && osVersion.empty()) {
+          osVersion = lineView.substr(11);
+          parseValue(osVersion);
         }
       }
 
-      ERR(NotFound, "PRETTY_NAME line not found in /etc/os-release");
+      if (osId.empty())
+        ERR(NotFound, "ID not found in /etc/os-release");
+
+      if (osName.empty())
+        ERR(NotFound, "NAME or PRETTY_NAME not found in /etc/os-release");
+
+      if (osVersion.empty())
+        osVersion = "";
+
+      return OSInfo(std::move(osName), std::move(osVersion), std::move(osId));
     });
   }
 
@@ -685,10 +736,7 @@ namespace draconis::core::system {
     if (info.mem_unit == 0)
       ERR(PlatformSpecific, "sysinfo.mem_unit is 0, cannot calculate memory");
 
-    return ResourceUsage {
-      .usedBytes  = (info.totalram - info.freeram - info.bufferram) * info.mem_unit,
-      .totalBytes = info.totalram * info.mem_unit,
-    };
+    return ResourceUsage((info.totalram - info.freeram - info.bufferram) * info.mem_unit, info.totalram * info.mem_unit);
   }
 
   fn GetNowPlaying() -> Result<MediaInfo> {
@@ -1092,10 +1140,7 @@ namespace draconis::core::system {
     if (statvfs("/", &stat) == -1)
       ERR(InternalError, "Failed to get filesystem stats for '/' (statvfs call failed)");
 
-    return ResourceUsage {
-      .usedBytes  = (stat.f_blocks * stat.f_frsize) - (stat.f_bfree * stat.f_frsize),
-      .totalBytes = stat.f_blocks * stat.f_frsize,
-    };
+    return ResourceUsage((stat.f_blocks * stat.f_frsize) - (stat.f_bfree * stat.f_frsize), stat.f_blocks * stat.f_frsize);
   }
 
   fn GetOutputs(CacheManager& /*cache*/) -> Result<Vec<DisplayInfo>> {

@@ -49,10 +49,10 @@ auto main() -> s32 {
   using draconis::core::system::GetCPUModel;
   using draconis::core::system::GetGPUModel;
   using draconis::core::system::GetKernelVersion;
-  using draconis::core::system::GetOSVersion;
+  using draconis::core::system::GetOperatingSystem;
 
-  if (auto osRes = GetOSVersion(cache); osRes)
-    std::println("\x1b[1;0HFirmware: {}", *osRes);
+  if (auto osRes = GetOperatingSystem(cache); osRes)
+    std::println("\x1b[1;0HFirmware: {} {}", osRes->name, osRes->version);
   else
     std::println("Failed to get firmware version: {}", osRes.error().message);
 
