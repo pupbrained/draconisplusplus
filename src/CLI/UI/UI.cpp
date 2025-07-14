@@ -1,6 +1,5 @@
 #include "UI.hpp"
 
-#include <cctype>
 #include <sstream>
 
 #include <Drac++/Utils/Logging.hpp>
@@ -292,7 +291,6 @@ namespace draconis::ui {
       const usize circleWidth = GetVisualWidth(COLOR_CIRCLES.at(0));
       const usize numCircles  = COLOR_CIRCLES.size();
 
-      // Always show all circles with at least 1 space between each
       const usize minSpacingPerGap  = 1;
       const usize totalMinSpacing   = (numCircles - 1) * minSpacingPerGap;
       const usize totalCirclesWidth = numCircles * circleWidth;
@@ -332,7 +330,6 @@ namespace draconis::ui {
       group.coloredLabels.reserve(group.rows.size());
       group.coloredValues.reserve(group.rows.size());
 
-      // Track maximum width while we populate cached data.
       usize groupMaxWidth = 0;
 
       for (const RowInfo& row : group.rows) {
@@ -353,7 +350,6 @@ namespace draconis::ui {
         groupMaxWidth = std::max(groupMaxWidth, iconW + valueW); // label handled after loop
       }
 
-      // Final adjustment: add label width once (max label + 1 space).
       groupMaxWidth += group.maxLabelWidth + 1;
 
       return groupMaxWidth;
@@ -723,5 +719,4 @@ namespace draconis::ui {
     }
     return newOut;
   }
-
 } // namespace draconis::ui

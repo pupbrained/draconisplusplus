@@ -442,14 +442,14 @@ namespace draconis::core::system {
   using namespace constants;
   using namespace helpers;
 
-  fn GetMemInfo() -> Result<ResourceUsage> {
+  fn GetMemInfo(CacheManager& /*cache*/) -> Result<ResourceUsage> {
     // Passed to GlobalMemoryStatusEx to retrieve memory information.
     // dwLength is required to be set as per WinAPI.
     MEMORYSTATUSEX memInfo;
     memInfo.dwLength = sizeof(MEMORYSTATUSEX);
 
     if (GlobalMemoryStatusEx(&memInfo))
-      return ResourceUsage { .usedBytes = memInfo.ullTotalPhys - memInfo.ullAvailPhys, .totalBytes = memInfo.ullTotalPhys };
+      return ResourceUsage(memInfo.ullTotalPhys - memInfo.ullAvailPhys, memInfo.ullTotalPhys);
 
     ERR_FMT(ApiUnavailable, "GlobalMemoryStatusEx failed with error code {}", GetLastError());
   }
@@ -487,8 +487,8 @@ namespace draconis::core::system {
   }
   #endif // DRAC_ENABLE_NOWPLAYING
 
-  fn GetOSVersion(CacheManager& cache) -> Result<String> {
-    return cache.getOrSet<String>("windows_os_version", []() -> Result<String> {
+  fn GetOperatingSystem(CacheManager& cache) -> Result<OSInfo> {
+    return cache.getOrSet<OSInfo>("windows_os_version", []() -> Result<OSInfo> {
       // Windows is weird about its versioning scheme, and Windows 11 is still
       // considered Windows 10 in the registry. We have to manually check if
       // the actual version is Windows 11 by checking the build number.
@@ -537,15 +537,12 @@ namespace draconis::core::system {
       if (!productNameUTF8)
         ERR_FROM(productNameUTF8.error());
 
-      if (displayVersion->empty())
-        return *productNameUTF8;
-
       const Result<String> displayVersionUTF8 = ConvertWStringToUTF8(*displayVersion);
 
       if (!displayVersionUTF8)
         ERR_FROM(displayVersionUTF8.error());
 
-      return *productNameUTF8 + " " + *displayVersionUTF8;
+      return OSInfo(*productNameUTF8, *displayVersionUTF8, "windows");
     });
   }
 
@@ -688,7 +685,7 @@ namespace draconis::core::system {
     });
   }
 
-  fn GetDiskUsage() -> Result<ResourceUsage> {
+  fn GetDiskUsage(CacheManager& /*cache*/) -> Result<ResourceUsage> {
     // GetDiskFreeSpaceExW is a pretty old function and doesn't use native 64-bit integers,
     // so we have to use ULARGE_INTEGER instead. It's basically a union that holds either a
     // 64-bit integer or two 32-bit integers.
@@ -700,7 +697,7 @@ namespace draconis::core::system {
 
     // Calculate the used bytes by subtracting the free bytes from the total bytes.
     // QuadPart corresponds to the 64-bit integer in the union. (LowPart/HighPart are for the 32-bit integers.)
-    return ResourceUsage { .usedBytes = totalBytes.QuadPart - freeBytes.QuadPart, .totalBytes = totalBytes.QuadPart };
+    return ResourceUsage(totalBytes.QuadPart - freeBytes.QuadPart, totalBytes.QuadPart);
   }
 
   fn GetCPUModel(CacheManager& cache) -> Result<String> {
@@ -820,7 +817,7 @@ namespace draconis::core::system {
   }
 
   fn GetGPUModel(CacheManager& cache) -> Result<String> {
-    return cache.getOrSet<String>("windows_gpu_model", []() -> Result<String> {
+    return cache.getOrSet<String>("windows_gpu_model", draconis::utils::cache::CachePolicy::neverExpire(), []() -> Result<String> {
       // Used to create and enumerate DirectX graphics interfaces.
       IDXGIFactory* pFactory = nullptr;
 
@@ -866,14 +863,15 @@ namespace draconis::core::system {
       pAdapter->Release();
       pFactory->Release();
 
-      return gpuName.data(); }, draconis::utils::cache::CachePolicy::neverExpire());
+      return gpuName.data();
+    });
   }
 
   fn GetUptime() -> Result<std::chrono::seconds> {
     return std::chrono::seconds(GetTickCount64() / 1000);
   }
 
-  fn GetOutputs() -> Result<Vec<Output>> {
+  fn GetOutputs(CacheManager& /*cache*/) -> Result<Vec<DisplayInfo>> {
     UINT32 pathCount = 0;
     UINT32 modeCount = 0;
 
@@ -886,7 +884,7 @@ namespace draconis::core::system {
     if (FAILED(QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS, &pathCount, paths.data(), &modeCount, modes.data(), nullptr)))
       ERR_FMT(ApiUnavailable, "QueryDisplayConfig failed to retrieve display data: {}", GetLastError());
 
-    Vec<Output> outputs;
+    Vec<DisplayInfo> outputs;
     outputs.reserve(pathCount);
 
     // NOLINTBEGIN(*-pro-type-union-access)
@@ -897,7 +895,7 @@ namespace draconis::core::system {
         if (mode.infoType != DISPLAYCONFIG_MODE_INFO_TYPE_TARGET)
           continue;
 
-        outputs.emplace_back(Output(
+        outputs.emplace_back(DisplayInfo(
           path.targetInfo.id,
           { .width = mode.targetMode.targetVideoSignalInfo.activeSize.cx, .height = mode.targetMode.targetVideoSignalInfo.activeSize.cy },
           mode.targetMode.targetVideoSignalInfo.totalSize.cx != 0 && mode.targetMode.targetVideoSignalInfo.totalSize.cy != 0
@@ -915,7 +913,7 @@ namespace draconis::core::system {
     return outputs;
   }
 
-  fn GetPrimaryOutput() -> Result<Output> {
+  fn GetPrimaryOutput(CacheManager& /*cache*/) -> Result<DisplayInfo> {
     UINT32 pathCount = 0;
     UINT32 modeCount = 0;
 
@@ -943,7 +941,7 @@ namespace draconis::core::system {
 
         const DISPLAYCONFIG_VIDEO_SIGNAL_INFO& videoSignalInfo = targetModeInfo.targetMode.targetVideoSignalInfo;
 
-        return Output(
+        return DisplayInfo(
           path.targetInfo.id,
           { .width = videoSignalInfo.activeSize.cx, .height = videoSignalInfo.activeSize.cy },
           videoSignalInfo.totalSize.cx != 0 && videoSignalInfo.totalSize.cy != 0
@@ -958,7 +956,7 @@ namespace draconis::core::system {
     ERR(NotFound, "No primary display found with QueryDisplayConfig");
   }
 
-  fn GetNetworkInterfaces() -> Result<Vec<NetworkInterface>> {
+  fn GetNetworkInterfaces(CacheManager& /*cache*/) -> Result<Vec<NetworkInterface>> {
     Vec<NetworkInterface> interfaces;
     ULONG                 bufferSize = 15000; // A reasonable starting buffer size
     Vec<BYTE>             buffer(bufferSize);
@@ -1085,7 +1083,7 @@ namespace draconis::core::system {
     });
   }
 
-  fn GetBatteryInfo() -> Result<Battery> {
+  fn GetBatteryInfo(CacheManager& /*cache*/) -> Result<Battery> {
     using matchit::match, matchit::is, matchit::_;
     using enum Battery::Status;
 

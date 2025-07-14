@@ -1,7 +1,3 @@
-#include <array>
-#include <cstdlib>      // EXIT_FAILURE, EXIT_SUCCESS
-#include <sys/ptrace.h> // ptrace
-
 #ifdef _WIN32
   #include <fcntl.h>
   #include <io.h>

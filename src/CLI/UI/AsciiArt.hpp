@@ -140,28 +140,46 @@ namespace draconis::ui::ascii {
       "\033[1m\033[38;5;12mccccccccccccccccccccccccccccc:'.\n"
       "\033[1m\033[38;5;12m:ccccccccccccccccccccccc:;,..\n"
       "\033[1m\033[38;5;12m ':cccccccccccccccc::;,.\033[0m";
+
+    constexpr StringView WINDOWS =
+      "\033[1m\033[38;5;12m/////////////////  \033[38;5;12m/////////////////\n"
+      "\033[1m\033[38;5;12m/////////////////  \033[38;5;12m/////////////////\n"
+      "\033[1m\033[38;5;12m/////////////////  \033[38;5;12m/////////////////\n"
+      "\033[1m\033[38;5;12m/////////////////  \033[38;5;12m/////////////////\n"
+      "\033[1m\033[38;5;12m/////////////////  \033[38;5;12m/////////////////\n"
+      "\033[1m\033[38;5;12m/////////////////  \033[38;5;12m/////////////////\n"
+      "\033[1m\033[38;5;12m/////////////////  \033[38;5;12m/////////////////\n"
+      "\033[1m\033[38;5;12m/////////////////  \033[38;5;12m/////////////////\n"
+      "\n"
+      "\033[1m\033[38;5;12m/////////////////  \033[38;5;12m/////////////////\n"
+      "\033[1m\033[38;5;12m/////////////////  \033[38;5;12m/////////////////\n"
+      "\033[1m\033[38;5;12m/////////////////  \033[38;5;12m/////////////////\n"
+      "\033[1m\033[38;5;12m/////////////////  \033[38;5;12m/////////////////\n"
+      "\033[1m\033[38;5;12m/////////////////  \033[38;5;12m/////////////////\n"
+      "\033[1m\033[38;5;12m/////////////////  \033[38;5;12m/////////////////\n"
+      "\033[1m\033[38;5;12m/////////////////  \033[38;5;12m/////////////////\n"
+      "\033[1m\033[38;5;12m/////////////////  \033[38;5;12m/////////////////\033[0m";
   } // namespace logos
 
   constexpr fn GetAsciiArt(StringView operatingSystem) -> Vec<StringView> {
     using namespace logos;
 
-    String matchOS(operatingSystem);
-
     // clang-format off
-    static constexpr Array<Pair<StringView, StringView>, 6> LOGOS = {{
-       {  "nixos",  NIXOS },
-       {  "macos",  MACOS },
-       { "ubuntu", UBUNTU },
-       {   "arch",   ARCH },
-       { "debian", DEBIAN },
-       { "fedora", FEDORA },
+    static constexpr Array<Pair<StringView, StringView>, 7> LOGOS = {{
+       {   "nixos",   NIXOS },
+       {   "macos",   MACOS },
+       {  "ubuntu",  UBUNTU },
+       {    "arch",    ARCH },
+       {  "debian",  DEBIAN },
+       {  "fedora",  FEDORA },
+       { "windows", WINDOWS },
     }};
     // clang-format on
 
     StringView asciiArt;
 
     for (const auto& [key, art] : LOGOS)
-      if (matchOS.find(key) != String::npos) {
+      if (operatingSystem.find(key) != String::npos) {
         asciiArt = art;
         break;
       }
