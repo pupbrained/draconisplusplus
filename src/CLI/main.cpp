@@ -28,38 +28,16 @@ using namespace draconis::config;
 using namespace draconis::ui;
 
 namespace {
-#ifdef _WIN32
-  fn ConvertUTF8ToWString(const String& utf8String) -> Option<WString> {
-    const i32 wideSize = MultiByteToWideChar(CP_UTF8, 0, utf8String.c_str(), static_cast<i32>(utf8String.length()), nullptr, 0);
-
-    if (wideSize <= 0)
-      return None;
-
-    WString wideString(wideSize, L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, utf8String.c_str(), static_cast<i32>(utf8String.length()), wideString.data(), wideSize);
-
-    return wideString;
-  }
-#endif
-
   fn WriteToConsole(const String& document) -> Unit {
 #ifdef _WIN32
-    // Windows requires some special handling to display UTF-8 characters correctly.
-    SetConsoleOutputCP(CP_UTF8);
-
-    if (Option<WString> wideDocument = ConvertUTF8ToWString(document)) {
+    if (
       HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-
-      if (hConsole != INVALID_HANDLE_VALUE) {
-        DWORD written {};
-        WriteConsoleW(hConsole, wideDocument->c_str(), static_cast<DWORD>(wideDocument->length()), &written, nullptr);
-        WriteConsoleW(hConsole, L"\n", 1, &written, nullptr);
-        return;
-      }
-    }
-#endif
-
+      hConsole != INVALID_HANDLE_VALUE
+    )
+      WriteConsoleA(hConsole, document.c_str(), static_cast<DWORD>(document.length()), nullptr, nullptr);
+#else
     Println(document);
+#endif
   }
 
   fn PrintDoctorReport(
