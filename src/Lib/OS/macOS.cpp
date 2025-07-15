@@ -117,18 +117,15 @@ namespace draconis::core::system {
     // - wire_count: Memory that is wired to physical memory.
     u64 usedMem = (vmStats.active_count + vmStats.wire_count) * PageSize;
 
-    return ResourceUsage {
-      .usedBytes  = usedMem,
-      .totalBytes = totalMem
-    };
+    return ResourceUsage(usedMem, totalMem);
   }
 
   fn GetNowPlaying() -> Result<MediaInfo> {
     return macOS::GetNowPlayingInfo();
   }
 
-  fn GetOSVersion(CacheManager& cache) -> Result<String> {
-    return cache.getOrSet<String>("macos_os_version", macOS::GetOSVersion);
+  fn GetOperatingSystem(CacheManager& cache) -> Result<OSInfo> {
+    return cache.getOrSet<OSInfo>("macos_os_info", macOS::GetOSVersion);
   }
 
   fn GetDesktopEnvironment(CacheManager& /*cache*/) -> Result<String> {
@@ -409,10 +406,7 @@ namespace draconis::core::system {
     if (statvfs("/", &vfs) != 0)
       ERR_FMT(ResourceExhausted, "statvfs('/') failed: {}", std::system_category().message(errno));
 
-    return ResourceUsage {
-      .usedBytes  = (vfs.f_blocks - vfs.f_bfree) * vfs.f_frsize,
-      .totalBytes = vfs.f_blocks * vfs.f_frsize,
-    };
+    return ResourceUsage((vfs.f_blocks - vfs.f_bfree) * vfs.f_frsize, vfs.f_blocks * vfs.f_frsize);
   }
 
   fn GetShell(CacheManager& cache) -> Result<String> {

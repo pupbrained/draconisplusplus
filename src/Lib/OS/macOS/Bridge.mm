@@ -108,7 +108,7 @@ namespace draconis::core::system::macOS {
     }
   }
 
-  fn GetOSVersion() -> Result<String> {
+  fn GetOSVersion() -> Result<OSInfo> {
     @autoreleasepool {
       using matchit::match, matchit::is, matchit::_;
 
@@ -116,29 +116,23 @@ namespace draconis::core::system::macOS {
       NSProcessInfo*           processInfo = [NSProcessInfo processInfo];
       NSOperatingSystemVersion version     = [processInfo operatingSystemVersion];
 
-      return std::format(
-        "macOS {}.{} {}",
-  #if DRAC_NIX_BUILD
-        // Ugly hack for Nix. The Apple SDK available in nixpkgs returns 16,
-        // while the actual Tahoe SDK returns 26.
-        version.majorVersion >= 16 ? version.majorVersion + 10 : version.majorVersion,
-  #else
-        version.majorVersion,
-  #endif
-        version.minorVersion,
-        match(version.majorVersion)(
-          is | 11 = "Big Sur",
-          is | 12 = "Monterey",
-          is | 13 = "Ventura",
-          is | 14 = "Sonoma",
-          is | 15 = "Sequoia",
-  #if DRAC_NIX_BUILD
-          is | 16 = "Tahoe",
-  #else
-          is | 26 = "Tahoe",
-  #endif
-          is | _ = "Unknown"
-        )
+      return OSInfo(
+        "macOS",
+        std::format(
+          "{}.{} {}",
+          version.majorVersion,
+          version.minorVersion,
+          match(version.majorVersion)(
+            is | 11 = "Big Sur",
+            is | 12 = "Monterey",
+            is | 13 = "Ventura",
+            is | 14 = "Sonoma",
+            is | 15 = "Sequoia",
+            is | 26 = "Tahoe",
+            is | _  = "Unknown"
+          )
+        ),
+        "macos"
       );
     }
   }

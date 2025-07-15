@@ -18,6 +18,7 @@
 namespace draconis::core::system::macOS {
   namespace {
     using draconis::utils::types::MediaInfo;
+    using draconis::utils::types::OSInfo;
     using draconis::utils::types::Result;
     using draconis::utils::types::String;
   } // namespace
@@ -52,7 +53,7 @@ namespace draconis::core::system::macOS {
    * returns 16, while the actual Tahoe SDK returns 26. To get around that, we simply add 10
    * to the displayed major version.
    */
-  fn GetOSVersion() -> Result<String>;
+  fn GetOSVersion() -> Result<OSInfo>;
 } // namespace draconis::core::system::macOS
 
 #endif

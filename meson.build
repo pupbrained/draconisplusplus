@@ -44,12 +44,6 @@ if host_system == 'windows'
     'WINRT_LEAN_AND_MEAN': true,
     'CURL_STATICLIB': true,
   }
-elif (host_system == 'linux' or host_system == 'darwin') and run_command(
-  find_program('printenv'),
-  'IN_NIX_SHELL',
-  check: false,
-).returncode() == 0
-  project_flag_defines += {'DRAC_NIX_BUILD': true}
 endif
 
 # Feature detection
