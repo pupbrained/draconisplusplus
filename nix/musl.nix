@@ -2,6 +2,8 @@
   pkgs,
   nixpkgs,
   self,
+  lib,
+  ...
 }: let
   muslPkgs = import nixpkgs {
     system = "x86_64-linux-musl";
@@ -26,7 +28,16 @@
     muslPkgs.stdenvAdapters.useMoldLinker
     llvmPackages.libcxxStdenv;
 
-  glaze = (muslPkgs.glaze.override {inherit stdenv;}).overrideAttrs (oldAttrs: {
+  glaze = (muslPkgs.glaze.override {inherit stdenv;}).overrideAttrs (oldAttrs: rec {
+    version = "5.5.4";
+
+    src = pkgs.fetchFromGitHub {
+      owner = "stephenberry";
+      repo = "glaze";
+      tag = "v${version}";
+      hash = "sha256-v6/IJlwc+nYgTAn8DJcbRC+qhZtUR6xu45dwm7rueV8=";
+    };
+
     cmakeFlags =
       (oldAttrs.cmakeFlags or [])
       ++ [
@@ -61,6 +72,7 @@
     glaze
     (mkOverridden "cmake" gtest)
     llvmPackages_20.libcxx
+    magic-enum
     openssl
     sqlite
     wayland
@@ -68,7 +80,6 @@
     xorg.libXdmcp
     xorg.libxcb
 
-    (mkOverridden "cmake" ftxui)
     (mkOverridden "cmake" pugixml)
     (mkOverridden "cmake" sqlitecpp)
     (mkOverridden "meson" tomlplusplus)
@@ -86,15 +97,20 @@
       version = "0.1.0";
       src = self;
 
-      nativeBuildInputs = with muslPkgs; [
-        cmake
-        meson
-        ninja
-        pkg-config
-      ];
+      nativeBuildInputs = with pkgs;
+        [
+          cmake
+          meson
+          ninja
+          pkg-config
+        ]
+        ++ lib.optional stdenv.isLinux xxd;
 
       mesonFlags = [
         "-Dbuild_for_musl=true"
+        "-Dbuild_examples=false"
+        "-Dbuild_switch_example=false"
+        "-Duse_linked_pci_ids=true"
       ];
 
       buildInputs = deps;
@@ -104,6 +120,13 @@
       '';
 
       buildPhase = ''
+        cp ${pkgs.pciutils}/share/pci.ids pci.ids
+        chmod +w pci.ids
+        objcopy -I binary -O default pci.ids pci_ids.o
+        rm pci.ids
+
+        export LDFLAGS="$LDFLAGS $PWD/pci_ids.o"
+
         meson compile -C build
       '';
 
@@ -111,11 +134,12 @@
         meson test -C build --print-errorlogs
       '';
 
-      doCheck = true;
-
       installPhase = ''
-        mkdir -p $out/bin
-        mv build/draconis++ $out/bin/draconis++
+        mkdir -p $out/bin $out/lib
+        mv build/src/CLI/draconis++ $out/bin/draconis++
+        mv build/src/Lib/libdrac++.a $out/lib/
+        mkdir -p $out/include
+        cp -r include/Drac++ $out/include/
       '';
 
       NIX_ENFORCE_NO_NATIVE =

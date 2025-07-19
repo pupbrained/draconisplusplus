@@ -1,6 +1,8 @@
 {
   pkgs,
+  lib,
   self,
+  ...
 }: let
   llvmPackages = pkgs.llvmPackages_20;
 
@@ -14,12 +16,21 @@
 
   deps = with pkgs;
     [
-      (glaze.override {enableAvx2 = hostPlatform.isx86;})
+      ((glaze.override {enableAvx2 = hostPlatform.isx86;}).overrideAttrs rec {
+        version = "5.5.4";
+
+        src = pkgs.fetchFromGitHub {
+          owner = "stephenberry";
+          repo = "glaze";
+          tag = "v${version}";
+          hash = "sha256-v6/IJlwc+nYgTAn8DJcbRC+qhZtUR6xu45dwm7rueV8=";
+        };
+      })
     ]
     ++ (with pkgs.pkgsStatic; [
       curl
-      ftxui
       gtest
+      magic-enum
       sqlitecpp
       (tomlplusplus.overrideAttrs {
         doCheck = false;
@@ -28,12 +39,12 @@
     ++ darwinPkgs
     ++ linuxPkgs;
 
-  darwinPkgs = pkgs.lib.optionals stdenv.isDarwin (with pkgs.pkgsStatic; [
+  darwinPkgs = lib.optionals stdenv.isDarwin (with pkgs.pkgsStatic; [
     libiconv
     apple-sdk_15
   ]);
 
-  linuxPkgs = pkgs.lib.optionals stdenv.isLinux (with pkgs;
+  linuxPkgs = lib.optionals stdenv.isLinux (with pkgs;
     [
       valgrind
     ]
@@ -56,32 +67,50 @@
       version = "0.1.0";
       src = self;
 
-      nativeBuildInputs = with pkgs; [
-        cmake
-        meson
-        ninja
-        pkg-config
-      ];
+      nativeBuildInputs = with pkgs;
+        [
+          cmake
+          meson
+          ninja
+          pkg-config
+        ]
+        ++ lib.optional stdenv.isLinux xxd;
 
       buildInputs = deps;
+
+      mesonFlags = [
+        "-Dbuild_examples=false"
+        "-Dbuild_switch_example=false"
+        (lib.optionalString stdenv.isLinux "-Duse_linked_pci_ids=true")
+      ];
 
       configurePhase = ''
         meson setup build --buildtype=release $mesonFlags
       '';
 
-      buildPhase = ''
-        meson compile -C build
-      '';
+      buildPhase =
+        lib.optionalString stdenv.isLinux ''
+          cp ${pkgs.pciutils}/share/pci.ids pci.ids
+          chmod +w pci.ids
+          objcopy -I binary -O default pci.ids pci_ids.o
+          rm pci.ids
+
+          export LDFLAGS="$LDFLAGS $PWD/pci_ids.o"
+        ''
+        + ''
+          meson compile -C build
+        '';
 
       checkPhase = ''
         meson test -C build --print-errorlogs
       '';
 
-      doCheck = true;
-
       installPhase = ''
-        mkdir -p $out/bin
-        mv build/draconis++ $out/bin/draconis++
+        mkdir -p $out/bin $out/lib
+        mv build/src/CLI/draconis++ $out/bin/draconis++
+        mv build/src/Lib/libdrac++.a $out/lib/
+        mkdir -p $out/include
+        cp -r include/Drac++ $out/include/
       '';
 
       NIX_ENFORCE_NO_NATIVE =

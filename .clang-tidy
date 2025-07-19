@@ -6,6 +6,7 @@ Checks: >
   -bugprone-easily-swappable-parameters,
   -bugprone-implicit-widening-of-multiplication-result,
   -cert-env33-c,
+  -cert-dcl59-cpp,
   -concurrency-mt-unsafe,
   -cppcoreguidelines-avoid-magic-numbers,
   -cppcoreguidelines-macro-usage,
@@ -28,7 +29,7 @@ Checks: >
   -readability-isolate-declaration,
   -readability-magic-numbers
 CheckOptions:
-  cppcoreguidelines-avoid-do-while.IgnoreMacros: true
+  cppcoreguidelines-avoid-do-while.IgnoreMacros: "do while"
   readability-else-after-return.WarnOnUnfixable: false
   readability-identifier-naming.ClassCase: CamelCase
   readability-identifier-naming.EnumCase: CamelCase

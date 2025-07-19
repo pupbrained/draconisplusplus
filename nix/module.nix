@@ -20,7 +20,7 @@ with lib; let
     if isAttrs cfg.location
     then
       # cpp
-      "weather::Coords { .lat = ${toString cfg.location.lat}, .lon = ${toString cfg.location.lon} }"
+      "services::weather::Coords { .lat = ${toString cfg.location.lat}, .lon = ${toString cfg.location.lon} }"
     else "${cfg.location}";
 
   configHpp =
@@ -31,30 +31,27 @@ with lib; let
 
       #if DRAC_PRECOMPILED_CONFIG
 
-      #if DRAC_ENABLE_WEATHER || DRAC_ENABLE_PACKAGECOUNT
-        #include "Config/Config.hpp"
-        #include "Util/ConfigData.hpp"
-      #endif
-
       #if DRAC_ENABLE_WEATHER
-        #include "Services/Weather/MetNoService.hpp"
-        #include "Services/Weather/OpenMeteoService.hpp"
-        #include "Services/Weather/OpenWeatherMapService.hpp"
+        #include <Drac++/Services/Weather.hpp>
       #endif
 
-      namespace config {
+      #if DRAC_ENABLE_PACKAGECOUNT
+        #include <Drac++/Services/Packages.hpp>
+      #endif
+
+      namespace draconis::config {
         constexpr const char* DRAC_USERNAME = "${cfg.username}";
 
         #if DRAC_ENABLE_WEATHER
-        constexpr WeatherProvider DRAC_WEATHER_PROVIDER = WeatherProvider::${lib.toUpper cfg.weatherProvider};
-        constexpr WeatherUnit DRAC_WEATHER_UNIT = WeatherUnit::${lib.toUpper cfg.weatherUnit};
+        constexpr services::weather::Provider DRAC_WEATHER_PROVIDER = services::weather::Provider::${cfg.weatherProvider};
+        constexpr services::weather::UnitSystem DRAC_WEATHER_UNIT = services::weather::UnitSystem::${cfg.weatherUnit};
         constexpr bool DRAC_SHOW_TOWN_NAME = ${toString cfg.showTownName};
         constexpr std::optional<std::string> DRAC_API_KEY = ${apiKey};
-        constexpr Location DRAC_LOCATION = ${location};
+        constexpr services::weather::Location DRAC_LOCATION = ${location};
         #endif
 
         #if DRAC_ENABLE_PACKAGECOUNT
-        constexpr PackageManager DRAC_ENABLED_PACKAGE_MANAGERS = ${builtins.concatStringsSep " | " (map (pkg: "PackageManager::" + lib.toUpper pkg) cfg.packageManagers)};
+        constexpr services::packages::Manager DRAC_ENABLED_PACKAGE_MANAGERS = ${builtins.concatStringsSep " | " (map (pkg: "services::packages::Manager::" + lib.toUpper pkg) cfg.packageManagers)};
         #endif
       }
 
@@ -70,10 +67,11 @@ with lib; let
       (oldAttrs.mesonFlags or [])
       ++ [
         (lib.optionalString (cfg.configFormat == "hpp") "-Dprecompiled_config=true")
-        (lib.optionalString (cfg.usePugixml) "-Duse_pugixml=true")
-        (lib.optionalString (cfg.enableNowPlaying) "-Denable_nowplaying=true")
-        (lib.optionalString (cfg.enableWeather) "-Denable_weather=true")
-        (lib.optionalString (cfg.enablePackageCount) "-Denable_packagecount=true")
+        (lib.optionalString cfg.usePugixml "-Dpugixml=enabled")
+        (lib.optionalString cfg.enableNowPlaying "-Dnowplaying=enabled")
+        (lib.optionalString cfg.enableWeather "-Dweather=enabled")
+        (lib.optionalString cfg.enablePackageCount "-Dpackagecount=enabled")
+        (lib.optionalString cfg.enableCaching "-Dcaching=enabled")
       ];
   });
 
@@ -118,11 +116,9 @@ in {
       };
 
       description = ''
-        Specifies the location for weather data.
-        This can be either a city name (as a string) or an attribute set
-        with `lat` and `lon` coordinates.
-        Using a city name is only supported by the OpenWeatherMap provider
-        and is not supported in `hpp` configuration mode.
+        Specifies the location for weather data. This can be either a city name
+        (as a string) or an attribute set with `lat` and `lon` coordinates.
+        Using a city name is only supported by the OpenWeatherMap provider.
       '';
 
       example = literalExpression ''
@@ -166,6 +162,12 @@ in {
       description = "Enable getting package count.";
     };
 
+    enableCaching = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Enable caching functionality.";
+    };
+
     username = mkOption {
       type = types.str;
       default = config.home.username // "User";
@@ -179,8 +181,8 @@ in {
     };
 
     weatherUnit = mkOption {
-      type = types.enum ["metric" "imperial"];
-      default = "metric";
+      type = types.enum ["Metric" "Imperial"];
+      default = "Metric";
       description = "Unit for temperature display.";
     };
 

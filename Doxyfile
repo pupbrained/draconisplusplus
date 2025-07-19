@@ -1,0 +1,15 @@
+PROJECT_NAME           = Draconis++
+PROJECT_NUMBER         = 0.1.0
+PROJECT_BRIEF          = "A modern, cross-platform system information tool with a focus on speed"
+OUTPUT_DIRECTORY       = docs
+ALLOW_UNICODE_NAMES    = YES
+INLINE_INHERITED_MEMB  = YES
+RECURSIVE              = YES
+EXTRACT_ALL            = YES
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXCLUDE_PATTERNS       = */build/* \
+                         */tests/* \
+                         */subprojects/* \
+                         */third_party/* \
+                         */examples/*

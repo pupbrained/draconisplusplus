@@ -13,6 +13,7 @@ cmake-build-debug/
 CMakeFiles/
 out/
 Testing/
+docs/
 
 build.ninja
 CMakeCache.txt
@@ -27,5 +28,7 @@ imgui.ini
 subprojects/*
 !subprojects/*.wrap
 subprojects/sqlite3.wrap
+dev_profile*
 
 /config.hpp
+pci_ids.o

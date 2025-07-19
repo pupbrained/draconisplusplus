@@ -1,52 +1,75 @@
-# --------------------------------------------------------------------- #
+# ===================================================================== #
 #                    Draconis++ Global Configuration                    #
 #                                                                       #
 #       Additional configuration can be found in `config.toml` or       #
 #  `include/Config.hpp`, depending on the `precompiled_config` option.  #
-# --------------------------------------------------------------------- #
+# ===================================================================== #
 
-# Option: build_for_musl
-# Description: Build with musl libc to create fully static executables.
-# Note: This is primarily intended for use with Nix.
+option('build_examples', type: 'boolean', value: true)
+option('build_tests', type: 'boolean', value: true)
+option(
+  'build_switch_example',
+  type: 'boolean',
+  value: false,
+  description: 'Build the Nintendo Switch example if devkitPro is available',
+)
+
+# Note: These are primarily intended for use with Nix.
 option('build_for_musl', type: 'boolean', value: false)
+option('use_linked_pci_ids', type: 'boolean', value: false)
 
-# Option: use_pugixml
-# Description: Use pugixml to parse XBPS package metadata on Void Linux.
-# Note: This is required for package count functionality on Void Linux.
-option('use_pugixml', type: 'boolean', value: false)
-
-# Option: use_xcb
-# Description: Use libxcb to get the X11 window manager.
-# Note: This is required for getting the X11 window manager on Linux and BSD systems.
-option('use_xcb', type: 'boolean', value: true)
-
-# Option: use_wayland
-# Description: Use libwayland to get the Wayland compositor.
-# Note: This is required for getting the Wayland compositor on Linux and BSD systems.
-option('use_wayland', type: 'boolean', value: true)
-
-# Option: precompiled_config
-# Description: Use a C++ header file for precompiled application configuration.
 # Note: Enabling this disables runtime TOML parsing and configuration overriding.
 option('precompiled_config', type: 'boolean', value: false)
 
-# --------------------------------------------------------------------- #
-#      All of the below options take precedence over `config.toml`      #
-#  They control whether certain features are compiled into the binary.  #
-# --------------------------------------------------------------------- #
+# Linux-specific
+option(
+  'pugixml',
+  type: 'feature',
+  value: 'auto',
+  description: 'Use pugixml to parse XBPS package metadata on Void Linux',
+)
 
-# Option: enable_nowplaying
-# Description: Enable nowplaying functionality.
-option('enable_nowplaying', type: 'boolean', value: true)
+# Linux/BSD-specific
+option(
+  'xcb',
+  type: 'feature',
+  value: 'enabled',
+  description: 'Use libxcb to get the X11 window manager/display(s)',
+)
 
-# Option: enable_weather
-# Description: Enable fetching weather data.
-option('enable_weather', type: 'boolean', value: true)
+# Linux/BSD-specific
+option(
+  'wayland',
+  type: 'feature',
+  value: 'enabled',
+  description: 'Use wayland-client to get the Wayland compositor/display(s)',
+)
 
-# Option: enable_packagecount
-# Description: Enable getting package count.
-option('enable_packagecount', type: 'boolean', value: true)
+# Note: Requires DBus on Linux/BSD and MediaRemote.framework (private API) on macOS.
+option(
+  'nowplaying',
+  type: 'feature',
+  value: 'enabled',
+  description: 'Enable nowplaying functionality',
+)
 
-# Option: build_examples
-# Description: Build example programs.
-option('build_examples', type: 'boolean', value: true)
+option(
+  'weather',
+  type: 'feature',
+  value: 'enabled',
+  description: 'Enable fetching weather data',
+)
+
+option(
+  'packagecount',
+  type: 'feature',
+  value: 'enabled',
+  description: 'Enable getting package count',
+)
+
+option(
+  'caching',
+  type: 'feature',
+  value: 'enabled',
+  description: 'Enable caching functionality',
+)
