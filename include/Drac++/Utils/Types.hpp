@@ -275,6 +275,15 @@ namespace draconis::utils {
     using Pair = std::pair<T1, T2>;
 
     /**
+     * @brief Alias for std::tuple<Ts...>.
+     *
+     * Represents a tuple of values.
+     * @tparam Ts The types of the elements.
+     */
+    template <typename... Ts>
+    using Tuple = std::tuple<Ts...>;
+
+    /**
      * @brief Alias for std::map<Key, Val>.
      *
      * Represents an ordered map (dictionary).

@@ -70,7 +70,18 @@ namespace draconis::services::packages {
    * @return A new PackageManager value representing the combination of pmA and pmB.
    */
   constexpr fn operator|(Manager pmA, Manager pmB)->Manager {
-    return static_cast<Manager>(static_cast<unsigned int>(pmA) | static_cast<unsigned int>(pmB));
+    return static_cast<Manager>(static_cast<u8>(pmA) | static_cast<u8>(pmB));
+  }
+
+  /**
+   * @brief Combines two PackageManager flags using a bitwise OR operation and assigns the result to the first flag.
+   *
+   * @param lhs The first PackageManager flag.
+   * @param rhs The second PackageManager flag.
+   * @return The first PackageManager flag with the result of the bitwise OR operation.
+   */
+  constexpr fn operator|=(Manager& lhs, Manager rhs)->Manager& {
+    return lhs = lhs | rhs;
   }
 
   /**
@@ -82,7 +93,7 @@ namespace draconis::services::packages {
    * @return `true` if `flag_to_check` is set in `current_flags`, `false` otherwise.
    */
   constexpr fn HasPackageManager(Manager current_flags, Manager flag_to_check) -> bool {
-    return (static_cast<unsigned int>(current_flags) & static_cast<unsigned int>(flag_to_check)) != 0;
+    return (static_cast<u8>(current_flags) & static_cast<u8>(flag_to_check)) != 0;
   }
 
   /**
@@ -122,11 +133,11 @@ namespace draconis::services::packages {
    * @return Result containing the count (u64) or a DracError.
    */
   fn GetCountFromDirectory(
-    CacheManager&                cache,
-    const String&                pmId,
+    CacheManager&   cache,
+    const String&   pmId,
     const fs::path& dirPath,
-    const String&                fileExtensionFilter,
-    bool                         subtractOne
+    const String&   fileExtensionFilter,
+    bool            subtractOne
   ) -> Result<u64>;
 
   /**

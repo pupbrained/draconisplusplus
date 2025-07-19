@@ -10,6 +10,8 @@
   #include <toml++/impl/parser.hpp>    // toml::{parse_file, parse_result}
   #include <toml++/impl/table.hpp>     // toml::table
 
+  #include <Drac++/Services/Packages.hpp>
+
   #include <Drac++/Utils/Env.hpp>
   #include <Drac++/Utils/Types.hpp>
 
@@ -92,7 +94,7 @@ name = "{}" # Your display name
       configContent += R"toml(
 # Now Playing integration
 [now_playing]
-enabled = false # Set to true to enable media integration
+enabled = true # Set to true to enable media integration
 )toml";
   #endif
 
@@ -110,6 +112,17 @@ location = "London"    # Your city name
 # [weather.location]
 # lat = 51.5074
 # lon = -0.1278
+)toml";
+  #endif
+
+  #if DRAC_ENABLE_PACKAGECOUNT
+      configContent += R"toml(
+# Package counting settings
+[packages]
+enabled = [] # List of package managers to count, e.g. ["cargo", "nix", "pacman"]
+
+# Possible values depend on your OS: cargo, nix, apk, dpkg, moss, pacman, rpm, xbps, homebrew, macports, winget, chocolatey, scoop, pkgng, pkgsrc, haikupkg
+# If you don't want to count any package managers, leave the list empty.
 )toml";
   #endif
 
@@ -256,6 +269,75 @@ namespace draconis::config {
   #if DRAC_ENABLE_WEATHER
     const toml::node_view wthTbl = tbl["weather"];
     this->weather                = wthTbl.is_table() ? Weather::fromToml(*wthTbl.as_table()) : Weather {};
+  #endif
+
+  #if DRAC_ENABLE_PACKAGECOUNT
+    const toml::node_view pkgTbl = tbl["packages"];
+
+    if (pkgTbl.is_table()) {
+      const auto enabledNode = pkgTbl["enabled"];
+
+      if (enabledNode.is_array()) {
+        using enum draconis::services::packages::Manager;
+
+        this->enabledPackageManagers = NONE;
+
+        for (const auto& elem : *enabledNode.as_array()) {
+          if (auto valOpt = elem.value<String>()) {
+            String val = *valOpt;
+
+            if (val == "cargo")
+              this->enabledPackageManagers |= CARGO;
+    #if defined(__linux__) || defined(__APPLE__)
+            else if (val == "nix")
+              this->enabledPackageManagers |= NIX;
+    #endif
+    #ifdef __linux__
+            else if (val == "apk")
+              this->enabledPackageManagers |= APK;
+            else if (val == "dpkg")
+              this->enabledPackageManagers |= DPKG;
+            else if (val == "moss")
+              this->enabledPackageManagers |= MOSS;
+            else if (val == "pacman")
+              this->enabledPackageManagers |= PACMAN;
+            else if (val == "rpm")
+              this->enabledPackageManagers |= RPM;
+            else if (val == "xbps")
+              this->enabledPackageManagers |= XBPS;
+    #endif
+    #ifdef __APPLE__
+            else if (val == "homebrew")
+              this->enabledPackageManagers |= HOMEBREW;
+            else if (val == "macports")
+              this->enabledPackageManagers |= MACPORTS;
+    #endif
+    #ifdef _WIN32
+            else if (val == "winget")
+              this->enabledPackageManagers |= WINGET;
+            else if (val == "chocolatey")
+              this->enabledPackageManagers |= CHOCOLATEY;
+            else if (val == "scoop")
+              this->enabledPackageManagers |= SCOOP;
+    #endif
+    #if defined(__FreeBSD__) || defined(__DragonFly__)
+            else if (val == "pkgng")
+              this->enabledPackageManagers |= PKGNG;
+    #endif
+    #ifdef __NetBSD__
+            else if (val == "pkgsrc")
+              this->enabledPackageManagers |= PKGSRC;
+    #endif
+    #ifdef __HAIKU__
+            else if (val == "haikupkg")
+              this->enabledPackageManagers |= HAIKUPKG;
+    #endif
+            else
+              warn_log("Unknown package manager in config: {}", val);
+          }
+        }
+      }
+    }
   #endif
   }
 #endif

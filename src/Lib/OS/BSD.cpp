@@ -451,7 +451,7 @@ namespace draconis::core::system {
       usize            size = buffer.size();
 
   #if defined(__FreeBSD__) || defined(__DragonFly__)
-      int result = kenv(KENV_GET, "smbios.system.product", buffer.data(), buffer.size() - 1); // Ensure space for null
+      i32 result = kenv(KENV_GET, "smbios.system.product", buffer.data(), buffer.size() - 1); // Ensure space for null
 
       if (result == -1) {
         if (sysctlbyname("hw.model", buffer.data(), &size, nullptr, 0) == -1)

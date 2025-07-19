@@ -332,56 +332,81 @@ namespace draconis::services::packages {
     constexpr size_t numFutures = platformSpecificCount + 1;
     #endif
 
-    Array<Future<Result<u64>>, numFutures>
-      futures = {
-        {
+    Array<Future<Result<u64>>, numFutures> futures;
+    size_t                                 active = 0;
+
     #ifdef __linux__
-         std::async(std::launch::async, [&cache]() { return CountApk(cache); }),
-         std::async(std::launch::async, [&cache]() { return CountDpkg(cache); }),
-         std::async(std::launch::async, [&cache]() { return CountMoss(cache); }),
-         std::async(std::launch::async, [&cache]() { return CountPacman(cache); }),
-         std::async(std::launch::async, [&cache]() { return CountRpm(cache); }),
+    if (HasPackageManager(enabledPackageManagers, Manager::APK))
+      futures.at(active++) = std::async(std::launch::async, [&cache]() { return CountApk(cache); });
+    if (HasPackageManager(enabledPackageManagers, Manager::DPKG))
+      futures.at(active++) = std::async(std::launch::async, [&cache]() { return CountDpkg(cache); });
+    if (HasPackageManager(enabledPackageManagers, Manager::MOSS))
+      futures.at(active++) = std::async(std::launch::async, [&cache]() { return CountMoss(cache); });
+    if (HasPackageManager(enabledPackageManagers, Manager::PACMAN))
+      futures.at(active++) = std::async(std::launch::async, [&cache]() { return CountPacman(cache); });
+    if (HasPackageManager(enabledPackageManagers, Manager::RPM))
+      futures.at(active++) = std::async(std::launch::async, [&cache]() { return CountRpm(cache); });
       #ifdef HAVE_PUGIXML
-         std::async(std::launch::async, [&cache]() { return CountXbps(cache); }),
+    if (HasPackageManager(enabledPackageManagers, Manager::XBPS))
+      futures.at(active++) = std::async(std::launch::async, [&cache]() { return CountXbps(cache); });
       #endif
     #elifdef __APPLE__
-          std::async(std::launch::async, [&cache]() { return GetHomebrewCount(cache); }),
-          std::async(std::launch::async, [&cache]() { return GetMacPortsCount(cache); }),
+    if (HasPackageManager(enabledPackageManagers, Manager::HOMEBREW))
+      futures.at(active++) = std::async(std::launch::async, [&cache]() { return GetHomebrewCount(cache); });
+    if (HasPackageManager(enabledPackageManagers, Manager::MACPORTS))
+      futures.at(active++) = std::async(std::launch::async, [&cache]() { return GetMacPortsCount(cache); });
     #elifdef _WIN32
-          std::async(std::launch::async, [&cache]() { return CountWinGet(cache); }),
-          std::async(std::launch::async, [&cache]() { return CountChocolatey(cache); }),
-          std::async(std::launch::async, [&cache]() { return CountScoop(cache); }),
+    if (HasPackageManager(enabledPackageManagers, Manager::WINGET))
+      futures.at(active++) = std::async(std::launch::async, [&cache]() { return CountWinGet(cache); });
+    if (HasPackageManager(enabledPackageManagers, Manager::CHOCOLATEY))
+      futures.at(active++) = std::async(std::launch::async, [&cache]() { return CountChocolatey(cache); });
+    if (HasPackageManager(enabledPackageManagers, Manager::SCOOP))
+      futures.at(active++) = std::async(std::launch::async, [&cache]() { return CountScoop(cache); });
     #elif defined(__FreeBSD__) || defined(__DragonFly__)
-          std::async(std::launch::async, [&cache]() { return GetPkgNgCount(cache); }),
+    if (HasPackageManager(enabledPackageManagers, Manager::PKGNG))
+      futures.at(active++) = std::async(std::launch::async, [&cache]() { return GetPkgNgCount(cache); });
     #elifdef __NetBSD__
-          std::async(std::launch::async, [&cache]() { return GetPkgSrcCount(cache); }),
+    if (HasPackageManager(enabledPackageManagers, Manager::PKGSRC))
+      futures.at(active++) = std::async(std::launch::async, [&cache]() { return GetPkgSrcCount(cache); });
     #elifdef __HAIKU__
-          std::async(std::launch::async, [&cache]() { return GetHaikuCount(cache); }),
+    if (HasPackageManager(enabledPackageManagers, Manager::HAIKUPKG))
+      futures.at(active++) = std::async(std::launch::async, [&cache]() { return GetHaikuCount(cache); });
     #elifdef __serenity__
-          std::async(std::launch::async, [&cache]() { return GetSerenityCount(cache); }),
+    if (HasPackageManager(enabledPackageManagers, Manager::SERENITY))
+      futures.at(active++) = std::async(std::launch::async, [&cache]() { return GetSerenityCount(cache); });
     #endif
 
     #if defined(__linux__) || defined(__APPLE__)
-         std::async(std::launch::async, [&cache]() { return CountNix(cache); }),
+    if (HasPackageManager(enabledPackageManagers, Manager::NIX))
+      futures.at(active++) = std::async(std::launch::async, [&cache]() { return CountNix(cache); });
     #endif
 
-         std::async(std::launch::async, [&cache]() { return CountCargo(cache); }),
-         }
-    };
+    if (HasPackageManager(enabledPackageManagers, Manager::CARGO))
+      futures.at(active++) = std::async(std::launch::async, [&cache]() { return CountCargo(cache); });
+
+    if (active == 0)
+      ERR(UnavailableFeature, "No enabled package managers for this platform.");
   #endif // DRAC_PRECOMPILED_CONFIG
     u64  totalCount   = 0;
     bool oneSucceeded = false;
 
-    constexpr size_t chunkSize = 4;
+    constexpr usize chunkSize = 4;
 
-    for (size_t i = 0; i < futures.size(); i += chunkSize) {
-      const size_t end = std::min(i + chunkSize, futures.size());
+    usize effectiveSize =
+  #if DRAC_PRECOMPILED_CONFIG
+      futures.size();
+  #else
+      active;
+  #endif
 
-      for (size_t j = i; j < end; ++j) {
+    for (usize i = 0; i < effectiveSize; i += chunkSize) {
+      const usize end = std::min(i + chunkSize, effectiveSize);
+
+      for (usize j = i; j < end; ++j) {
         try {
           using matchit::match, matchit::is, matchit::or_, matchit::_;
 
-          if (Result<u64> result = futures[j].get()) {
+          if (const Result<u64> result = futures.at(j).get()) {
             totalCount += *result;
             oneSucceeded = true;
           } else

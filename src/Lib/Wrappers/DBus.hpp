@@ -191,7 +191,7 @@ namespace DBus {
      * @brief Gets the D-Bus type code of the current argument.
      * @return The D-Bus type code, or DBUS_TYPE_INVALID otherwise.
      */
-    [[nodiscard]] fn getArgType() -> int {
+    [[nodiscard]] fn getArgType() -> i32 {
       return m_isValid ? dbus_message_iter_get_arg_type(&m_iter) : DBUS_TYPE_INVALID;
     }
 
@@ -200,7 +200,7 @@ namespace DBus {
      * Only valid if the iterator points to an ARRAY or VARIANT.
      * @return The D-Bus type code of the elements, or DBUS_TYPE_INVALID otherwise.
      */
-    [[nodiscard]] fn getElementType() -> int {
+    [[nodiscard]] fn getElementType() -> i32 {
       return m_isValid ? dbus_message_iter_get_element_type(&m_iter) : DBUS_TYPE_INVALID;
     }
 

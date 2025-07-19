@@ -105,7 +105,7 @@ namespace draconis::config {
    * @brief Holds configuration settings for the Now Playing feature.
    */
   struct NowPlaying {
-    bool enabled = false; ///< Flag to enable or disable the Now Playing feature.
+    bool enabled = true; ///< Flag to enable or disable the Now Playing feature.
 
   #if !DRAC_PRECOMPILED_CONFIG
     /**
@@ -114,7 +114,7 @@ namespace draconis::config {
      * @return A NowPlaying instance with the parsed values, or defaults otherwise.
      */
     static fn fromToml(const toml::table& tbl) -> NowPlaying {
-      return { .enabled = tbl["enabled"].value_or(false) };
+      return { .enabled = tbl["enabled"].value_or(true) };
     }
   #endif
   };

@@ -11,6 +11,8 @@
   #include <Drac++/Services/Weather.hpp>
 #endif
 
+#include <glaze/glaze.hpp>
+
 #include <Drac++/Utils/ArgumentParser.hpp>
 #include <Drac++/Utils/CacheManager.hpp>
 #include <Drac++/Utils/Error.hpp>
@@ -101,6 +103,61 @@ namespace {
           );
     }
   }
+
+  fn PrintJsonOutput(
+#if DRAC_ENABLE_WEATHER
+    const Result<Report>& weather,
+#endif
+    const SystemInfo& data
+  ) -> Unit {
+    using draconis::core::system::JsonInfo;
+
+    JsonInfo output;
+
+#define DRAC_SET_OPTIONAL(field) \
+  if (data.field)                \
+  output.field = *data.field
+
+    DRAC_SET_OPTIONAL(date);
+    DRAC_SET_OPTIONAL(host);
+    DRAC_SET_OPTIONAL(kernelVersion);
+    DRAC_SET_OPTIONAL(operatingSystem);
+    DRAC_SET_OPTIONAL(memInfo);
+    DRAC_SET_OPTIONAL(desktopEnv);
+    DRAC_SET_OPTIONAL(windowMgr);
+    DRAC_SET_OPTIONAL(diskUsage);
+    DRAC_SET_OPTIONAL(shell);
+    DRAC_SET_OPTIONAL(cpuModel);
+    DRAC_SET_OPTIONAL(cpuCores);
+    DRAC_SET_OPTIONAL(gpuModel);
+
+    if (data.uptime)
+      output.uptimeSeconds = data.uptime->count();
+
+#if DRAC_ENABLE_PACKAGECOUNT
+    DRAC_SET_OPTIONAL(packageCount);
+#endif
+
+#if DRAC_ENABLE_NOWPLAYING
+    DRAC_SET_OPTIONAL(nowPlaying);
+#endif
+
+#if DRAC_ENABLE_WEATHER
+    if (weather)
+      output.weather = *weather;
+#endif
+
+#undef DRAC_SET_OPTIONAL
+
+    String jsonStr;
+
+    glz::error_ctx errorContext = glz::write<glz::opts { .prettify = true }>(output, jsonStr);
+
+    if (errorContext)
+      WriteToConsole(std::format("Failed to write JSON output: {}", glz::format_error(errorContext, jsonStr)));
+    else
+      WriteToConsole(jsonStr);
+  }
 } // namespace
 
 fn main(const i32 argc, CStr* argv[]) -> i32 try {
@@ -108,10 +165,15 @@ fn main(const i32 argc, CStr* argv[]) -> i32 try {
   winrt::init_apartment();
 #endif
 
-  bool doctorMode     = false;
-  bool clearCache     = false;
-  bool ignoreCacheRun = false;
-  bool noAscii        = false;
+  // clang-format off
+  auto [
+    doctorMode,
+    clearCache,
+    ignoreCacheRun,
+    noAscii,
+    jsonOutput
+  ] = Tuple(false, false, false, false, false);
+  // clang-format on
 
   {
     using draconis::utils::argparse::ArgumentParser;
@@ -148,6 +210,11 @@ fn main(const i32 argc, CStr* argv[]) -> i32 try {
       .help("Disable ASCII art display.")
       .flag();
 
+    parser
+      .addArguments("--json")
+      .help("Output system information in JSON format. Overrides --no-ascii.")
+      .flag();
+
     if (Result result = parser.parseArgs({ argv, static_cast<usize>(argc) }); !result) {
       error_at(result.error());
       return EXIT_FAILURE;
@@ -157,6 +224,7 @@ fn main(const i32 argc, CStr* argv[]) -> i32 try {
     clearCache     = parser.get<bool>("--clear-cache");
     ignoreCacheRun = parser.get<bool>("--ignore-cache");
     noAscii        = parser.get<bool>("--no-ascii");
+    jsonOutput     = parser.get<bool>("--json");
 
     SetRuntimeLogLevel(
       parser.get<bool>("-V") || parser.get<bool>("--verbose")
@@ -249,14 +317,22 @@ fn main(const i32 argc, CStr* argv[]) -> i32 try {
       return EXIT_SUCCESS;
     }
 
-    WriteToConsole(CreateUI(
-      config,
-      data,
+    if (jsonOutput)
+      PrintJsonOutput(
 #if DRAC_ENABLE_WEATHER
-      weatherReport,
+        weatherReport,
 #endif
-      noAscii
-    ));
+        data
+      );
+    else
+      WriteToConsole(CreateUI(
+        config,
+        data,
+#if DRAC_ENABLE_WEATHER
+        weatherReport,
+#endif
+        noAscii
+      ));
   }
 
   return EXIT_SUCCESS;
