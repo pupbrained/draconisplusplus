@@ -9,7 +9,7 @@
 #ifdef __cpp_lib_print
   #include <print> // std::print
 #else
-  #include <iostream> // std::cout
+  #include <iostream> // std::cout, std::cerr
 #endif
 
 #ifndef NDEBUG
@@ -191,68 +191,145 @@ namespace draconis::utils::logging {
   }
 
   /**
+   * @brief Returns whether a log level should use stderr
+   * @param level The log level
+   * @return true if the level should use stderr, false for stdout
+   */
+  constexpr fn ShouldUseStderr(const LogLevel level) -> bool {
+    return level == LogLevel::Warn || level == LogLevel::Error;
+  }
+
+  /**
    * @brief Helper function to print formatted text with automatic std::print/std::cout selection
    * @tparam Args Parameter pack for format arguments
+   * @param level The log level to determine output stream
    * @param fmt The format string
    * @param args The arguments for the format string
    */
   template <typename... Args>
-  inline fn Print(std::format_string<Args...> fmt, Args&&... args) {
+  inline fn Print(const LogLevel level, std::format_string<Args...> fmt, Args&&... args) {
 #ifdef __cpp_lib_print
-    std::print(fmt, std::forward<Args>(args)...);
+    if (ShouldUseStderr(level)) {
+      std::print(stderr, fmt, std::forward<Args>(args)...);
+    } else {
+      std::print(fmt, std::forward<Args>(args)...);
+    }
 #else
-    std::cout << std::format(fmt, std::forward<Args>(args)...);
+    if (ShouldUseStderr(level)) {
+      std::cerr << std::format(fmt, std::forward<Args>(args)...);
+    } else {
+      std::cout << std::format(fmt, std::forward<Args>(args)...);
+    }
 #endif
   }
 
   /**
    * @brief Helper function to print pre-formatted text with automatic std::print/std::cout selection
+   * @param level The log level to determine output stream
    * @param text The pre-formatted text to print
    */
-  inline fn Print(const StringView text) {
+  inline fn Print(const LogLevel level, const StringView text) {
 #ifdef __cpp_lib_print
-    std::print("{}", text);
+    if (ShouldUseStderr(level)) {
+      std::print(stderr, "{}", text);
+    } else {
+      std::print("{}", text);
+    }
 #else
-    std::cout << text;
+    if (ShouldUseStderr(level)) {
+      std::cerr << text;
+    } else {
+      std::cout << text;
+    }
 #endif
   }
 
   /**
    * @brief Helper function to print formatted text with newline with automatic std::print/std::cout selection
    * @tparam Args Parameter pack for format arguments
+   * @param level The log level to determine output stream
    * @param fmt The format string
    * @param args The arguments for the format string
    */
   template <typename... Args>
-  inline fn Println(std::format_string<Args...> fmt, Args&&... args) {
+  inline fn Println(const LogLevel level, std::format_string<Args...> fmt, Args&&... args) {
 #ifdef __cpp_lib_print
-    std::println(fmt, std::forward<Args>(args)...);
+    if (ShouldUseStderr(level)) {
+      std::println(stderr, fmt, std::forward<Args>(args)...);
+    } else {
+      std::println(fmt, std::forward<Args>(args)...);
+    }
 #else
-    std::cout << std::format(fmt, std::forward<Args>(args)...) << '\n';
+    if (ShouldUseStderr(level)) {
+      std::cerr << std::format(fmt, std::forward<Args>(args)...) << '\n';
+    } else {
+      std::cout << std::format(fmt, std::forward<Args>(args)...) << '\n';
+    }
 #endif
   }
 
   /**
    * @brief Helper function to print pre-formatted text with newline with automatic std::print/std::cout selection
+   * @param level The log level to determine output stream
    * @param text The pre-formatted text to print
    */
-  inline fn Println(const StringView text) {
+  inline fn Println(const LogLevel level, const StringView text) {
 #ifdef __cpp_lib_print
-    std::println("{}", text);
+    if (ShouldUseStderr(level)) {
+      std::println(stderr, "{}", text);
+    } else {
+      std::println("{}", text);
+    }
 #else
-    std::cout << text << '\n';
+    if (ShouldUseStderr(level)) {
+      std::cerr << text << '\n';
+    } else {
+      std::cout << text << '\n';
+    }
 #endif
   }
 
   /**
    * @brief Helper function to print just a newline with automatic std::print/std::cout selection
+   * @param level The log level to determine output stream
    */
-  inline fn Println() {
+  inline fn Println(const LogLevel level) {
 #ifdef __cpp_lib_print
-    std::println();
+    if (ShouldUseStderr(level)) {
+      std::println(stderr);
+    } else {
+      std::println();
+    }
 #else
-    std::cout << '\n';
+    if (ShouldUseStderr(level)) {
+      std::cerr << '\n';
+    } else {
+      std::cout << '\n';
+    }
 #endif
+  }
+
+  // Backward compatibility overloads that default to stdout
+  template <typename... Args>
+  inline fn Print(std::format_string<Args...> fmt, Args&&... args) {
+    Print(LogLevel::Info, fmt, std::forward<Args>(args)...);
+  }
+
+  inline fn Print(const StringView text) {
+    Print(LogLevel::Info, text);
+  }
+
+  template <typename... Args>
+  inline fn Println(std::format_string<Args...> fmt, Args&&... args) {
+    Println(LogLevel::Info, fmt, std::forward<Args>(args)...);
+  }
+
+  inline fn Println(const StringView text) {
+    Println(LogLevel::Info, text);
+  }
+
+  inline fn Println() {
+    Println(LogLevel::Info);
   }
 
   /**
@@ -326,13 +403,13 @@ namespace draconis::utils::logging {
     {
       const LockGuard lock(GetLogMutex());
 
-      Println(LogLevelConst::LOG_FORMAT, coloredTimestamp, GetLevelInfo().at(static_cast<usize>(level)), message);
+      Println(level, LogLevelConst::LOG_FORMAT, coloredTimestamp, GetLevelInfo().at(static_cast<usize>(level)), message);
 
 #ifndef NDEBUG
-      Print(Italic(Colorize(fullDebugLine, DEBUG_INFO_COLOR)));
-      Println(LogLevelConst::RESET_CODE);
+      Print(level, Italic(Colorize(fullDebugLine, DEBUG_INFO_COLOR)));
+      Println(level, LogLevelConst::RESET_CODE);
 #else
-      Print(LogLevelConst::RESET_CODE);
+      Print(level, LogLevelConst::RESET_CODE);
 #endif
     }
   }

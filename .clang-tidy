@@ -31,6 +31,7 @@ Checks: >
 CheckOptions:
   cppcoreguidelines-avoid-do-while.IgnoreMacros: "do while"
   readability-else-after-return.WarnOnUnfixable: false
+  readability-identifier-length.IgnoredVariableNames: '_'
   readability-identifier-naming.ClassCase: CamelCase
   readability-identifier-naming.EnumCase: CamelCase
   readability-identifier-naming.LocalConstantCase: camelBack

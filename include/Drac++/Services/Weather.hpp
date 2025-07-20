@@ -64,6 +64,17 @@ namespace draconis::services::weather {
     f64 lon;
   };
 
+  /**
+   * @brief Location information from IP geolocation
+   */
+  struct IPLocationInfo {
+    Coords coords;
+    String city;
+    String region;
+    String country;
+    String locationName; // Formatted location string
+  };
+
   using Location = std::variant<String, Coords>;
 
   class IWeatherService {
@@ -83,6 +94,19 @@ namespace draconis::services::weather {
   };
 
   fn CreateWeatherService(Provider provider, const Location& location, UnitSystem units, const Option<String>& apiKey = None) -> UniquePointer<IWeatherService>;
+
+  /**
+   * @brief Convert a place name to coordinates using Nominatim
+   * @param placeName The name of the place (e.g., "New York, NY", "London, UK")
+   * @return Coordinates if found, error otherwise
+   */
+  fn Geocode(const String& placeName) -> Result<Coords>;
+
+  /**
+   * @brief Get detailed current location information from IP address
+   * @return Location info with coordinates and place names if found, error otherwise
+   */
+  fn GetCurrentLocationInfoFromIP() -> Result<IPLocationInfo>;
 } // namespace draconis::services::weather
 
 template <>

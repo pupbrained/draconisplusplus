@@ -13,6 +13,7 @@ namespace draconis::services::packages {
 
     using utils::cache::CacheManager;
 
+    using utils::types::Map;
     using utils::types::Option;
     using utils::types::Result;
     using utils::types::String;
@@ -112,6 +113,13 @@ namespace draconis::services::packages {
    * or a DracError if aggregation fails (individual errors logged).
    */
   fn GetTotalCount(CacheManager& cache, Manager enabledPackageManagers) -> Result<u64>;
+
+  /**
+   * @brief Gets individual package counts from all enabled package managers.
+   * @return Result containing a map of package manager names to their counts on success,
+   * or a DracError if all package managers fail (individual errors logged).
+   */
+  fn GetIndividualCounts(CacheManager& cache, Manager enabledPackageManagers) -> Result<Map<String, u64>>;
 
   /**
    * @brief Gets package count from a database using SQLite.

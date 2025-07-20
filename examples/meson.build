@@ -6,7 +6,26 @@ glfw_dep = dependency('glfw3', required: true, fallback: ['glfw', 'glfw_dep'])
 
 # ImGui
 imgui_dep = dependency('imgui', fallback: ['imgui', 'imgui_dep'])
-glaze_dep = dependency('glaze', required: false)
+
+# cpp-mcp (C++ MCP)
+cpp_mcp_dep = dependency('cpp-mcp', include_type: 'system', required: false)
+
+if not cpp_mcp_dep.found()
+  cmake = import('cmake')
+  options = cmake.subproject_options()
+
+  # Force static linking and match runtime library settings
+  options.add_cmake_defines(
+    {
+      'BUILD_SHARED_LIBS': false,
+      'CMAKE_MSVC_RUNTIME_LIBRARY': 'MultiThreaded$<$<CONFIG:Debug>:Debug>',
+      'CMAKE_POLICY_DEFAULT_CMP0091': 'NEW',
+    },
+  )
+
+  cpp_mcp_proj = cmake.subproject('cpp-mcp', options: options)
+  cpp_mcp_dep = cpp_mcp_proj.dependency('mcp', include_type: 'system')
+endif
 
 link_args = []
 
@@ -37,14 +56,6 @@ if switch_example
     third_party_inc_arg = '-I' + meson.project_source_root() + '/third_party'
     src_inc_arg = '-I' + meson.project_source_root() + '/src'
     lib_inc_arg = '-I' + meson.project_source_root() + '/src/Lib'
-    glaze_inc_arg = ''
-    if glaze_dep.found()
-      glaze_inc_dirs = glaze_dep.get_variable(pkgconfig: 'includedir', default_value: '')
-      if glaze_inc_dirs != ''
-        glaze_inc_arg = '-I' + glaze_inc_dirs
-      endif
-    endif
-    extra_glaze_inc = glaze_inc_arg == '' ? [] : [glaze_inc_arg]
 
     nix_cflags = run_command('sh', '-c', 'printf %s "$NIX_CFLAGS_COMPILE"', check: false).stdout().strip().split()
 
@@ -162,7 +173,6 @@ if switch_example
         src_inc_arg,
         lib_inc_arg,
       ]
-      + extra_glaze_inc
       + nix_cflags
       + weather_flag
       + weather_libs
@@ -208,6 +218,14 @@ executable(
   'glaze_http',
   'glaze_http/main.cpp',
   dependencies: [draconis_dep] + lib_deps,
+  link_args: link_args,
+  install: false,
+)
+
+executable(
+  'cpp_mcp',
+  'cpp_mcp/main.cpp',
+  dependencies: [draconis_dep] + cpp_mcp_dep + lib_deps,
   link_args: link_args,
   install: false,
 )

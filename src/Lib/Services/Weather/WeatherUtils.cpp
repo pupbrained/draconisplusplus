@@ -22,7 +22,6 @@ inline time_t timegm(struct tm* tm) {
   #include "Drac++/Utils/Types.hpp"
 
 using namespace draconis::utils::types;
-using draconis::utils::error::DracError;
 using enum draconis::utils::error::DracErrorCode;
 
 namespace draconis::services::weather::utils {

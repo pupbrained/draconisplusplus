@@ -723,7 +723,7 @@ namespace matchit {
       }
       constexpr static void processIdImpl(const Or<Patterns...>& orPat, int32_t depth, IdProcess idProcess) {
         return std::apply(
-          [depth, idProcess](const Patterns&... patterns) { return (processId(patterns, depth, idProcess), ...); },
+          [depth, idProcess](const auto&... patterns) { return (processId(patterns, depth, idProcess), ...); },
           orPat.patterns()
         );
       }
@@ -878,7 +878,7 @@ namespace matchit {
       }
       constexpr static void processIdImpl(const And<Patterns...>& andPat, int32_t depth, IdProcess idProcess) {
         return std::apply(
-          [depth, idProcess](const Patterns&... patterns) { return (processId(patterns, depth, idProcess), ...); },
+          [depth, idProcess](const auto&... patterns) { return (processId(patterns, depth, idProcess), ...); },
           andPat.patterns()
         );
       }

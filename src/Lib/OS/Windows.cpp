@@ -31,8 +31,6 @@
   #include <winrt/Windows.System.Profile.h>         // winrt::Windows::System::Profile::AnalyticsInfo
   #include <winuser.h>                              // EnumDisplayMonitors, GetMonitorInfoW, MonitorFromWindow, EnumDisplaySettingsW
 
-  #include "Drac++/Core/System.hpp"
-
   // Core Winsock headers
   #include <winsock2.h> // AF_INET, AF_UNSPEC, sockaddr_in
   #include <ws2tcpip.h> // inet_ntop, inet_pton
@@ -40,6 +38,8 @@
   // IP Helper API headers
   #include <iphlpapi.h> // GetAdaptersAddresses, GetBestRoute
   #include <iptypes.h>  // GAA_FLAG_INCLUDE_PREFIX, IP_ADAPTER_ADDRESSES, IP_ADAPTER_UNICAST_ADDRESS
+
+  #include "Drac++/Core/System.hpp"
 
   #if DRAC_ENABLE_PACKAGECOUNT
     #include "Drac++/Services/Packages.hpp"
@@ -88,7 +88,6 @@ namespace {
       { "slu-service", "Seelen UI" },
     }};
     // clang-format on
-
   } // namespace constants
 
   namespace helpers {
@@ -218,16 +217,16 @@ namespace {
       }
 
      public:
-      static fn getInstance() -> RegistryCache& {
+      static fn getInstance() -> const RegistryCache& {
         static RegistryCache Instance;
         return Instance;
       }
 
-      fn getCurrentVersionKey() const -> HKEY {
+      [[nodiscard]] fn getCurrentVersionKey() const -> HKEY {
         return m_currentVersionKey;
       }
 
-      fn getHardwareConfigKey() const -> HKEY {
+      [[nodiscard]] fn getHardwareConfigKey() const -> HKEY {
         return m_hardwareConfigKey;
       }
 
@@ -473,10 +472,12 @@ namespace draconis::core::system {
       const SessionManager sessionManager = SessionManager::RequestAsync().get();
 
       if (const Session currentSession = sessionManager.GetCurrentSession()) {
-        // TryGetMediaPropertiesAsync() is also async, so we have to get() the result.
         const MediaProperties mediaProperties = currentSession.TryGetMediaPropertiesAsync().get();
 
-        return MediaInfo(winrt::to_string(mediaProperties.Title()), winrt::to_string(mediaProperties.Artist()));
+        const String title  = winrt::to_string(mediaProperties.Title());
+        const String artist = winrt::to_string(mediaProperties.Artist());
+
+        return MediaInfo(title.empty() ? None : Some(title), artist.empty() ? None : Some(artist));
       }
 
       ERR(NotFound, "No media session found");
@@ -753,7 +754,6 @@ namespace draconis::core::system {
         }
       }
   #endif // DRAC_ARCH_X86_64 || DRAC_ARCH_X86
-
       {
         /*
          * If the CPUID instruction fails/is unsupported on the target architecture,
