@@ -859,7 +859,7 @@ class StdIOServer {
 
   fn handleToolsCall(const mcp::request& req) -> Result<mcp::json> {
     if (!req.params.contains("name"))
-      ERR_FMT(InvalidArgument, "Missing tool name");
+      ERR(InvalidArgument, "Missing tool name");
 
     String toolName = req.params["name"];
     auto   iter     = m_tools.find(toolName);
