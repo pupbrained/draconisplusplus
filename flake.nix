@@ -40,18 +40,16 @@
 
         devShellDeps = with pkgs;
           [
-            ((glaze.override {
-                enableAvx2 = hostPlatform.isx86;
-              }).overrideAttrs rec {
-                version = "5.5.4";
+            ((glaze.override {enableAvx2 = hostPlatform.isx86;}).overrideAttrs rec {
+              version = "5.5.4";
 
-                src = fetchFromGitHub {
-                  owner = "stephenberry";
-                  repo = "glaze";
-                  tag = "v${version}";
-                  hash = "sha256-v6/IJlwc+nYgTAn8DJcbRC+qhZtUR6xu45dwm7rueV8=";
-                };
-              })
+              src = fetchFromGitHub {
+                owner = "stephenberry";
+                repo = "glaze";
+                tag = "v${version}";
+                hash = "sha256-v6/IJlwc+nYgTAn8DJcbRC+qhZtUR6xu45dwm7rueV8=";
+              };
+            })
             (imgui.override {
               IMGUI_BUILD_GLFW_BINDING = true;
               IMGUI_BUILD_VULKAN_BINDING = true;
@@ -93,7 +91,7 @@
             wayland
           ]));
 
-        draconisPkgs = import ./nix ({inherit nixpkgs self system lib;} // lib.optionalAttrs isLinux {devkitNix = devkitNix;});
+        draconisPkgs = import ./nix ({inherit nixpkgs self system lib;} // lib.optionalAttrs isLinux {inherit devkitNix;});
       in {
         packages = draconisPkgs;
         checks = draconisPkgs;

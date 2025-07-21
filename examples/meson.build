@@ -7,26 +7,6 @@ glfw_dep = dependency('glfw3', required: true, fallback: ['glfw', 'glfw_dep'])
 # ImGui
 imgui_dep = dependency('imgui', fallback: ['imgui', 'imgui_dep'])
 
-# cpp-mcp (C++ MCP)
-cpp_mcp_dep = dependency('cpp-mcp', include_type: 'system', required: false)
-
-if not cpp_mcp_dep.found()
-  cmake = import('cmake')
-  options = cmake.subproject_options()
-
-  # Force static linking and match runtime library settings
-  options.add_cmake_defines(
-    {
-      'BUILD_SHARED_LIBS': false,
-      'CMAKE_MSVC_RUNTIME_LIBRARY': 'MultiThreaded$<$<CONFIG:Debug>:Debug>',
-      'CMAKE_POLICY_DEFAULT_CMP0091': 'NEW',
-    },
-  )
-
-  cpp_mcp_proj = cmake.subproject('cpp-mcp', options: options)
-  cpp_mcp_dep = cpp_mcp_proj.dependency('mcp', include_type: 'system')
-endif
-
 link_args = []
 
 if host_system == 'linux'
@@ -223,9 +203,9 @@ executable(
 )
 
 executable(
-  'cpp_mcp',
-  'cpp_mcp/main.cpp',
-  dependencies: [draconis_dep] + cpp_mcp_dep + lib_deps,
+  'mcp_server',
+  'mcp_server/main.cpp',
+  dependencies: [draconis_dep] + lib_deps,
   link_args: link_args,
   install: false,
 )

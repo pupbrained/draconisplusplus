@@ -1,5 +1,0 @@
-[wrap-file]
-source_url = https://github.com/hkr04/cpp-mcp/archive/refs/heads/main.tar.gz
-source_filename = cpp-mcp-main.tar.gz
-source_hash = 4b539896aa3f26bf9ee5131efc6cbb545c17e86cb21374218db259f2506206f9
-directory = cpp-mcp-main
