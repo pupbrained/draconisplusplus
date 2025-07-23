@@ -80,9 +80,7 @@ foreach option, define : {
     enabled = opt_val
   endif
 
-  if enabled
-    project_flag_defines += {define: true}
-  endif
+  project_flag_defines += {define: enabled}
   feature_states += {option: enabled}
 endforeach
 

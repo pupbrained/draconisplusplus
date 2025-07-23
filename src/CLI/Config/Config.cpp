@@ -278,7 +278,7 @@ namespace draconis::config {
         if (enabledNode.is_array()) {
           using enum draconis::services::packages::Manager;
 
-          this->enabledPackageManagers = NONE;
+          this->enabledPackageManagers = None;
 
           for (const auto& elem : *enabledNode.as_array()) {
             if (auto valOpt = elem.value<String>()) {
