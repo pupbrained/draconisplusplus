@@ -9,10 +9,18 @@
 #include "gtest/gtest.h"
 
 using namespace testing;
-using namespace draconis::utils::types;
-using draconis::services::packages::Manager;
-using draconis::utils::error::DracError;
-using enum draconis::utils::error::DracErrorCode;
+using namespace draconis::services::packages;
+using namespace draconis::utils;
+
+using enum Manager;
+using error::DracError;
+using enum error::DracErrorCode;
+
+using types::Err;
+using types::i32;
+using types::Result;
+using types::String;
+using types::u64;
 
 // NOLINTBEGIN(readability-identifier-naming)
 class PackageCountingMock {
@@ -58,10 +66,10 @@ TEST_F(PackageCountingTest, GetCountFromDbReturnsExpectedValue) {
 }
 
 TEST_F(PackageCountingTest, GetTotalCountReturnsExpectedValue) {
-  Manager enabledManagers = Manager::CARGO;
+  Manager enabledManagers = Cargo;
 
 #if defined(__linux__) || defined(__APPLE__)
-  enabledManagers = enabledManagers | Manager::NIX;
+  enabledManagers = enabledManagers | Nix;
 #endif
 
   EXPECT_CALL(m_mockCounter, GetTotalCount(enabledManagers))
@@ -103,7 +111,7 @@ TEST_F(PackageCountingTest, GetCountFromDbReturnsErrorWhenDatabaseCorrupt) {
 }
 
 TEST_F(PackageCountingTest, GetTotalCountReturnsErrorWhenNoManagersEnabled) {
-  constexpr Manager enabledManagers = Manager::NONE;
+  constexpr Manager enabledManagers = Manager::None;
 
   EXPECT_CALL(m_mockCounter, GetTotalCount(enabledManagers))
     .WillOnce(Return(Err(DracError(InvalidArgument, "No package managers enabled"))));
@@ -116,7 +124,7 @@ TEST_F(PackageCountingTest, GetTotalCountReturnsErrorWhenNoManagersEnabled) {
 
 #ifdef __linux__
 TEST_F(PackageCountingTest, LinuxPackageManagersAreAvailable) {
-  constexpr Manager linuxManagers = Manager::CARGO | Manager::NIX | Manager::PACMAN | Manager::DPKG;
+  constexpr Manager linuxManagers = Cargo | Nix | Pacman | Dpkg;
 
   EXPECT_CALL(m_mockCounter, GetTotalCount(linuxManagers))
     .WillOnce(Return(Result<u64>(200)));
@@ -130,7 +138,7 @@ TEST_F(PackageCountingTest, LinuxPackageManagersAreAvailable) {
 
 #ifdef __APPLE__
 TEST_F(PackageCountingTest, MacPackageManagersAreAvailable) {
-  constexpr Manager macManagers = Manager::CARGO | Manager::NIX | Manager::HOMEBREW;
+  constexpr Manager macManagers = Cargo | Nix | Homebrew;
 
   EXPECT_CALL(m_mockCounter, GetTotalCount(macManagers))
     .WillOnce(Return(Result<u64>(150)));
@@ -144,7 +152,7 @@ TEST_F(PackageCountingTest, MacPackageManagersAreAvailable) {
 
 #ifdef _WIN32
 TEST_F(PackageCountingTest, WindowsPackageManagersAreAvailable) {
-  constexpr Manager winManagers = Manager::CARGO | Manager::WINGET | Manager::CHOCOLATEY;
+  constexpr Manager winManagers = Cargo | Winget | Chocolatey;
 
   EXPECT_CALL(m_mockCounter, GetTotalCount(winManagers))
     .WillOnce(Return(Result<u64>(100)));

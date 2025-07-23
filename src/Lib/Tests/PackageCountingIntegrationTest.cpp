@@ -11,7 +11,9 @@ using namespace testing;
 using namespace draconis::services::packages;
 using namespace draconis::utils;
 
+using enum Manager;
 using enum error::DracErrorCode;
+
 using types::i32;
 using types::Result;
 using types::String;
@@ -93,20 +95,20 @@ TEST_F(PackageCountingIntegrationTest, GetCountFromDirectory_NonexistentDirector
 }
 
 TEST_F(PackageCountingIntegrationTest, GetTotalCount_NoManagers) {
-  const auto result = GetTotalCount(mCacheManager, static_cast<Manager>(0));
+  const auto result = GetTotalCount(mCacheManager, None);
   EXPECT_FALSE(result);
   EXPECT_EQ(result.error().code, UnavailableFeature);
 }
 
 TEST_F(PackageCountingIntegrationTest, GetTotalCount_CargoOnly) {
-  if (Result<u64> result = GetTotalCount(mCacheManager, Manager::CARGO); !result)
+  if (Result<u64> result = GetTotalCount(mCacheManager, Cargo); !result)
     EXPECT_TRUE(result.error().code == NotFound || result.error().code == ApiUnavailable);
 }
 
 #if defined(__linux__) || defined(__APPLE__)
 TEST_F(PackageCountingIntegrationTest, GetTotalCount_NixOnly) {
   // Act
-  Result<u64> result = GetTotalCount(mCacheManager, Manager::NIX);
+  Result<u64> result = GetTotalCount(mCacheManager, Nix);
 
   // Assert
   // Note: This test might pass or fail depending on whether Nix is installed
@@ -118,7 +120,7 @@ TEST_F(PackageCountingIntegrationTest, GetTotalCount_NixOnly) {
 #if defined(__linux__)
 TEST_F(PackageCountingIntegrationTest, GetTotalCount_LinuxManagers) {
   // Act
-  Result<u64> result = GetTotalCount(mCacheManager, Manager::CARGO | Manager::NIX | Manager::PACMAN | Manager::DPKG);
+  Result<u64> result = GetTotalCount(mCacheManager, Cargo | Nix | Pacman | Dpkg);
 
   // Assert
   // Note: This test might pass or fail depending on which package managers are installed
@@ -130,7 +132,7 @@ TEST_F(PackageCountingIntegrationTest, GetTotalCount_LinuxManagers) {
 #if defined(__APPLE__)
 TEST_F(PackageCountingIntegrationTest, GetTotalCount_MacManagers) {
   // Act
-  Result<u64> result = GetTotalCount(mCacheManager, Manager::CARGO | Manager::NIX | Manager::HOMEBREW);
+  Result<u64> result = GetTotalCount(mCacheManager, Cargo | Nix | Homebrew);
 
   // Assert
   // Note: This test might pass or fail depending on which package managers are installed
@@ -141,7 +143,7 @@ TEST_F(PackageCountingIntegrationTest, GetTotalCount_MacManagers) {
 
 #if defined(_WIN32)
 TEST_F(PackageCountingIntegrationTest, GetTotalCount_WindowsManagers) {
-  if (Result<u64> result = GetTotalCount(mCacheManager, Manager::CARGO | Manager::WINGET | Manager::CHOCOLATEY); !result)
+  if (Result<u64> result = GetTotalCount(mCacheManager, Cargo | Winget | Chocolatey); !result)
     EXPECT_TRUE(result.error().code == NotFound || result.error().code == ApiUnavailable);
 }
 #endif
