@@ -362,120 +362,120 @@ namespace {
   }
 
   fn WeatherHandler(const Map<String, String>& params) -> ToolResponse {
-#if DRAC_ENABLE_WEATHER
-    Result<Coords> coordsResult;
-    String         location;
+    if constexpr (DRAC_ENABLE_WEATHER) {
+      Result<Coords> coordsResult;
+      String         location;
 
-    auto iter = params.find("location");
+      auto iter = params.find("location");
 
-    if (iter != params.end() && !iter->second.empty()) {
-      location     = iter->second;
-      coordsResult = Geocode(location);
-      if (!coordsResult)
-        return { makeErrorResult("Failed to geocode location '" + location + "': " + coordsResult.error().message), true };
+      if (iter != params.end() && !iter->second.empty()) {
+        location     = iter->second;
+        coordsResult = Geocode(location);
+        if (!coordsResult)
+          return { makeErrorResult("Failed to geocode location '" + location + "': " + coordsResult.error().message), true };
+      } else {
+        Result locationInfoResult = GetCurrentLocationInfoFromIP();
+        if (!locationInfoResult)
+          return { makeErrorResult("Failed to get current location from IP: " + locationInfoResult.error().message), true };
+
+        const IPLocationInfo& locationInfo = *locationInfoResult;
+        coordsResult                       = locationInfo.coords;
+        location                           = locationInfo.locationName;
+      }
+
+      UniquePointer<IWeatherService> weatherService = CreateWeatherService(
+        Provider::MetNo, *coordsResult, UnitSystem::Imperial
+      );
+
+      if (!weatherService)
+        return { makeErrorResult("Failed to create weather service"), true };
+
+      String         weatherCacheKey = "weather_" + location;
+      Result<Report> weatherResult   = GetCacheManager().getOrSet<Report>(
+        weatherCacheKey, [&]() -> Result<Report> { return weatherService->getWeatherInfo(); }
+      );
+
+      if (!weatherResult)
+        return { makeErrorResult("Failed to fetch weather data: " + weatherResult.error().message), true };
+
+      return { makeSuccessResult(*weatherResult) };
     } else {
-      Result locationInfoResult = GetCurrentLocationInfoFromIP();
-      if (!locationInfoResult)
-        return { makeErrorResult("Failed to get current location from IP: " + locationInfoResult.error().message), true };
-
-      const IPLocationInfo& locationInfo = *locationInfoResult;
-      coordsResult                       = locationInfo.coords;
-      location                           = locationInfo.locationName;
+      return { makeErrorResult("Weather service not enabled in this build"), true };
     }
-
-    UniquePointer<IWeatherService> weatherService = CreateWeatherService(
-      Provider::MetNo, *coordsResult, UnitSystem::Imperial
-    );
-
-    if (!weatherService)
-      return { makeErrorResult("Failed to create weather service"), true };
-
-    String         weatherCacheKey = "weather_" + location;
-    Result<Report> weatherResult   = GetCacheManager().getOrSet<Report>(
-      weatherCacheKey, [&]() -> Result<Report> { return weatherService->getWeatherInfo(); }
-    );
-
-    if (!weatherResult)
-      return { makeErrorResult("Failed to fetch weather data: " + weatherResult.error().message), true };
-
-    return { makeSuccessResult(*weatherResult) };
-#else
-    return { makeErrorResult("Weather service not enabled in this build"), true };
-#endif
   }
 
   fn PackageCountHandler(const Map<String, String>& params) -> ToolResponse {
-#if DRAC_ENABLE_PACKAGECOUNT
-    using enum Manager;
+    if constexpr (DRAC_ENABLE_PACKAGECOUNT) {
+      using enum Manager;
 
-    Manager enabledManagers = NONE;
+      Manager enabledManagers = None;
 
-    static const UnorderedMap<String, Manager> MANAGER_MAP = {
-      {  "cargo",  CARGO },
-  #if defined(__linux__) || defined(__APPLE__)
-      {    "nix",    NIX },
-  #endif
-  #ifdef __linux__
-      {    "apk",    APK },
-      {   "dpkg",   DPKG },
-      {   "moss",   MOSS },
-      { "pacman", PACMAN },
-      {    "rpm",    RPM },
-      {   "xbps",   XBPS },
-  #elifdef __APPLE__
-      { "homebrew", HOMEBREW },
-      { "macports", MACPORTS },
-  #elifdef _WIN32
-      { "winget", WINGET },
-      { "chocolatey", CHOCOLATEY },
-      { "scoop", SCOOP },
-  #elif defined(__FreeBSD__) || defined(__DragonFly__)
-      { "pkgng", PKGNG },
-  #elifdef __NetBSD__
-      { "pkgsrc", PKGSRC },
-  #elifdef __HAIKU__
-      { "haikupkg", HAIKUPKG },
-  #endif
-    };
-
-    auto mgrIter = params.find("managers");
-
-    if (mgrIter != params.end() && !mgrIter->second.empty()) {
-      String      managersStr = mgrIter->second;
-      Vec<String> managersList;
-
-      managersList.reserve(std::count(managersStr.begin(), managersStr.end(), ',') + 1);
-      usize pos = 0;
-
-      while ((pos = managersStr.find(',')) != String::npos) {
-        managersList.emplace_back(managersStr.substr(0, pos));
-        managersStr.erase(0, pos + 1);
-      }
-
-      managersList.emplace_back(managersStr);
-
-      for (const String& mgr : managersList) {
-        auto iter = MANAGER_MAP.find(mgr);
-
-        if (iter != MANAGER_MAP.end())
-          enabledManagers |= iter->second;
-      }
-    } else {
-      for (const auto& [_, value] : MANAGER_MAP)
-        enabledManagers |= value;
-    }
-
-    if (enabledManagers == NONE)
-      return { makeErrorResult("No valid package managers specified or available"), true };
-
-    Result<Map<String, u64>> countResult = GetIndividualCounts(GetCacheManager(), enabledManagers);
-    if (!countResult)
-      return { makeErrorResult("Failed to get package count: " + countResult.error().message), true };
-
-    return { makeSuccessResult(*countResult) };
-#else
-    return { makeErrorResult("Package counting not enabled in this build"), true };
+      static const UnorderedMap<String, Manager> MANAGER_MAP = {
+        {  "cargo",  Cargo },
+#if defined(__linux__) || defined(__APPLE__)
+        {    "nix",    Nix },
 #endif
+#ifdef __linux__
+        {    "apk",    Apk },
+        {   "dpkg",   Dpkg },
+        {   "moss",   Moss },
+        { "pacman", Pacman },
+        {    "rpm",    Rpm },
+        {   "xbps",   Xbps },
+#elifdef __APPLE__
+        { "homebrew", Homebrew },
+        { "macports", Macports },
+#elifdef _WIN32
+        { "winget", Winget },
+        { "chocolatey", Chocolatey },
+        { "scoop", Scoop },
+#elif defined(__FreeBSD__) || defined(__DragonFly__)
+        { "pkgng", PkgNg },
+#elifdef __NetBSD__
+        { "pkgsrc", PkgSrc },
+#elifdef __HAIKU__
+        { "haikupkg", HaikuPkg },
+#endif
+      };
+
+      auto mgrIter = params.find("managers");
+
+      if (mgrIter != params.end() && !mgrIter->second.empty()) {
+        String      managersStr = mgrIter->second;
+        Vec<String> managersList;
+
+        managersList.reserve(std::count(managersStr.begin(), managersStr.end(), ',') + 1);
+        usize pos = 0;
+
+        while ((pos = managersStr.find(',')) != String::npos) {
+          managersList.emplace_back(managersStr.substr(0, pos));
+          managersStr.erase(0, pos + 1);
+        }
+
+        managersList.emplace_back(managersStr);
+
+        for (const String& mgr : managersList) {
+          auto iter = MANAGER_MAP.find(mgr);
+
+          if (iter != MANAGER_MAP.end())
+            enabledManagers |= iter->second;
+        }
+      } else {
+        for (const auto& [_, value] : MANAGER_MAP)
+          enabledManagers |= value;
+      }
+
+      if (enabledManagers == None)
+        return { makeErrorResult("No valid package managers specified or available"), true };
+
+      Result<Map<String, u64>> countResult = GetIndividualCounts(GetCacheManager(), enabledManagers);
+      if (!countResult)
+        return { makeErrorResult("Failed to get package count: " + countResult.error().message), true };
+
+      return { makeSuccessResult(*countResult) };
+    } else {
+      return { makeErrorResult("Package counting not enabled in this build"), true };
+    }
   }
 
   fn NetworkInfoHandler() -> ToolResponse {
@@ -520,15 +520,15 @@ namespace {
   }
 
   fn NowPlayingHandler() -> ToolResponse {
-#if DRAC_ENABLE_NOWPLAYING
-    Result nowPlayingResult = GetNowPlaying();
-    if (!nowPlayingResult)
-      return { makeErrorResult("Failed to get now playing info: " + nowPlayingResult.error().message), true };
+    if constexpr (DRAC_ENABLE_NOWPLAYING) {
+      Result nowPlayingResult = GetNowPlaying();
+      if (!nowPlayingResult)
+        return { makeErrorResult("Failed to get now playing info: " + nowPlayingResult.error().message), true };
 
-    return { makeSuccessResult(*nowPlayingResult) };
-#else
-    return { makeErrorResult("Now playing functionality not enabled in this build"), true };
-#endif
+      return { makeSuccessResult(*nowPlayingResult) };
+    } else {
+      return { makeErrorResult("Now playing functionality not enabled in this build"), true };
+    }
   }
 
   fn ComprehensiveInfoHandler(const Map<String, String>& params) -> ToolResponse {
@@ -578,59 +578,58 @@ namespace {
       info.uptime          = { .seconds = seconds, .formatted = std::format("{}h {}m {}s", hours, minutes, remainingSeconds) };
     }
 
-#if DRAC_ENABLE_WEATHER
-    auto locIter = params.find("location");
-    if (locIter != params.end() && !locIter->second.empty()) {
-      if (Result coords = Geocode(locIter->second); coords)
-        if (UniquePointer<IWeatherService> weatherService = CreateWeatherService(Provider::MetNo, *coords, UnitSystem::Imperial)) {
-          String weatherCacheKey = "weather_" + locIter->second;
-          if (Result weather = cacheManager.getOrSet<Report>(weatherCacheKey, [&]() -> Result<Report> { return weatherService->getWeatherInfo(); }); weather)
+    if constexpr (DRAC_ENABLE_WEATHER) {
+      if (auto locIter = params.find("location"); locIter != params.end() && !locIter->second.empty()) {
+        if (Result coords = Geocode(locIter->second); coords)
+          if (UniquePointer<IWeatherService> weatherService = CreateWeatherService(Provider::MetNo, *coords, UnitSystem::Imperial)) {
+            String weatherCacheKey = "weather_" + locIter->second;
+            if (Result weather = cacheManager.getOrSet<Report>(weatherCacheKey, [&]() -> Result<Report> { return weatherService->getWeatherInfo(); }); weather)
+              info.weather = *weather;
+          }
+      } else if (Result locationInfo = GetCurrentLocationInfoFromIP(); locationInfo)
+        if (UniquePointer<IWeatherService> weatherService = CreateWeatherService(Provider::MetNo, locationInfo->coords, UnitSystem::Imperial)) {
+          String weatherCacheKey = "weather_" + locationInfo->locationName;
+          if (
+            Result weather = cacheManager.getOrSet<Report>(
+              weatherCacheKey,
+              [&]() -> Result<Report> {
+                return weatherService->getWeatherInfo();
+              }
+            );
+            weather
+          )
             info.weather = *weather;
         }
-    } else if (Result locationInfo = GetCurrentLocationInfoFromIP(); locationInfo)
-      if (UniquePointer<IWeatherService> weatherService = CreateWeatherService(Provider::MetNo, locationInfo->coords, UnitSystem::Imperial)) {
-        String weatherCacheKey = "weather_" + locationInfo->locationName;
-        if (
-          Result weather = cacheManager.getOrSet<Report>(
-            weatherCacheKey,
-            [&]() -> Result<Report> {
-              return weatherService->getWeatherInfo();
-            }
-          );
-          weather
-        )
-          info.weather = *weather;
-      }
+    }
+
+    if constexpr (DRAC_ENABLE_PACKAGECOUNT) {
+      using enum Manager;
+
+      Manager enabledManagers = Cargo;
+#if defined(__linux__) || defined(__APPLE__)
+      enabledManagers |= Nix;
+#endif
+#ifdef __linux__
+      enabledManagers |= Apk | Dpkg | Moss | Pacman | Rpm | Xbps;
+#elifdef __APPLE__
+      enabledManagers |= Homebrew | Macports;
+#elifdef _WIN32
+      enabledManagers |= Winget | Chocolatey | Scoop;
+#elif defined(__FreeBSD__) || defined(__DragonFly__)
+      enabledManagers |= PkgNg;
+#elifdef __NetBSD__
+      enabledManagers |= PkgSrc;
+#elifdef __HAIKU__
+      enabledManagers |= HaikuPkg;
 #endif
 
-#if DRAC_ENABLE_PACKAGECOUNT
-    using enum Manager;
+      if (Result packages = GetIndividualCounts(cacheManager, enabledManagers); packages)
+        info.packages = *packages;
+    }
 
-    Manager enabledManagers = CARGO;
-  #if defined(__linux__) || defined(__APPLE__)
-    enabledManagers |= NIX;
-  #endif
-  #ifdef __linux__
-    enabledManagers |= APK | DPKG | MOSS | PACMAN | RPM | XBPS;
-  #elifdef __APPLE__
-    enabledManagers |= HOMEBREW | MACPORTS;
-  #elifdef _WIN32
-    enabledManagers |= WINGET | CHOCOLATEY | SCOOP;
-  #elif defined(__FreeBSD__) || defined(__DragonFly__)
-    enabledManagers |= PKGNG;
-  #elifdef __NetBSD__
-    enabledManagers |= PKGSRC;
-  #elifdef __HAIKU__
-    enabledManagers |= HAIKUPKG;
-  #endif
-    if (Result packages = GetIndividualCounts(cacheManager, enabledManagers); packages)
-      info.packages = *packages;
-#endif
-
-#if DRAC_ENABLE_NOWPLAYING
-    if (Result nowPlaying = GetNowPlaying(); nowPlaying)
-      info.nowPlaying = *nowPlaying;
-#endif
+    if constexpr (DRAC_ENABLE_NOWPLAYING)
+      if (Result nowPlaying = GetNowPlaying(); nowPlaying)
+        info.nowPlaying = *nowPlaying;
 
     return { makeSuccessResult(info) };
   }
@@ -765,7 +764,7 @@ class DracStdioServer {
         for (const ToolParam& param : toolPair.first.parameters) {
           inputProperties[param.name] = GlzObject {
             { "title", param.name },
-            {  "type", param.type }
+            {  "type", param.type },
           };
 
           if (param.required)
@@ -779,7 +778,7 @@ class DracStdioServer {
         GlzObject outputSchema = {
           {       "type",                                                                                                                   "object" },
           { "properties", { { "data", { { "title", "Data" }, { "type", "object" } } }, { "error", { { "title", "Error" }, { "type", "object" } } } } },
-          {      "title",                                                                                             toolPair.first.name + "Output" }
+          {      "title",                                                                                             toolPair.first.name + "Output" },
         };
 
         toolObj["inputSchema"]  = inputSchema;
@@ -854,7 +853,7 @@ class DracStdioServer {
       };
 
     if (method == "ping" || method == "notifications/initialized")
-      return GlzObject {};
+      return GlzObject();
 
     ERR_FMT(NotSupported, "Unknown method: {}", method);
   }
@@ -867,6 +866,7 @@ fn main() -> i32 {
     { "tools", { { "listChanged", true } } }
   });
 
+  Tool cacheClearTool("cache_clear", "Clear all cached data");
   Tool systemInfoTool("system_info", "Get system information (OS, kernel, host, shell, desktop environment, window manager)");
   Tool hardwareInfoTool("hardware_info", "Get hardware information (CPU, GPU, memory, disk, battery)");
   Tool networkInfoTool("network_info", "Get network interface information");
@@ -892,8 +892,7 @@ fn main() -> i32 {
     ToolParam("location", "Location name for weather information (e.g., 'New York, NY', 'London, UK'). Omit this parameter to use your current location for weather.")
   );
 
-  Tool cacheClearTool("cache_clear", "Clear all cached data");
-
+  server.registerTool(cacheClearTool, CacheClearHandler);
   server.registerTool(systemInfoTool, SystemInfoHandler);
   server.registerTool(hardwareInfoTool, HardwareInfoHandler);
   server.registerTool(weatherTool, WeatherHandler);
@@ -903,7 +902,6 @@ fn main() -> i32 {
   server.registerTool(uptimeTool, UptimeHandler);
   server.registerTool(nowPlayingTool, NowPlayingHandler);
   server.registerTool(comprehensiveTool, ComprehensiveInfoHandler);
-  server.registerTool(cacheClearTool, CacheClearHandler);
 
   Result res = server.run();
 

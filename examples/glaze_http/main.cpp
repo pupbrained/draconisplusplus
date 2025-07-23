@@ -123,14 +123,12 @@ namespace glz {
 fn main() -> i32 {
   glz::http_server server;
 
-#if DRAC_ENABLE_WEATHER
-  {
+  if constexpr (DRAC_ENABLE_WEATHER) {
     GetState().weatherService = CreateWeatherService(Provider::MetNo, Coords(40.71427, -74.00597), UnitSystem::Imperial);
 
     if (!GetState().weatherService)
       error_log("Error: Failed to initialize WeatherService.");
   }
-#endif
 
   server.on_error([](const std::error_code errc, const std::source_location& loc) {
     if (errc != asio::error::operation_aborted)
@@ -217,11 +215,10 @@ fn main() -> i32 {
       addProperty("GPU Model", GetGPUModel(cacheManager));
       addProperty("Memory", GetMemInfo(cacheManager));
       addProperty("Disk Usage", GetDiskUsage(cacheManager));
-#if DRAC_ENABLE_NOWPLAYING
-      addProperty("Now Playing", GetNowPlaying());
-#endif
-#if DRAC_ENABLE_WEATHER
-      {
+      if constexpr (DRAC_ENABLE_NOWPLAYING)
+        addProperty("Now Playing", GetNowPlaying());
+
+      if constexpr (DRAC_ENABLE_WEATHER) {
         using namespace std::chrono;
 
         Result<Report> weatherResultToAdd;
@@ -258,7 +255,6 @@ fn main() -> i32 {
 
         addProperty("Weather", weatherResultToAdd);
       }
-#endif
     }
 
     Result<String> htmlTemplate = readFile(indexFile);

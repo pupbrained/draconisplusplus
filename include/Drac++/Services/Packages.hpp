@@ -33,33 +33,33 @@ namespace draconis::services::packages {
    * @see draconis::services::packages::HasPackageManager
    */
   enum class Manager : u8 {
-    NONE  = 0,      ///< No package manager.
-    CARGO = 1 << 0, ///< Cargo, the Rust package manager.
+    None  = 0,      ///< No package manager.
+    Cargo = 1 << 0, ///< Cargo, the Rust package manager.
 
   #if defined(__linux__) || defined(__APPLE__)
-    NIX = 1 << 1, ///< Nix package manager (available on Linux and macOS).
+    Nix = 1 << 1, ///< Nix package manager (available on Linux and macOS).
   #endif
 
   #ifdef __linux__
-    APK    = 1 << 2, ///< apk, the Alpine Linux package manager.
-    DPKG   = 1 << 3, ///< dpkg, the Debian package system (used by APT).
-    MOSS   = 1 << 4, ///< moss, the package manager for AerynOS.
-    PACMAN = 1 << 5, ///< Pacman, the Arch Linux package manager.
-    RPM    = 1 << 6, ///< RPM, package manager used by Fedora, RHEL, etc.
-    XBPS   = 1 << 7, ///< XBPS, the X Binary Package System (used by Void Linux).
+    Apk    = 1 << 2, ///< apk, the Alpine Linux package manager.
+    Dpkg   = 1 << 3, ///< dpkg, the Debian package system (used by APT).
+    Moss   = 1 << 4, ///< moss, the package manager for AerynOS.
+    Pacman = 1 << 5, ///< Pacman, the Arch Linux package manager.
+    Rpm    = 1 << 6, ///< RPM, package manager used by Fedora, RHEL, etc.
+    Xbps   = 1 << 7, ///< XBPS, the X Binary Package System (used by Void Linux).
   #elifdef __APPLE__
-    HOMEBREW = 1 << 2, ///< Homebrew, package manager for macOS.
-    MACPORTS = 1 << 3, ///< MacPorts, package manager for macOS.
+    Homebrew = 1 << 2, ///< Homebrew, package manager for macOS.
+    Macports = 1 << 3, ///< MacPorts, package manager for macOS.
   #elifdef _WIN32
-    WINGET     = 1 << 1, ///< Winget, the Windows Package Manager.
-    CHOCOLATEY = 1 << 2, ///< Chocolatey, package manager for Windows.
-    SCOOP      = 1 << 3, ///< Scoop, command-line installer for Windows.
+    Winget     = 1 << 1, ///< Winget, the Windows Package Manager.
+    Chocolatey = 1 << 2, ///< Chocolatey, package manager for Windows.
+    Scoop      = 1 << 3, ///< Scoop, command-line installer for Windows.
   #elif defined(__FreeBSD__) || defined(__DragonFly__)
-    PKGNG = 1 << 1, ///< pkg, package management system for FreeBSD and DragonFly BSD.
+    PkgNg = 1 << 1, ///< pkg, package management system for FreeBSD and DragonFly BSD.
   #elifdef __NetBSD__
-    PKGSRC = 1 << 1, ///< pkgsrc, package management system for NetBSD.
+    PkgSrc = 1 << 1, ///< pkgsrc, package management system for NetBSD.
   #elifdef __HAIKU__
-    HAIKUPKG = 1 << 1, ///< haikupkg, package manager for Haiku OS.
+    HaikuPkg = 1 << 1, ///< haikupkg, package manager for Haiku OS.
   #endif
   };
 

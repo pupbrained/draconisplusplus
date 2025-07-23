@@ -434,26 +434,25 @@ namespace draconis::ui {
       if (data.date)
         initialGroup.rows.push_back({ .icon = iconType.calendar, .label = "Date", .value = *data.date });
 
-#if DRAC_ENABLE_WEATHER
-      if (weather) {
-        const auto& [temperature, townName, description] = *weather;
+      if constexpr (DRAC_ENABLE_WEATHER)
+        if (weather) {
+          const auto& [temperature, townName, description] = *weather;
 
-        PCStr tempUnit =
-          config.weather.units == services::weather::UnitSystem::Metric
-          ? "C"
-          : "F";
+          PCStr tempUnit =
+            config.weather.units == services::weather::UnitSystem::Metric
+            ? "C"
+            : "F";
 
-        initialGroup.rows.push_back(
-          {
-            .icon  = iconType.weather,
-            .label = "Weather",
-            .value = config.weather.showTownName && townName
-              ? std::format("{}°{} in {}", std::lround(temperature), tempUnit, *townName)
-              : std::format("{}°{}, {}", std::lround(temperature), tempUnit, description),
-          }
-        );
-      }
-#endif
+          initialGroup.rows.push_back(
+            {
+              .icon  = iconType.weather,
+              .label = "Weather",
+              .value = config.weather.showTownName && townName
+                ? std::format("{}°{} in {}", std::lround(temperature), tempUnit, *townName)
+                : std::format("{}°{}, {}", std::lround(temperature), tempUnit, description),
+            }
+          );
+        }
     }
 
     {
@@ -496,10 +495,9 @@ namespace draconis::ui {
       if (data.shell)
         softwareGroup.rows.push_back({ .icon = iconType.shell, .label = "Shell", .value = *data.shell });
 
-#if DRAC_ENABLE_PACKAGECOUNT
-      if (data.packageCount && *data.packageCount > 0)
-        softwareGroup.rows.push_back({ .icon = iconType.package, .label = "Packages", .value = std::format("{}", *data.packageCount) });
-#endif
+      if constexpr (DRAC_ENABLE_PACKAGECOUNT)
+        if (data.packageCount && *data.packageCount > 0)
+          softwareGroup.rows.push_back({ .icon = iconType.package, .label = "Packages", .value = std::format("{}", *data.packageCount) });
     }
 
     {
@@ -554,12 +552,13 @@ namespace draconis::ui {
     String out;
 
     usize estimatedLines = 4;
+
     for (const UIGroup* grp : groups)
       estimatedLines += grp->rows.empty() ? 0 : (grp->rows.size() + 1);
-#if DRAC_ENABLE_NOWPLAYING
-    if (nowPlayingActive)
-      ++estimatedLines;
-#endif
+
+    if constexpr (DRAC_ENABLE_NOWPLAYING)
+      if (nowPlayingActive)
+        ++estimatedLines;
 
     out.reserve(estimatedLines * (maxContentWidth + 4));
 
@@ -604,42 +603,41 @@ namespace draconis::ui {
     for (const UIGroup* group : groups)
       RenderGroup(out, *group, maxContentWidth, hBorder, hasRenderedContent);
 
-#if DRAC_ENABLE_NOWPLAYING
-    if (nowPlayingActive) {
-      if (hasRenderedContent) {
-        out += "├";
-        out += hBorder;
-        out += "┤\n";
-      }
+    if constexpr (DRAC_ENABLE_NOWPLAYING)
+      if (nowPlayingActive) {
+        if (hasRenderedContent) {
+          out += "├";
+          out += hBorder;
+          out += "┤\n";
+        }
 
-      const String leftPart      = Colorize(iconType.music, DEFAULT_THEME.icon) + Colorize("Playing", DEFAULT_THEME.label);
-      const usize  leftPartWidth = GetVisualWidth(leftPart);
+        const String leftPart      = Colorize(iconType.music, DEFAULT_THEME.icon) + Colorize("Playing", DEFAULT_THEME.label);
+        const usize  leftPartWidth = GetVisualWidth(leftPart);
 
-      const usize availableWidth = maxContentWidth - leftPartWidth;
+        const usize availableWidth = maxContentWidth - leftPartWidth;
 
-      const Vec<String> wrappedLines = WordWrap(npText, availableWidth);
+        const Vec<String> wrappedLines = WordWrap(npText, availableWidth);
 
-      if (!wrappedLines.empty()) {
-        createLine(leftPart, Colorize(wrappedLines[0], LogColor::Magenta));
+        if (!wrappedLines.empty()) {
+          createLine(leftPart, Colorize(wrappedLines[0], LogColor::Magenta));
 
-        const String indent(leftPartWidth, ' ');
+          const String indent(leftPartWidth, ' ');
 
-        for (usize i = 1; i < wrappedLines.size(); ++i) {
-          String rightPart      = Colorize(wrappedLines[i], LogColor::Magenta);
-          usize  rightPartWidth = GetVisualWidth(rightPart);
+          for (usize i = 1; i < wrappedLines.size(); ++i) {
+            String rightPart      = Colorize(wrappedLines[i], LogColor::Magenta);
+            usize  rightPartWidth = GetVisualWidth(rightPart);
 
-          usize padding = (maxContentWidth > leftPartWidth + rightPartWidth)
-            ? maxContentWidth - leftPartWidth - rightPartWidth
-            : 0;
+            usize padding = (maxContentWidth > leftPartWidth + rightPartWidth)
+              ? maxContentWidth - leftPartWidth - rightPartWidth
+              : 0;
 
-          String lineContent = indent;
-          lineContent.append(padding, ' ');
-          lineContent.append(rightPart);
-          createLine(lineContent);
+            String lineContent = indent;
+            lineContent.append(padding, ' ');
+            lineContent.append(rightPart);
+            createLine(lineContent);
+          }
         }
       }
-    }
-#endif
 
     out += "╰";
     out += hBorder;

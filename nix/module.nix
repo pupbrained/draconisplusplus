@@ -31,13 +31,13 @@ with lib; let
 
       #if DRAC_PRECOMPILED_CONFIG
 
-      #if DRAC_ENABLE_WEATHER
-        #include <Drac++/Services/Weather.hpp>
-      #endif
+        #if DRAC_ENABLE_WEATHER
+          #include <Drac++/Services/Weather.hpp>
+        #endif
 
-      #if DRAC_ENABLE_PACKAGECOUNT
-        #include <Drac++/Services/Packages.hpp>
-      #endif
+        #if DRAC_ENABLE_PACKAGECOUNT
+          #include <Drac++/Services/Packages.hpp>
+        #endif
 
       namespace draconis::config {
         constexpr const char* DRAC_USERNAME = "${cfg.username}";

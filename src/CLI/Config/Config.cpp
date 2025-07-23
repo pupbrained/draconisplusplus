@@ -154,72 +154,70 @@ namespace draconis::config {
     Config cfg;
     cfg.general.name = DRAC_USERNAME;
 
-  #if DRAC_ENABLE_WEATHER
-    using namespace draconis::services::weather;
-    using enum draconis::services::weather::Provider;
+    if constexpr (DRAC_ENABLE_WEATHER) {
+      using namespace draconis::services::weather;
+      using enum draconis::services::weather::Provider;
 
-    cfg.weather.enabled      = true;
-    cfg.weather.apiKey       = DRAC_API_KEY;
-    cfg.weather.showTownName = DRAC_SHOW_TOWN_NAME;
-    cfg.weather.units        = DRAC_WEATHER_UNIT;
-    cfg.weather.location     = DRAC_LOCATION;
+      cfg.weather.enabled      = true;
+      cfg.weather.apiKey       = DRAC_API_KEY;
+      cfg.weather.showTownName = DRAC_SHOW_TOWN_NAME;
+      cfg.weather.units        = DRAC_WEATHER_UNIT;
+      cfg.weather.location     = DRAC_LOCATION;
 
-    if constexpr (DRAC_WEATHER_PROVIDER == OpenWeatherMap) {
-      if (!cfg.weather.apiKey) {
-        error_log("OpenWeatherMap requires an API key.");
-        cfg.weather.enabled = false;
-      }
-
-      cfg.weather.service = CreateWeatherService(
-        OpenWeatherMap,
-        DRAC_LOCATION,
-        cfg.weather.units,
-        cfg.weather.apiKey
-      );
-    } else if constexpr (DRAC_WEATHER_PROVIDER == OpenMeteo) {
-      if (std::holds_alternative<Coords>(DRAC_LOCATION)) {
-        const auto& coords = std::get<Coords>(DRAC_LOCATION);
+      if constexpr (DRAC_WEATHER_PROVIDER == OpenWeatherMap) {
+        if (!cfg.weather.apiKey) {
+          error_log("OpenWeatherMap requires an API key.");
+          cfg.weather.enabled = false;
+        }
 
         cfg.weather.service = CreateWeatherService(
-          OpenMeteo,
-          coords,
-          cfg.weather.units
+          OpenWeatherMap,
+          DRAC_LOCATION,
+          cfg.weather.units,
+          cfg.weather.apiKey
         );
+      } else if constexpr (DRAC_WEATHER_PROVIDER == OpenMeteo) {
+        if (std::holds_alternative<Coords>(DRAC_LOCATION)) {
+          const auto& coords = std::get<Coords>(DRAC_LOCATION);
+
+          cfg.weather.service = CreateWeatherService(
+            OpenMeteo,
+            coords,
+            cfg.weather.units
+          );
+        } else {
+          error_log("Precompiled OpenMeteo requires coordinates, but DRAC_LOCATION is not Coords.");
+          cfg.weather.enabled = false;
+        }
+      } else if constexpr (DRAC_WEATHER_PROVIDER == MetNo) {
+        if (std::holds_alternative<Coords>(DRAC_LOCATION)) {
+          const auto& coords = std::get<Coords>(DRAC_LOCATION);
+
+          cfg.weather.service = CreateWeatherService(
+            MetNo,
+            coords,
+            cfg.weather.units
+          );
+        } else {
+          error_log("Precompiled MetNo requires coordinates, but DRAC_LOCATION is not Coords.");
+          cfg.weather.enabled = false;
+        }
       } else {
-        error_log("Precompiled OpenMeteo requires coordinates, but DRAC_LOCATION is not Coords.");
+        error_log("Unknown precompiled weather provider specified in DRAC_WEATHER_PROVIDER.");
         cfg.weather.enabled = false;
       }
-    } else if constexpr (DRAC_WEATHER_PROVIDER == MetNo) {
-      if (std::holds_alternative<Coords>(DRAC_LOCATION)) {
-        const auto& coords = std::get<Coords>(DRAC_LOCATION);
 
-        cfg.weather.service = CreateWeatherService(
-          MetNo,
-          coords,
-          cfg.weather.units
-        );
-      } else {
-        error_log("Precompiled MetNo requires coordinates, but DRAC_LOCATION is not Coords.");
+      if (cfg.weather.enabled && !cfg.weather.service) {
+        error_log("Failed to initialize precompiled weather service for the configured provider.");
         cfg.weather.enabled = false;
       }
-    } else {
-      error_log("Unknown precompiled weather provider specified in DRAC_WEATHER_PROVIDER.");
-      cfg.weather.enabled = false;
     }
 
-    if (cfg.weather.enabled && !cfg.weather.service) {
-      error_log("Failed to initialize precompiled weather service for the configured provider.");
-      cfg.weather.enabled = false;
-    }
-  #endif // DRAC_ENABLE_WEATHER
+    if constexpr (DRAC_ENABLE_PACKAGECOUNT)
+      cfg.enabledPackageManagers = config::DRAC_ENABLED_PACKAGE_MANAGERS;
 
-  #if DRAC_ENABLE_PACKAGECOUNT
-    cfg.enabledPackageManagers = config::DRAC_ENABLED_PACKAGE_MANAGERS;
-  #endif
-
-  #if DRAC_ENABLE_NOWPLAYING
-    cfg.nowPlaying.enabled = true;
-  #endif
+    if constexpr (DRAC_ENABLE_NOWPLAYING)
+      cfg.nowPlaying.enabled = true;
 
     debug_log("Using precompiled configuration.");
     return cfg;
@@ -261,84 +259,84 @@ namespace draconis::config {
     if (!this->general.name)
       this->general.name = General::getDefaultName();
 
-  #if DRAC_ENABLE_NOWPLAYING
-    const toml::node_view npTbl = tbl["now_playing"];
-    this->nowPlaying            = npTbl.is_table() ? NowPlaying::fromToml(*npTbl.as_table()) : NowPlaying {};
+    if constexpr (DRAC_ENABLE_NOWPLAYING) {
+      const toml::node_view npTbl = tbl["now_playing"];
+      this->nowPlaying            = npTbl.is_table() ? NowPlaying::fromToml(*npTbl.as_table()) : NowPlaying {};
+    }
+
+    if constexpr (DRAC_ENABLE_WEATHER) {
+      const toml::node_view wthTbl = tbl["weather"];
+      this->weather                = wthTbl.is_table() ? Weather::fromToml(*wthTbl.as_table()) : Weather {};
+    }
+
+    if constexpr (DRAC_ENABLE_PACKAGECOUNT) {
+      const toml::node_view pkgTbl = tbl["packages"];
+
+      if (pkgTbl.is_table()) {
+        const auto enabledNode = pkgTbl["enabled"];
+
+        if (enabledNode.is_array()) {
+          using enum draconis::services::packages::Manager;
+
+          this->enabledPackageManagers = NONE;
+
+          for (const auto& elem : *enabledNode.as_array()) {
+            if (auto valOpt = elem.value<String>()) {
+              String val = *valOpt;
+
+              if (val == "cargo")
+                this->enabledPackageManagers |= Cargo;
+  #if defined(__linux__) || defined(__APPLE__)
+              else if (val == "nix")
+                this->enabledPackageManagers |= Nix;
   #endif
-
-  #if DRAC_ENABLE_WEATHER
-    const toml::node_view wthTbl = tbl["weather"];
-    this->weather                = wthTbl.is_table() ? Weather::fromToml(*wthTbl.as_table()) : Weather {};
+  #ifdef __linux__
+              else if (val == "apk")
+                this->enabledPackageManagers |= Apk;
+              else if (val == "dpkg")
+                this->enabledPackageManagers |= Dpkg;
+              else if (val == "moss")
+                this->enabledPackageManagers |= Moss;
+              else if (val == "pacman")
+                this->enabledPackageManagers |= Pacman;
+              else if (val == "rpm")
+                this->enabledPackageManagers |= Rpm;
+              else if (val == "xbps")
+                this->enabledPackageManagers |= Xbps;
   #endif
-
-  #if DRAC_ENABLE_PACKAGECOUNT
-    const toml::node_view pkgTbl = tbl["packages"];
-
-    if (pkgTbl.is_table()) {
-      const auto enabledNode = pkgTbl["enabled"];
-
-      if (enabledNode.is_array()) {
-        using enum draconis::services::packages::Manager;
-
-        this->enabledPackageManagers = NONE;
-
-        for (const auto& elem : *enabledNode.as_array()) {
-          if (auto valOpt = elem.value<String>()) {
-            String val = *valOpt;
-
-            if (val == "cargo")
-              this->enabledPackageManagers |= CARGO;
-    #if defined(__linux__) || defined(__APPLE__)
-            else if (val == "nix")
-              this->enabledPackageManagers |= NIX;
-    #endif
-    #ifdef __linux__
-            else if (val == "apk")
-              this->enabledPackageManagers |= APK;
-            else if (val == "dpkg")
-              this->enabledPackageManagers |= DPKG;
-            else if (val == "moss")
-              this->enabledPackageManagers |= MOSS;
-            else if (val == "pacman")
-              this->enabledPackageManagers |= PACMAN;
-            else if (val == "rpm")
-              this->enabledPackageManagers |= RPM;
-            else if (val == "xbps")
-              this->enabledPackageManagers |= XBPS;
-    #endif
-    #ifdef __APPLE__
-            else if (val == "homebrew")
-              this->enabledPackageManagers |= HOMEBREW;
-            else if (val == "macports")
-              this->enabledPackageManagers |= MACPORTS;
-    #endif
-    #ifdef _WIN32
-            else if (val == "winget")
-              this->enabledPackageManagers |= WINGET;
-            else if (val == "chocolatey")
-              this->enabledPackageManagers |= CHOCOLATEY;
-            else if (val == "scoop")
-              this->enabledPackageManagers |= SCOOP;
-    #endif
-    #if defined(__FreeBSD__) || defined(__DragonFly__)
-            else if (val == "pkgng")
-              this->enabledPackageManagers |= PKGNG;
-    #endif
-    #ifdef __NetBSD__
-            else if (val == "pkgsrc")
-              this->enabledPackageManagers |= PKGSRC;
-    #endif
-    #ifdef __HAIKU__
-            else if (val == "haikupkg")
-              this->enabledPackageManagers |= HAIKUPKG;
-    #endif
-            else
-              warn_log("Unknown package manager in config: {}", val);
+  #ifdef __APPLE__
+              else if (val == "homebrew")
+                this->enabledPackageManagers |= Homebrew;
+              else if (val == "macports")
+                this->enabledPackageManagers |= Macports;
+  #endif
+  #ifdef _WIN32
+              else if (val == "winget")
+                this->enabledPackageManagers |= Winget;
+              else if (val == "chocolatey")
+                this->enabledPackageManagers |= Chocolatey;
+              else if (val == "scoop")
+                this->enabledPackageManagers |= Scoop;
+  #endif
+  #if defined(__FreeBSD__) || defined(__DragonFly__)
+              else if (val == "pkgng")
+                this->enabledPackageManagers |= PkgNg;
+  #endif
+  #ifdef __NetBSD__
+              else if (val == "pkgsrc")
+                this->enabledPackageManagers |= PkgSrc;
+  #endif
+  #ifdef __HAIKU__
+              else if (val == "haikupkg")
+                this->enabledPackageManagers |= HaikuPkg;
+  #endif
+              else
+                warn_log("Unknown package manager in config: {}", val);
+            }
           }
         }
       }
     }
-  #endif
   }
-#endif
+#endif // !DRAC_PRECOMPILED_CONFIG
 } // namespace draconis::config

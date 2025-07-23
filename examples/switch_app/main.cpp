@@ -19,13 +19,13 @@ auto main() -> s32 {
     return static_cast<s32>(timeRes);
 
   // Initialize network for weather services
-  #if DRAC_ENABLE_WEATHER
-  Result nifmRes = nifmInitialize(NifmServiceType_User);
-  if (R_FAILED(nifmRes)) {
-    std::println("Failed to initialize network: 0x{:08X}", nifmRes);
-    // Continue without network - weather will fail gracefully
+  if constexpr (DRAC_ENABLE_WEATHER) {
+    Result nifmRes = nifmInitialize(NifmServiceType_User);
+    if (R_FAILED(nifmRes)) {
+      std::println("Failed to initialize network: 0x{:08X}", nifmRes);
+      // Continue without network - weather will fail gracefully
+    }
   }
-  #endif
 
   padConfigureInput(1, HidNpadStyleSet_NpadStandard);
 
@@ -36,13 +36,13 @@ auto main() -> s32 {
 
   // Initialize weather service (using MetNo provider, coordinates for Tokyo, metric units)
   draconis::services::weather::UniquePointer<draconis::services::weather::IWeatherService> weatherService;
-  #if DRAC_ENABLE_WEATHER
-  weatherService = draconis::services::weather::CreateWeatherService(
-    draconis::services::weather::Provider::MetNo,
-    draconis::services::weather::Coords(35.6762, 139.6503), // Tokyo coordinates
-    draconis::services::weather::UnitSystem::Metric
-  );
-  #endif
+  if constexpr (DRAC_ENABLE_WEATHER) {
+    weatherService = draconis::services::weather::CreateWeatherService(
+      draconis::services::weather::Provider::MetNo,
+      draconis::services::weather::Coords(35.6762, 139.6503), // Tokyo coordinates
+      draconis::services::weather::UnitSystem::Metric
+    );
+  }
 
   using draconis::core::system::GetBatteryInfo;
   using draconis::core::system::GetCPUCores;
@@ -132,22 +132,22 @@ auto main() -> s32 {
           std::println("\x1b[12;0HBattery: Error ({})   ", bat.error().message);
 
         // Weather display logic
-  #if DRAC_ENABLE_WEATHER
-        if (weatherService && (frameCounter - lastWeatherCheck >= WEATHER_UPDATE_INTERVAL || !cachedWeather)) {
-          if (auto weatherResult = weatherService->getWeatherInfo(); weatherResult) {
-            cachedWeather    = *weatherResult;
-            lastWeatherCheck = frameCounter;
+        if constexpr (DRAC_ENABLE_WEATHER) {
+          if (weatherService && (frameCounter - lastWeatherCheck >= WEATHER_UPDATE_INTERVAL || !cachedWeather)) {
+            if (auto weatherResult = weatherService->getWeatherInfo(); weatherResult) {
+              cachedWeather    = *weatherResult;
+              lastWeatherCheck = frameCounter;
+            }
           }
-        }
 
-        if (cachedWeather) {
-          std::println("\x1b[13;0HWeather: {:.1f}°C, {}", cachedWeather->temperature, cachedWeather->description);
+          if (cachedWeather) {
+            std::println("\x1b[13;0HWeather: {:.1f}°C, {}", cachedWeather->temperature, cachedWeather->description);
+          } else {
+            std::println("\x1b[13;0HWeather: No data available");
+          }
         } else {
-          std::println("\x1b[13;0HWeather: No data available");
+          std::println("\x1b[13;0HWeather: Not enabled");
         }
-  #else
-        std::println("\x1b[13;0HWeather: Not enabled");
-  #endif
       }
     }
 
@@ -158,9 +158,8 @@ auto main() -> s32 {
   consoleExit(nullptr);
   timeExit();
 
-  #if DRAC_ENABLE_WEATHER
-  nifmExit();
-  #endif
+  if constexpr (DRAC_ENABLE_WEATHER)
+    nifmExit();
 
   return 0;
 }

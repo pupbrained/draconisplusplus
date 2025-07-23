@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__draconisplusplus__now_playing"
+    ],
+    "deny": []
+  }
+}

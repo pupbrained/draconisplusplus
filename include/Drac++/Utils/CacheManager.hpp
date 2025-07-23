@@ -89,85 +89,85 @@ namespace draconis::utils::cache {
       Option<CachePolicy> overridePolicy,
       Fn<Result<T>()>     fetcher
     ) -> Result<T> {
-#ifdef DRAC_ENABLE_CACHING
-      /* Early-exit if caching is globally disabled for this run. */
-      if (ignoreCache)
-        return fetcher();
+      if constexpr (DRAC_ENABLE_CACHING) {
+        /* Early-exit if caching is globally disabled for this run. */
+        if (ignoreCache)
+          return fetcher();
 
-      LockGuard lock(m_cacheMutex);
+        LockGuard lock(m_cacheMutex);
 
-      const CachePolicy& policy = overridePolicy.value_or(m_globalPolicy);
+        const CachePolicy& policy = overridePolicy.value_or(m_globalPolicy);
 
-      // 1. Check in-memory cache
-      if (const auto iter = m_inMemoryCache.find(key); iter != m_inMemoryCache.end())
-        if (
-          CacheEntry<T> entry; glz::read_beve(entry, iter->second.first) == glz::error_code::none &&
-          (!entry.expires.has_value() || system_clock::now() < system_clock::time_point(seconds(*entry.expires)))
-        )
-          return entry.data;
+        // 1. Check in-memory cache
+        if (const auto iter = m_inMemoryCache.find(key); iter != m_inMemoryCache.end())
+          if (
+            CacheEntry<T> entry; glz::read_beve(entry, iter->second.first) == glz::error_code::none &&
+            (!entry.expires.has_value() || system_clock::now() < system_clock::time_point(seconds(*entry.expires)))
+          )
+            return entry.data;
 
-      // 2. Check filesystem cache
-      const Option<fs::path> filePath = getCacheFilePath(key, policy.location);
+        // 2. Check filesystem cache
+        const Option<fs::path> filePath = getCacheFilePath(key, policy.location);
 
-      if (filePath && fs::exists(*filePath)) {
-        if (std::ifstream ifs(*filePath, std::ios::binary); ifs) {
-          std::string fileContents((std::istreambuf_iterator<char>(ifs)), {});
+        if (filePath && fs::exists(*filePath)) {
+          if (std::ifstream ifs(*filePath, std::ios::binary); ifs) {
+            std::string fileContents((std::istreambuf_iterator<char>(ifs)), {});
 
-          CacheEntry<T> entry;
+            CacheEntry<T> entry;
 
-          if (glz::read_beve(entry, fileContents) == glz::error_code::none) {
-            if (!entry.expires.has_value() || system_clock::now() < system_clock::time_point(seconds(*entry.expires))) {
-              system_clock::time_point expiryTp = entry.expires.has_value() ? system_clock::time_point(seconds(*entry.expires)) : system_clock::time_point::max();
+            if (glz::read_beve(entry, fileContents) == glz::error_code::none) {
+              if (!entry.expires.has_value() || system_clock::now() < system_clock::time_point(seconds(*entry.expires))) {
+                system_clock::time_point expiryTp = entry.expires.has_value() ? system_clock::time_point(seconds(*entry.expires)) : system_clock::time_point::max();
 
-              m_inMemoryCache[key] = { fileContents, expiryTp };
+                m_inMemoryCache[key] = { fileContents, expiryTp };
 
-              return entry.data;
+                return entry.data;
+              }
             }
           }
         }
-      }
 
-      // 3. Cache miss: call fetcher (move the callable to indicate consumption)
-      Result<T> fetchedResult = fetcher();
+        // 3. Cache miss: call fetcher (move the callable to indicate consumption)
+        Result<T> fetchedResult = fetcher();
 
-      if (!fetchedResult)
+        if (!fetchedResult)
+          return fetchedResult;
+
+        // 4. Store in cache
+        Option<u64> expiryTs;
+        if (policy.ttl.has_value()) {
+          system_clock::time_point now        = system_clock::now();
+          system_clock::time_point expiryTime = now + *policy.ttl;
+
+          expiryTs = duration_cast<seconds>(expiryTime.time_since_epoch()).count();
+        }
+
+        CacheEntry<T> newEntry {
+          .data    = *fetchedResult,
+          .expires = expiryTs
+        };
+
+        std::string binaryBuffer;
+        glz::write_beve(newEntry, binaryBuffer);
+
+        system_clock::time_point inMemoryExpiryTp = expiryTs.has_value()
+          ? system_clock::time_point(seconds(*expiryTs))
+          : system_clock::time_point::max();
+
+        m_inMemoryCache[key] = { binaryBuffer, inMemoryExpiryTp };
+
+        if (policy.location != CacheLocation::InMemory) {
+          fs::create_directories(filePath->parent_path());
+          std::ofstream ofs(*filePath, std::ios::binary | std::ios::trunc);
+          ofs.write(binaryBuffer.data(), static_cast<std::streamsize>(binaryBuffer.size()));
+        }
+
         return fetchedResult;
-
-      // 4. Store in cache
-      Option<u64> expiryTs;
-      if (policy.ttl.has_value()) {
-        system_clock::time_point now        = system_clock::now();
-        system_clock::time_point expiryTime = now + *policy.ttl;
-
-        expiryTs = duration_cast<seconds>(expiryTime.time_since_epoch()).count();
+      } else {
+        (void)key;
+        (void)overridePolicy;
+        return fetcher();
       }
-
-      CacheEntry<T> newEntry {
-        .data    = *fetchedResult,
-        .expires = expiryTs
-      };
-
-      std::string binaryBuffer;
-      glz::write_beve(newEntry, binaryBuffer);
-
-      system_clock::time_point inMemoryExpiryTp = expiryTs.has_value()
-        ? system_clock::time_point(seconds(*expiryTs))
-        : system_clock::time_point::max();
-
-      m_inMemoryCache[key] = { binaryBuffer, inMemoryExpiryTp };
-
-      if (policy.location != CacheLocation::InMemory) {
-        fs::create_directories(filePath->parent_path());
-        std::ofstream ofs(*filePath, std::ios::binary | std::ios::trunc);
-        ofs.write(binaryBuffer.data(), static_cast<std::streamsize>(binaryBuffer.size()));
-      }
-
-      return fetchedResult;
-#else
-      (void)key;
-      (void)overridePolicy;
-      return fetcher();
-#endif
     }
 
     template <typename T>
@@ -185,21 +185,21 @@ namespace draconis::utils::cache {
      * @param key Cache key to invalidate.
      */
     fn invalidate(const String& key) -> Unit {
-#ifdef DRAC_ENABLE_CACHING
-      LockGuard lock(m_cacheMutex);
+      if constexpr (DRAC_ENABLE_CACHING) {
+        LockGuard lock(m_cacheMutex);
 
-      // Erase from in-memory cache (no harm if the key is absent).
-      m_inMemoryCache.erase(key);
+        // Erase from in-memory cache (no harm if the key is absent).
+        m_inMemoryCache.erase(key);
 
-      // Attempt to remove the on-disk copies for both possible locations.
-      for (const CacheLocation loc : { CacheLocation::TempDirectory, CacheLocation::Persistent })
-        if (const Option<fs::path> filePath = getCacheFilePath(key, loc); filePath && fs::exists(*filePath)) {
-          std::error_code errc;
-          fs::remove(*filePath, errc);
-        }
-#else
-      (void)key;
-#endif
+        // Attempt to remove the on-disk copies for both possible locations.
+        for (const CacheLocation loc : { CacheLocation::TempDirectory, CacheLocation::Persistent })
+          if (const Option<fs::path> filePath = getCacheFilePath(key, loc); filePath && fs::exists(*filePath)) {
+            std::error_code errc;
+            fs::remove(*filePath, errc);
+          }
+      } else {
+        (void)key;
+      }
     }
 
     /**
@@ -210,76 +210,76 @@ namespace draconis::utils::cache {
      * directory structure.
      */
     fn invalidateAll(bool logRemovals = false) -> u8 {
-#ifdef DRAC_ENABLE_CACHING
-      LockGuard lock(m_cacheMutex);
+      if constexpr (DRAC_ENABLE_CACHING) {
+        LockGuard lock(m_cacheMutex);
 
-      u8 removedCount = 0;
+        u8 removedCount = 0;
 
-      // Record keys currently present so we can clean their temp-dir copies
-      // after we clear the map.
-      Vec<String> keys;
-      keys.reserve(m_inMemoryCache.size());
-      for (const auto& [key, val] : m_inMemoryCache)
-        keys.emplace_back(key);
+        // Record keys currently present so we can clean their temp-dir copies
+        // after we clear the map.
+        Vec<String> keys;
+        keys.reserve(m_inMemoryCache.size());
+        for (const auto& [key, val] : m_inMemoryCache)
+          keys.emplace_back(key);
 
-      // Clear in-memory cache.
-      m_inMemoryCache.clear();
+        // Clear in-memory cache.
+        m_inMemoryCache.clear();
 
-      // Remove all files from persistent cache directory.
-  #ifdef __APPLE__
-      const fs::path persistentDir = std::format("{}/Library/Caches/draconis++", draconis::utils::env::GetEnv("HOME").value_or("."));
-  #else
-      const fs::path persistentDir = std::format("{}/.cache/draconis++", draconis::utils::env::GetEnv("HOME").value_or("."));
-  #endif
+        // Remove all files from persistent cache directory.
+#ifdef __APPLE__
+        const fs::path persistentDir = std::format("{}/Library/Caches/draconis++", draconis::utils::env::GetEnv("HOME").value_or("."));
+#else
+        const fs::path persistentDir = std::format("{}/.cache/draconis++", draconis::utils::env::GetEnv("HOME").value_or("."));
+#endif
 
-      if (fs::exists(persistentDir)) {
-        std::error_code errc;
-        for (const fs::directory_entry& entry : fs::recursive_directory_iterator(persistentDir, errc))
-          if (entry.is_regular_file()) {
-            fs::remove(entry.path(), errc);
-            removedCount++;
-            if (logRemovals)
-              logging::Println("Removed persistent cache file: {}", entry.path().string());
-          }
-      }
-
-      // Remove all files from temp directory that match our cache pattern.
-      const fs::path tempDir = fs::temp_directory_path();
-      if (fs::exists(tempDir)) {
-        std::error_code errc;
-        for (const fs::directory_entry& entry : fs::directory_iterator(tempDir, errc)) {
-          if (entry.is_regular_file()) {
-            // Check if this file is one of our cache files by looking at known keys
-            // or by checking if it's a file we might have created
-            bool shouldRemove = false;
-
-            // Remove files that match our known keys
-            for (const String& key : keys)
-              if (entry.path().filename() == key) {
-                shouldRemove = true;
-                break;
-              }
-
-            // Also remove any files that might be orphaned cache files
-            // (files that don't have extensions and are likely our cache files)
-            if (!shouldRemove && entry.path().extension().empty())
-              shouldRemove = true;
-
-            if (shouldRemove) {
+        if (fs::exists(persistentDir)) {
+          std::error_code errc;
+          for (const fs::directory_entry& entry : fs::recursive_directory_iterator(persistentDir, errc))
+            if (entry.is_regular_file()) {
               fs::remove(entry.path(), errc);
               removedCount++;
               if (logRemovals)
-                logging::Println("Removed temp-directory cache file: {}", entry.path().string());
+                logging::Println("Removed persistent cache file: {}", entry.path().string());
+            }
+        }
+
+        // Remove all files from temp directory that match our cache pattern.
+        const fs::path tempDir = fs::temp_directory_path();
+        if (fs::exists(tempDir)) {
+          std::error_code errc;
+          for (const fs::directory_entry& entry : fs::directory_iterator(tempDir, errc)) {
+            if (entry.is_regular_file()) {
+              // Check if this file is one of our cache files by looking at known keys
+              // or by checking if it's a file we might have created
+              bool shouldRemove = false;
+
+              // Remove files that match our known keys
+              for (const String& key : keys)
+                if (entry.path().filename() == key) {
+                  shouldRemove = true;
+                  break;
+                }
+
+              // Also remove any files that might be orphaned cache files
+              // (files that don't have extensions and are likely our cache files)
+              if (!shouldRemove && entry.path().extension().empty())
+                shouldRemove = true;
+
+              if (shouldRemove) {
+                fs::remove(entry.path(), errc);
+                removedCount++;
+                if (logRemovals)
+                  logging::Println("Removed temp-directory cache file: {}", entry.path().string());
+              }
             }
           }
         }
-      }
 
-      return removedCount;
-#else
-      (void)logRemovals;
-      return 0;
-#endif
+        return removedCount;
+      } else {
+        (void)logRemovals;
+        return 0;
+      }
     }
 
    private:

@@ -13,15 +13,15 @@
 
 #if DRAC_PRECOMPILED_CONFIG
 
-  #if DRAC_ENABLE_WEATHER || DRAC_ENABLE_PACKAGECOUNT
-    #include "Config/Config.hpp" // Location
-
-    #include "Services/Weather.hpp" // Coords
-
-    #include "Util/ConfigData.hpp" // PackageManager, WeatherProvider, WeatherUnit
+  #if DRAC_ENABLE_WEATHER
+    #include <Drac++/Services/Weather.hpp>
   #endif
 
-namespace config {
+  #if DRAC_ENABLE_PACKAGECOUNT
+    #include <Drac++/Services/Packages.hpp>
+  #endif
+
+namespace draconis::config {
   /**
    * @brief The username to display.
    * @details Used for the greeting message.
@@ -33,25 +33,25 @@ namespace config {
    * @brief Selects the weather service provider.
    *
    * @details
-   * - `WeatherProvider::OPENWEATHERMAP`: Uses OpenWeatherMap API (requires `DRAC_API_KEY`).
-   * - `WeatherProvider::OPENMETEO`:      Uses OpenMeteo API (no API key needed).
-   * - `WeatherProvider::METNO`:          Uses Met.no API (no API key needed).
+   * - `draconis::services::weather::Provider::OpenWeatherMap`: Uses OpenWeatherMap API (requires `DRAC_API_KEY`).
+   * - `draconis::services::weather::Provider::OpenMeteo`:      Uses OpenMeteo API (no API key needed).
+   * - `draconis::services::weather::Provider::Metno`:          Uses Met.no API (no API key needed).
    *
    * @see DRAC_API_KEY
-   * @see WeatherProvider
+   * @see draconis::services::weather::Provider
    */
-  constexpr WeatherProvider DRAC_WEATHER_PROVIDER = WeatherProvider::OPENMETEO;
+  constexpr services::weather::Provider DRAC_WEATHER_PROVIDER = services::weather::Provider::OpenMeteo;
 
   /**
    * @brief Specifies the unit system for displaying weather information.
    *
    * @details
-   * - `WeatherUnit::IMPERIAL`: Uses imperial units (e.g., Fahrenheit, mph).
-   * - `WeatherUnit::METRIC`:   Uses metric units (e.g., Celsius, kph).
+   * - `draconis::services::weather::UnitSystem::Imperial`: Uses imperial units (e.g., Fahrenheit, mph).
+   * - `draconis::services::weather::UnitSystem::Metric`:   Uses metric units (e.g., Celsius, kph).
    *
-   * @see WeatherUnit
+   * @see draconis::services::weather::UnitSystem
    */
-  constexpr WeatherUnit DRAC_WEATHER_UNIT = WeatherUnit::METRIC;
+  constexpr services::weather::UnitSystem DRAC_WEATHER_UNIT = services::weather::UnitSystem::Metric;
 
   /**
    * @brief Determines whether to display the town name in the weather output.
@@ -69,7 +69,7 @@ namespace config {
    * @brief API key for the OpenWeatherMap service.
    *
    * @details
-   * - This key is **only** required if `DRAC_WEATHER_PROVIDER` is set to `WeatherProvider::OPENWEATHERMAP`.
+   * - This key is **only** required if `DRAC_WEATHER_PROVIDER` is set to `draconis::services::weather::Provider::OpenWeatherMap`.
    * - Met.no and OpenMeteo providers do not require an API key; for these, this value can be `std::nullopt`.
    * - Obtain an API key from [OpenWeatherMap](https://openweathermap.org/api).
    *
@@ -80,55 +80,55 @@ namespace config {
   /**
    * @brief Specifies the location for weather forecasts.
    *
-   * For `WeatherProvider::OPENWEATHERMAP`, this can be a city name (e.g., `"London,UK"`) or
-   * `weather::Coords` for latitude/longitude.
+   * For `draconis::services::weather::Provider::OpenWeatherMap`, this can be a city name (e.g., `"London,UK"`) or
+   * `draconis::services::weather::Coords` for latitude/longitude.
    *
-   * For `WeatherProvider::OPENMETEO` and `WeatherProvider::METNO`, this **must** be
-   * `weather::Coords` (latitude and longitude).
+   * For `draconis::services::weather::Provider::OpenMeteo` and `draconis::services::weather::Provider::Metno`, this **must** be
+   * `draconis::services::weather::Coords` (latitude and longitude).
    *
    * For New York City using coordinates:
    * @code{.cpp}
-   * constexpr Location DRAC_LOCATION = weather::Coords { .lat = 40.730610, .lon = -73.935242 };
+   * constexpr draconis::services::weather::Location DRAC_LOCATION = draconis::services::weather::Coords { .lat = 40.730610, .lon = -73.935242 };
    * @endcode
    *
    * For New York City using a city name (OpenWeatherMap only):
    * @code{.cpp}
-   * constexpr Location DRAC_LOCATION = "New York,US";
+   * constexpr draconis::services::weather::Location DRAC_LOCATION = "New York, US";
    * @endcode
    *
-   * @see Location
-   * @see weather::Coords
+   * @see draconis::services::weather::Location
+   * @see draconis::services::weather::Coords
    * @see DRAC_WEATHER_PROVIDER
    *
    */
-  constexpr Location DRAC_LOCATION = weather::Coords { .lat = 40.730610, .lon = -73.935242 };
+  constexpr services::weather::Location DRAC_LOCATION = services::weather::Coords { .lat = 40.730610, .lon = -73.935242 };
   #endif
 
   #if DRAC_ENABLE_PACKAGECOUNT
   /**
    * @brief Configures which package managers' counts are displayed.
    *
-   * This is a bitmask field. Combine multiple `PackageManager` enum values
+   * This is a bitmask field. Combine multiple `Manager` enum values
    * using the bitwise OR operator (`|`).
-   * The available `PackageManager` enum values are defined in `Util/ConfigData.hpp`
+   * The available `Manager` enum values are defined in `Util/ConfigData.hpp`
    * and may vary based on the operating system.
    *
-   * @see PackageManager
+   * @see Manager
    * @see HasPackageManager
    * @see Util/ConfigData.hpp
    *
-   * To enable CARGO, PACMAN, and NIX package managers:
+   * To enable Cargo, Pacman, and Nix package managers:
    * @code{.cpp}
-   * constexpr PackageManager DRAC_ENABLED_PACKAGE_MANAGERS = PackageManager::CARGO | PackageManager::PACMAN | PackageManager::NIX;
+   * constexpr Manager DRAC_ENABLED_PACKAGE_MANAGERS = Manager::Cargo | Manager::Pacman | Manager::Nix;
    * @endcode
    *
-   * To enable only CARGO:
+   * To enable only Cargo:
    * @code{.cpp}
-   * constexpr PackageManager DRAC_ENABLED_PACKAGE_MANAGERS = PackageManager::CARGO;
+   * constexpr Manager DRAC_ENABLED_PACKAGE_MANAGERS = Manager::Cargo;
    * @endcode
    */
-  constexpr PackageManager DRAC_ENABLED_PACKAGE_MANAGERS = PackageManager::CARGO;
+  constexpr services::packages::Manager DRAC_ENABLED_PACKAGE_MANAGERS = services::packages::Manager::Cargo;
   #endif
-} // namespace config
+} // namespace draconis::config
 
 #endif // DRAC_PRECOMPILED_CONFIG

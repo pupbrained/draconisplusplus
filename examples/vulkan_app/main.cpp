@@ -426,12 +426,12 @@ fn main() -> i32 {
       windowMgr     = GetWindowManager(cacheManager);
       diskUsage     = GetDiskUsage(cacheManager);
       shell         = GetShell(cacheManager);
-#if DRAC_ENABLE_PACKAGECOUNT
-      packageCount = GetTotalCount(cacheManager, Manager::CARGO);
-#endif
-#if DRAC_ENABLE_NOWPLAYING
-      nowPlaying = GetNowPlaying();
-#endif
+
+      if constexpr (DRAC_ENABLE_PACKAGECOUNT)
+        packageCount = GetTotalCount(cacheManager, Manager::Cargo);
+      if constexpr (DRAC_ENABLE_NOWPLAYING)
+        nowPlaying = GetNowPlaying();
+
       lastUpdateTime = now;
     }
 
@@ -490,17 +490,15 @@ fn main() -> i32 {
 
       ImGui::TextUnformatted(std::format("Shell: {}", shell.value_or("N/A")).c_str());
 
-#if DRAC_ENABLE_PACKAGECOUNT
-      ImGui::TextUnformatted(std::format("Packages: {}", packageCount.value_or(0)).c_str());
-#endif
+      if constexpr (DRAC_ENABLE_PACKAGECOUNT)
+        ImGui::TextUnformatted(std::format("Packages: {}", packageCount.value_or(0)).c_str());
 
-#if DRAC_ENABLE_NOWPLAYING
-      if (nowPlaying) {
-        const MediaInfo& nowPlayingInfo = *nowPlaying;
-        ImGui::TextUnformatted(std::format("Now Playing: {} - {}", nowPlayingInfo.artist.value_or("N/A"), nowPlayingInfo.title.value_or("N/A")).c_str());
-      } else
-        ImGui::TextUnformatted("Now Playing: N/A");
-#endif
+      if constexpr (DRAC_ENABLE_NOWPLAYING) {
+        if (nowPlaying)
+          ImGui::TextUnformatted(std::format("Now Playing: {} - {}", nowPlaying->artist.value_or("N/A"), nowPlaying->title.value_or("N/A")).c_str());
+        else
+          ImGui::TextUnformatted("Now Playing: N/A");
+      }
     }
     ImGui::End();
 
