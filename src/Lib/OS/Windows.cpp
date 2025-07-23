@@ -703,13 +703,12 @@ namespace draconis::core::system {
 
   fn GetCPUModel(CacheManager& cache) -> Result<String> {
     return cache.getOrSet<String>("windows_cpu_model", []() -> Result<String> {
-    /*
-     * This function attempts to get the CPU model name on Windows in two ways:
-     * 1. Using __cpuid on x86/x86_64 platforms (much more direct and efficient).
-     * 2. Reading from the registry on all platforms (slower, but more reliable).
-     */
-  #if DRAC_ARCH_X86_64 || DRAC_ARCH_X86
-      {
+      /*
+       * This function attempts to get the CPU model name on Windows in two ways:
+       * 1. Using __cpuid on x86/x86_64 platforms (much more direct and efficient).
+       * 2. Reading from the registry on all platforms (slower, but more reliable).
+       */
+      if constexpr (DRAC_ARCH_X86_64 || DRAC_ARCH_X86) {
         /*
          * The CPUID instruction is used to get the CPU model name on x86/x86_64 platforms.
          * 1. First, we call CPUID with leaf 0x80000000 to ask the CPU if it supports the
@@ -752,9 +751,7 @@ namespace draconis::core::system {
           if (!result.empty())
             return result;
         }
-      }
-  #endif // DRAC_ARCH_X86_64 || DRAC_ARCH_X86
-      {
+      } else {
         /*
          * If the CPUID instruction fails/is unsupported on the target architecture,
          * we fallback to querying the registry. This is a lot more reliable than

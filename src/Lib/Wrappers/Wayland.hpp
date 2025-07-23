@@ -1,6 +1,6 @@
 #pragma once
 
-#if DRAC_USE_WAYLAND
+#if (defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__)) && DRAC_USE_WAYLAND
 
   #include <cstring>          // std::strcmp
   #include <wayland-client.h> // Wayland client library
@@ -569,4 +569,4 @@ namespace Wayland {
   };
 } // namespace Wayland
 
-#endif // DRAC_USE_WAYLAND
+#endif // (defined(__linux__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__NetBSD__)) && DRAC_USE_WAYLAND

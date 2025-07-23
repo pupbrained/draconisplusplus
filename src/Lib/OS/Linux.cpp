@@ -124,7 +124,7 @@ namespace {
     ERR_FMT(NotFound, "PCI device with vendor ID '{}' and device ID '{}' not found in PCI IDs buffer", vendorId, deviceId);
   }
 
-  #ifdef DRAC_USE_LINKED_PCI_IDS
+  #if DRAC_USE_LINKED_PCI_IDS
   extern "C" {
     extern const char _binary_pci_ids_start[];
     extern const char _binary_pci_ids_end[];
@@ -215,7 +215,7 @@ namespace {
     return std::format("{} {}", vendor, device);
   }
 
-  #ifdef DRAC_USE_XCB
+  #if DRAC_USE_XCB
   fn GetX11WindowManager() -> Result<String> {
     using namespace XCB;
     using namespace matchit;
@@ -475,7 +475,7 @@ namespace {
   }
   #endif
 
-  #ifdef DRAC_USE_WAYLAND
+  #if DRAC_USE_WAYLAND
   fn GetWaylandCompositor() -> Result<String> {
     const Wayland::DisplayGuard display;
 
@@ -740,7 +740,9 @@ namespace draconis::core::system {
   }
 
   fn GetNowPlaying() -> Result<MediaInfo> {
-  #ifdef DRAC_ENABLE_NOWPLAYING
+    if constexpr (!DRAC_ENABLE_NOWPLAYING)
+      ERR(NotSupported, "Now Playing API disabled");
+
     using namespace DBus;
 
     Result<Connection> connectionResult = Connection::busGet(DBUS_BUS_SESSION);
@@ -863,15 +865,11 @@ namespace draconis::core::system {
     }
 
     return MediaInfo(std::move(title), std::move(artist));
-  #else
-    ERR(NotSupported, "DBus support not available");
-  #endif
   }
 
   fn GetWindowManager(CacheManager& cache) -> Result<String> {
-  #if !defined(DRAC_USE_WAYLAND) && !defined(DRAC_USE_XCB)
-    ERR(NotSupported, "Wayland or XCB support not available");
-  #endif
+    if constexpr (!DRAC_USE_WAYLAND && !DRAC_USE_XCB)
+      ERR(NotSupported, "Wayland or XCB support not available");
 
     return cache.getOrSet<String>("linux_wm", [&]() -> Result<String> {
       if (GetEnv("WAYLAND_DISPLAY"))

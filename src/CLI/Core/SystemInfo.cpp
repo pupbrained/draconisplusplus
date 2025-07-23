@@ -88,12 +88,10 @@ namespace draconis::core::system {
     this->uptime          = GetUptime();
     this->date            = GetDate();
 
-#if DRAC_ENABLE_PACKAGECOUNT
-    this->packageCount = draconis::services::packages::GetTotalCount(cache, config.enabledPackageManagers);
-#endif
+    if constexpr (DRAC_ENABLE_PACKAGECOUNT)
+      this->packageCount = draconis::services::packages::GetTotalCount(cache, config.enabledPackageManagers);
 
-#if DRAC_ENABLE_NOWPLAYING
-    this->nowPlaying = config.nowPlaying.enabled ? GetNowPlaying() : Err(DracError(ApiUnavailable, "Now Playing API disabled"));
-#endif
+    if constexpr (DRAC_ENABLE_NOWPLAYING)
+      this->nowPlaying = config.nowPlaying.enabled ? GetNowPlaying() : Err(DracError(ApiUnavailable, "Now Playing API disabled"));
   }
 } // namespace draconis::core::system

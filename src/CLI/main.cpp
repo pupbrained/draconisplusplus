@@ -32,10 +32,7 @@ using namespace draconis::ui;
 namespace {
   fn WriteToConsole(const String& document) -> Unit {
 #ifdef _WIN32
-    if (
-      HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-      hConsole != INVALID_HANDLE_VALUE
-    )
+    if (HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE); hConsole != INVALID_HANDLE_VALUE)
       WriteConsoleA(hConsole, document.c_str(), static_cast<DWORD>(document.length()), nullptr, nullptr);
 #else
     Println(document);
@@ -70,17 +67,14 @@ namespace {
     DRAC_CHECK(data.shell, "Shell");
     DRAC_CHECK(data.uptime, "Uptime");
 
-#if DRAC_ENABLE_PACKAGECOUNT
-    DRAC_CHECK(data.packageCount, "PackageCount");
-#endif
+    if constexpr (DRAC_ENABLE_PACKAGECOUNT)
+      DRAC_CHECK(data.packageCount, "PackageCount");
 
-#if DRAC_ENABLE_NOWPLAYING
-    DRAC_CHECK(data.nowPlaying, "NowPlaying");
-#endif
+    if constexpr (DRAC_ENABLE_NOWPLAYING)
+      DRAC_CHECK(data.nowPlaying, "NowPlaying");
 
-#if DRAC_ENABLE_WEATHER
-    DRAC_CHECK(weather, "Weather");
-#endif
+    if constexpr (DRAC_ENABLE_WEATHER)
+      DRAC_CHECK(weather, "Weather");
 
 #undef DRAC_CHECK
 
@@ -134,18 +128,15 @@ namespace {
     if (data.uptime)
       output.uptimeSeconds = data.uptime->count();
 
-#if DRAC_ENABLE_PACKAGECOUNT
-    DRAC_SET_OPTIONAL(packageCount);
-#endif
+    if constexpr (DRAC_ENABLE_PACKAGECOUNT)
+      DRAC_SET_OPTIONAL(packageCount);
 
-#if DRAC_ENABLE_NOWPLAYING
-    DRAC_SET_OPTIONAL(nowPlaying);
-#endif
+    if constexpr (DRAC_ENABLE_NOWPLAYING)
+      DRAC_SET_OPTIONAL(nowPlaying);
 
-#if DRAC_ENABLE_WEATHER
-    if (weather)
-      output.weather = *weather;
-#endif
+    if constexpr (DRAC_ENABLE_WEATHER)
+      if (weather)
+        output.weather = *weather;
 
 #undef DRAC_SET_OPTIONAL
 
