@@ -127,6 +127,7 @@ namespace Curl {
       if (this != &other) {
         if (m_curl)
           curl_easy_cleanup(m_curl);
+
         m_curl      = std::exchange(other.m_curl, nullptr);
         m_initError = std::move(other.m_initError);
       }
@@ -223,7 +224,7 @@ namespace Curl {
      * @return A Result containing the escaped string or an error.
      */
     static fn escape(const String& url) -> Result<String> {
-      char* escapedUrl = curl_easy_escape(nullptr, url.c_str(), static_cast<int>(url.length()));
+      char* escapedUrl = curl_easy_escape(nullptr, url.c_str(), static_cast<i32>(url.length()));
 
       if (!escapedUrl)
         ERR(OutOfMemory, "curl_easy_escape failed");

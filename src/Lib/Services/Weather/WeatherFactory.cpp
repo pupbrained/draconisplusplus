@@ -151,6 +151,7 @@ namespace draconis::services::weather {
     if (!curl) {
       if (const Option<DracError>& initError = curl.getInitializationError())
         ERR_FROM(*initError);
+
       ERR(ApiUnavailable, "Failed to initialize cURL for IP geolocation");
     }
 

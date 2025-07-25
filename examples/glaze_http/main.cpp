@@ -265,13 +265,13 @@ fn main() -> i32 {
       return;
     }
 
-    if (Result<String, glz::error_ctx> result = glz::stencil(*htmlTemplate, sysInfo))
+    if (Result<String, glz::error_ctx> result = glz::stencil(*htmlTemplate, sysInfo)) {
       res.header("Content-Type", "text/html; charset=utf-8")
         .header("Cache-Control", "no-cache, no-store, must-revalidate")
         .header("Pragma", "no-cache")
         .header("Expires", "0")
         .body(*result);
-    else {
+    } else {
       error_log("Failed to render stencil template:\n{}", glz::format_error(result.error(), *htmlTemplate));
       res.status(500).body("Internal Server Error: Template rendering failed.");
     }
