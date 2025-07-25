@@ -17,7 +17,6 @@ namespace draconis::core::system {
     using utils::types::CPUCores;
     using utils::types::DisplayInfo;
     using utils::types::f64;
-    using utils::types::Frequencies;
     using utils::types::i64;
     using utils::types::MediaInfo;
     using utils::types::NetworkInterface;

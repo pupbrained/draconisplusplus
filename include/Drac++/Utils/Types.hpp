@@ -172,6 +172,20 @@ namespace draconis::utils {
     using PWCStr = const wchar_t*;
 
     /**
+     * @brief Alias for void.
+     *
+     * Represents a unit type.
+     */
+    using Unit = void;
+
+    /**
+     * @brief Alias for void*.
+     *
+     * A type-erased pointer.
+     */
+    using RawPointer = void*;
+
+    /**
      * @brief Alias for std::exception.
      *
      * Standard exception type.
@@ -191,20 +205,6 @@ namespace draconis::utils {
      * RAII-style lock guard for mutexes.
      */
     using LockGuard = std::lock_guard<Mutex>;
-
-    /**
-     * @brief Alias for void.
-     *
-     * Represents a unit type.
-     */
-    using Unit = void;
-
-    /**
-     * @brief Alias for void*.
-     *
-     * A type-erased pointer.
-     */
-    using RawPointer = void*;
 
     /**
      * @brief Alias for std::optional<Tp>.

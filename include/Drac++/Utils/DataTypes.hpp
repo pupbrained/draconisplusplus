@@ -24,7 +24,7 @@ namespace draconis::utils::types {
 
     OSInfo() = default;
 
-    OSInfo(String name, String version, String identifier)
+    OSInfo(String& name, String& version, String& identifier)
       : name(std::move(name)), version(std::move(version)), id(std::move(identifier)) {}
   };
 
@@ -40,7 +40,7 @@ namespace draconis::utils::types {
 
     ResourceUsage() = default;
 
-    ResourceUsage(u64 usedBytes, u64 totalBytes)
+    ResourceUsage(const u64& usedBytes, const u64& totalBytes)
       : usedBytes(usedBytes), totalBytes(totalBytes) {}
   };
 
@@ -61,30 +61,6 @@ namespace draconis::utils::types {
       : title(std::move(title)), artist(std::move(artist)) {}
   };
 
-  constexpr u64 GIB = 1'073'741'824;
-
-  struct BytesToGiB {
-    u64 value;
-
-    explicit constexpr BytesToGiB(const u64 value)
-      : value(value) {}
-  };
-
-  struct SecondsToFormattedDuration {
-    std::chrono::seconds value;
-
-    explicit constexpr SecondsToFormattedDuration(const std::chrono::seconds value)
-      : value(value) {}
-  };
-
-  enum class CPUArch : u8 {
-    X86,     ///< x86 32-bit architecture.
-    X86_64,  ///< x86_64 64-bit architecture.
-    ARM,     ///< 32-bit ARM architecture.
-    AARCH64, ///< 64-bit ARM architecture (ARMv8-A).
-    UNKNOWN  ///< Unknown or unsupported architecture.
-  };
-
   /**
    * @struct CPUCores
    * @brief Represents the number of physical and logical cores on a CPU.
@@ -97,23 +73,12 @@ namespace draconis::utils::types {
 
     CPUCores() = default;
 
-    CPUCores(const usize physical, const usize logical)
+    CPUCores(const usize& physical, const usize& logical)
       : physical(physical), logical(logical) {}
   };
 
-  struct Frequencies {
-    f64 base;    ///< Base (rated) frequency in MHz.
-    f64 max;     ///< Maximum (turbo) frequency in MHz.
-    f64 current; ///< Current operating frequency in MHz (can fluctuate).
-
-    Frequencies() = default;
-
-    Frequencies(f64 base, f64 max, f64 current)
-      : base(base), max(max), current(current) {}
-  };
-
   /**
-   * @struct Output
+   * @struct DisplayInfo
    * @brief Represents a display or monitor device.
    *
    * Used to report the display or monitor device.
@@ -131,7 +96,7 @@ namespace draconis::utils::types {
 
     DisplayInfo() = default;
 
-    DisplayInfo(const usize identifier, const Resolution resolution, const f64 refreshRate, const bool isPrimary)
+    DisplayInfo(const usize& identifier, const Resolution& resolution, const f64& refreshRate, const bool& isPrimary)
       : id(identifier), resolution(resolution), refreshRate(refreshRate), isPrimary(isPrimary) {}
   };
 
@@ -149,17 +114,21 @@ namespace draconis::utils::types {
 
     NetworkInterface() = default;
 
-    NetworkInterface(String name, Option<String> ipv4Address, Option<String> ipv6Address, Option<String> macAddress, bool isUp, bool isLoopback)
+    NetworkInterface(String& name, Option<String> ipv4Address, Option<String> ipv6Address, Option<String> macAddress, bool isUp, bool isLoopback)
       : name(std::move(name)), ipv4Address(std::move(ipv4Address)), ipv6Address(std::move(ipv6Address)), macAddress(std::move(macAddress)), isUp(isUp), isLoopback(isLoopback) {}
   };
 
+  /**
+   * @struct Battery
+   * @brief Represents a battery.
+   */
   struct Battery {
     enum class Status : u8 {
       Unknown,     ///< Battery status is unknown.
       Charging,    ///< Battery is charging.
       Discharging, ///< Battery is discharging.
       Full,        ///< Battery is fully charged.
-      NotPresent   ///< No battery present.
+      NotPresent,  ///< No battery present.
     } status;      ///< Current battery status.
 
     Option<u8>                   percentage;    ///< Battery charge percentage (0-100).
@@ -167,8 +136,30 @@ namespace draconis::utils::types {
 
     Battery() = default;
 
-    Battery(const Status status, const Option<u8> percentage, Option<std::chrono::seconds> timeRemaining)
+    Battery(const Status& status, const Option<u8> percentage, Option<std::chrono::seconds> timeRemaining)
       : status(status), percentage(percentage), timeRemaining(timeRemaining) {}
+  };
+
+  /**
+   * @struct BytesToGiB
+   * @brief Represents a value in bytes converted to gibibytes.
+   */
+  struct BytesToGiB {
+    u64 value;
+
+    explicit constexpr BytesToGiB(const u64& value)
+      : value(value) {}
+  };
+
+  /**
+   * @struct SecondsToFormattedDuration
+   * @brief Represents a value in seconds converted to a formatted duration.
+   */
+  struct SecondsToFormattedDuration {
+    std::chrono::seconds value;
+
+    explicit constexpr SecondsToFormattedDuration(const std::chrono::seconds& value)
+      : value(value) {}
   };
 } // namespace draconis::utils::types
 
@@ -176,7 +167,9 @@ namespace std {
   template <>
   struct formatter<draconis::utils::types::BytesToGiB> : formatter<draconis::utils::types::f64> {
     fn format(const draconis::utils::types::BytesToGiB& BTG, auto& ctx) const {
-      return format_to(ctx.out(), "{:.2f}GiB", static_cast<draconis::utils::types::f64>(BTG.value) / draconis::utils::types::GIB);
+      constexpr draconis::utils::types::u64 gib = 1'073'741'824;
+
+      return format_to(ctx.out(), "{:.2f}GiB", static_cast<draconis::utils::types::f64>(BTG.value) / gib);
     }
   };
 

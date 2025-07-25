@@ -723,7 +723,7 @@ namespace draconis::core::system {
       if (osVersion.empty())
         osVersion = "";
 
-      return OSInfo(std::move(osName), std::move(osVersion), std::move(osId));
+      return OSInfo(osName, osVersion, osId);
     });
   }
 
@@ -868,6 +868,7 @@ namespace draconis::core::system {
   }
 
   fn GetWindowManager(CacheManager& cache) -> Result<String> {
+    // NOLINTNEXTLINE(misc-redundant-expression) - compile-time values are not always redundant
     if constexpr (!DRAC_USE_WAYLAND && !DRAC_USE_XCB)
       ERR(NotSupported, "Wayland or XCB support not available");
 

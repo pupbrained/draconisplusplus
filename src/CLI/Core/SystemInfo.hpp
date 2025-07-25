@@ -13,8 +13,6 @@ namespace draconis::core::system {
   namespace {
     using config::Config;
 
-    using utils::types::CPUArch;
-    using utils::types::Frequencies;
     using utils::types::MediaInfo;
     using utils::types::OSInfo;
     using utils::types::ResourceUsage;
