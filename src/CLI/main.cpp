@@ -102,7 +102,8 @@ namespace {
 #if DRAC_ENABLE_WEATHER
     const Result<Report>& weather,
 #endif
-    const SystemInfo& data
+    const SystemInfo& data,
+    bool              prettyJson
   ) -> Unit {
     using draconis::core::system::JsonInfo;
 
@@ -142,7 +143,10 @@ namespace {
 
     String jsonStr;
 
-    glz::error_ctx errorContext = glz::write<glz::opts { .prettify = true }>(output, jsonStr);
+    glz::error_ctx errorContext =
+      prettyJson
+      ? glz::write<glz::opts { .prettify = true }>(output, jsonStr)
+      : glz::write_json(output, jsonStr);
 
     if (errorContext)
       WriteToConsole(std::format("Failed to write JSON output: {}", glz::format_error(errorContext, jsonStr)));
@@ -162,8 +166,9 @@ fn main(const i32 argc, CStr* argv[]) -> i32 try {
     clearCache,
     ignoreCacheRun,
     noAscii,
-    jsonOutput
-  ] = Tuple(false, false, false, false, false);
+    jsonOutput,
+    prettyJson
+  ] = Tuple(false, false, false, false, false, false);
   // clang-format on
 
   {
@@ -206,6 +211,11 @@ fn main(const i32 argc, CStr* argv[]) -> i32 try {
       .help("Output system information in JSON format. Overrides --no-ascii.")
       .flag();
 
+    parser
+      .addArguments("--pretty")
+      .help("Pretty-print JSON output. Only valid when --json is used.")
+      .flag();
+
     if (Result result = parser.parseArgs({ argv, static_cast<usize>(argc) }); !result) {
       error_at(result.error());
       return EXIT_FAILURE;
@@ -216,6 +226,7 @@ fn main(const i32 argc, CStr* argv[]) -> i32 try {
     ignoreCacheRun = parser.get<bool>("--ignore-cache");
     noAscii        = parser.get<bool>("--no-ascii");
     jsonOutput     = parser.get<bool>("--json");
+    prettyJson     = parser.get<bool>("--pretty");
 
     SetRuntimeLogLevel(
       parser.get<bool>("-V") || parser.get<bool>("--verbose")
@@ -313,7 +324,8 @@ fn main(const i32 argc, CStr* argv[]) -> i32 try {
 #if DRAC_ENABLE_WEATHER
         weatherReport,
 #endif
-        data
+        data,
+        prettyJson
       );
     else
       WriteToConsole(CreateUI(

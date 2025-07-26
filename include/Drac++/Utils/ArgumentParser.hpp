@@ -199,7 +199,7 @@ namespace draconis::utils::argparse {
         std::ranges::transform(
           lower,
           lower.begin(),
-          [](u8 chr) { return static_cast<CStr>(std::tolower(chr)); }
+          [](u8 chr) -> CStr { return static_cast<CStr>(std::tolower(chr)); }
         );
         lowered.emplace(std::move(lower));
       }
