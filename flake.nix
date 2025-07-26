@@ -106,6 +106,7 @@
               hyperfine
               llvmPackages.clang-tools
               meson
+              mesonlsp
               ninja
               pkg-config
 
