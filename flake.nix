@@ -28,7 +28,7 @@
           overlays = lib.optionals isLinux [devkitNix.overlays.default];
         };
 
-        llvmPackages = pkgs.llvmPackages_20;
+        llvmPackages = pkgs.llvmPackages_21;
 
         stdenv = with pkgs;
           (

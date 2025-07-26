@@ -63,9 +63,9 @@ namespace {
   constexpr fn TryParse(StringView sview) -> Option<T> {
     T value;
 
-    auto [ptr, ec] = std::from_chars(sview.data(), sview.data() + sview.size(), value);
+    auto [ptr, ec] = std::from_chars(sview.begin(), sview.end(), value);
 
-    if (ec == std::errc() && ptr == sview.data() + sview.size())
+    if (ec == std::errc() && ptr == sview.end())
       return value;
 
     return None;
@@ -496,7 +496,7 @@ namespace {
 
     auto [out, size] = std::format_to_n(exeLinkPathBuf.data(), exeLinkPathBuf.size() - 1, "/proc/{}/exe", cred.pid);
 
-    if (out >= exeLinkPathBuf.data() + exeLinkPathBuf.size() - 1)
+    if (static_cast<usize>(size) >= exeLinkPathBuf.size() - 1)
       ERR(InternalError, "Failed to format /proc path (PID too large?)");
 
     *out = '\0';
