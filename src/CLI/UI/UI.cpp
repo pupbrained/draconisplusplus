@@ -611,7 +611,7 @@ namespace draconis::ui {
           out += "┤\n";
         }
 
-        const String leftPart      = Colorize(iconType.music, DEFAULT_THEME.icon) + Colorize("Playing", DEFAULT_THEME.label);
+        const String leftPart      = Colorize(iconType.music, DEFAULT_THEME.icon) + Colorize("Playing ", DEFAULT_THEME.label);
         const usize  leftPartWidth = GetVisualWidth(leftPart);
 
         const usize availableWidth = maxContentWidth - leftPartWidth;
