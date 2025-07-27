@@ -207,5 +207,5 @@ executable(
   'mcp_server/main.cpp',
   dependencies: [draconis_dep] + lib_deps,
   link_args: link_args,
-  install: false,
+  install: true,
 )

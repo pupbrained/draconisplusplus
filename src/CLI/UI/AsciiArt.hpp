@@ -166,12 +166,12 @@ namespace draconis::ui::ascii {
 
     // clang-format off
     static constexpr Array<Pair<StringView, StringView>, 7> LOGOS = {{
-       {   "nixos",   NIXOS },
-       {   "macos",   MACOS },
-       {  "ubuntu",  UBUNTU },
        {    "arch",    ARCH },
+       {   "macos",   MACOS },
+       {   "nixos",   NIXOS },
        {  "debian",  DEBIAN },
        {  "fedora",  FEDORA },
+       {  "ubuntu",  UBUNTU },
        { "windows", WINDOWS },
     }};
     // clang-format on

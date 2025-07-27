@@ -24,7 +24,7 @@
   #include <ranges>                                 // std::ranges::find_if, std::ranges::views::transform
   #include <sysinfoapi.h>                           // GetLogicalProcessorInformationEx, RelationProcessorCore, PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX, KAFFINITY
   #include <tlhelp32.h>                             // CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS
-  #include <winerror.h>                             // DXGI_ERROR_NOT_FOUND, ERROR_FILE_NOT_FOUND, FAILE
+  #include <winerror.h>                             // DXGI_ERROR_NOT_FOUND, ERROR_FILE_NOT_FOUND, FAILED
   #include <winrt/Windows.Foundation.Collections.h> // winrt::Windows::Foundation::Collections::Map
   #include <winrt/Windows.Management.Deployment.h>  // winrt::Windows::Management::Deployment::PackageManager
   #include <winrt/Windows.Media.Control.h>          // winrt::Windows::Media::Control::MediaProperties
@@ -38,6 +38,9 @@
   // IP Helper API headers
   #include <iphlpapi.h> // GetAdaptersAddresses, GetBestRoute
   #include <iptypes.h>  // GAA_FLAG_INCLUDE_PREFIX, IP_ADAPTER_ADDRESSES, IP_ADAPTER_UNICAST_ADDRESS
+
+  // COM smart pointer support
+  #include <wrl/client.h> // Microsoft::WRL::ComPtr
 
   #include "Drac++/Core/System.hpp"
 
@@ -195,45 +198,78 @@ namespace {
   } // namespace helpers
 
   namespace cache {
+    // RAII wrapper for registry keys
+    class RegistryKey {
+     public:
+      explicit RegistryKey(HKEY key) : m_key(key) {}
+
+      ~RegistryKey() {
+        if (m_key)
+          RegCloseKey(m_key);
+      }
+
+      fn operator=(RegistryKey&& other) noexcept -> RegistryKey& {
+        if (this != &other) {
+          if (m_key)
+            RegCloseKey(m_key);
+          m_key       = other.m_key;
+          other.m_key = nullptr;
+        }
+        return *this;
+      }
+
+      [[nodiscard]] fn get() const -> HKEY {
+        return m_key;
+      }
+
+      [[nodiscard]] explicit operator bool() const {
+        return m_key != nullptr;
+      }
+
+      RegistryKey(const RegistryKey&)                = delete;
+      RegistryKey(RegistryKey&&)                     = delete;
+      fn operator=(const RegistryKey&)->RegistryKey& = delete;
+
+     private:
+      HKEY m_key = nullptr;
+    };
+
     // Caches registry values, allowing them to only be retrieved once.
     class RegistryCache {
-      HKEY m_currentVersionKey = nullptr;
-      HKEY m_hardwareConfigKey = nullptr;
-
-      RegistryCache() {
-        if (FAILED(RegOpenKeyExW(HKEY_LOCAL_MACHINE, LR"(SOFTWARE\Microsoft\Windows NT\CurrentVersion)", 0, KEY_READ, &m_currentVersionKey)))
-          m_currentVersionKey = nullptr;
-
-        if (FAILED(RegOpenKeyExW(HKEY_LOCAL_MACHINE, LR"(SYSTEM\HardwareConfig\Current)", 0, KEY_READ, &m_hardwareConfigKey)))
-          m_hardwareConfigKey = nullptr;
-      }
-
-      ~RegistryCache() {
-        if (m_currentVersionKey)
-          RegCloseKey(m_currentVersionKey);
-
-        if (m_hardwareConfigKey)
-          RegCloseKey(m_hardwareConfigKey);
-      }
-
      public:
+      RegistryCache() : m_currentVersionKey(nullptr), m_hardwareConfigKey(nullptr) {
+        // Attempt to open the registry key for Windows version information.
+        HKEY currentVersionKey = nullptr;
+        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion", 0, KEY_READ, &currentVersionKey) == ERROR_SUCCESS)
+          m_currentVersionKey = RegistryKey(currentVersionKey);
+
+        // Attempt to open the registry key for hardware configuration.
+        HKEY hardwareConfigKey = nullptr;
+        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Control\\CrashControl\\MachineCrash", 0, KEY_READ, &hardwareConfigKey) == ERROR_SUCCESS)
+          m_hardwareConfigKey = RegistryKey(hardwareConfigKey);
+      }
+
       static fn getInstance() -> const RegistryCache& {
         static RegistryCache Instance;
         return Instance;
       }
 
       [[nodiscard]] fn getCurrentVersionKey() const -> HKEY {
-        return m_currentVersionKey;
+        return m_currentVersionKey.get();
       }
-
       [[nodiscard]] fn getHardwareConfigKey() const -> HKEY {
-        return m_hardwareConfigKey;
+        return m_hardwareConfigKey.get();
       }
 
+      ~RegistryCache()                                   = default;
       RegistryCache(const RegistryCache&)                = delete;
       RegistryCache(RegistryCache&&)                     = delete;
       fn operator=(const RegistryCache&)->RegistryCache& = delete;
       fn operator=(RegistryCache&&)->RegistryCache&      = delete;
+
+     private:
+      RegistryKey m_currentVersionKey;
+      RegistryKey m_hardwareConfigKey;
     };
 
     // Caches OS version data for use in other functions.
@@ -250,11 +286,9 @@ namespace {
         return Instance;
       }
 
-      fn getVersionData() const -> const Result<VersionData>& {
-        return m_versionData;
-      }
+      [[nodiscard]] fn getVersionData() const -> const Result<VersionData>&;
 
-      fn getBuildNumber() const -> Result<u64> {
+      [[nodiscard]] fn getBuildNumber() const -> Result<u64> {
         if (!m_versionData)
           ERR_FROM(m_versionData.error());
 
@@ -310,8 +344,50 @@ namespace {
 
       ~OsVersionCache() = default;
     };
+    fn OsVersionCache::getVersionData() const -> const Result<VersionData>& {
+      return m_versionData;
+    }
 
-    // Captures a process tree and stores it for later reuse.
+    // RAII wrapper for Windows handles
+    template <typename HandleType>
+    class HandleWrapper {
+     public:
+      explicit HandleWrapper(HandleType handle) : m_handle(handle) {}
+
+      ~HandleWrapper() {
+        if (m_handle && m_handle != INVALID_HANDLE_VALUE)
+          CloseHandle(m_handle);
+      }
+
+      fn operator=(HandleWrapper&& other) noexcept -> HandleWrapper& {
+        if (this != &other) {
+          if (m_handle && m_handle != INVALID_HANDLE_VALUE)
+            CloseHandle(m_handle);
+
+          m_handle       = other.m_handle;
+          other.m_handle = nullptr;
+        }
+
+        return *this;
+      }
+
+      [[nodiscard]] fn get() const -> HandleType {
+        return m_handle;
+      }
+
+      [[nodiscard]] explicit operator bool() const {
+        return m_handle != nullptr && m_handle != INVALID_HANDLE_VALUE;
+      }
+
+      HandleWrapper(const HandleWrapper&)                = delete;
+      HandleWrapper(HandleWrapper&&)                     = delete;
+      fn operator=(const HandleWrapper&)->HandleWrapper& = delete;
+
+     private:
+      HandleType m_handle = nullptr;
+    };
+
+    // Caches process snapshots and process tree information.
     class ProcessTreeCache {
      public:
       struct Data {
@@ -325,53 +401,56 @@ namespace {
       }
 
       fn initialize() -> Result<> {
-        // Ensure exclusive access to the initialization process.
-        LockGuard lock(m_initMutex);
+        // Use std::call_once for thread-safe initialization
+        std::call_once(m_initFlag, [this]() {
+          // Use the Toolhelp32Snapshot API to get a snapshot of all running processes.
+          HandleWrapper<HANDLE> hSnap(CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0));
 
-        // Prevent wasteful re-initialization if the cache is already populated.
-        if (m_initialized)
-          return {};
+          if (!hSnap)
+            return;
 
-        // Use the Toolhelp32Snapshot API to get a snapshot of all running processes.
-        HANDLE hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-        if (hSnap == INVALID_HANDLE_VALUE)
-          ERR(ApiUnavailable, "Failed to create snapshot of processes");
+          // This structure must be initialized with its own size before use; it's a WinAPI requirement.
+          PROCESSENTRY32W pe32 {};
+          pe32.dwSize = sizeof(PROCESSENTRY32W);
 
-        // This structure must be initialized with its own size before use; it's a WinAPI requirement.
-        PROCESSENTRY32W pe32;
-        pe32.dwSize = sizeof(PROCESSENTRY32W);
+          // Get the first process from the snapshot.
+          if (!Process32FirstW(hSnap.get(), &pe32))
+            return;
 
-        // Iterate through all processes captured in the snapshot.
-        for (BOOL ok = Process32FirstW(hSnap, &pe32); ok; ok = Process32NextW(hSnap, &pe32)) {
-          WStringView exeFileView(pe32.szExeFile);
+          UnorderedMap<DWORD, Data> processMap;
 
-          const usize lastSlashPos = exeFileView.find_last_of(L"\\/");
-          const usize start        = (lastSlashPos == WStringView::npos) ? 0 : lastSlashPos + 1;
+          while (true) {
+            // Extract the executable name from the full path.
+            WStringView exeFileView(pe32.szExeFile);
 
-          const usize lastDotPos = exeFileView.find_last_of(L'.');
-          const usize end        = (lastDotPos == WStringView::npos || lastDotPos < start) ? exeFileView.length() : lastDotPos;
+            // Find the last backslash to get just the executable name.
+            const usize start = exeFileView.find_last_of(L'\\') != WStringView::npos ? exeFileView.find_last_of(L'\\') + 1 : 0;
+            const usize end   = exeFileView.length();
 
-          WStringView stemView = exeFileView.substr(start, end - start);
+            WStringView stemView = exeFileView.substr(start, end - start);
 
-          WString baseName(stemView);
-          std::ranges::transform(baseName, baseName.begin(), [](const WCStr character) { return towlower(character); });
+            WString baseName(stemView);
+            std::ranges::transform(baseName, baseName.begin(), [](const WCStr character) { return towlower(character); });
 
-          const Result<String> baseNameUTF8 = helpers::ConvertWStringToUTF8(baseName);
+            if (const Result<String> baseNameUTF8 = helpers::ConvertWStringToUTF8(baseName))
+              processMap[pe32.th32ProcessID] = Data { .parentPid = pe32.th32ParentProcessID, .baseExeNameLower = *baseNameUTF8 };
 
-          if (!baseNameUTF8)
-            continue;
+            if (!Process32NextW(hSnap.get(), &pe32))
+              break;
+          }
 
-          m_processMap[pe32.th32ProcessID] = Data { .parentPid = pe32.th32ParentProcessID, .baseExeNameLower = *baseNameUTF8 };
-        }
-
-        // Ensure that the handle is closed to avoid leaks.
-        CloseHandle(hSnap);
-        m_initialized = true;
+          // Atomic update of the process map
+          {
+            LockGuard lock(m_processMutex);
+            m_processMap = std::move(processMap);
+          }
+        });
 
         return {};
       }
 
-      fn getProcessMap() const -> const std::unordered_map<DWORD, Data>& {
+      fn getProcessMap() const -> const UnorderedMap<DWORD, Data>& {
+        LockGuard lock(m_processMutex);
         return m_processMap;
       }
 
@@ -381,9 +460,9 @@ namespace {
       fn operator=(ProcessTreeCache&&)->ProcessTreeCache&      = delete;
 
      private:
-      std::unordered_map<DWORD, Data> m_processMap;
-      bool                            m_initialized = false;
-      Mutex                           m_initMutex;
+      UnorderedMap<DWORD, Data> m_processMap;
+      mutable Mutex             m_processMutex;
+      std::once_flag            m_initFlag;
 
       ProcessTreeCache()  = default;
       ~ProcessTreeCache() = default;
@@ -421,9 +500,11 @@ namespace {
 
         // Check if the process name matches any shell in the map,
         // and return its friendly-name counterpart if it is.
-        if (const auto mapIter =
-              std::ranges::find_if(shellMap, [&](const Pair<StringView, StringView>& pair) { return StringView { processName } == pair.first; });
-            mapIter != std::ranges::end(shellMap))
+        if (
+          const auto mapIter =
+            std::ranges::find_if(shellMap, [&](const Pair<StringView, StringView>& pair) { return StringView { processName } == pair.first; });
+          mapIter != std::ranges::end(shellMap)
+        )
           return String(mapIter->second);
 
         // Move up the tree to the parent process.
@@ -548,7 +629,7 @@ namespace draconis::core::system {
   }
 
   fn GetHost(CacheManager& cache) -> Result<String> {
-    return cache.getOrSet<String>("windows_host", []() -> Result<String> {
+    return cache.getOrSet<String>("windows_host", draconis::utils::cache::CachePolicy::neverExpire(), []() -> Result<String> {
       // See the RegistryCache class for how the registry keys are retrieved.
       const RegistryCache& registry = RegistryCache::getInstance();
 
@@ -560,14 +641,14 @@ namespace draconis::core::system {
       const Result<WString> systemFamily = GetRegistryValue(hardwareConfigKey, SYSTEM_FAMILY);
 
       if (!systemFamily)
-        ERR(NotFound, "SystemFamily not found in registry");
+        ERR_FROM(systemFamily.error());
 
       return ConvertWStringToUTF8(*systemFamily);
     });
   }
 
   fn GetKernelVersion(CacheManager& cache) -> Result<String> {
-    return cache.getOrSet<String>("windows_kernel_version", []() -> Result<String> {
+    return cache.getOrSet<String>("windows_kernel_version", draconis::utils::cache::CachePolicy::neverExpire(), []() -> Result<String> {
       // See the OsVersionCache class for how the version data is retrieved.
       const Result<OsVersionCache::VersionData>& versionDataResult = OsVersionCache::getInstance().getVersionData();
 
@@ -581,7 +662,7 @@ namespace draconis::core::system {
   }
 
   fn GetWindowManager(CacheManager& cache) -> Result<String> {
-    return cache.getOrSet<String>("windows_wm", []() -> Result<String> {
+    return cache.getOrSet<String>("windows_wm", draconis::utils::cache::CachePolicy::neverExpire(), []() -> Result<String> {
       if (!cache::ProcessTreeCache::getInstance().initialize())
         ERR(PlatformSpecific, "Failed to initialize process tree cache");
 
@@ -603,7 +684,7 @@ namespace draconis::core::system {
   }
 
   fn GetDesktopEnvironment(CacheManager& cache) -> Result<String> {
-    return cache.getOrSet<String>("windows_desktop_environment", []() -> Result<String> {
+    return cache.getOrSet<String>("windows_desktop_environment", draconis::utils::cache::CachePolicy::neverExpire(), []() -> Result<String> {
       // Windows doesn't really have the concept of a desktop environment,
       // so our next best bet is just displaying the UI design based on the build number.
 
@@ -628,7 +709,7 @@ namespace draconis::core::system {
   }
 
   fn GetShell(CacheManager& cache) -> Result<String> {
-    return cache.getOrSet<String>("windows_shell", []() -> Result<String> {
+    return cache.getOrSet<String>("windows_shell", draconis::utils::cache::CachePolicy::tempDirectory(), []() -> Result<String> {
       using draconis::utils::env::GetEnv;
       using shell::FindShellInProcessTree;
 
@@ -702,7 +783,7 @@ namespace draconis::core::system {
   }
 
   fn GetCPUModel(CacheManager& cache) -> Result<String> {
-    return cache.getOrSet<String>("windows_cpu_model", []() -> Result<String> {
+    return cache.getOrSet<String>("windows_cpu_model", draconis::utils::cache::CachePolicy::neverExpire(), []() -> Result<String> {
       /*
        * This function attempts to get the CPU model name on Windows in two ways:
        * 1. Using __cpuid on x86/x86_64 platforms (much more direct and efficient).
@@ -781,7 +862,7 @@ namespace draconis::core::system {
   }
 
   fn GetCPUCores(CacheManager& cache) -> Result<CPUCores> {
-    return cache.getOrSet<CPUCores>("windows_cpu_cores", []() -> Result<CPUCores> {
+    return cache.getOrSet<CPUCores>("windows_cpu_cores", draconis::utils::cache::CachePolicy::neverExpire(), []() -> Result<CPUCores> {
       const DWORD logicalProcessors = GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
       if (logicalProcessors == 0)
         ERR_FMT(ApiUnavailable, "GetActiveProcessorCount failed with error code {}", GetLastError());
@@ -815,52 +896,55 @@ namespace draconis::core::system {
 
   fn GetGPUModel(CacheManager& cache) -> Result<String> {
     return cache.getOrSet<String>("windows_gpu_model", draconis::utils::cache::CachePolicy::neverExpire(), []() -> Result<String> {
-      // Used to create and enumerate DirectX graphics interfaces.
-      IDXGIFactory* pFactory = nullptr;
+      struct ComInitializer {
+        ComInitializer() {
+          CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+        }
 
-      // The __uuidof operator is a Microsoft-specific extension that gets the GUID of a COM interface.
-      // It's required by CreateDXGIFactory. The pragma below disables the compiler warning about this
-      // non-standard extension, as its use is necessary here.
-  #pragma clang diagnostic push
-  #pragma clang diagnostic ignored "-Wlanguage-extension-token"
-      // NOLINTNEXTLINE(*-pro-type-reinterpret-cast) - CreateDXGIFactory needs a void** parameter, not an IDXGIFactory**.
-      if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), reinterpret_cast<void**>(&pFactory))))
-        ERR_FMT(ApiUnavailable, "Failed to create DXGI Factory: {}", GetLastError());
-  #pragma clang diagnostic pop
+        ~ComInitializer() {
+          CoUninitialize();
+        }
 
-      // Attempt to get the first adapter.
-      IDXGIAdapter* pAdapter = nullptr;
+        ComInitializer(ComInitializer&&)                     = delete;
+        ComInitializer(const ComInitializer&)                = delete;
+        fn operator=(ComInitializer&&)->ComInitializer&      = delete;
+        fn operator=(const ComInitializer&)->ComInitializer& = delete;
+      };
 
-      // 0 = primary adapter/GPU
-      if (pFactory->EnumAdapters(0, &pAdapter) == DXGI_ERROR_NOT_FOUND) {
-        // Clean up factory.
-        pFactory->Release();
+      static thread_local ComInitializer ComInit;
 
-        ERR(NotFound, "No DXGI adapters found");
-      }
+      Microsoft::WRL::ComPtr<IDXGIFactory> factory;
 
-      // Get the adapter description.
+      HRESULT result = CreateDXGIFactory(IID_PPV_ARGS(&factory));
+
+      if (FAILED(result))
+        ERR_FMT(ApiUnavailable, "Failed to create DXGI factory: {}", result);
+
+      Microsoft::WRL::ComPtr<IDXGIAdapter> adapter;
+      result = factory->EnumAdapters(0, &adapter);
+
+      if (result == DXGI_ERROR_NOT_FOUND)
+        ERR(NotFound, "No GPU adapter found");
+
+      if (FAILED(result))
+        ERR(ApiUnavailable, "Failed to enumerate adapters");
+
       DXGI_ADAPTER_DESC desc {};
+      result = adapter->GetDesc(&desc);
 
-      if (FAILED(pAdapter->GetDesc(&desc))) {
-        // Make sure to release the adapter and factory if GetDesc fails.
-        pAdapter->Release();
-        pFactory->Release();
+      if (FAILED(result))
+        ERR(ApiUnavailable, "Failed to get adapter description");
 
-        ERR_FMT(ApiUnavailable, "Failed to get adapter description: {}", GetLastError());
-      }
+      const i32 length = WideCharToMultiByte(CP_UTF8, 0, desc.Description, -1, nullptr, 0, nullptr, nullptr);
 
-      // The DirectX description is a wide string.
-      // We have to convert it to a UTF-8 string.
-      Array<CStr, 128> gpuName {};
+      if (length == 0)
+        ERR(InternalError, "Failed to convert GPU name to UTF-8");
 
-      WideCharToMultiByte(CP_UTF8, 0, desc.Description, -1, gpuName.data(), gpuName.size(), nullptr, nullptr);
+      String gpuName(length, '\0');
+      WideCharToMultiByte(CP_UTF8, 0, desc.Description, -1, gpuName.data(), length, nullptr, nullptr);
+      gpuName.resize(length - 1);
 
-      // Clean up resources.
-      pAdapter->Release();
-      pFactory->Release();
-
-      return gpuName.data();
+      return gpuName;
     });
   }
 

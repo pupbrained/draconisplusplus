@@ -24,8 +24,8 @@ namespace draconis::utils::types {
 
     OSInfo() = default;
 
-    OSInfo(String& name, String& version, String& identifier)
-      : name(std::move(name)), version(std::move(version)), id(std::move(identifier)) {}
+    OSInfo(const String& name, const String& version, const String& identifier)
+      : name(name), version(version), id(identifier) {}
   };
 
   /**
