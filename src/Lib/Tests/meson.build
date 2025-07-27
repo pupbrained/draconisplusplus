@@ -3,7 +3,6 @@
 # ----------------- #
 test_sources = {
   'core': files('CacheManagerTest.cpp', 'CoreTypesTest.cpp', 'LoggingUtilsTest.cpp'),
-  'packages': files('PackageCountingIntegrationTest.cpp', 'PackageCountingMockTest.cpp'),
   'weather': files('WeatherServiceTest.cpp'),
 }
 
@@ -41,30 +40,6 @@ if gtest_dep.found() and gmock_dep.found()
       is_parallel: true,
     )
   endforeach
-
-  # Conditionally build package tests
-  if get_option('packagecount').enabled()
-    foreach test_file : test_sources['packages']
-      test_name = fs.stem(test_file)
-
-      test_exe = executable(
-        test_name,
-        test_file,
-        dependencies: test_common_dependencies,
-        include_directories: test_inc,
-      )
-
-      test(
-        test_name,
-        test_exe,
-        args: test_common_args,
-        protocol: 'gtest',
-        suite: 'packages',
-        timeout: 30,
-        is_parallel: true,
-      )
-    endforeach
-  endif
 
   # Conditionally build weather tests
   if get_option('weather').enabled()
