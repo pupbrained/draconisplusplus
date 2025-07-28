@@ -238,7 +238,7 @@ namespace DBus {
         // ReSharper disable once CppRedundantCastExpression
         getBasic(static_cast<RawPointer>(&strPtr));
 
-        if (strPtr)
+        if (strPtr && strlen(strPtr) > 0)
           return String(strPtr);
       }
 

@@ -854,10 +854,9 @@ namespace draconis::core::system {
       if (*key == "xesam:title") {
         title = valueVariantIter.getString();
       } else if (*key == "xesam:artist") {
-        if (valueVariantIter.getArgType() == DBUS_TYPE_ARRAY && valueVariantIter.getElementType() == DBUS_TYPE_STRING) {
+        if (valueVariantIter.getArgType() == DBUS_TYPE_ARRAY && valueVariantIter.getElementType() == DBUS_TYPE_STRING)
           if (MessageIter artistArrayIter = valueVariantIter.recurse(); artistArrayIter.isValid())
             artist = artistArrayIter.getString();
-        }
       }
 
       if (!dictIter.next())
