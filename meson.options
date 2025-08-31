@@ -73,3 +73,10 @@ option(
   value: 'enabled',
   description: 'Enable caching functionality',
 )
+
+option(
+  'default_language',
+  type: 'string',
+  value: 'en',
+  description: 'Default language for localization (en, es, fr, de)',
+)

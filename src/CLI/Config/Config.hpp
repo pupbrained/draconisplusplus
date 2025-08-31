@@ -35,7 +35,8 @@ namespace draconis::config {
    * @brief Holds general configuration settings.
    */
   struct General {
-    mutable draconis::utils::types::Option<draconis::utils::types::String> name; ///< Display name; resolved lazily via getDefaultName() when needed.
+    mutable draconis::utils::types::Option<draconis::utils::types::String> name;     ///< Display name; resolved lazily via getDefaultName() when needed.
+    draconis::utils::types::Option<draconis::utils::types::String>         language; ///< Language code for localization (e.g., "en", "es", "fr")
 
     /**
      * @brief Retrieves the default name for the user.
@@ -93,6 +94,10 @@ namespace draconis::config {
       if (const toml::node_view<const toml::node> nameNode = tbl["name"])
         if (auto nameVal = nameNode.value<String>())
           gen.name = *nameVal;
+
+      if (const toml::node_view<const toml::node> langNode = tbl["language"])
+        if (auto langVal = langNode.value<String>())
+          gen.language = *langVal;
 
       return gen;
     }

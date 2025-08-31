@@ -4,7 +4,7 @@
 
 # Structured source organization
 lib_sources = {
-  'base' : files(),
+  'base' : files('Localization.cpp'),
   'packages' : files('Services/Packages.cpp'),
   'weather' : files(
     'Services/Weather/MetNoService.cpp',

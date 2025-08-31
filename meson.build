@@ -24,6 +24,7 @@ host_system = host_machine.system()
 # Preprocessor definitions
 project_string_defines = {
   'DRAC_VERSION': '"' + meson.project_version() + '"',
+  'DRAC_DEFAULT_LANGUAGE': '"' + get_option('default_language') + '"',
   'fn': 'auto',
   '_WIN32_WINNT': '0x0602',
 }
@@ -250,6 +251,15 @@ if get_option('build_tests')
 endif
 
 # =========================== #
+#   Translation Files         #
+# =========================== #
+if not get_option('precompiled_config')
+  # Install translation files
+  translations_dir = get_option('datadir') / 'draconis++' / 'translations'
+  install_subdir('translations', install_dir: translations_dir, strip_directory: false)
+endif
+
+# =========================== #
 #   Configuration Summaries   #
 # =========================== #
 summary(
@@ -272,6 +282,7 @@ summary(
     'Now Playing': feature_states['nowplaying'],
     'Caching': feature_states['caching'],
     'Precompiled config': get_option('precompiled_config'),
+    'Default language': get_option('default_language'),
   },
   section: 'Features',
   bool_yn: true,

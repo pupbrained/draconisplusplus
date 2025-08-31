@@ -16,6 +16,7 @@
 #include <Drac++/Utils/ArgumentParser.hpp>
 #include <Drac++/Utils/CacheManager.hpp>
 #include <Drac++/Utils/Error.hpp>
+#include <Drac++/Utils/Localization.hpp>
 #include <Drac++/Utils/Logging.hpp>
 #include <Drac++/Utils/Types.hpp>
 
@@ -25,6 +26,7 @@
 
 using namespace draconis::utils::types;
 using namespace draconis::utils::logging;
+using namespace draconis::utils::localization;
 using namespace draconis::core::system;
 using namespace draconis::config;
 using namespace draconis::ui;
@@ -167,8 +169,9 @@ fn main(const i32 argc, CStr* argv[]) -> i32 try {
     ignoreCacheRun,
     noAscii,
     jsonOutput,
-    prettyJson
-  ] = Tuple(false, false, false, false, false, false);
+    prettyJson,
+    language
+  ] = Tuple(false, false, false, false, false, false, String(""));
   // clang-format on
 
   {
@@ -195,6 +198,11 @@ fn main(const i32 argc, CStr* argv[]) -> i32 try {
       .addArguments("--clear-cache")
       .help("Clears the cache. This will remove all cached data, including in-memory and on-disk copies.")
       .flag();
+
+    parser
+      .addArguments("--lang")
+      .help("Set the language for localization (e.g., 'en', 'es', 'fr', 'de').")
+      .defaultValue(String(""));
 
     parser
       .addArguments("--ignore-cache")
@@ -227,6 +235,7 @@ fn main(const i32 argc, CStr* argv[]) -> i32 try {
     noAscii        = parser.get<bool>("--no-ascii");
     jsonOutput     = parser.get<bool>("--json");
     prettyJson     = parser.get<bool>("--pretty");
+    language       = parser.get<String>("--lang");
 
     SetRuntimeLogLevel(
       parser.get<bool>("-V") || parser.get<bool>("--verbose")
@@ -293,7 +302,21 @@ fn main(const i32 argc, CStr* argv[]) -> i32 try {
 
   {
     const Config& config = Config::getInstance();
-    SystemInfo    data(cache, config);
+
+    // Initialize translation manager with language from command line or config
+    if (language.empty() && config.general.language)
+      language = *config.general.language;
+
+    // Initialize translation manager (this will auto-detect system language)
+    TranslationManager& translationManager = GetTranslationManager();
+
+    if (!language.empty())
+      translationManager.setLanguage(language);
+
+    debug_log("Current language: {}", translationManager.getCurrentLanguage());
+    debug_log("Selected language: {}", language.empty() ? "auto" : language);
+
+    SystemInfo data(cache, config);
 
 #if DRAC_ENABLE_WEATHER
     using enum draconis::utils::error::DracErrorCode;

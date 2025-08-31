@@ -2,6 +2,7 @@
 
 #include <sstream>
 
+#include <Drac++/Utils/Localization.hpp>
 #include <Drac++/Utils/Logging.hpp>
 #include <Drac++/Utils/Types.hpp>
 
@@ -9,6 +10,7 @@
 
 using namespace draconis::utils::types;
 using namespace draconis::utils::logging;
+using namespace draconis::utils::localization;
 
 namespace draconis::ui {
   using config::Config;
@@ -119,7 +121,7 @@ namespace draconis::ui {
 
   struct RowInfo {
     StringView icon;
-    StringView label;
+    String     label;
     String     value;
   };
 
@@ -343,9 +345,21 @@ namespace draconis::ui {
         group.labelWidths.push_back(labelWidth);
         group.valueWidths.push_back(valueW);
 
-        group.coloredIcons.push_back(Colorize(row.icon, DEFAULT_THEME.icon));
-        group.coloredLabels.push_back(Colorize(row.label, DEFAULT_THEME.label));
-        group.coloredValues.push_back(Colorize(row.value, DEFAULT_THEME.value));
+        String coloredIcon  = Colorize(row.icon, DEFAULT_THEME.icon);
+        String coloredLabel = Colorize(row.label, DEFAULT_THEME.label);
+        String coloredValue = Colorize(row.value, DEFAULT_THEME.value);
+
+        // Debug: check if colored strings have different visual widths
+        usize coloredIconW  = GetVisualWidth(coloredIcon);
+        usize coloredLabelW = GetVisualWidth(coloredLabel);
+        usize coloredValueW = GetVisualWidth(coloredValue);
+        if (coloredIconW != iconW || coloredLabelW != labelWidth || coloredValueW != valueW) {
+          debug_log("Width mismatch! Icon: {} vs {}, Label: {} vs {}, Value: {} vs {}", iconW, coloredIconW, labelWidth, coloredLabelW, valueW, coloredValueW);
+        }
+
+        group.coloredIcons.push_back(coloredIcon);
+        group.coloredLabels.push_back(coloredLabel);
+        group.coloredValues.push_back(coloredValue);
 
         groupMaxWidth = std::max(groupMaxWidth, iconW + valueW); // label handled after loop
       }
@@ -430,74 +444,103 @@ namespace draconis::ui {
     UIGroup softwareGroup;
     UIGroup envInfoGroup;
 
+    // Reserve capacity to avoid reallocations
+    initialGroup.rows.reserve(4);    // date, weather
+    systemInfoGroup.rows.reserve(4); // host, os, kernel
+    hardwareGroup.rows.reserve(6);   // memory, disk, cpu, gpu, uptime
+    softwareGroup.rows.reserve(4);   // shell, packages
+    envInfoGroup.rows.reserve(4);    // de, wm
+
+    // Reserve capacity for other vectors too
+    for (UIGroup* group : { &initialGroup, &systemInfoGroup, &hardwareGroup, &softwareGroup, &envInfoGroup }) {
+      group->iconWidths.reserve(4);
+      group->labelWidths.reserve(4);
+      group->valueWidths.reserve(4);
+      group->coloredIcons.reserve(4);
+      group->coloredLabels.reserve(4);
+      group->coloredValues.reserve(4);
+    }
+
     {
       if (data.date)
-        initialGroup.rows.push_back({ .icon = iconType.calendar, .label = "Date", .value = *data.date });
+        initialGroup.rows.emplace_back(iconType.calendar, _("date"), *data.date);
 
       if constexpr (DRAC_ENABLE_WEATHER)
         if (weather) {
           const auto& [temperature, townName, description] = *weather;
 
-          PCStr tempUnit =
+          String tempUnit =
             config.weather.units == services::weather::UnitSystem::Metric
-            ? "C"
-            : "F";
+            ? _("celsius")
+            : _("fahrenheit");
 
-          initialGroup.rows.push_back(
-            {
-              .icon  = iconType.weather,
-              .label = "Weather",
-              .value = config.weather.showTownName && townName
-                ? std::format("{}°{} in {}", std::lround(temperature), tempUnit, *townName)
-                : std::format("{}°{}, {}", std::lround(temperature), tempUnit, description),
-            }
+          String weatherLabel = _("weather");
+          debug_log("Weather label translation: '{}'", weatherLabel);
+          initialGroup.rows.emplace_back(
+            iconType.weather,
+            weatherLabel,
+            config.weather.showTownName && townName
+              ? std::format("{}°{} in {}", std::lround(temperature), tempUnit, *townName)
+              : std::format("{}°{}, {}", std::lround(temperature), tempUnit, description)
           );
         }
     }
 
     {
-      if (data.host && !data.host->empty())
-        systemInfoGroup.rows.push_back({ .icon = iconType.host, .label = "Host", .value = *data.host });
+      if (data.host && !data.host->empty()) {
+        String hostLabel = _("host");
+        debug_log("Host label translation: '{}'", hostLabel);
+        systemInfoGroup.rows.emplace_back(iconType.host, hostLabel, *data.host);
+      }
 
       if (data.operatingSystem)
-        systemInfoGroup.rows.push_back({
+        systemInfoGroup.rows.emplace_back(
 #ifdef __linux__
-          .icon = GetDistroIcon(data.operatingSystem->id).value_or(iconType.os),
+          GetDistroIcon(data.operatingSystem->id).value_or(iconType.os),
 #else
-          .icon = iconType.os,
+          iconType.os,
 #endif
-          .label = "OS",
-          .value = std::format("{} {}", data.operatingSystem->name, data.operatingSystem->version),
-        });
+          _("os"),
+          std::format("{} {}", data.operatingSystem->name, data.operatingSystem->version)
+        );
 
-      if (data.kernelVersion)
-        systemInfoGroup.rows.push_back({ .icon = iconType.kernel, .label = "Kernel", .value = *data.kernelVersion });
+      if (data.kernelVersion) {
+        String kernelLabel = _("kernel");
+        debug_log("Kernel label translation: '{}'", kernelLabel);
+        systemInfoGroup.rows.emplace_back(iconType.kernel, kernelLabel, *data.kernelVersion);
+      }
     }
 
     {
       if (data.memInfo)
-        hardwareGroup.rows.push_back({ .icon = iconType.memory, .label = "RAM", .value = std::format("{}/{}", BytesToGiB(data.memInfo->usedBytes), BytesToGiB(data.memInfo->totalBytes)) });
+        hardwareGroup.rows.emplace_back(iconType.memory, _("ram"), std::format("{}/{}", BytesToGiB(data.memInfo->usedBytes), BytesToGiB(data.memInfo->totalBytes)));
 
       if (data.diskUsage)
-        hardwareGroup.rows.push_back({ .icon = iconType.disk, .label = "Disk", .value = std::format("{}/{}", BytesToGiB(data.diskUsage->usedBytes), BytesToGiB(data.diskUsage->totalBytes)) });
+        hardwareGroup.rows.emplace_back(iconType.disk, _("disk"), std::format("{}/{}", BytesToGiB(data.diskUsage->usedBytes), BytesToGiB(data.diskUsage->totalBytes)));
 
       if (data.cpuModel)
-        hardwareGroup.rows.push_back({ .icon = iconType.cpu, .label = "CPU", .value = *data.cpuModel });
+        hardwareGroup.rows.emplace_back(iconType.cpu, _("cpu"), *data.cpuModel);
 
       if (data.gpuModel)
-        hardwareGroup.rows.push_back({ .icon = iconType.gpu, .label = "GPU", .value = *data.gpuModel });
+        hardwareGroup.rows.emplace_back(iconType.gpu, _("gpu"), *data.gpuModel);
 
-      if (data.uptime)
-        hardwareGroup.rows.push_back({ .icon = iconType.uptime, .label = "Uptime", .value = std::format("{}", SecondsToFormattedDuration { *data.uptime }) });
+      if (data.uptime) {
+        String uptimeLabel = _("uptime");
+        debug_log("Uptime label translation: '{}'", uptimeLabel);
+        hardwareGroup.rows.emplace_back(iconType.uptime, uptimeLabel, std::format("{}", SecondsToFormattedDuration { *data.uptime }));
+      }
     }
 
     {
       if (data.shell)
-        softwareGroup.rows.push_back({ .icon = iconType.shell, .label = "Shell", .value = *data.shell });
+        softwareGroup.rows.emplace_back(iconType.shell, _("shell"), *data.shell);
 
       if constexpr (DRAC_ENABLE_PACKAGECOUNT)
-        if (data.packageCount && *data.packageCount > 0)
-          softwareGroup.rows.push_back({ .icon = iconType.package, .label = "Packages", .value = std::format("{}", *data.packageCount) });
+        if (data.packageCount && *data.packageCount > 0) {
+          String packagesLabel = _("packages");
+          debug_log("Packages label translation: '{}'", packagesLabel);
+          softwareGroup.rows.emplace_back(iconType.package, packagesLabel, std::format("{}", *data.packageCount));
+        }
     }
 
     {
@@ -506,15 +549,15 @@ namespace draconis::ui {
 
       if (deExists && wmExists) {
         if (*data.desktopEnv == *data.windowMgr)
-          envInfoGroup.rows.push_back({ .icon = iconType.windowManager, .label = "WM", .value = *data.windowMgr });
+          envInfoGroup.rows.emplace_back(iconType.windowManager, _("wm"), *data.windowMgr);
         else {
-          envInfoGroup.rows.push_back({ .icon = iconType.desktopEnvironment, .label = "DE", .value = *data.desktopEnv });
-          envInfoGroup.rows.push_back({ .icon = iconType.windowManager, .label = "WM", .value = *data.windowMgr });
+          envInfoGroup.rows.emplace_back(iconType.desktopEnvironment, _("de"), *data.desktopEnv);
+          envInfoGroup.rows.emplace_back(iconType.windowManager, _("wm"), *data.windowMgr);
         }
       } else if (deExists)
-        envInfoGroup.rows.push_back({ .icon = iconType.desktopEnvironment, .label = "DE", .value = *data.desktopEnv });
+        envInfoGroup.rows.emplace_back(iconType.desktopEnvironment, _("de"), *data.desktopEnv);
       else if (wmExists)
-        envInfoGroup.rows.push_back({ .icon = iconType.windowManager, .label = "WM", .value = *data.windowMgr });
+        envInfoGroup.rows.emplace_back(iconType.windowManager, _("wm"), *data.windowMgr);
     }
 
     Vec<UIGroup*> groups = { &initialGroup, &systemInfoGroup, &hardwareGroup, &softwareGroup, &envInfoGroup };
@@ -528,7 +571,7 @@ namespace draconis::ui {
       maxContentWidth = std::max(maxContentWidth, ProcessGroup(*group));
     }
 
-    String greetingLine = std::format("{}Hello {}!", iconType.user, name);
+    String greetingLine = std::format("{}{}", iconType.user, _format_f("hello", name));
     maxContentWidth     = std::max(maxContentWidth, GetVisualWidth(greetingLine));
 
     // Calculate width needed for color circles (including minimum spacing)
@@ -611,7 +654,7 @@ namespace draconis::ui {
           out += "┤\n";
         }
 
-        const String leftPart      = Colorize(iconType.music, DEFAULT_THEME.icon) + Colorize("Playing ", DEFAULT_THEME.label);
+        const String leftPart      = Colorize(iconType.music, DEFAULT_THEME.icon) + Colorize(_("playing"), DEFAULT_THEME.label);
         const usize  leftPartWidth = GetVisualWidth(leftPart);
 
         const usize availableWidth = maxContentWidth - leftPartWidth;
