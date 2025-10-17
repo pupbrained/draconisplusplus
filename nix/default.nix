@@ -3,12 +3,12 @@
   self,
   system,
   lib,
-  devkitNix ? null,
+  # devkitNix ? null,
   ...
 }: let
   pkgs = import nixpkgs {
     inherit system;
-    overlays = lib.optional (devkitNix != null) devkitNix.overlays.default;
+    # overlays = lib.optional (devkitNix != null) devkitNix.overlays.default;
   };
 
   dracPackages = import ./package.nix {inherit pkgs self lib;};
